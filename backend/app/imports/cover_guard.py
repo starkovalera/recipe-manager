@@ -1,0 +1,52 @@
+from dataclasses import dataclass
+from typing import Protocol
+
+
+@dataclass(frozen=True)
+class CoverCandidate:
+    sourceRef: str
+    crop: dict[str, float] | None = None
+
+
+@dataclass(frozen=True)
+class CoverGuardInput:
+    candidate: CoverCandidate | None
+    acceptedImageRefs: list[str]
+    fallbackCandidates: list[CoverCandidate]
+    enabled: bool
+    maxFallbackCandidates: int
+
+
+@dataclass(frozen=True)
+class CoverGuardResult:
+    accepted: bool
+    reason: str | None = None
+
+
+class CoverCandidateGuard(Protocol):
+    async def validate(self, candidate: CoverCandidate) -> CoverGuardResult:
+        raise NotImplementedError
+
+
+async def choose_cover_candidate(
+    guard_input: CoverGuardInput,
+    guard: CoverCandidateGuard | None = None,
+) -> CoverCandidate | None:
+    accepted_refs = set(guard_input.acceptedImageRefs)
+    candidate = guard_input.candidate
+    if candidate is None or candidate.sourceRef not in accepted_refs:
+        return None
+    if not guard_input.enabled:
+        return candidate
+    if guard is None:
+        return candidate
+    validation = await guard.validate(candidate)
+    if validation.accepted:
+        return candidate
+    for fallback in guard_input.fallbackCandidates[: guard_input.maxFallbackCandidates]:
+        if fallback.sourceRef not in accepted_refs:
+            continue
+        fallback_validation = await guard.validate(fallback)
+        if fallback_validation.accepted:
+            return fallback
+    return None
