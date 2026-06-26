@@ -68,7 +68,8 @@ flowchart TD
 - URL loader order is Instagram, Threads, then generic fallback.
 - `RecipeSource.source` records origin: `MANUAL`, `URL`, or `URL_VIDEO`.
 - URL imports create a parent URL source plus child final sources for URL text, URL images, video transcript, and video poster.
-- AI receives final sources only: all `RecipeSource` rows where `type != URL`, labeled with `RecipeSource.id`.
+- AI receives final sources only: all `RecipeSource` rows where `type != URL`, labeled with short request-local ids such as `source_1`.
+- The backend keeps an in-memory mapping from each request-local AI id back to its `RecipeSource` object for status and cover processing; `RecipeSource.source_ref` is not used by the import runtime.
 - Final recipe source statuses are derived from AI `primarySourceRefs` and `ignoredSourceRefs`.
 - Primary URL source status is aggregated from children: used if any child is used, ignored if all children are ignored, otherwise unknown.
 - Single URL import normalizes internal conflicts before warning/failure decisions, but source statuses still use the raw AI refs.

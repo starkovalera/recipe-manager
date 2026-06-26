@@ -17,7 +17,7 @@ flowchart TD
   J --> K["URL row\nsource=MANUAL, type=URL, primary only"]
   K --> L["Load URL content\nrespect remaining image capacity"]
   L --> M["Create URL children\nTEXT/IMAGE source=URL\ntranscript/poster source=URL_VIDEO"]
-  M --> N["Call AI with final sources only\ntype != URL, id=RecipeSource.id"]
+  M --> N["Call AI with final sources only\ntype != URL, id=source_N"]
 
   N --> O{"AI result is recipe\nand confidence > min?"}
   O -- no --> P["Fail ImportJob\ncleanup saved media"]

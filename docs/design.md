@@ -273,7 +273,7 @@ Video behavior:
 
 AI extraction:
 
-- AI receives a structured list of final sources only: manual text/images plus URL-derived text/images/video transcript/poster. URL parent rows are kept in the database for primary-source status aggregation, but are not sent to AI.
+- AI receives a structured list of final sources only: manual text/images plus URL-derived text/images/video transcript/poster. URL parent rows are kept in the database for primary-source status aggregation, but are not sent to AI. Final sources are labeled with short request-local ids such as `source_1`; the backend maps those ids back to `RecipeSource` objects after AI returns.
 - AI returns JSON matching the extraction schema.
 - Backend validates AI JSON strictly.
 - If the response is invalid or not a recipe, fail the import.

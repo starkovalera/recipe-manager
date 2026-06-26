@@ -287,6 +287,25 @@ class CapturingProvider(FakeRecipeExtractionProvider):
         return await super().extract(sources)
 
 
+def test_ai_receives_short_request_source_ids_without_persisting_source_refs():
+    client = client_with_session()
+    provider = CapturingProvider()
+    set_recipe_extraction_provider(provider)
+
+    response = client.post(
+        "/imports",
+        data={"clientImportId": "short-ai-ids", "text": "Recipe text"},
+        files=[("files", ("recipe.jpg", image_bytes(), "image/jpeg"))],
+        headers={"X-Client-Id": "client-1"},
+    )
+    recipe_id = response.json()["createdRecipeId"]
+    detail = client.get(f"/recipes/{recipe_id}")
+
+    assert response.status_code == 200
+    assert [source.id for source in provider.sources] == ["source_1", "source_2"]
+    assert all(source["sourceRef"] is None for source in detail.json()["sources"])
+
+
 def test_url_author_name_is_passed_to_ai_sources():
     client = client_with_session()
     registry = FakeRegistry()

@@ -9,7 +9,7 @@ from fastapi import UploadFile
 
 from app.ai.factory import create_recipe_extraction_provider
 from app.ai.provider import RecipeExtractionProvider
-from app.ai.schemas import ReadySource, ready_source_id
+from app.ai.schemas import ReadySource
 from app.core.errors import ApiError, ErrorCode
 from app.core.logging import log_error, log_info
 from app.imports.cover_guard import CoverCandidate as ImportCoverCandidate
@@ -171,16 +171,17 @@ def _apply_source_statuses(
     recipe_sources: list[RecipeSource],
     final_sources: list[RecipeSource],
     quality,
+    ai_id_by_source: dict[RecipeSource, str],
 ) -> bool:
-    assessments = source_assessments([source.id for source in final_sources], quality)
+    assessments = source_assessments([ai_id_by_source[source] for source in final_sources], quality)
     for source in final_sources:
-        assessment = assessments[source.id]
+        assessment = assessments[ai_id_by_source[source]]
         source.status = _status_from_assessment(assessment.status)
         source.assessment_reason = assessment.reason
         source.assessment_confidence = assessment.confidence
 
     for source in recipe_sources:
-        if source.parent_source_id is not None or source.type != SourceType.URL:
+        if source.parent is not None or source.type != SourceType.URL:
             continue
         children = [child for child in recipe_sources if child.parent is source]
         if not children:
@@ -198,7 +199,7 @@ def _apply_source_statuses(
             source.assessment_reason = None
             source.assessment_confidence = None
 
-    return any(source.parent_source_id is None and source.status == RecipeSourceStatus.IGNORED for source in recipe_sources)
+    return any(source.parent is None and source.status == RecipeSourceStatus.IGNORED for source in recipe_sources)
 
 
 def _cover_candidate_ref(source_ref: str | None, accepted_refs: set[str]) -> str | None:
@@ -500,15 +501,11 @@ def process_import_job(session: Session, job_id: str) -> None:
             image_by_source[recipe_source] = image
         if draft.key:
             source_by_key[draft.key] = recipe_source
-    session.add(recipe)
-    session.flush()
-    for recipe_source in recipe_sources:
-        recipe_source.source_ref = recipe_source.id
-
     final_sources = [source for source in recipe_sources if source.type != SourceType.URL]
+    ai_id_by_source = {source: f"source_{index}" for index, source in enumerate(final_sources, start=1)}
     ready_sources = [
         ReadySource(
-            id=source.id,
+            id=ai_id_by_source[source],
             type=source.type.value,
             storageKey=source.image.storage_key if source.image else None,
             dataUrl=image_to_data_url(storage.read(source.image.storage_key), source.image.mime_type) if source.image else None,
@@ -519,7 +516,6 @@ def process_import_job(session: Session, job_id: str) -> None:
         )
         for source in final_sources
     ]
-
     started_at = datetime.now(timezone.utc)
     provider_name, provider = _recipe_extraction_provider()
     log_info(
@@ -541,7 +537,6 @@ def process_import_job(session: Session, job_id: str) -> None:
             error=repr(error),
         )
         _cleanup_storage_keys(storage, saved_storage_keys)
-        session.delete(recipe)
         job.status = ImportJobStatus.FAILED
         job.error_code = ErrorCode.AI_UNAVAILABLE.value
         job.error_message = "AI extraction is unavailable."
@@ -558,7 +553,6 @@ def process_import_job(session: Session, job_id: str) -> None:
     )
     if result.not_a_recipe or result.recipe is None:
         _cleanup_storage_keys(storage, saved_storage_keys)
-        session.delete(recipe)
         job.status = ImportJobStatus.FAILED
         job.error_code = ErrorCode.NOT_A_RECIPE.value
         job.error_message = "The provided sources do not contain a recipe."
@@ -581,7 +575,6 @@ def process_import_job(session: Session, job_id: str) -> None:
     recipe_result = recipe_result.model_copy(update={"quality": recipe_quality})
     if recipe_result.quality.confidence <= get_settings().import_min_confidence:
         _cleanup_storage_keys(storage, saved_storage_keys)
-        session.delete(recipe)
         job.status = ImportJobStatus.FAILED
         job.error_code = ErrorCode.NOT_A_RECIPE.value
         job.error_message = "The extracted recipe confidence is too low."
@@ -624,7 +617,9 @@ def process_import_job(session: Session, job_id: str) -> None:
                 position=index,
             )
         )
-    image_by_ref: dict[str, RecipeImage] = {source.id: source.image for source in final_sources if source.image is not None}
+    image_by_ref: dict[str, RecipeImage] = {
+        ai_id_by_source[source]: source.image for source in final_sources if source.image is not None
+    }
     cover_image: RecipeImage | None = None
     candidate_ref = _cover_candidate_ref(
         recipe_result.coverCandidate.sourceRef if recipe_result.coverCandidate else None,
@@ -665,7 +660,7 @@ def process_import_job(session: Session, job_id: str) -> None:
                 sourceRef=chosen.sourceRef,
                 storageKey=cover_file.storage_key,
             )
-    has_ignored_primary = _apply_source_statuses(recipe_sources, final_sources, status_quality)
+    has_ignored_primary = _apply_source_statuses(recipe_sources, final_sources, status_quality, ai_id_by_source)
     warn_confidence = get_settings().import_warn_confidence
     reasons = review_reason_codes(recipe_result.quality, warn_confidence, has_ignored_primary)
     if should_create_primary_review_flag(recipe_result.quality, warn_confidence, has_ignored_primary):
@@ -689,6 +684,7 @@ def process_import_job(session: Session, job_id: str) -> None:
             hasConflicts=recipe_result.quality.hasConflicts,
             hasIgnored=recipe_result.quality.hasIgnored,
         )
+    session.add(recipe)
     session.flush()
     if cover_image is not None:
         recipe.cover_image_id = cover_image.id
