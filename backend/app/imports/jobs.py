@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 
+import anyio
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from fastapi import UploadFile
@@ -12,6 +13,9 @@ from app.imports.sources import source_assessments
 from app.imports.sources import review_reason_codes, should_create_review_flag
 from app.core.config import get_settings
 from app.media.images import image_to_data_url, validate_image_upload
+from app.imports.url_loaders.generic import GenericUrlContentLoader
+from app.imports.url_loaders.registry import UrlContentLoaderRegistry
+from app.imports.url_loaders.types import LoadedUrlContent
 from app.models import (
     ImportJob,
     ImportJobSource,
@@ -46,6 +50,27 @@ def serialize_import_job(job: ImportJob) -> ImportJobOut:
 
 
 SUPPORTED_UPLOAD_TYPES = {"image/jpeg", "image/png", "image/webp"}
+
+
+class UrlContentRegistryProtocol:
+    async def load(self, url: str, max_images: int, max_image_bytes: int) -> LoadedUrlContent:
+        raise NotImplementedError
+
+
+class DefaultUrlContentRegistry:
+    def __init__(self):
+        self.registry = UrlContentLoaderRegistry([GenericUrlContentLoader()])
+
+    async def load(self, url: str, max_images: int, max_image_bytes: int) -> LoadedUrlContent:
+        return await self.registry.loader_for(url).load(url, max_images=max_images, max_image_bytes=max_image_bytes)
+
+
+_url_content_loader_registry: UrlContentRegistryProtocol = DefaultUrlContentRegistry()
+
+
+def set_url_content_loader_registry(registry: UrlContentRegistryProtocol) -> None:
+    global _url_content_loader_registry
+    _url_content_loader_registry = registry
 
 
 def _validate_import_request(text: str | None, url: str | None, files: list[UploadFile]) -> tuple[str | None, str | None]:
@@ -126,7 +151,7 @@ def process_import_job(session: Session, job_id: str) -> None:
 
     ready_sources: list[ReadySource] = []
     storage = LocalStorageService(get_settings().upload_dir)
-    for source in job.sources:
+    for source in sorted(job.sources, key=lambda item: item.position):
         if source.type == SourceType.TEXT and source.text:
             ready_sources.append(ReadySource(type="TEXT", text=source.text, position=source.position))
         elif source.type == SourceType.IMAGE and source.image_storage_key and source.mime_type:
@@ -142,11 +167,30 @@ def process_import_job(session: Session, job_id: str) -> None:
                 )
             )
         elif source.type == SourceType.URL and source.url:
-            ready_sources.append(ReadySource(type="URL", url=source.url, text=source.url, position=source.position))
+            image_count = len([ready for ready in ready_sources if ready.type == "IMAGE"])
+            remaining_images = max(0, get_settings().max_import_images - image_count)
+            loaded_url = anyio.run(
+                _url_content_loader_registry.load,
+                source.url,
+                remaining_images,
+                get_settings().max_upload_bytes,
+            )
+            ready_sources.append(ReadySource(type="URL", url=loaded_url.url, text=loaded_url.text, position=source.position))
+            for remote_image in loaded_url.images[:remaining_images]:
+                saved = storage.save(remote_image.bytes, remote_image.original_name, remote_image.mime_type)
+                ready_sources.append(
+                    ReadySource(
+                        type="IMAGE",
+                        sourceRef=f"remote_{remote_image.position}",
+                        storageKey=saved.storage_key,
+                        dataUrl=image_to_data_url(remote_image.bytes, remote_image.mime_type),
+                        mimeType=remote_image.mime_type,
+                        originalName=remote_image.original_name,
+                        position=source.position + remote_image.position + 1,
+                    )
+                )
 
     provider = FakeRecipeExtractionProvider()
-    import anyio
-
     result = anyio.run(provider.extract, ready_sources)
     if result.not_a_recipe or result.recipe is None:
         job.status = ImportJobStatus.FAILED

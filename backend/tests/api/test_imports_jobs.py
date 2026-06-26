@@ -9,6 +9,8 @@ from io import BytesIO
 
 from app.db.base import Base
 from app.db.session import get_session
+from app.imports.jobs import set_url_content_loader_registry
+from app.imports.url_loaders.types import LoadedRemoteImage, LoadedUrlContent
 from app.main import create_app
 
 
@@ -131,3 +133,37 @@ def test_image_attachment_import_creates_image_source():
     assert response.json()["status"] == "succeeded"
     assert detail.json()["sources"][0]["type"] == "IMAGE"
     assert detail.json()["sources"][0]["status"] == "used"
+
+
+class FakeRegistry:
+    def __init__(self):
+        self.max_images_seen: int | None = None
+
+    async def load(self, url: str, max_images: int, max_image_bytes: int) -> LoadedUrlContent:
+        self.max_images_seen = max_images
+        return LoadedUrlContent(
+            url=url,
+            text="URL recipe text",
+            images=[
+                LoadedRemoteImage(bytes=image_bytes(), mime_type="image/jpeg", original_name="remote.jpg", url=f"{url}/remote.jpg", position=0)
+            ][:max_images],
+        )
+
+
+def test_url_images_use_remaining_capacity_after_attachments():
+    client = client_with_session()
+    registry = FakeRegistry()
+    set_url_content_loader_registry(registry)
+
+    response = client.post(
+        "/imports",
+        data={"clientImportId": "mixed", "url": "https://example.com/recipe"},
+        files=[("files", ("recipe.jpg", image_bytes(), "image/jpeg"))],
+        headers={"X-Client-Id": "client-1"},
+    )
+    recipe_id = response.json()["createdRecipeId"]
+    detail = client.get(f"/recipes/{recipe_id}")
+
+    assert response.status_code == 200
+    assert registry.max_images_seen == 9
+    assert [source["type"] for source in detail.json()["sources"]] == ["IMAGE", "URL", "IMAGE"]
