@@ -14,14 +14,14 @@ OPENAI_API_KEY=<your-openai-key>
 ```powershell
 cd C:\Users\stark\Documents\recipe-manager\backend
 uv sync
-uv run fastapi dev app/main.py
+uv run fastapi dev app/main.py --host 127.0.0.1 --port 8010
 ```
 
 Preview mode uses separate local storage and clears preview data on restart:
 
 ```powershell
 cd C:\Users\stark\Documents\recipe-manager\backend
-$env:APP_ENV="preview"; uv run fastapi dev app/main.py
+$env:APP_ENV="preview"; uv run fastapi dev app/main.py --host 127.0.0.1 --port 8010
 ```
 
 ## Frontend
@@ -29,7 +29,7 @@ $env:APP_ENV="preview"; uv run fastapi dev app/main.py
 Frontend API URL is in `frontend/.env`:
 
 ```dotenv
-VITE_API_BASE_URL=http://127.0.0.1:8000
+VITE_API_BASE_URL=http://127.0.0.1:8010
 VITE_DEBUG_API=true
 ```
 
@@ -39,7 +39,7 @@ pnpm install
 pnpm dev
 ```
 
-Set `VITE_API_BASE_URL` if the backend is not running at `http://localhost:8000`.
+Set `VITE_API_BASE_URL` if the backend is not running at `http://127.0.0.1:8010`.
 
 ## Database Dashboard
 
