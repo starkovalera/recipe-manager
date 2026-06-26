@@ -150,7 +150,7 @@ Core entities:
 - `Tag`: owner id, name.
 - `RecipeTag`: recipe/tag join table.
 - `RecipeImage`: recipe id, role (`source`, `cover`), storage key, original name, mime type, size, position, optional source image pointer.
-- `RecipeSource`: recipe id, type (`url`, `image`, `text`), url/text/image id, position, source ref, status (`unknown`, `used`, `ignored`), assessment reason, assessment confidence.
+- `RecipeSource`: recipe id, optional parent source id, type (`url`, `image`, `text`), source origin (`MANUAL`, `URL`, `URL_VIDEO`), url/text/image id, position, source ref, status (`unknown`, `used`, `ignored`), assessment reason, assessment confidence. Manual text/image and URL rows are primary sources; URL text/images and URL video transcript/poster are child final sources.
 - `RecipeReviewFlag`: recipe id, type, status (`open`, `resolved`), reason code, message, details JSON, timestamps.
 - `ImportJob`: owner/client id, status (`pending`, `processing`, `succeeded`, `failed`), client import id, error code/message, created recipe id, timestamps.
 - `ImportJobSource`: job id, type, status, url/text/image metadata, position.
@@ -273,7 +273,7 @@ Video behavior:
 
 AI extraction:
 
-- AI receives a structured list of sources: URL text, user text, image data, transcript text.
+- AI receives a structured list of final sources only: manual text/images plus URL-derived text/images/video transcript/poster. URL parent rows are kept in the database for primary-source status aggregation, but are not sent to AI.
 - AI returns JSON matching the extraction schema.
 - Backend validates AI JSON strictly.
 - If the response is invalid or not a recipe, fail the import.

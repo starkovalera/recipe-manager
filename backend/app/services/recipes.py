@@ -128,6 +128,8 @@ def _serialize_recipe_detail(recipe: Recipe) -> RecipeDetailOut:
             RecipeSourceOut(
                 id=source.id,
                 type=source.type.value,
+                source=source.source.value,
+                parentSourceId=source.parent_source_id,
                 url=source.url,
                 text=source.text,
                 sourceRef=source.source_ref,

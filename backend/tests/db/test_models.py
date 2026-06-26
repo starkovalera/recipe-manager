@@ -15,6 +15,7 @@ from app.models import (
     RecipeReviewFlagStatus,
     RecipeReviewFlagType,
     RecipeSource,
+    RecipeSourceOrigin,
     RecipeSourceStatus,
     SourceName,
     SourceType,
@@ -66,6 +67,7 @@ def test_recipe_graph_persists_core_import_entities():
         RecipeSource(
             owner_id=user.id,
             type=SourceType.IMAGE,
+            source=RecipeSourceOrigin.MANUAL,
             image=image,
             source_ref="upload_0",
             position=0,

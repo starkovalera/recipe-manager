@@ -54,6 +54,7 @@ class ExtractionResult(BaseModel):
 
 
 class ReadySource(BaseModel):
+    id: str | None = None
     type: Literal["IMAGE", "URL", "TEXT"]
     position: int
     sourceRef: str | None = None
@@ -67,6 +68,8 @@ class ReadySource(BaseModel):
 
 
 def ready_source_id(source: ReadySource) -> str:
+    if source.id:
+        return source.id
     if source.type == "IMAGE":
         return f"image:{source.sourceRef}"
     if source.type == "URL":

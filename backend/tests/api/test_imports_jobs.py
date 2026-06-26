@@ -226,7 +226,13 @@ def test_url_images_use_remaining_capacity_after_attachments():
 
     assert response.status_code == 200
     assert registry.max_images_seen == 9
-    assert [source["type"] for source in detail.json()["sources"]] == ["IMAGE", "URL", "IMAGE"]
+    sources = detail.json()["sources"]
+    assert [(source["type"], source["source"], source["parentSourceId"]) for source in sources] == [
+        ("IMAGE", "MANUAL", None),
+        ("URL", "MANUAL", None),
+        ("TEXT", "URL", sources[1]["id"]),
+        ("IMAGE", "URL", sources[1]["id"]),
+    ]
 
 
 def test_url_video_poster_and_transcript_are_passed_to_ai_sources():
@@ -243,12 +249,12 @@ def test_url_video_poster_and_transcript_are_passed_to_ai_sources():
     )
 
     assert response.status_code == 200
-    assert [(source.type, source.sourceRef, source.position) for source in provider.sources] == [
-        ("URL", None, 0),
-        ("TEXT", None, 1),
-        ("IMAGE", "url_video_poster_0", 2),
+    assert [(source.type, source.text, source.originalName) for source in provider.sources] == [
+        ("TEXT", "URL recipe text", None),
+        ("TEXT", "Video 1 transcript:\nMix batter and bake.", None),
+        ("IMAGE", None, "poster-video.mp4.jpg"),
     ]
-    assert provider.sources[1].text == "Video 1 transcript:\nMix batter and bake."
+    assert all(source.id for source in provider.sources)
 
 
 def test_url_video_transcript_survives_when_image_capacity_is_full():
@@ -295,8 +301,11 @@ def test_url_author_name_is_passed_to_ai_sources():
     )
 
     assert response.status_code == 200
-    url_source = next(source for source in provider.sources if source.type == "URL")
-    assert url_source.authorName == "url_author"
+    recipe_id = response.json()["createdRecipeId"]
+    detail = client.get(f"/recipes/{recipe_id}")
+
+    assert all(source.type != "URL" for source in provider.sources)
+    assert detail.json()["authorName"] == "url_author"
 
 
 def test_threads_url_import_sets_recipe_source_name():
@@ -346,12 +355,13 @@ def test_mixed_sources_match_reference_ai_source_order_and_refs():
     )
 
     assert response.status_code == 200
-    assert [(source.type, source.sourceRef, source.position) for source in provider.sources] == [
-        ("IMAGE", "source_0", 0),
-        ("TEXT", None, 1),
-        ("URL", None, 2),
-        ("IMAGE", "url_slide_0", 3),
+    assert [(source.type, source.text, source.originalName) for source in provider.sources] == [
+        ("IMAGE", None, "first.jpg"),
+        ("TEXT", "Manual recipe text", None),
+        ("TEXT", "URL recipe text", None),
+        ("IMAGE", None, "remote.jpg"),
     ]
+    assert all(source.id for source in provider.sources)
 
 
 class LowConfidenceProvider:
@@ -374,6 +384,8 @@ class LowConfidenceProvider:
 
 class SourceAssessmentProvider:
     async def extract(self, sources):
+        refs = {source.type: source.id for source in sources}
+        image_ids = [source.id for source in sources if source.type == "IMAGE"]
         return ExtractionResult(
             recipe=ExtractedRecipe(
                 title="Assessed recipe",
@@ -383,8 +395,8 @@ class SourceAssessmentProvider:
                     confidence=0.9,
                     hasConflicts=True,
                     hasIgnored=True,
-                    primarySourceRefs=["source_0", "https://example.com/recipe"],
-                    ignoredSourceRefs=["url_slide_0"],
+                    primarySourceRefs=[image_ids[0], refs["TEXT"]],
+                    ignoredSourceRefs=[image_ids[1]],
                 ),
             )
         )
@@ -392,6 +404,8 @@ class SourceAssessmentProvider:
 
 class SourceIdPrefixedAssessmentProvider:
     async def extract(self, sources):
+        image_ids = [source.id for source in sources if source.type == "IMAGE"]
+        text_id = next(source.id for source in sources if source.type == "TEXT")
         return ExtractionResult(
             recipe=ExtractedRecipe(
                 title="Prefixed refs recipe",
@@ -401,8 +415,8 @@ class SourceIdPrefixedAssessmentProvider:
                     confidence=0.95,
                     hasConflicts=False,
                     hasIgnored=True,
-                    primarySourceRefs=["sourceId=url:1", "sourceId=image:source_0"],
-                    ignoredSourceRefs=["sourceId=image:url_slide_0"],
+                    primarySourceRefs=[f"sourceId={text_id}", f"sourceId={image_ids[0]}"],
+                    ignoredSourceRefs=[f"sourceId={image_ids[1]}"],
                 ),
             )
         )
@@ -423,10 +437,15 @@ def test_ai_quality_refs_set_recipe_source_statuses_after_normalization():
     detail = client.get(f"/recipes/{recipe_id}")
 
     assert response.status_code == 200
-    statuses = {source["sourceRef"]: source["status"] for source in detail.json()["sources"]}
-    assert statuses["image:source_0"] == "used"
-    assert statuses["url:1"] == "used"
-    assert statuses["image:url_slide_0"] == "ignored"
+    sources = detail.json()["sources"]
+    manual_image = next(source for source in sources if source["type"] == "IMAGE" and source["source"] == "MANUAL")
+    url_parent = next(source for source in sources if source["type"] == "URL")
+    url_text = next(source for source in sources if source["type"] == "TEXT" and source["source"] == "URL")
+    url_image = next(source for source in sources if source["type"] == "IMAGE" and source["source"] == "URL")
+    assert manual_image["status"] == "used"
+    assert url_text["status"] == "used"
+    assert url_image["status"] == "ignored"
+    assert url_parent["status"] == "used"
 
 
 def test_ai_quality_refs_with_source_id_prefix_set_recipe_source_statuses():
@@ -444,10 +463,9 @@ def test_ai_quality_refs_with_source_id_prefix_set_recipe_source_statuses():
     detail = client.get(f"/recipes/{recipe_id}")
 
     assert response.status_code == 200
-    statuses = {source["sourceRef"]: source["status"] for source in detail.json()["sources"]}
-    assert statuses["image:source_0"] == "used"
-    assert statuses["url:1"] == "used"
-    assert statuses["image:url_slide_0"] == "ignored"
+    sources = detail.json()["sources"]
+    assert next(source for source in sources if source["type"] == "URL")["status"] == "used"
+    assert next(source for source in sources if source["type"] == "TEXT" and source["source"] == "URL")["status"] == "used"
 
 
 def test_low_confidence_import_fails_and_cleans_uploaded_files():
@@ -468,7 +486,7 @@ def test_low_confidence_import_fails_and_cleans_uploaded_files():
 
 class CoverCandidateProvider:
     async def extract(self, sources):
-        image_ref = next(source.sourceRef for source in sources if source.type == "IMAGE")
+        image_ref = next(source.id for source in sources if source.type == "IMAGE")
         return ExtractionResult(
             recipe=ExtractedRecipe(
                 title="Cover recipe",
@@ -478,10 +496,10 @@ class CoverCandidateProvider:
                     confidence=0.9,
                     hasConflicts=False,
                     hasIgnored=False,
-                    primarySourceRefs=[f"image:{image_ref}"],
+                    primarySourceRefs=[image_ref],
                     ignoredSourceRefs=[],
                 ),
-                coverCandidate=CoverCandidate(sourceRef=f"image:{image_ref}", sourcePosition=0),
+                coverCandidate=CoverCandidate(sourceRef=image_ref, sourcePosition=0),
             )
         )
 
@@ -515,7 +533,7 @@ class WarningFlagProvider:
                     confidence=0.7,
                     hasConflicts=True,
                     hasIgnored=True,
-                    primarySourceRefs=["text:0"],
+                    primarySourceRefs=[sources[0].id],
                     ignoredSourceRefs=[],
                 ),
             )
@@ -539,7 +557,82 @@ def test_warning_flag_reasons_match_reference_import_rules():
     assert len(flags) == 1
     assert flags[0]["type"] == "CONTENT_WARNING"
     assert flags[0]["reasonCode"] == "CONTENT_CONFLICT"
-    assert flags[0]["details"]["reasons"] == ["CONTENT_CONFLICT", "IGNORED_SOURCES", "LOW_CONFIDENCE"]
+    assert flags[0]["details"]["reasons"] == ["CONTENT_CONFLICT", "LOW_CONFIDENCE"]
+
+
+class ChildIgnoredWithoutPrimaryIgnoredProvider:
+    async def extract(self, sources):
+        text_source = next(source for source in sources if source.type == "TEXT")
+        image_source = next(source for source in sources if source.type == "IMAGE")
+        return ExtractionResult(
+            recipe=ExtractedRecipe(
+                title="Child ignored recipe",
+                ingredients=[{"name": "Ingredient"}],
+                instructions=["Cook."],
+                quality=ExtractionQuality(
+                    confidence=0.9,
+                    hasConflicts=False,
+                    hasIgnored=True,
+                    primarySourceRefs=[text_source.id],
+                    ignoredSourceRefs=[image_source.id],
+                ),
+            )
+        )
+
+
+class PrimaryIgnoredProvider:
+    async def extract(self, sources):
+        return ExtractionResult(
+            recipe=ExtractedRecipe(
+                title="Primary ignored recipe",
+                ingredients=[{"name": "Ingredient"}],
+                instructions=["Cook."],
+                quality=ExtractionQuality(
+                    confidence=0.9,
+                    hasConflicts=False,
+                    hasIgnored=True,
+                    primarySourceRefs=[],
+                    ignoredSourceRefs=[source.id for source in sources],
+                ),
+            )
+        )
+
+
+def test_child_ignored_does_not_create_warning_when_primary_url_is_used():
+    client = client_with_session()
+    set_url_content_loader_registry(FakeRegistry())
+    set_recipe_extraction_provider(ChildIgnoredWithoutPrimaryIgnoredProvider())
+
+    response = client.post(
+        "/imports",
+        data={"clientImportId": "child-ignored", "url": "https://example.com/recipe"},
+        headers={"X-Client-Id": "client-1"},
+    )
+    recipe_id = response.json()["createdRecipeId"]
+    detail = client.get(f"/recipes/{recipe_id}")
+
+    assert response.status_code == 200
+    assert next(source for source in detail.json()["sources"] if source["type"] == "URL")["status"] == "used"
+    assert detail.json()["reviewFlags"] == []
+
+
+def test_ignored_primary_url_creates_warning_flag():
+    client = client_with_session()
+    set_url_content_loader_registry(FakeRegistry())
+    set_recipe_extraction_provider(PrimaryIgnoredProvider())
+
+    response = client.post(
+        "/imports",
+        data={"clientImportId": "primary-ignored", "url": "https://example.com/recipe"},
+        headers={"X-Client-Id": "client-1"},
+    )
+    recipe_id = response.json()["createdRecipeId"]
+    detail = client.get(f"/recipes/{recipe_id}")
+
+    assert response.status_code == 200
+    url_parent = next(source for source in detail.json()["sources"] if source["type"] == "URL")
+    assert url_parent["status"] == "ignored"
+    assert detail.json()["reviewFlags"][0]["details"]["reasons"] == ["IGNORED_PRIMARY_SOURCE"]
 
 
 def test_import_logs_lifecycle_without_image_payloads(caplog):

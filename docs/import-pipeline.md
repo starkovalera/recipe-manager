@@ -16,26 +16,29 @@ flowchart TD
   dedupe -->|"no"| persist["Persist ImportJob pending<br/>Persist TEXT/IMAGE/URL ImportJobSource rows"]
 
   persist --> process["Process synchronously in POST /imports"]
-  process --> images["Save attachment images first<br/>Build IMAGE ReadySources"]
-  images --> text["Add text input as TEXT evidence"]
+  process --> tree["Build RecipeSource tree<br/>primary sources have parent_source_id = null"]
+  tree --> images["Save attachment images first<br/>IMAGE + source=MANUAL"]
+  images --> text["Add text input<br/>TEXT + source=MANUAL"]
   text --> url{"URL source?"}
   url -->|"no"| ai
   url -->|"yes"| remaining["remaining images = MAX_IMPORT_IMAGES - accepted attachments"]
   remaining --> loader["Loader registry<br/>Instagram -> Threads -> Generic"]
-  loader --> loadedUrl["Add URL text evidence<br/>Save URL images only within remaining capacity"]
-  loadedUrl --> ai["RecipeExtractionProvider.extract"]
+  loader --> loadedUrl["Create URL primary row<br/>URL + source=MANUAL"]
+  loadedUrl --> children["Create final URL children<br/>TEXT/IMAGE + source=URL<br/>transcript/poster + source=URL_VIDEO"]
+  children --> ai["RecipeExtractionProvider.extract<br/>final sources only, type != URL"]
 
   ai -->|"not recipe"| failJob["Mark ImportJob failed<br/>cleanup saved files"]
   ai --> quality{"confidence <= IMPORT_MIN_CONFIDENCE?"}
   quality -->|"yes"| lowConfidence["Mark ImportJob failed<br/>cleanup saved files"]
   quality -->|"no"| singleUrl["Normalize single URL internal conflicts"]
-  singleUrl --> sources["Map primarySourceRefs / ignoredSourceRefs<br/>to RecipeSource statuses"]
+  singleUrl --> sources["Map primarySourceRefs / ignoredSourceRefs<br/>to final RecipeSource statuses"]
   sources --> cover{"AI coverCandidate references accepted image?"}
   cover -->|"no"| write
   cover -->|"yes"| guard["cover_guard black box<br/>ENABLE_COVER_CANDIDATE_GUARD default off"]
   guard --> generatedCover["Generate COVER image derivative"]
-  generatedCover --> write["Create Recipe, Ingredients, Images,<br/>Sources, optional ReviewFlag"]
-  write --> warn{"hasConflicts OR hasIgnored OR<br/>confidence <= IMPORT_WARN_CONFIDENCE?"}
+  generatedCover --> write["Update Recipe, Ingredients, Images,<br/>Sources, optional ReviewFlag"]
+  write --> aggregate["Aggregate primary source status<br/>URL used if any child used<br/>URL ignored if all children ignored"]
+  aggregate --> warn{"hasConflicts OR ignored primary source OR<br/>confidence <= IMPORT_WARN_CONFIDENCE?"}
   warn -->|"yes"| flag["Create CONTENT_WARNING flag"]
   warn -->|"no"| success
   flag --> success["Mark ImportJob succeeded<br/>createdRecipeId set"]
@@ -63,10 +66,14 @@ flowchart TD
 - Attachments are accepted before URL images and occupy `MAX_IMPORT_IMAGES` capacity.
 - URL images are loaded only within the remaining image capacity.
 - URL loader order is Instagram, Threads, then generic fallback.
-- Recipe source statuses are derived from `primarySourceRefs` and `ignoredSourceRefs`.
-- Single URL import normalizes internal conflicts before warning/failure decisions.
+- `RecipeSource.source` records origin: `MANUAL`, `URL`, or `URL_VIDEO`.
+- URL imports create a parent URL source plus child final sources for URL text, URL images, video transcript, and video poster.
+- AI receives final sources only: all `RecipeSource` rows where `type != URL`, labeled with `RecipeSource.id`.
+- Final recipe source statuses are derived from AI `primarySourceRefs` and `ignoredSourceRefs`.
+- Primary URL source status is aggregated from children: used if any child is used, ignored if all children are ignored, otherwise unknown.
+- Single URL import normalizes internal conflicts before warning/failure decisions, but source statuses still use the raw AI refs.
 - `quality.confidence <= IMPORT_MIN_CONFIDENCE` fails the import and cleans saved files.
-- Warning flags are created when `quality.hasConflicts`, `quality.hasIgnored`, or `quality.confidence <= IMPORT_WARN_CONFIDENCE`.
+- Warning flags are created when `quality.hasConflicts`, any primary source is ignored, or `quality.confidence <= IMPORT_WARN_CONFIDENCE`.
 - AI `coverCandidate` generates a separate cover derivative when it references an accepted image source.
 - Cover candidate guard logic is isolated in `backend/app/imports/cover_guard.py` and remains default-off.
 

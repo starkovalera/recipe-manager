@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 import logging
+from dataclasses import dataclass
 
 import anyio
 from sqlalchemy import select
@@ -15,7 +16,7 @@ from app.imports.cover_guard import CoverCandidate as ImportCoverCandidate
 from app.imports.cover_guard import CoverGuardInput, choose_cover_candidate
 from app.imports.source_platform import derive_source_name
 from app.imports.sources import normalize_quality_source_refs, normalize_single_url_quality, source_assessments
-from app.imports.sources import review_reason_codes, should_create_review_flag
+from app.imports.sources import review_reason_codes, should_create_primary_review_flag
 from app.imports.video import FirstPassVideoSources, VideoProcessor
 from app.core.config import get_settings
 from app.media.images import create_cover_image, image_to_data_url, validate_image_upload
@@ -38,6 +39,7 @@ from app.models import (
     RecipeReviewFlagStatus,
     RecipeReviewFlagType,
     RecipeSource,
+    RecipeSourceOrigin,
     RecipeSourceStatus,
     SourceType,
 )
@@ -46,6 +48,21 @@ from app.storage.local import LocalStorageService
 
 
 logger = logging.getLogger("recipes.import")
+
+
+@dataclass
+class SourceDraft:
+    type: SourceType
+    source: RecipeSourceOrigin
+    position: int
+    parent_key: str | None = None
+    key: str | None = None
+    url: str | None = None
+    text: str | None = None
+    image_storage_key: str | None = None
+    original_name: str | None = None
+    mime_type: str | None = None
+    image_bytes: bytes | None = None
 
 
 def serialize_import_job(job: ImportJob) -> ImportJobOut:
@@ -146,11 +163,53 @@ def _cleanup_storage_keys(storage: LocalStorageService, storage_keys: list[str])
         storage.delete(storage_key)
 
 
+def _status_from_assessment(status: str) -> RecipeSourceStatus:
+    return RecipeSourceStatus(status)
+
+
+def _apply_source_statuses(
+    recipe_sources: list[RecipeSource],
+    final_sources: list[RecipeSource],
+    quality,
+) -> bool:
+    assessments = source_assessments([source.id for source in final_sources], quality)
+    for source in final_sources:
+        assessment = assessments[source.id]
+        source.status = _status_from_assessment(assessment.status)
+        source.assessment_reason = assessment.reason
+        source.assessment_confidence = assessment.confidence
+
+    for source in recipe_sources:
+        if source.parent_source_id is not None or source.type != SourceType.URL:
+            continue
+        children = [child for child in recipe_sources if child.parent is source]
+        if not children:
+            source.status = RecipeSourceStatus.UNKNOWN
+        elif any(child.status == RecipeSourceStatus.USED for child in children):
+            source.status = RecipeSourceStatus.USED
+            source.assessment_reason = "At least one child source was selected as primary evidence by AI."
+            source.assessment_confidence = quality.confidence
+        elif all(child.status == RecipeSourceStatus.IGNORED for child in children):
+            source.status = RecipeSourceStatus.IGNORED
+            source.assessment_reason = "All child sources were ignored by AI."
+            source.assessment_confidence = quality.confidence
+        else:
+            source.status = RecipeSourceStatus.UNKNOWN
+            source.assessment_reason = None
+            source.assessment_confidence = None
+
+    return any(source.parent_source_id is None and source.status == RecipeSourceStatus.IGNORED for source in recipe_sources)
+
+
 def _cover_candidate_ref(source_ref: str | None, accepted_refs: set[str]) -> str | None:
     if source_ref is None:
         return None
     if source_ref in accepted_refs:
         return source_ref
+    if source_ref.startswith("image:"):
+        unprefixed_ref = source_ref.removeprefix("image:")
+        if unprefixed_ref in accepted_refs:
+            return unprefixed_ref
     image_ref = f"image:{source_ref}"
     return image_ref if image_ref in accepted_refs else None
 
@@ -246,25 +305,38 @@ def process_import_job(session: Session, job_id: str) -> None:
 
     storage = LocalStorageService(get_settings().upload_dir)
     saved_storage_keys = [source.image_storage_key for source in job.sources if source.image_storage_key]
-    ready_sources: list[ReadySource] = []
+    source_drafts: list[SourceDraft] = []
     loaded_urls: list[str] = []
+    imported_author_name: str | None = None
     for source in sorted(job.sources, key=lambda item: item.position):
         if source.type == SourceType.TEXT and source.text:
-            ready_sources.append(ReadySource(type="TEXT", text=source.text, position=source.position))
+            source_drafts.append(
+                SourceDraft(type=SourceType.TEXT, source=RecipeSourceOrigin.MANUAL, text=source.text, position=len(source_drafts))
+            )
         elif source.type == SourceType.IMAGE and source.image_storage_key and source.mime_type:
-            ready_sources.append(
-                ReadySource(
-                    type="IMAGE",
-                    sourceRef=f"source_{source.position}",
-                    storageKey=source.image_storage_key,
-                    dataUrl=image_to_data_url(storage.read(source.image_storage_key), source.mime_type),
-                    mimeType=source.mime_type,
-                    originalName=source.original_name or "upload",
-                    position=source.position,
+            source_drafts.append(
+                SourceDraft(
+                    type=SourceType.IMAGE,
+                    source=RecipeSourceOrigin.MANUAL,
+                    image_storage_key=source.image_storage_key,
+                    image_bytes=storage.read(source.image_storage_key),
+                    mime_type=source.mime_type,
+                    original_name=source.original_name or "upload",
+                    position=len(source_drafts),
                 )
             )
         elif source.type == SourceType.URL and source.url:
-            image_count = len([ready for ready in ready_sources if ready.type == "IMAGE"])
+            parent_key = f"url:{source.position}"
+            source_drafts.append(
+                SourceDraft(
+                    type=SourceType.URL,
+                    source=RecipeSourceOrigin.MANUAL,
+                    url=source.url,
+                    key=parent_key,
+                    position=len(source_drafts),
+                )
+            )
+            image_count = len([draft for draft in source_drafts if draft.type == SourceType.IMAGE])
             remaining_images = max(0, get_settings().max_import_images - image_count)
             log_info(
                 logger,
@@ -281,27 +353,31 @@ def process_import_job(session: Session, job_id: str) -> None:
                 get_settings().max_upload_bytes,
             )
             loaded_urls.append(loaded_url.url)
-            ready_sources.append(
-                ReadySource(
-                    type="URL",
-                    url=loaded_url.url,
-                    authorName=loaded_url.author_name,
+            if loaded_url.author_name and imported_author_name is None:
+                imported_author_name = loaded_url.author_name
+            source_drafts[-1].url = loaded_url.url
+            source_drafts.append(
+                SourceDraft(
+                    type=SourceType.TEXT,
+                    source=RecipeSourceOrigin.URL,
+                    parent_key=parent_key,
                     text=loaded_url.text,
-                    position=source.position,
+                    position=len(source_drafts),
                 )
             )
             for remote_image in loaded_url.images[:remaining_images]:
                 saved = storage.save(remote_image.bytes, remote_image.original_name, remote_image.mime_type)
                 saved_storage_keys.append(saved.storage_key)
-                ready_sources.append(
-                    ReadySource(
-                        type="IMAGE",
-                        sourceRef=f"url_slide_{remote_image.position}",
-                        storageKey=saved.storage_key,
-                        dataUrl=image_to_data_url(remote_image.bytes, remote_image.mime_type),
-                        mimeType=remote_image.mime_type,
-                        originalName=remote_image.original_name,
-                        position=source.position + remote_image.position + 1,
+                source_drafts.append(
+                    SourceDraft(
+                        type=SourceType.IMAGE,
+                        source=RecipeSourceOrigin.URL,
+                        parent_key=parent_key,
+                        image_storage_key=saved.storage_key,
+                        image_bytes=remote_image.bytes,
+                        mime_type=remote_image.mime_type,
+                        original_name=remote_image.original_name,
+                        position=len(source_drafts),
                     )
                 )
             loaded_videos = loaded_url.videos[: get_settings().max_import_videos]
@@ -340,25 +416,109 @@ def process_import_job(session: Session, job_id: str) -> None:
                     durationMs=int((datetime.now(timezone.utc) - started_at).total_seconds() * 1000),
                 )
                 if trimmed_transcript:
-                    ready_sources.append(ReadySource(type="TEXT", text=trimmed_transcript, position=len(ready_sources)))
-                for poster in first_pass_video_sources.poster_images:
-                    image_count = len([ready for ready in ready_sources if ready.type == "IMAGE"])
-                    if image_count >= get_settings().max_import_images:
-                        break
-                    source_ref = f"url_video_poster_{poster.position}"
-                    saved = storage.save(poster.bytes, poster.original_name, poster.mime_type)
-                    saved_storage_keys.append(saved.storage_key)
-                    ready_sources.append(
-                        ReadySource(
-                            type="IMAGE",
-                            sourceRef=source_ref,
-                            storageKey=saved.storage_key,
-                            dataUrl=image_to_data_url(poster.bytes, poster.mime_type),
-                            mimeType=poster.mime_type,
-                            originalName=poster.original_name,
-                            position=len(ready_sources),
+                    source_drafts.append(
+                        SourceDraft(
+                            type=SourceType.TEXT,
+                            source=RecipeSourceOrigin.URL_VIDEO,
+                            parent_key=parent_key,
+                            text=trimmed_transcript,
+                            position=len(source_drafts),
                         )
                     )
+                for poster in first_pass_video_sources.poster_images:
+                    image_count = len([draft for draft in source_drafts if draft.type == SourceType.IMAGE])
+                    if image_count >= get_settings().max_import_images:
+                        break
+                    saved = storage.save(poster.bytes, poster.original_name, poster.mime_type)
+                    saved_storage_keys.append(saved.storage_key)
+                    source_drafts.append(
+                        SourceDraft(
+                            type=SourceType.IMAGE,
+                            source=RecipeSourceOrigin.URL_VIDEO,
+                            parent_key=parent_key,
+                            image_storage_key=saved.storage_key,
+                            image_bytes=poster.bytes,
+                            mime_type=poster.mime_type,
+                            original_name=poster.original_name,
+                            position=len(source_drafts),
+                        )
+                    )
+
+    source_name_result = derive_source_name(loaded_urls)
+    if not source_name_result.ok:
+        _cleanup_storage_keys(storage, saved_storage_keys)
+        job.status = ImportJobStatus.FAILED
+        job.error_code = source_name_result.error_code
+        job.error_message = "URL sources include mixed platforms."
+        job.finished_at = datetime.now(timezone.utc)
+        session.commit()
+        log_info(
+            logger,
+            "[recipes.import] Import job failed",
+            ownerId=job.owner_id,
+            importJobId=job.id,
+            errorCode=job.error_code,
+            errorMessage=job.error_message,
+        )
+        return
+
+    recipe = Recipe(
+        owner_id=job.owner_id,
+        title="Import pending",
+        instructions=[],
+        source_name=source_name_result.source_name,
+    )
+    recipe_sources: list[RecipeSource] = []
+    image_by_source: dict[RecipeSource, RecipeImage] = {}
+    source_by_key: dict[str, RecipeSource] = {}
+    for draft in source_drafts:
+        image: RecipeImage | None = None
+        if draft.type == SourceType.IMAGE and draft.image_storage_key and draft.mime_type and draft.original_name:
+            image = RecipeImage(
+                role=RecipeImageRole.SOURCE,
+                storage_key=draft.image_storage_key,
+                original_name=draft.original_name,
+                mime_type=draft.mime_type,
+                size_bytes=len(draft.image_bytes or b""),
+                position=draft.position,
+            )
+            recipe.images.append(image)
+        recipe_source = RecipeSource(
+            owner_id=job.owner_id,
+            type=draft.type,
+            source=draft.source,
+            parent=source_by_key.get(draft.parent_key) if draft.parent_key else None,
+            url=draft.url,
+            text=draft.text,
+            image=image,
+            position=draft.position,
+            status=RecipeSourceStatus.UNKNOWN,
+        )
+        recipe.sources.append(recipe_source)
+        recipe_sources.append(recipe_source)
+        if image is not None:
+            image_by_source[recipe_source] = image
+        if draft.key:
+            source_by_key[draft.key] = recipe_source
+    session.add(recipe)
+    session.flush()
+    for recipe_source in recipe_sources:
+        recipe_source.source_ref = recipe_source.id
+
+    final_sources = [source for source in recipe_sources if source.type != SourceType.URL]
+    ready_sources = [
+        ReadySource(
+            id=source.id,
+            type=source.type.value,
+            storageKey=source.image.storage_key if source.image else None,
+            dataUrl=image_to_data_url(storage.read(source.image.storage_key), source.image.mime_type) if source.image else None,
+            mimeType=source.image.mime_type if source.image else None,
+            originalName=source.image.original_name if source.image else None,
+            text=source.text,
+            position=source.position or 0,
+        )
+        for source in final_sources
+    ]
 
     started_at = datetime.now(timezone.utc)
     provider_name, provider = _recipe_extraction_provider()
@@ -381,6 +541,7 @@ def process_import_job(session: Session, job_id: str) -> None:
             error=repr(error),
         )
         _cleanup_storage_keys(storage, saved_storage_keys)
+        session.delete(recipe)
         job.status = ImportJobStatus.FAILED
         job.error_code = ErrorCode.AI_UNAVAILABLE.value
         job.error_message = "AI extraction is unavailable."
@@ -397,6 +558,7 @@ def process_import_job(session: Session, job_id: str) -> None:
     )
     if result.not_a_recipe or result.recipe is None:
         _cleanup_storage_keys(storage, saved_storage_keys)
+        session.delete(recipe)
         job.status = ImportJobStatus.FAILED
         job.error_code = ErrorCode.NOT_A_RECIPE.value
         job.error_message = "The provided sources do not contain a recipe."
@@ -414,11 +576,12 @@ def process_import_job(session: Session, job_id: str) -> None:
 
     recipe_result = result.recipe
     is_single_url_import = len(job.sources) == 1 and job.sources[0].type == SourceType.URL
-    recipe_quality = normalize_quality_source_refs(recipe_result.quality, ready_sources)
-    recipe_quality = normalize_single_url_quality(recipe_quality, is_single_url_import)
+    status_quality = normalize_quality_source_refs(recipe_result.quality, ready_sources)
+    recipe_quality = normalize_single_url_quality(status_quality, is_single_url_import)
     recipe_result = recipe_result.model_copy(update={"quality": recipe_quality})
     if recipe_result.quality.confidence <= get_settings().import_min_confidence:
         _cleanup_storage_keys(storage, saved_storage_keys)
+        session.delete(recipe)
         job.status = ImportJobStatus.FAILED
         job.error_code = ErrorCode.NOT_A_RECIPE.value
         job.error_message = "The extracted recipe confidence is too low."
@@ -445,33 +608,12 @@ def process_import_job(session: Session, job_id: str) -> None:
         primarySourceRefs=recipe_result.quality.primarySourceRefs,
         ignoredSourceRefs=recipe_result.quality.ignoredSourceRefs,
     )
-    source_name_result = derive_source_name(loaded_urls)
-    if not source_name_result.ok:
-        _cleanup_storage_keys(storage, saved_storage_keys)
-        job.status = ImportJobStatus.FAILED
-        job.error_code = source_name_result.error_code
-        job.error_message = "URL sources include mixed platforms."
-        job.finished_at = datetime.now(timezone.utc)
-        session.commit()
-        log_info(
-            logger,
-            "[recipes.import] Import job failed",
-            ownerId=job.owner_id,
-            importJobId=job.id,
-            errorCode=job.error_code,
-            errorMessage=job.error_message,
-        )
-        return
-    recipe = Recipe(
-        owner_id=job.owner_id,
-        title=recipe_result.title,
-        instructions=recipe_result.instructions,
-        servings=recipe_result.servings,
-        cook_time_minutes=recipe_result.cookTimeMinutes,
-        nutrition_estimate=recipe_result.nutritionEstimate.model_dump() if recipe_result.nutritionEstimate else None,
-        author_name=recipe_result.authorName,
-        source_name=source_name_result.source_name,
-    )
+    recipe.title = recipe_result.title
+    recipe.instructions = recipe_result.instructions
+    recipe.servings = recipe_result.servings
+    recipe.cook_time_minutes = recipe_result.cookTimeMinutes
+    recipe.nutrition_estimate = recipe_result.nutritionEstimate.model_dump() if recipe_result.nutritionEstimate else None
+    recipe.author_name = recipe_result.authorName or imported_author_name
     for index, ingredient in enumerate(recipe_result.ingredients):
         recipe.ingredients.append(
             Ingredient(
@@ -482,20 +624,7 @@ def process_import_job(session: Session, job_id: str) -> None:
                 position=index,
             )
         )
-    assessments = source_assessments([ready_source_id(source) for source in ready_sources], recipe_result.quality)
-    image_by_ref: dict[str, RecipeImage] = {}
-    for source in ready_sources:
-        if source.type == "IMAGE" and source.storageKey and source.mimeType and source.originalName and source.sourceRef:
-            image = RecipeImage(
-                role=RecipeImageRole.SOURCE,
-                storage_key=source.storageKey,
-                original_name=source.originalName,
-                mime_type=source.mimeType,
-                size_bytes=0,
-                position=source.position,
-            )
-            recipe.images.append(image)
-            image_by_ref[ready_source_id(source)] = image
+    image_by_ref: dict[str, RecipeImage] = {source.id: source.image for source in final_sources if source.image is not None}
     cover_image: RecipeImage | None = None
     candidate_ref = _cover_candidate_ref(
         recipe_result.coverCandidate.sourceRef if recipe_result.coverCandidate else None,
@@ -536,26 +665,10 @@ def process_import_job(session: Session, job_id: str) -> None:
                 sourceRef=chosen.sourceRef,
                 storageKey=cover_file.storage_key,
             )
-    for source in ready_sources:
-        source_id = ready_source_id(source)
-        assessment = assessments[source_id]
-        recipe.sources.append(
-            RecipeSource(
-                owner_id=job.owner_id,
-                type=SourceType[source.type],
-                url=source.url,
-                text=source.text,
-                image=image_by_ref.get(source_id),
-                source_ref=source_id,
-                position=source.position,
-                status=RecipeSourceStatus(assessment.status),
-                assessment_reason=assessment.reason,
-                assessment_confidence=assessment.confidence,
-            )
-        )
+    has_ignored_primary = _apply_source_statuses(recipe_sources, final_sources, status_quality)
     warn_confidence = get_settings().import_warn_confidence
-    reasons = review_reason_codes(recipe_result.quality, warn_confidence)
-    if should_create_review_flag(recipe_result.quality, warn_confidence):
+    reasons = review_reason_codes(recipe_result.quality, warn_confidence, has_ignored_primary)
+    if should_create_primary_review_flag(recipe_result.quality, warn_confidence, has_ignored_primary):
         recipe.review_flags.append(
             RecipeReviewFlag(
                 owner_id=job.owner_id,
@@ -576,7 +689,6 @@ def process_import_job(session: Session, job_id: str) -> None:
             hasConflicts=recipe_result.quality.hasConflicts,
             hasIgnored=recipe_result.quality.hasIgnored,
         )
-    session.add(recipe)
     session.flush()
     if cover_image is not None:
         recipe.cover_image_id = cover_image.id

@@ -85,11 +85,17 @@ def should_create_review_flag(quality: ExtractionQuality, warn_confidence: float
     return quality.hasConflicts or quality.hasIgnored or quality.confidence <= warn_confidence
 
 
-def review_reason_codes(quality: ExtractionQuality, warn_confidence: float) -> list[str]:
+def should_create_primary_review_flag(quality: ExtractionQuality, warn_confidence: float, has_ignored_primary: bool) -> bool:
+    return quality.hasConflicts or has_ignored_primary or quality.confidence <= warn_confidence
+
+
+def review_reason_codes(quality: ExtractionQuality, warn_confidence: float, has_ignored_primary: bool | None = None) -> list[str]:
     reasons: list[str] = []
     if quality.hasConflicts:
         reasons.append("CONTENT_CONFLICT")
-    if quality.hasIgnored:
+    if has_ignored_primary is True:
+        reasons.append("IGNORED_PRIMARY_SOURCE")
+    elif has_ignored_primary is None and quality.hasIgnored:
         reasons.append("IGNORED_SOURCES")
     if quality.confidence <= warn_confidence:
         reasons.append("LOW_CONFIDENCE")

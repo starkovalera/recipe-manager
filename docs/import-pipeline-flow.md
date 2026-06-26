@@ -12,35 +12,36 @@ flowchart TD
   F --> G["Persist import sources\nTEXT, IMAGE attachments, URL"]
   G --> H["Process job synchronously\nstatus=processing"]
 
-  H --> I["Build ready evidence in source order"]
-  I --> J["Add text input as recipe evidence"]
-  J --> K["Validate and save attachment images"]
-  K --> L["Calculate remaining image capacity\nMAX_IMPORT_IMAGES - attachment count"]
-  L --> M["Load URL content\nremote images only fill remaining capacity"]
-  M --> N["Call AI recipe extraction provider"]
+  H --> I["Build RecipeSource tree\nprimary sources have no parent"]
+  I --> J["Manual text/image\nsource=MANUAL, final evidence"]
+  J --> K["URL row\nsource=MANUAL, type=URL, primary only"]
+  K --> L["Load URL content\nrespect remaining image capacity"]
+  L --> M["Create URL children\nTEXT/IMAGE source=URL\ntranscript/poster source=URL_VIDEO"]
+  M --> N["Call AI with final sources only\ntype != URL, id=RecipeSource.id"]
 
   N --> O{"AI result is recipe\nand confidence > min?"}
   O -- no --> P["Fail ImportJob\ncleanup saved media"]
   O -- yes --> Q["Normalize single-URL quality\nwhen applicable"]
-  Q --> R["Create Recipe, ingredients,\nimages, sources"]
+  Q --> R["Update Recipe, ingredients,\nimages, sources"]
 
-  R --> S["Source statuses from\nprimarySourceRefs / ignoredSourceRefs"]
+  R --> S["Final source statuses from\nprimarySourceRefs / ignoredSourceRefs"]
   S --> T["Select coverCandidate from AI"]
   T --> U["Cover guard block\nfeature-flagged, default off"]
   U --> V["Generate cover image when candidate accepted"]
-  V --> W{"hasConflicts OR hasIgnored OR\nconfidence <= IMPORT_WARN_CONFIDENCE?"}
-  W -- yes --> X["Create open CONTENT_WARNING flag"]
-  W -- no --> Y["No warning flag"]
-  X --> Z["Mark ImportJob succeeded\ncreatedRecipeId=recipe.id"]
-  Y --> Z
-
-  E --> AA["Frontend polls GET /imports/{jobId}"]
+  V --> W["Aggregate primary URL status\nused if any child used\nignored if all children ignored"]
+  W --> X{"hasConflicts OR ignored primary OR\nconfidence <= IMPORT_WARN_CONFIDENCE?"}
+  X -- yes --> Y["Create open CONTENT_WARNING flag"]
+  X -- no --> Z["No warning flag"]
+  Y --> AA["Mark ImportJob succeeded\ncreatedRecipeId=recipe.id"]
   Z --> AA
-  P --> AA
-  AA --> AB{"Terminal status?"}
-  AB -- succeeded --> AC["Redirect to recipe detail"]
-  AB -- failed --> AD["Show import error"]
-  AB -- pending/processing --> AA
+
+  E --> AB["Frontend polls GET /imports/{jobId}"]
+  AA --> AB
+  P --> AB
+  AB --> AC{"Terminal status?"}
+  AC -- succeeded --> AD["Redirect to recipe detail"]
+  AC -- failed --> AE["Show import error"]
+  AC -- pending/processing --> AB
 ```
 
 Owner scoping is part of the current backend path: recipe, collection, and import endpoints resolve the current user through a single API dependency. Today that dependency returns the local default/admin user; later it can be replaced with authenticated user resolution without changing the service contracts.

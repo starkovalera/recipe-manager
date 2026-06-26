@@ -32,7 +32,15 @@ export type RecipeDetail = RecipeList["items"][number] & {
   coverImageSource?: string | null;
   coverOptions: Array<{ kind: string; image?: RecipeImage | null; label: string; selected: boolean }>;
   collections: Array<{ id: string; name: string }>;
-  sources: Array<{ id: string; type: string; status: string; text?: string | null; url?: string | null }>;
+  sources: Array<{
+    id: string;
+    type: string;
+    source: string;
+    parentSourceId?: string | null;
+    status: string;
+    text?: string | null;
+    url?: string | null;
+  }>;
   reviewFlags: Array<{ id: string; type?: string; status: string; reasonCode: string; message: string; details?: Record<string, unknown> | null; resolvedAt?: string | null }>;
 };
 

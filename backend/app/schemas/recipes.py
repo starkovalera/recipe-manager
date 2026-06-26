@@ -30,6 +30,8 @@ class NutritionEstimateIn(BaseModel):
 class RecipeSourceOut(BaseModel):
     id: str
     type: str
+    source: str
+    parentSourceId: str | None = None
     url: str | None = None
     text: str | None = None
     sourceRef: str | None = None

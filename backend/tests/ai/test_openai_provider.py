@@ -60,6 +60,7 @@ async def test_openai_provider_uses_reference_responses_input_and_logs_output(ca
     result = await provider.extract(
         [
             ReadySource(
+                id="image-source-0",
                 type="IMAGE",
                 sourceRef="source_0",
                 storageKey="uploads/source-0.png",
@@ -69,6 +70,7 @@ async def test_openai_provider_uses_reference_responses_input_and_logs_output(ca
                 position=0,
             ),
             ReadySource(
+                id="image-source-1",
                 type="IMAGE",
                 sourceRef="source_1",
                 storageKey="uploads/source-1.png",
@@ -86,9 +88,9 @@ async def test_openai_provider_uses_reference_responses_input_and_logs_output(ca
     content = request["input"][0]["content"]
     assert request["model"] == "gpt-test"
     assert content[0]["type"] == "input_text"
-    assert content[1]["text"].startswith("Source sourceId=image:source_0")
+    assert content[1]["text"] == "Source type=image, id=image-source-0, content:"
     assert content[2] == {"type": "input_image", "detail": "auto", "image_url": "data:image/png;base64,SECRET_IMAGE_DATA"}
-    assert content[3]["text"].startswith("Source sourceId=image:source_1")
+    assert content[3]["text"] == "Source type=image, id=image-source-1, content:"
     assert content[4] == {"type": "input_image", "detail": "auto", "image_url": "data:image/png;base64,SECRET_IMAGE_DATA_2"}
 
     joined_logs = "\n".join(record.getMessage() for record in caplog.records)
@@ -100,7 +102,7 @@ async def test_openai_provider_uses_reference_responses_input_and_logs_output(ca
     assert '"rawOutput":' in joined_logs
     assert '\\"title\\": \\"Roulade\\"' in joined_logs
     assert "SECRET_IMAGE_DATA" not in joined_logs
-    assert "image:source_0" in joined_logs
+    assert "image-source-0" in joined_logs
 
 
 @pytest.mark.anyio
@@ -119,7 +121,7 @@ async def test_openai_provider_sends_reference_mixed_source_labels_once():
                 "confidence": 0.9,
                 "hasConflicts": False,
                 "hasIgnored": False,
-                "primarySourceRefs": ["url:0", "text:1", "image:source_0"],
+                "primarySourceRefs": ["text-url", "text-manual", "image-manual"],
                 "ignoredSourceRefs": [],
             },
             "coverCandidate": None,
@@ -130,15 +132,10 @@ async def test_openai_provider_sends_reference_mixed_source_labels_once():
 
     await provider.extract(
         [
+            ReadySource(id="text-url", type="TEXT", text="URL recipe body", position=0),
+            ReadySource(id="text-manual", type="TEXT", text="User pasted recipe body", position=1),
             ReadySource(
-                type="URL",
-                url="https://www.instagram.com/p/recipe",
-                authorName="chef",
-                text="URL recipe body",
-                position=0,
-            ),
-            ReadySource(type="TEXT", text="User pasted recipe body", position=1),
-            ReadySource(
+                id="image-manual",
                 type="IMAGE",
                 sourceRef="source_0",
                 storageKey="uploads/source-0.png",
@@ -156,7 +153,7 @@ async def test_openai_provider_sends_reference_mixed_source_labels_once():
 
     assert len([item for item in text_blocks if "URL recipe body" in item["text"]]) == 1
     assert len([item for item in text_blocks if "User pasted recipe body" in item["text"]]) == 1
-    assert any("Source sourceId=url:0" in item["text"] and "Fetched authorName: chef" in item["text"] for item in text_blocks)
-    assert any("Source sourceId=text:1" in item["text"] for item in text_blocks)
-    assert any("Source sourceId=image:source_0" in item["text"] for item in text_blocks)
+    assert any(item["text"] == "Source type=text, id=text-url, content:\nURL recipe body" for item in text_blocks)
+    assert any(item["text"] == "Source type=text, id=text-manual, content:\nUser pasted recipe body" for item in text_blocks)
+    assert any(item["text"] == "Source type=image, id=image-manual, content:" for item in text_blocks)
     assert image_blocks == [{"type": "input_image", "detail": "auto", "image_url": "data:image/png;base64,SECRET_IMAGE_DATA"}]

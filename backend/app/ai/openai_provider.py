@@ -109,18 +109,9 @@ def _source_log_summary(source: ReadySource) -> dict[str, Any]:
 
 def _source_label(source: ReadySource) -> dict[str, str]:
     if source.type == "IMAGE":
-        text = (
-            f"Source sourceId={ready_source_id(source)}, image sourceRef={source.sourceRef}, "
-            f"position={source.position}, originalName={source.originalName}"
-        )
-    elif source.type == "URL":
-        text = f"Source sourceId={ready_source_id(source)}, URL at position {source.position}: {source.url}"
-        if source.authorName:
-            text += f"\nFetched authorName: {source.authorName}"
-        if source.text:
-            text += f"\nUntrusted fetched URL text:\n{source.text}"
+        text = f"Source type=image, id={ready_source_id(source)}, content:"
     else:
-        text = f"Source sourceId={ready_source_id(source)}, untrusted text at position {source.position}:\n{source.text}"
+        text = f"Source type=text, id={ready_source_id(source)}, content:\n{source.text}"
     return {"type": "input_text", "text": text}
 
 

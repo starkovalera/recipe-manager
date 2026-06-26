@@ -258,7 +258,14 @@ export function RecipeDetailPage({ recipeId, onDeleted }: { recipeId: string; on
 
           <section>
             <h3>Sources</h3>
-            <ul>{recipe.sources.map((source) => <li key={source.id}>{source.type}: {source.status}</li>)}</ul>
+            <ul>
+              {recipe.sources.map((source) => (
+                <li key={source.id}>
+                  {source.source}/{source.type}: {source.status}
+                  {source.parentSourceId ? " (from URL)" : ""}
+                </li>
+              ))}
+            </ul>
           </section>
 
           <section className="danger-zone">

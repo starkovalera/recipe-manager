@@ -73,6 +73,12 @@ class RecipeSourceStatus(str, enum.Enum):
     UNKNOWN = "unknown"
 
 
+class RecipeSourceOrigin(str, enum.Enum):
+    MANUAL = "MANUAL"
+    URL = "URL"
+    URL_VIDEO = "URL_VIDEO"
+
+
 class RecipeReviewFlagStatus(str, enum.Enum):
     OPEN = "open"
     RESOLVED = "resolved"
@@ -169,7 +175,9 @@ class RecipeSource(TimestampMixin, Base):
     id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
     recipe_id: Mapped[str] = mapped_column(ForeignKey("recipes.id", ondelete="CASCADE"), nullable=False)
     owner_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    parent_source_id: Mapped[str | None] = mapped_column(ForeignKey("recipe_sources.id", ondelete="NO ACTION"))
     type: Mapped[SourceType] = mapped_column(Enum(SourceType), nullable=False)
+    source: Mapped[RecipeSourceOrigin] = mapped_column(Enum(RecipeSourceOrigin), nullable=False)
     url: Mapped[str | None] = mapped_column(String)
     image_id: Mapped[str | None] = mapped_column(ForeignKey("recipe_images.id", ondelete="NO ACTION"))
     text: Mapped[str | None] = mapped_column(Text)
@@ -186,6 +194,8 @@ class RecipeSource(TimestampMixin, Base):
     recipe: Mapped[Recipe] = relationship(back_populates="sources")
     owner: Mapped[User] = relationship(back_populates="sources")
     image: Mapped[RecipeImage | None] = relationship(back_populates="sources")
+    parent: Mapped[RecipeSource | None] = relationship(remote_side=[id], back_populates="children")
+    children: Mapped[list[RecipeSource]] = relationship(back_populates="parent")
 
 
 class RecipeReviewFlag(TimestampMixin, Base):

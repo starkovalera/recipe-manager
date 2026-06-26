@@ -19,6 +19,7 @@ from app.models import (
     RecipeReviewFlagStatus,
     RecipeReviewFlagType,
     RecipeSource,
+    RecipeSourceOrigin,
     RecipeSourceStatus,
     SourceType,
     SourceName,
@@ -75,6 +76,7 @@ def seed_recipe(SessionLocal):
             RecipeSource(
                 owner_id=user.id,
                 type=SourceType.TEXT,
+                source=RecipeSourceOrigin.MANUAL,
                 text="Soup recipe",
                 position=0,
                 status=RecipeSourceStatus.USED,
