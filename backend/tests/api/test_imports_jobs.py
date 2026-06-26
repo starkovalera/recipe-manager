@@ -16,10 +16,12 @@ from app.ai.schemas import CoverCandidate, ExtractedRecipe, ExtractionQuality, E
 from app.imports.jobs import (
     DefaultUrlContentRegistry,
     reset_recipe_extraction_provider,
+    reset_video_processor,
     set_recipe_extraction_provider,
     set_url_content_loader_registry,
+    set_video_processor,
 )
-from app.imports.url_loaders.types import LoadedRemoteImage, LoadedUrlContent
+from app.imports.url_loaders.types import LoadedRemoteImage, LoadedRemoteVideo, LoadedUrlContent
 from app.main import create_app
 
 
@@ -30,6 +32,7 @@ def reset_import_dependencies():
     yield
     set_recipe_extraction_provider(FakeRecipeExtractionProvider())
     set_url_content_loader_registry(DefaultUrlContentRegistry())
+    reset_video_processor()
 
 
 def client_with_session():
@@ -169,6 +172,44 @@ class FakeRegistry:
         )
 
 
+class FakeVideoRegistry:
+    def __init__(self):
+        self.max_images_seen: int | None = None
+
+    async def load(self, url: str, max_images: int, max_image_bytes: int) -> LoadedUrlContent:
+        self.max_images_seen = max_images
+        return LoadedUrlContent(
+            url=url,
+            author_name="url_author",
+            text="URL recipe text",
+            images=[],
+            videos=[
+                LoadedRemoteVideo(
+                    url=f"{url}/video.mp4",
+                    poster_url=f"{url}/poster.jpg",
+                    position=0,
+                    original_name="video.mp4",
+                )
+            ],
+        )
+
+
+class FakeVideoProcessor:
+    async def prepare_first_pass_video_sources(self, *, videos, max_image_bytes, max_video_bytes):
+        return {
+            "poster_images": [
+                LoadedRemoteImage(
+                    bytes=image_bytes(),
+                    mime_type="image/jpeg",
+                    original_name="poster-video.mp4.jpg",
+                    url=videos[0].poster_url,
+                    position=videos[0].position,
+                )
+            ],
+            "transcript_text": "Video 1 transcript:\nMix batter and bake.",
+        }
+
+
 def test_url_images_use_remaining_capacity_after_attachments():
     client = client_with_session()
     registry = FakeRegistry()
@@ -186,6 +227,49 @@ def test_url_images_use_remaining_capacity_after_attachments():
     assert response.status_code == 200
     assert registry.max_images_seen == 9
     assert [source["type"] for source in detail.json()["sources"]] == ["IMAGE", "URL", "IMAGE"]
+
+
+def test_url_video_poster_and_transcript_are_passed_to_ai_sources():
+    client = client_with_session()
+    provider = CapturingProvider()
+    set_url_content_loader_registry(FakeVideoRegistry())
+    set_video_processor(FakeVideoProcessor())
+    set_recipe_extraction_provider(provider)
+
+    response = client.post(
+        "/imports",
+        data={"clientImportId": "video-url", "url": "https://example.com/recipe"},
+        headers={"X-Client-Id": "client-1"},
+    )
+
+    assert response.status_code == 200
+    assert [(source.type, source.sourceRef, source.position) for source in provider.sources] == [
+        ("URL", None, 0),
+        ("TEXT", None, 1),
+        ("IMAGE", "url_video_poster_0", 2),
+    ]
+    assert provider.sources[1].text == "Video 1 transcript:\nMix batter and bake."
+
+
+def test_url_video_transcript_survives_when_image_capacity_is_full():
+    client = client_with_session()
+    provider = CapturingProvider()
+    set_url_content_loader_registry(FakeVideoRegistry())
+    set_video_processor(FakeVideoProcessor())
+    set_recipe_extraction_provider(provider)
+    files = [("files", (f"recipe-{index}.jpg", image_bytes(), "image/jpeg")) for index in range(10)]
+
+    response = client.post(
+        "/imports",
+        data={"clientImportId": "video-url-full-capacity", "url": "https://example.com/recipe"},
+        files=files,
+        headers={"X-Client-Id": "client-1"},
+    )
+
+    assert response.status_code == 200
+    assert [source.type for source in provider.sources].count("IMAGE") == 10
+    assert any(source.type == "TEXT" and source.text == "Video 1 transcript:\nMix batter and bake." for source in provider.sources)
+    assert all(source.sourceRef != "url_video_poster_0" for source in provider.sources)
 
 
 class CapturingProvider(FakeRecipeExtractionProvider):

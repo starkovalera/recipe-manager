@@ -85,6 +85,9 @@ async def test_instagram_loader_parses_embed_sidecar_and_normalizes_url():
         ("https://cdn.test/large.jpg", 0),
         ("https://cdn.test/second.jpg", 2),
     ]
+    assert [(video.url, video.poster_url, video.position, video.original_name) for video in loaded.videos] == [
+        ("https://cdn.test/video.mp4", "https://cdn.test/poster.jpg", 0, "video.mp4")
+    ]
 
 
 async def test_instagram_loader_falls_back_to_generic_content_on_embed_error():
@@ -202,6 +205,9 @@ async def test_threads_loader_extracts_primary_same_author_chain_and_media():
     assert [(image.url, image.position) for image in loaded.images] == [
         ("https://cdn.test/root-large.webp", 0),
         ("https://cdn.test/carousel.webp", 1),
+    ]
+    assert [(video.url, video.poster_url, video.position, video.original_name) for video in loaded.videos] == [
+        ("https://cdn.test/video.mp4", "https://cdn.test/poster.webp", 0, "video.mp4")
     ]
 
 

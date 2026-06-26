@@ -16,6 +16,7 @@ from app.imports.cover_guard import CoverGuardInput, choose_cover_candidate
 from app.imports.source_platform import derive_source_name
 from app.imports.sources import normalize_quality_source_refs, normalize_single_url_quality, source_assessments
 from app.imports.sources import review_reason_codes, should_create_review_flag
+from app.imports.video import FirstPassVideoSources, VideoProcessor
 from app.core.config import get_settings
 from app.media.images import create_cover_image, image_to_data_url, validate_image_upload
 from app.imports.url_loaders.generic import GenericUrlContentLoader
@@ -75,11 +76,17 @@ class DefaultUrlContentRegistry:
         )
 
     async def load(self, url: str, max_images: int, max_image_bytes: int) -> LoadedUrlContent:
-        return await self.registry.loader_for(url).load(url, max_images=max_images, max_image_bytes=max_image_bytes)
+        return await self.registry.loader_for(url).load(
+            url,
+            max_images=max_images,
+            max_image_bytes=max_image_bytes,
+            max_videos=get_settings().max_import_videos,
+        )
 
 
 _url_content_loader_registry: UrlContentRegistryProtocol = DefaultUrlContentRegistry()
 _recipe_extraction_provider_override: RecipeExtractionProvider | None = None
+_video_processor_override = None
 
 
 def set_url_content_loader_registry(registry: UrlContentRegistryProtocol) -> None:
@@ -97,10 +104,41 @@ def reset_recipe_extraction_provider() -> None:
     _recipe_extraction_provider_override = None
 
 
+def set_video_processor(processor) -> None:
+    global _video_processor_override
+    _video_processor_override = processor
+
+
+def reset_video_processor() -> None:
+    global _video_processor_override
+    _video_processor_override = None
+
+
 def _recipe_extraction_provider() -> tuple[str, RecipeExtractionProvider]:
     if _recipe_extraction_provider_override is not None:
         return "test", _recipe_extraction_provider_override
     return create_recipe_extraction_provider(get_settings())
+
+
+def _video_processor():
+    return _video_processor_override or VideoProcessor(get_settings())
+
+
+def _coerce_first_pass_video_sources(value) -> FirstPassVideoSources:
+    if isinstance(value, FirstPassVideoSources):
+        return value
+    return FirstPassVideoSources(
+        poster_images=list(value.get("poster_images") or []),
+        transcript_text=value.get("transcript_text"),
+    )
+
+
+async def _prepare_first_pass_video_sources(processor, videos, max_image_bytes: int, max_video_bytes: int):
+    return await processor.prepare_first_pass_video_sources(
+        videos=videos,
+        max_image_bytes=max_image_bytes,
+        max_video_bytes=max_video_bytes,
+    )
 
 
 def _cleanup_storage_keys(storage: LocalStorageService, storage_keys: list[str]) -> None:
@@ -266,6 +304,61 @@ def process_import_job(session: Session, job_id: str) -> None:
                         position=source.position + remote_image.position + 1,
                     )
                 )
+            loaded_videos = loaded_url.videos[: get_settings().max_import_videos]
+            if loaded_videos:
+                started_at = datetime.now(timezone.utc)
+                try:
+                    first_pass_video_sources = _coerce_first_pass_video_sources(
+                        anyio.run(
+                            _prepare_first_pass_video_sources,
+                            _video_processor(),
+                            loaded_videos,
+                            get_settings().max_upload_bytes,
+                            get_settings().max_video_bytes,
+                        )
+                    )
+                except Exception as error:
+                    log_error(
+                        logger,
+                        "[recipes.import] Video first-pass processing failed",
+                        ownerId=job.owner_id,
+                        importJobId=job.id,
+                        videoCount=len(loaded_videos),
+                        error=repr(error),
+                    )
+                    first_pass_video_sources = FirstPassVideoSources()
+                trimmed_transcript = (first_pass_video_sources.transcript_text or "").strip()
+                log_info(
+                    logger,
+                    "[recipes.import] Video first-pass processed",
+                    ownerId=job.owner_id,
+                    importJobId=job.id,
+                    videoCount=len(loaded_videos),
+                    posterImageCount=len(first_pass_video_sources.poster_images),
+                    hasTranscript=bool(trimmed_transcript),
+                    transcriptCharCount=len(trimmed_transcript),
+                    durationMs=int((datetime.now(timezone.utc) - started_at).total_seconds() * 1000),
+                )
+                if trimmed_transcript:
+                    ready_sources.append(ReadySource(type="TEXT", text=trimmed_transcript, position=len(ready_sources)))
+                for poster in first_pass_video_sources.poster_images:
+                    image_count = len([ready for ready in ready_sources if ready.type == "IMAGE"])
+                    if image_count >= get_settings().max_import_images:
+                        break
+                    source_ref = f"url_video_poster_{poster.position}"
+                    saved = storage.save(poster.bytes, poster.original_name, poster.mime_type)
+                    saved_storage_keys.append(saved.storage_key)
+                    ready_sources.append(
+                        ReadySource(
+                            type="IMAGE",
+                            sourceRef=source_ref,
+                            storageKey=saved.storage_key,
+                            dataUrl=image_to_data_url(poster.bytes, poster.mime_type),
+                            mimeType=poster.mime_type,
+                            originalName=poster.original_name,
+                            position=len(ready_sources),
+                        )
+                    )
 
     started_at = datetime.now(timezone.utc)
     provider_name, provider = _recipe_extraction_provider()

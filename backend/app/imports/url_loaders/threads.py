@@ -7,7 +7,7 @@ from urllib.parse import urlparse
 
 from app.core.logging import log_error, log_info
 from app.imports.url_loaders.generic import httpx_fetch
-from app.imports.url_loaders.types import Fetch, LoadedRemoteImage, LoadedUrlContent
+from app.imports.url_loaders.types import Fetch, LoadedRemoteImage, LoadedRemoteVideo, LoadedUrlContent
 
 
 logger = logging.getLogger("recipes.url.threads")
@@ -18,6 +18,13 @@ MAX_HTML_BYTES = 2 * 1024 * 1024
 @dataclass(frozen=True)
 class ImageDescriptor:
     url: str
+    position: int
+
+
+@dataclass(frozen=True)
+class VideoDescriptor:
+    url: str
+    poster_url: str | None
     position: int
 
 
@@ -239,6 +246,38 @@ def _image_descriptors(posts: list[dict], max_images: int) -> list[ImageDescript
     return descriptors
 
 
+def _first_video_url(media: dict) -> str | None:
+    versions = media.get("video_versions")
+    if not isinstance(versions, list):
+        return None
+    for version in versions:
+        if isinstance(version, dict) and isinstance(version.get("url"), str) and version["url"]:
+            return version["url"]
+    return None
+
+
+def _video_descriptors(posts: list[dict], max_videos: int) -> list[VideoDescriptor]:
+    descriptors: list[VideoDescriptor] = []
+    if max_videos <= 0:
+        return descriptors
+    for post in posts:
+        for media in _media_nodes(post):
+            video_url = _first_video_url(media)
+            if not video_url:
+                continue
+            poster = _largest_candidate(media.get("image_versions2", {}).get("candidates") if isinstance(media.get("image_versions2"), dict) else None)
+            descriptors.append(
+                VideoDescriptor(
+                    url=video_url,
+                    poster_url=str(poster["url"]) if poster and poster.get("url") else None,
+                    position=len(descriptors),
+                )
+            )
+            if len(descriptors) >= max_videos:
+                return descriptors
+    return descriptors
+
+
 def _author_name(posts: list[dict]) -> str | None:
     for post in posts:
         user = post.get("user") if isinstance(post.get("user"), dict) else {}
@@ -251,6 +290,11 @@ def _author_name(posts: list[dict]) -> str | None:
 def _original_name_from_url(url: str) -> str:
     name = urlparse(url).path.split("/")[-1]
     return name if re.search(r"\.[a-z0-9]+$", name, re.IGNORECASE) else "threads-image"
+
+
+def _original_video_name_from_url(url: str) -> str:
+    name = urlparse(url).path.split("/")[-1]
+    return name if re.search(r"\.[a-z0-9]+$", name, re.IGNORECASE) else "threads-video.mp4"
 
 
 async def _download_image(descriptor: ImageDescriptor, fetch: Fetch, max_image_bytes: int) -> LoadedRemoteImage | None:
@@ -276,7 +320,7 @@ class ThreadsUrlContentLoader:
         host = (parsed.hostname or "").lower()
         return bool(re.search(r"(^|\.)threads\.(?:com|net)$", host) and re.match(r"^/(?:@[^/]+/post|t)/", parsed.path))
 
-    async def load(self, url: str, max_images: int, max_image_bytes: int) -> LoadedUrlContent:
+    async def load(self, url: str, max_images: int, max_image_bytes: int, max_videos: int = 1) -> LoadedUrlContent:
         normalized_url = _threads_post_url(url)
         response = await self.fetch(normalized_url, MAX_HTML_BYTES)
         html = response.content.decode("utf-8", errors="replace")
@@ -289,6 +333,7 @@ class ThreadsUrlContentLoader:
             if isinstance(post.get("caption"), dict) and post.get("caption", {}).get("text", "").strip()
         ]
         descriptors = _image_descriptors(posts, max_images)
+        video_descriptors = _video_descriptors(posts, max_videos)
         images: list[LoadedRemoteImage] = []
         for descriptor in descriptors:
             try:
@@ -305,6 +350,7 @@ class ThreadsUrlContentLoader:
             url=normalized_url,
             detectedImageCount=len(descriptors),
             acceptedImageCount=len(images),
+            detectedVideoCount=len(video_descriptors),
             postCount=len(posts),
         )
         return LoadedUrlContent(
@@ -312,4 +358,13 @@ class ThreadsUrlContentLoader:
             author_name=_author_name(posts),
             text=text or f"URL: {normalized_url}",
             images=images,
+            videos=[
+                LoadedRemoteVideo(
+                    url=descriptor.url,
+                    poster_url=descriptor.poster_url,
+                    position=descriptor.position,
+                    original_name=_original_video_name_from_url(descriptor.url),
+                )
+                for descriptor in video_descriptors
+            ],
         )

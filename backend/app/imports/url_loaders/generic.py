@@ -39,7 +39,7 @@ class GenericUrlContentLoader:
     def supports(self, url: str) -> bool:
         return True
 
-    async def load(self, url: str, max_images: int, max_image_bytes: int) -> LoadedUrlContent:
+    async def load(self, url: str, max_images: int, max_image_bytes: int, max_videos: int = 0) -> LoadedUrlContent:
         page = await self.fetch(url, 256_000)
         html = page.content.decode("utf-8", errors="replace")
         description = _meta_content(html, "og:description")
