@@ -24,6 +24,12 @@ class Settings(BaseSettings):
     app_env: Literal["dev", "preview", "test"] = "dev"
     database_url: str | None = None
     upload_dir: Path | None = None
+    cors_origins: list[str] = Field(
+        default_factory=lambda: [
+            "http://127.0.0.1:5173",
+            "http://localhost:5173",
+        ]
+    )
 
     max_import_images: int = 10
     max_import_text_chars: int = 500
