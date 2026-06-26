@@ -14,6 +14,17 @@
 
 Do not write application code until this plan is reviewed and approved.
 
+## Sync-First Pivot
+
+Approved implementation order update:
+
+- First milestone is **working local MVP parity with synchronous import processing**, matching the old `recipe-mvp` behavior more closely.
+- Keep the `ImportJob` model and `clientImportId` duplicate guard, but `POST /imports` may execute the full import pipeline synchronously and return a terminal job for the local MVP.
+- Build and verify the hard behavior first: mixed sources, attachments-first image capacity, URL loaders, Threads/Instagram, text evidence, video transcript/poster boundary, AI quality rules, source statuses, review flags, cover selection/generation, and cleanup.
+- After sync parity is working locally, add the real background queue/worker without changing the frontend-facing import status contract.
+
+This replaces the earlier execution order that tried to establish async worker behavior before porting the full import pipeline.
+
 This plan assumes the first implementation milestone includes:
 
 - Backend scaffold, database, migrations, local storage, default local user/client identity, async import jobs, import pipeline parity, recipe APIs, media serving, and review flags.
@@ -387,7 +398,7 @@ pnpm dev
 - [ ] Run `uv run pytest backend/tests/imports/video -q`; expected pass.
 - [ ] Commit: `feat: add video import boundary`
 
-## Task 10: Import Job Lifecycle API
+## Task 10: Import Job Lifecycle API (Sync-First)
 
 **Files:**
 
@@ -404,9 +415,11 @@ pnpm dev
 - [ ] Enforce `MAX_PARALLEL_IMPORTS_PER_CLIENT` for `pending` or `processing` jobs.
 - [ ] Persist `ImportJob(status=pending)` and `ImportJobSource` rows before returning.
 - [ ] Implement `GET /imports/{job_id}` with status, timestamps, error, and created recipe id.
-- [ ] Implement worker startup in FastAPI lifespan: enqueue pending jobs, claim job by setting processing, run pipeline, mark terminal state.
-- [ ] Implement stale active job failure by configured timeout.
-- [ ] Add tests for immediate response, polling payload, duplicate submit, active limit, stale job failure, worker claim persistence.
+- [ ] For the sync-first MVP, `POST /imports` creates `ImportJob`, executes the import pipeline immediately, and returns a terminal `succeeded` or `failed` job.
+- [ ] Preserve `clientImportId` duplicate handling: same succeeded import returns the existing job/recipe; same active import returns existing active job or `ACTIVE_IMPORT_EXISTS` consistently.
+- [ ] Keep status polling endpoint so the frontend contract already matches the later async worker version.
+- [ ] Defer real worker startup, queue claiming, and stale active job failure to the post-parity async phase.
+- [ ] Add tests for immediate terminal response, polling payload, duplicate submit, active limit behavior, and failure persistence.
 - [ ] Run `uv run pytest backend/tests/imports/test_jobs.py backend/tests/api/test_imports_jobs.py -q`; expected pass.
 - [ ] Commit: `feat: add async import jobs`
 
@@ -578,7 +591,7 @@ Then report:
 - Backend test count and pass/fail status.
 - Frontend test/build/typecheck status.
 - Manual smoke cases completed.
-- Any intentionally deferred scope, especially collections, OpenAPI-generated frontend types, real cloud storage, real auth, live social platform loader verification, video frame slicing, and cover guard-on behavior.
+- Any intentionally deferred scope, especially async queue/worker conversion, collections, OpenAPI-generated frontend types, real cloud storage, real auth, live social platform loader verification, video frame slicing, and cover guard-on behavior.
 
 ## Risk Register
 

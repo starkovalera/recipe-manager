@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+from fastapi import UploadFile
 
 from app.ai.fake_provider import FakeRecipeExtractionProvider
 from app.ai.schemas import ReadySource, ready_source_id
@@ -10,6 +11,7 @@ from app.db.init import ensure_default_user
 from app.imports.sources import source_assessments
 from app.imports.sources import review_reason_codes, should_create_review_flag
 from app.core.config import get_settings
+from app.media.images import image_to_data_url, validate_image_upload
 from app.models import (
     ImportJob,
     ImportJobSource,
@@ -17,6 +19,8 @@ from app.models import (
     ImportSourceStatus,
     Ingredient,
     Recipe,
+    RecipeImage,
+    RecipeImageRole,
     RecipeReviewFlag,
     RecipeReviewFlagStatus,
     RecipeReviewFlagType,
@@ -25,6 +29,7 @@ from app.models import (
     SourceType,
 )
 from app.schemas.imports import ImportJobOut
+from app.storage.local import LocalStorageService
 
 
 def serialize_import_job(job: ImportJob) -> ImportJobOut:
@@ -40,11 +45,35 @@ def serialize_import_job(job: ImportJob) -> ImportJobOut:
     )
 
 
-def create_import_job(session: Session, client_id: str, client_import_id: str, text: str | None, url: str | None) -> ImportJob:
+SUPPORTED_UPLOAD_TYPES = {"image/jpeg", "image/png", "image/webp"}
+
+
+def _validate_import_request(text: str | None, url: str | None, files: list[UploadFile]) -> tuple[str | None, str | None]:
+    settings = get_settings()
     normalized_text = text.strip() if text else None
     normalized_url = url.strip() if url else None
-    if not normalized_text and not normalized_url:
+    if normalized_text and len(normalized_text) > settings.max_import_text_chars:
+        raise ApiError(ErrorCode.TEXT_TOO_LONG, f"Text input supports up to {settings.max_import_text_chars} characters.")
+    if len(files) > settings.max_import_images:
+        raise ApiError(ErrorCode.TOO_MANY_FILES, f"Upload up to {settings.max_import_images} images.")
+    for upload in files:
+        if upload.content_type not in SUPPORTED_UPLOAD_TYPES:
+            raise ApiError(ErrorCode.INVALID_FILE_TYPE, "Upload JPEG, PNG, or WebP images.")
+    if not normalized_text and not normalized_url and not files:
         raise ApiError(ErrorCode.NOT_A_RECIPE, "Add a recipe URL, upload at least one recipe image, or add recipe text.")
+    return normalized_text, normalized_url
+
+
+def create_import_job(
+    session: Session,
+    client_id: str,
+    client_import_id: str,
+    text: str | None,
+    url: str | None,
+    files: list[UploadFile] | None = None,
+) -> ImportJob:
+    files = files or []
+    normalized_text, normalized_url = _validate_import_request(text, url, files)
 
     user = ensure_default_user(session)
     existing = session.scalar(select(ImportJob).where(ImportJob.owner_id == user.id, ImportJob.client_import_id == client_import_id))
@@ -55,6 +84,28 @@ def create_import_job(session: Session, client_id: str, client_import_id: str, t
     position = 0
     if normalized_text:
         job.sources.append(ImportJobSource(type=SourceType.TEXT, status=ImportSourceStatus.READY, text=normalized_text, position=position))
+        position += 1
+    storage = LocalStorageService(get_settings().upload_dir)
+    for upload in files:
+        content = upload.file.read()
+        if len(content) > get_settings().max_upload_bytes:
+            raise ApiError(ErrorCode.FILE_TOO_LARGE, "Uploaded image is too large.")
+        try:
+            validated = validate_image_upload(content, upload.content_type or "", upload.filename or "upload")
+        except ValueError as error:
+            raise ApiError(ErrorCode.INVALID_FILE_TYPE, str(error)) from error
+        saved = storage.save(validated.content, validated.original_name, validated.mime_type)
+        job.sources.append(
+            ImportJobSource(
+                type=SourceType.IMAGE,
+                status=ImportSourceStatus.READY,
+                image_storage_key=saved.storage_key,
+                original_name=saved.original_name,
+                mime_type=saved.mime_type,
+                size_bytes=saved.size_bytes,
+                position=position,
+            )
+        )
         position += 1
     if normalized_url:
         job.sources.append(ImportJobSource(type=SourceType.URL, status=ImportSourceStatus.READY, url=normalized_url, position=position))
@@ -74,9 +125,22 @@ def process_import_job(session: Session, job_id: str) -> None:
     session.commit()
 
     ready_sources: list[ReadySource] = []
+    storage = LocalStorageService(get_settings().upload_dir)
     for source in job.sources:
         if source.type == SourceType.TEXT and source.text:
             ready_sources.append(ReadySource(type="TEXT", text=source.text, position=source.position))
+        elif source.type == SourceType.IMAGE and source.image_storage_key and source.mime_type:
+            ready_sources.append(
+                ReadySource(
+                    type="IMAGE",
+                    sourceRef=f"upload_{source.position}",
+                    storageKey=source.image_storage_key,
+                    dataUrl=image_to_data_url(storage.read(source.image_storage_key), source.mime_type),
+                    mimeType=source.mime_type,
+                    originalName=source.original_name or "upload",
+                    position=source.position,
+                )
+            )
         elif source.type == SourceType.URL and source.url:
             ready_sources.append(ReadySource(type="URL", url=source.url, text=source.url, position=source.position))
 
@@ -113,6 +177,19 @@ def process_import_job(session: Session, job_id: str) -> None:
             )
         )
     assessments = source_assessments([ready_source_id(source) for source in ready_sources], recipe_result.quality)
+    image_by_ref: dict[str, RecipeImage] = {}
+    for source in ready_sources:
+        if source.type == "IMAGE" and source.storageKey and source.mimeType and source.originalName and source.sourceRef:
+            image = RecipeImage(
+                role=RecipeImageRole.SOURCE,
+                storage_key=source.storageKey,
+                original_name=source.originalName,
+                mime_type=source.mimeType,
+                size_bytes=0,
+                position=source.position,
+            )
+            recipe.images.append(image)
+            image_by_ref[ready_source_id(source)] = image
     for source in ready_sources:
         source_id = ready_source_id(source)
         assessment = assessments[source_id]
@@ -122,6 +199,7 @@ def process_import_job(session: Session, job_id: str) -> None:
                 type=SourceType[source.type],
                 url=source.url,
                 text=source.text,
+                image=image_by_ref.get(source_id),
                 source_ref=source_id,
                 position=source.position,
                 status=RecipeSourceStatus(assessment.status),
