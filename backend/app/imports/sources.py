@@ -60,6 +60,7 @@ def normalize_quality_source_refs(quality: ExtractionQuality, sources: list[Read
     for source in sources:
         canonical = ready_source_id(source)
         aliases[canonical] = canonical
+        aliases[str(source.position)] = canonical
         if source.type == "IMAGE" and source.sourceRef:
             aliases[source.sourceRef] = canonical
             aliases[f"image:{source.sourceRef}"] = canonical

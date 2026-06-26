@@ -91,6 +91,25 @@ def test_quality_source_refs_strip_source_id_prefix_from_ai_output():
     assert quality.ignoredSourceRefs == ["image:url_slide_1"]
 
 
+def test_quality_source_refs_normalize_bare_positions_from_ai_output():
+    quality = normalize_quality_source_refs(
+        ExtractionQuality(
+            confidence=0.95,
+            hasConflicts=False,
+            hasIgnored=False,
+            primarySourceRefs=["0", "1", "url_video_poster_0"],
+            ignoredSourceRefs=[],
+        ),
+        [
+            ReadySource(type="URL", url="https://example.com/recipe", position=0),
+            ReadySource(type="TEXT", text="Video transcript", position=1),
+            ReadySource(type="IMAGE", sourceRef="url_video_poster_0", position=2),
+        ],
+    )
+
+    assert quality.primarySourceRefs == ["url:0", "text:1", "image:url_video_poster_0"]
+
+
 def test_review_flag_thresholds_match_import_rules():
     assert should_create_review_flag(ExtractionQuality(confidence=0.75, hasConflicts=False, hasIgnored=False), 0.75)
     assert should_create_review_flag(ExtractionQuality(confidence=1, hasConflicts=True, hasIgnored=False), 0.75)
