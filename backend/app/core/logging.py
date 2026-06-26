@@ -3,6 +3,7 @@ import logging
 import os
 import sys
 from collections.abc import Mapping
+from datetime import datetime
 from typing import TextIO
 from typing import Any
 
@@ -26,17 +27,29 @@ def _safe_value(value: Any) -> Any:
 
 
 def log_info(logger: logging.Logger, message: str, **meta: Any) -> None:
-    if meta:
-        logger.info("%s %s", message, json.dumps(_safe_value(meta), sort_keys=True, ensure_ascii=False))
-    else:
-        logger.info(message)
+    text = _format_log_message(message, meta)
+    logger.info(text)
+    _print_fallback("INFO", logger.name, text)
 
 
 def log_error(logger: logging.Logger, message: str, **meta: Any) -> None:
+    text = _format_log_message(message, meta)
+    logger.error(text)
+    _print_fallback("ERROR", logger.name, text)
+
+
+def _format_log_message(message: str, meta: Mapping[str, Any]) -> str:
     if meta:
-        logger.error("%s %s", message, json.dumps(_safe_value(meta), sort_keys=True, ensure_ascii=False))
-    else:
-        logger.error(message)
+        return f"{message} {json.dumps(_safe_value(meta), sort_keys=True, ensure_ascii=False)}"
+    return message
+
+
+def _print_fallback(level: str, logger_name: str, text: str) -> None:
+    enabled = os.environ.get("RECIPES_STDOUT_LOGS", "true").lower() not in {"0", "false", "no"}
+    if not enabled:
+        return
+    timestamp = datetime.now().isoformat(timespec="milliseconds")
+    print(f"{timestamp} {level} {logger_name} {text}", file=sys.stdout, flush=True)
 
 
 def configure_logging(stream: TextIO | None = None, force: bool | None = None) -> None:

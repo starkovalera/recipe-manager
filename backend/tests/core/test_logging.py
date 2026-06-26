@@ -1,7 +1,7 @@
 from io import StringIO
 import logging
 
-from app.core.logging import configure_logging
+from app.core.logging import configure_logging, log_info
 
 
 def test_configure_logging_overrides_existing_handlers():
@@ -20,3 +20,13 @@ def test_configure_logging_overrides_existing_handlers():
     finally:
         root.handlers = original_handlers
         root.setLevel(original_level)
+
+
+def test_log_info_prints_stdout_fallback(capsys):
+    logger = logging.getLogger("app.test")
+
+    log_info(logger, "[recipes.http] Request handled", path="/recipes", statusCode=200)
+
+    output = capsys.readouterr().out
+    assert "[recipes.http] Request handled" in output
+    assert '"path": "/recipes"' in output
