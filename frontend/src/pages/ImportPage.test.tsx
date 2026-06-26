@@ -28,7 +28,7 @@ describe("ImportPage", () => {
 
     renderPage();
     fireEvent.change(screen.getByLabelText("Text"), { target: { value: "Soup recipe" } });
-    fireEvent.click(screen.getByRole("button", { name: "Import" }));
+    fireEvent.click(screen.getByRole("button", { name: "Import recipe" }));
 
     await waitFor(() => expect(screen.getByText(/Created recipe: recipe-1/)).toBeTruthy());
   });
@@ -43,7 +43,7 @@ describe("ImportPage", () => {
 
     renderPage();
     fireEvent.change(screen.getByLabelText("Images"), { target: { files: [file] } });
-    fireEvent.click(screen.getByRole("button", { name: "Import" }));
+    fireEvent.click(screen.getByRole("button", { name: "Import recipe" }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     const request = fetchMock.mock.calls[0][1] as RequestInit;

@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { listRecipes } from "../api/client";
+import { RecipeGrid } from "../components/RecipeGrid";
 
 export function RecipeListPage({ onSelect }: { onSelect: (recipeId: string) => void }) {
   const query = useQuery({ queryKey: ["recipes"], queryFn: listRecipes });
@@ -10,15 +11,7 @@ export function RecipeListPage({ onSelect }: { onSelect: (recipeId: string) => v
       <h2>Recipes</h2>
       {query.isLoading ? <p>Loading...</p> : null}
       {query.error ? <p role="alert">{query.error.message}</p> : null}
-      <ul>
-        {query.data?.items.map((recipe) => (
-          <li key={recipe.id}>
-            <button type="button" onClick={() => onSelect(recipe.id)}>
-              {recipe.title}
-            </button>
-          </li>
-        ))}
-      </ul>
+      {query.data ? <RecipeGrid recipes={query.data.items} onSelect={onSelect} /> : null}
     </section>
   );
 }

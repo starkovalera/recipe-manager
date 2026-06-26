@@ -1,13 +1,14 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import { createImport, getImportJob } from "../api/client";
 
-export function ImportPage() {
+export function ImportPage({ onImported }: { onImported?: (recipeId: string) => void }) {
   const [text, setText] = useState("");
   const [url, setUrl] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [jobId, setJobId] = useState<string | null>(null);
+  const reportedRecipeId = useRef<string | null>(null);
   const clientImportId = useMemo(() => `import_${Date.now()}_${Math.random().toString(36).slice(2)}`, [jobId]);
 
   const mutation = useMutation({
@@ -31,6 +32,13 @@ export function ImportPage() {
 
   const job = jobQuery.data ?? mutation.data;
 
+  useEffect(() => {
+    if (job?.status === "succeeded" && job.createdRecipeId && reportedRecipeId.current !== job.createdRecipeId) {
+      reportedRecipeId.current = job.createdRecipeId;
+      onImported?.(job.createdRecipeId);
+    }
+  }, [job?.createdRecipeId, job?.status, onImported]);
+
   return (
     <section className="panel">
       <h2>Import</h2>
@@ -53,7 +61,7 @@ export function ImportPage() {
           />
         </label>
         <button type="submit" disabled={mutation.isPending}>
-          Import
+          Import recipe
         </button>
       </form>
       {mutation.error ? <p role="alert">{mutation.error.message}</p> : null}

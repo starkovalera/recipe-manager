@@ -9,7 +9,7 @@ function renderPage(recipeId = "recipe-1") {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
-      <RecipeDetailPage recipeId={recipeId} />
+      <RecipeDetailPage recipeId={recipeId} onDeleted={() => undefined} />
     </QueryClientProvider>,
   );
 }
@@ -30,8 +30,16 @@ describe("RecipeDetailPage", () => {
           note: null,
           instructions: ["Cook."],
           ingredients: [{ id: "ingredient-1", name: "Tomato", position: 0 }],
+          sourceName: "MANUAL",
+          tags: [],
+          nutritionEstimate: null,
           images: [{ id: "image-1", role: "SOURCE", mediaUrl: "/media/source.jpg" }],
           coverImage: { id: "cover-1", role: "COVER", mediaUrl: "/media/cover.jpg", sourceImageId: "image-1" },
+          coverOptions: [
+            { kind: "DEFAULT", label: "Default image", selected: false },
+            { kind: "IMAGE", label: "Source image", selected: true, image: { id: "image-1", role: "SOURCE", mediaUrl: "/media/source.jpg" } },
+          ],
+          collections: [],
           sources: [],
           reviewFlags: [],
         }),
@@ -41,6 +49,6 @@ describe("RecipeDetailPage", () => {
     renderPage();
 
     await waitFor(() => expect(screen.getByAltText("Soup cover")).toBeTruthy());
-    expect(screen.getByAltText("Soup source image 1")).toBeTruthy();
+    expect(screen.getByAltText("Source image")).toBeTruthy();
   });
 });

@@ -10,6 +10,10 @@ from app.db.init import ensure_default_user
 from app.db.session import get_session
 from app.main import create_app
 from app.models import (
+    CoverImageSource,
+    Ingredient,
+    RecipeImage,
+    RecipeImageRole,
     Recipe,
     RecipeReviewFlag,
     RecipeReviewFlagStatus,
@@ -17,6 +21,9 @@ from app.models import (
     RecipeSource,
     RecipeSourceStatus,
     SourceType,
+    SourceName,
+    Tag,
+    User,
 )
 
 
@@ -43,8 +50,26 @@ def seed_recipe(SessionLocal):
         recipe = Recipe(
             owner_id=user.id,
             title="Soup",
+            cook_time_minutes=25,
             instructions=["Heat water"],
+            nutrition_estimate={"calories": 120, "proteinGrams": 5},
+            author_name="chef",
+            source_name=SourceName.INSTAGRAM,
             note="old",
+            cover_image_source=CoverImageSource.DEFAULT,
+        )
+        recipe.ingredients.append(Ingredient(name="Water", quantity="1", unit="cup", position=0))
+        tag = Tag(owner_id=user.id, name="quick")
+        recipe.tags.append(tag)
+        recipe.images.append(
+            RecipeImage(
+                role=RecipeImageRole.SOURCE,
+                storage_key="source.jpg",
+                original_name="source.jpg",
+                mime_type="image/jpeg",
+                size_bytes=10,
+                position=0,
+            )
         )
         recipe.sources.append(
             RecipeSource(
@@ -83,8 +108,34 @@ def test_recipe_list_and_detail_include_sources_and_flags():
     assert list_response.json()["items"][0]["title"] == "Soup"
     assert detail_response.status_code == 200
     detail = detail_response.json()
+    assert detail["sourceName"] == "INSTAGRAM"
+    assert detail["authorName"] == "chef"
+    assert detail["nutritionEstimate"] == {"calories": 120, "proteinGrams": 5}
+    assert detail["tags"] == ["quick"]
+    assert detail["coverOptions"][0]["kind"] == "DEFAULT"
     assert detail["sources"][0]["status"] == "used"
     assert detail["reviewFlags"][0]["reasonCode"] == "LOW_CONFIDENCE"
+
+
+def test_recipe_endpoints_are_scoped_to_current_user():
+    client, SessionLocal = client_with_session()
+    recipe_id, _ = seed_recipe(SessionLocal)
+    with SessionLocal() as session:
+        other_user = User(id="other-user", email="other@example.test")
+        other_recipe = Recipe(owner_id=other_user.id, title="Private Soup", instructions=["Hide"])
+        session.add_all([other_user, other_recipe])
+        session.commit()
+        other_recipe_id = other_recipe.id
+
+    list_response = client.get("/recipes")
+    other_detail = client.get(f"/recipes/{other_recipe_id}")
+    other_patch = client.patch(f"/recipes/{other_recipe_id}", json={"title": "Leak"})
+    other_delete = client.delete(f"/recipes/{other_recipe_id}")
+
+    assert [item["id"] for item in list_response.json()["items"]] == [recipe_id]
+    assert other_detail.status_code == 404
+    assert other_patch.status_code == 404
+    assert other_delete.status_code == 404
 
 
 def test_patch_recipe_trims_and_truncates_note():
@@ -96,6 +147,48 @@ def test_patch_recipe_trims_and_truncates_note():
     assert response.status_code == 200
     assert len(response.json()["note"]) == 500
     assert response.json()["note"] == "x" * 500
+
+
+def test_patch_recipe_updates_full_editable_fields_and_cover():
+    client, SessionLocal = client_with_session()
+    recipe_id, _ = seed_recipe(SessionLocal)
+    detail = client.get(f"/recipes/{recipe_id}").json()
+    source_image_id = detail["images"][0]["id"]
+
+    response = client.patch(
+        f"/recipes/{recipe_id}",
+        json={
+            "title": "Better Soup",
+            "cookTimeMinutes": 35,
+            "nutritionEstimate": {"calories": 200, "proteinGrams": 8, "fatGrams": 2, "carbsGrams": 30},
+            "ingredients": [{"name": "Tomato", "quantity": "2", "unit": "pcs", "note": "ripe"}],
+            "instructions": ["Chop tomatoes", "Cook"],
+            "tags": ["dinner", "quick"],
+            "note": "new note",
+            "coverSelection": {"kind": "IMAGE", "imageId": source_image_id},
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["title"] == "Better Soup"
+    assert payload["cookTimeMinutes"] == 35
+    assert payload["nutritionEstimate"]["calories"] == 200
+    assert payload["ingredients"][0]["name"] == "Tomato"
+    assert payload["instructions"] == ["Chop tomatoes", "Cook"]
+    assert payload["tags"] == ["dinner", "quick"]
+    assert payload["coverImage"]["id"] == source_image_id
+
+
+def test_delete_recipe_removes_it_from_list_and_detail():
+    client, SessionLocal = client_with_session()
+    recipe_id, _ = seed_recipe(SessionLocal)
+
+    response = client.delete(f"/recipes/{recipe_id}")
+
+    assert response.status_code == 204
+    assert client.get(f"/recipes/{recipe_id}").status_code == 404
+    assert client.get("/recipes").json()["items"] == []
 
 
 def test_resolve_and_unresolve_review_flag():

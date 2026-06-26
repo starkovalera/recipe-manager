@@ -13,6 +13,20 @@ class IngredientOut(BaseModel):
     position: int
 
 
+class IngredientIn(BaseModel):
+    name: str
+    quantity: str | None = None
+    unit: str | None = None
+    note: str | None = None
+
+
+class NutritionEstimateIn(BaseModel):
+    calories: float | None = None
+    proteinGrams: float | None = None
+    fatGrams: float | None = None
+    carbsGrams: float | None = None
+
+
 class RecipeSourceOut(BaseModel):
     id: str
     type: str
@@ -42,9 +56,27 @@ class RecipeImageOut(BaseModel):
     sourceImageId: str | None = None
 
 
+class CoverOptionOut(BaseModel):
+    kind: str
+    image: RecipeImageOut | None = None
+    label: str
+    selected: bool
+
+
+class CoverSelectionIn(BaseModel):
+    kind: Literal["DEFAULT", "IMAGE"]
+    imageId: str | None = None
+
+
+class RecipeCollectionOut(BaseModel):
+    id: str
+    name: str
+
+
 class RecipeListItemOut(BaseModel):
     id: str
     title: str
+    coverImage: RecipeImageOut | None = None
     note: str | None = None
     updatedAt: datetime | None = None
 
@@ -56,10 +88,17 @@ class RecipeListOut(BaseModel):
 class RecipeDetailOut(RecipeListItemOut):
     servings: int | None = None
     cookTimeMinutes: int | None = None
+    nutritionEstimate: dict[str, Any] | None = None
+    authorName: str | None = None
+    sourceName: str
+    tags: list[str]
     instructions: list[str]
     ingredients: list[IngredientOut]
     images: list[RecipeImageOut]
     coverImage: RecipeImageOut | None = None
+    coverImageSource: str | None = None
+    coverOptions: list[CoverOptionOut]
+    collections: list[RecipeCollectionOut]
     sources: list[RecipeSourceOut]
     reviewFlags: list[ReviewFlagOut]
 
@@ -70,8 +109,12 @@ class RecipePatchIn(BaseModel):
     title: str | None = None
     servings: int | None = None
     cookTimeMinutes: int | None = None
+    nutritionEstimate: NutritionEstimateIn | None = None
+    ingredients: list[IngredientIn] | None = None
     instructions: list[str] | None = None
+    tags: list[str] | None = None
     note: str | None = None
+    coverSelection: CoverSelectionIn | None = None
 
 
 class ReviewFlagPatchIn(BaseModel):

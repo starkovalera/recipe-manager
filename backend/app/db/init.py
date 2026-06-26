@@ -1,3 +1,7 @@
+from pathlib import Path
+
+from alembic import command
+from alembic.config import Config
 from sqlalchemy.orm import Session
 
 from app.models import User
@@ -15,3 +19,11 @@ def ensure_default_user(session: Session) -> User:
     session.commit()
     session.refresh(user)
     return user
+
+
+def run_migrations(database_url: str) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    config = Config(str(backend_root / "alembic.ini"))
+    config.set_main_option("script_location", str(backend_root / "alembic"))
+    config.set_main_option("sqlalchemy.url", database_url)
+    command.upgrade(config, "head")

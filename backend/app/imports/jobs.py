@@ -11,7 +11,6 @@ from app.ai.provider import RecipeExtractionProvider
 from app.ai.schemas import ReadySource, ready_source_id
 from app.core.errors import ApiError, ErrorCode
 from app.core.logging import log_error, log_info
-from app.db.init import ensure_default_user
 from app.imports.cover_guard import CoverCandidate as ImportCoverCandidate
 from app.imports.cover_guard import CoverGuardInput, choose_cover_candidate
 from app.imports.sources import normalize_single_url_quality, source_assessments
@@ -135,6 +134,7 @@ def _validate_import_request(text: str | None, url: str | None, files: list[Uplo
 
 def create_import_job(
     session: Session,
+    owner_id: str,
     client_id: str,
     client_import_id: str,
     text: str | None,
@@ -144,12 +144,11 @@ def create_import_job(
     files = files or []
     normalized_text, normalized_url = _validate_import_request(text, url, files)
 
-    user = ensure_default_user(session)
-    existing = session.scalar(select(ImportJob).where(ImportJob.owner_id == user.id, ImportJob.client_import_id == client_import_id))
+    existing = session.scalar(select(ImportJob).where(ImportJob.owner_id == owner_id, ImportJob.client_import_id == client_import_id))
     if existing is not None:
         return existing
 
-    job = ImportJob(owner_id=user.id, client_id=client_id, client_import_id=client_import_id, status=ImportJobStatus.PENDING)
+    job = ImportJob(owner_id=owner_id, client_id=client_id, client_import_id=client_import_id, status=ImportJobStatus.PENDING)
     position = 0
     if normalized_text:
         job.sources.append(ImportJobSource(type=SourceType.TEXT, status=ImportSourceStatus.READY, text=normalized_text, position=position))
@@ -184,7 +183,7 @@ def create_import_job(
     log_info(
         logger,
         "[recipes.import] Import job created",
-        ownerId=user.id,
+        ownerId=owner_id,
         importJobId=job.id,
         clientId=client_id,
         clientImportId=client_import_id,
@@ -472,8 +471,8 @@ def process_import_job(session: Session, job_id: str) -> None:
     )
 
 
-def get_import_job(session: Session, job_id: str) -> ImportJob:
-    job = session.get(ImportJob, job_id)
+def get_import_job(session: Session, job_id: str, owner_id: str) -> ImportJob:
+    job = session.scalar(select(ImportJob).where(ImportJob.id == job_id, ImportJob.owner_id == owner_id))
     if job is None:
         raise ApiError(ErrorCode.IMPORT_NOT_FOUND, "Import job not found.", status_code=404)
     return job

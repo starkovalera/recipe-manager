@@ -1,5 +1,5 @@
 import { getClientId } from "./clientId";
-import type { ImportJob, RecipeDetail, RecipeList } from "./types";
+import type { CollectionDetail, CollectionList, ImportJob, RecipeDetail, RecipeList, RecipePatch } from "./types";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 let debugApiLogging = import.meta.env.VITE_DEBUG_API === "true";
@@ -34,9 +34,10 @@ export class ApiError extends Error {
 }
 
 async function parseResponse<T>(response: Response): Promise<T> {
-  const payload = await response.json();
+  const textReader = (response as { text?: () => Promise<string> }).text;
+  const payload = textReader ? await textReader.call(response).then((text) => (text ? JSON.parse(text) : undefined)) : await response.json();
   if (!response.ok) {
-    throw new ApiError(payload.errorCode ?? "API_ERROR", payload.message ?? "Request failed.", response.status);
+    throw new ApiError(payload?.errorCode ?? "API_ERROR", payload?.message ?? "Request failed.", response.status);
   }
   return payload as T;
 }
@@ -79,7 +80,7 @@ export async function getRecipe(recipeId: string): Promise<RecipeDetail> {
   return request<RecipeDetail>(`/recipes/${recipeId}`);
 }
 
-export async function patchRecipe(recipeId: string, patch: Partial<Pick<RecipeDetail, "title" | "note" | "instructions">>): Promise<RecipeDetail> {
+export async function patchRecipe(recipeId: string, patch: RecipePatch): Promise<RecipeDetail> {
   return request<RecipeDetail>(
     `/recipes/${recipeId}`,
     {
@@ -110,4 +111,36 @@ export async function createImport(input: { clientImportId: string; text?: strin
 
 export async function getImportJob(jobId: string): Promise<ImportJob> {
   return request<ImportJob>(`/imports/${jobId}`);
+}
+
+export async function deleteRecipe(recipeId: string): Promise<void> {
+  await request<void>(`/recipes/${recipeId}`, { method: "DELETE" });
+}
+
+export async function listCollections(): Promise<CollectionList> {
+  return request<CollectionList>("/collections");
+}
+
+export async function createCollection(input: { name: string; description?: string | null }): Promise<CollectionDetail> {
+  return request<CollectionDetail>("/collections", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
+export async function getCollection(collectionId: string): Promise<CollectionDetail> {
+  return request<CollectionDetail>(`/collections/${collectionId}`);
+}
+
+export async function deleteCollection(collectionId: string): Promise<void> {
+  await request<void>(`/collections/${collectionId}`, { method: "DELETE" });
+}
+
+export async function addRecipeToCollection(collectionId: string, recipeId: string): Promise<void> {
+  await request<void>(`/collections/${collectionId}/recipes/${recipeId}`, { method: "PUT" });
+}
+
+export async function removeRecipeFromCollection(collectionId: string, recipeId: string): Promise<void> {
+  await request<void>(`/collections/${collectionId}/recipes/${recipeId}`, { method: "DELETE" });
 }

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { ApiError, createImport, listRecipes, setApiDebugLoggingForTests } from "./client";
+import { ApiError, deleteRecipe, createImport, listRecipes, setApiDebugLoggingForTests } from "./client";
 
 describe("api client", () => {
   beforeEach(() => {
@@ -73,5 +73,18 @@ describe("api client", () => {
       "[recipes.frontend.api] response",
       expect.objectContaining({ method: "GET", path: "/recipes", status: 200 }),
     );
+  });
+
+  it("handles empty 204 responses", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 204,
+        text: async () => "",
+      }),
+    );
+
+    await expect(deleteRecipe("recipe-1")).resolves.toBeUndefined();
   });
 });
