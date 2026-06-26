@@ -1,4 +1,5 @@
 import json
+import logging
 from typing import Any
 
 from openai import AsyncOpenAI
@@ -6,44 +7,151 @@ from pydantic import ValidationError
 
 from app.ai.prompt import recipe_extraction_prompt
 from app.ai.provider import RecipeExtractionProvider
-from app.ai.schemas import ExtractedRecipe, ExtractionResult, ReadySource
+from app.ai.schemas import ExtractedRecipe, ExtractionResult, ReadySource, ready_source_id
 from app.core.config import Settings
+from app.core.logging import log_info
+
+logger = logging.getLogger("recipes.ai.openai")
 
 
-def _source_text(source: ReadySource) -> str:
-    if source.type == "TEXT":
-        return f"TEXT source text:{source.text or ''}"
+RECIPE_JSON_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "properties": {
+        "notARecipe": {"type": "boolean"},
+        "title": {"type": "string"},
+        "ingredients": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "name": {"type": "string"},
+                    "quantity": {"type": ["string", "null"]},
+                    "unit": {"type": ["string", "null"]},
+                    "note": {"type": ["string", "null"]},
+                },
+                "required": ["name"],
+            },
+        },
+        "instructions": {"type": "array", "items": {"type": "string"}},
+        "servings": {"type": ["integer", "null"]},
+        "cookTimeMinutes": {"type": ["integer", "null"]},
+        "nutritionEstimate": {
+            "type": ["object", "null"],
+            "additionalProperties": False,
+            "properties": {
+                "calories": {"type": ["number", "null"]},
+                "proteinGrams": {"type": ["number", "null"]},
+                "fatGrams": {"type": ["number", "null"]},
+                "carbsGrams": {"type": ["number", "null"]},
+            },
+        },
+        "authorName": {"type": ["string", "null"]},
+        "tags": {"type": "array", "items": {"type": "string"}},
+        "quality": {
+            "type": ["object", "null"],
+            "additionalProperties": False,
+            "properties": {
+                "confidence": {"type": "number"},
+                "hasConflicts": {"type": "boolean"},
+                "hasIgnored": {"type": "boolean"},
+                "primarySourceRefs": {"type": "array", "items": {"type": "string"}},
+                "ignoredSourceRefs": {"type": "array", "items": {"type": "string"}},
+            },
+            "required": ["confidence", "hasConflicts", "hasIgnored", "primarySourceRefs", "ignoredSourceRefs"],
+        },
+        "coverCandidate": {
+            "type": ["object", "null"],
+            "additionalProperties": False,
+            "properties": {
+                "sourceRef": {"type": "string"},
+                "sourcePosition": {"type": "integer"},
+                "crop": {
+                    "type": ["object", "null"],
+                    "additionalProperties": False,
+                    "properties": {
+                        "x": {"type": "number"},
+                        "y": {"type": "number"},
+                        "width": {"type": "number"},
+                        "height": {"type": "number"},
+                    },
+                },
+                "confidence": {"type": "number"},
+                "reason": {"type": ["string", "null"]},
+            },
+            "required": ["sourceRef", "sourcePosition", "confidence"],
+        },
+    },
+}
+
+
+def _source_log_summary(source: ReadySource) -> dict[str, Any]:
+    if source.type == "IMAGE":
+        return {
+            "type": source.type,
+            "sourceId": ready_source_id(source),
+            "sourceRef": source.sourceRef,
+            "position": source.position,
+            "originalName": source.originalName,
+            "mimeType": source.mimeType,
+        }
     if source.type == "URL":
-        return f"URL source url={source.url or ''} text:{source.text or ''}"
-    return f"IMAGE sourceRef={source.sourceRef or ''} originalName={source.originalName or ''}"
+        return {
+            "type": source.type,
+            "sourceId": ready_source_id(source),
+            "position": source.position,
+            "url": source.url,
+            "authorName": source.authorName,
+        }
+    return {"type": source.type, "sourceId": ready_source_id(source), "position": source.position}
+
+
+def _source_label(source: ReadySource) -> dict[str, str]:
+    if source.type == "IMAGE":
+        text = (
+            f"Source sourceId={ready_source_id(source)}, image sourceRef={source.sourceRef}, "
+            f"position={source.position}, originalName={source.originalName}"
+        )
+    elif source.type == "URL":
+        text = f"Source sourceId={ready_source_id(source)}, URL at position {source.position}: {source.url}"
+        if source.authorName:
+            text += f"\nFetched authorName: {source.authorName}"
+        if source.text:
+            text += f"\nUntrusted fetched URL text:\n{source.text}"
+    else:
+        text = f"Source sourceId={ready_source_id(source)}, untrusted text at position {source.position}:\n{source.text}"
+    return {"type": "input_text", "text": text}
+
+
+def _source_to_extraction_content(source: ReadySource) -> list[dict[str, Any]]:
+    label = _source_label(source)
+    if source.type == "IMAGE":
+        return [
+            label,
+            {"type": "input_image", "detail": "auto", "image_url": source.dataUrl},
+        ]
+    return [label]
 
 
 def _content_for_sources(sources: list[ReadySource]) -> list[dict[str, Any]]:
-    content: list[dict[str, Any]] = [
-        {
-            "type": "text",
-            "text": "\n\n".join(
-                [
-                    "Return strict JSON with either:",
-                    '{"not_a_recipe": true}',
-                    "or",
-                    '{"recipe": {"title": "...", "ingredients": [{"name": "..."}], "instructions": ["..."], "quality": {"confidence": 0.9, "hasConflicts": false, "hasIgnored": false, "primarySourceRefs": [], "ignoredSourceRefs": []}, "coverCandidate": null}}',
-                    "Use source refs exactly as described below.",
-                    *[_source_text(source) for source in sources],
-                ]
-            ),
-        }
-    ]
+    content: list[dict[str, Any]] = [{"type": "input_text", "text": recipe_extraction_prompt}]
     for source in sources:
-        if source.type == "IMAGE" and source.dataUrl:
-            content.append({"type": "image_url", "image_url": {"url": source.dataUrl}})
+        content.extend(_source_to_extraction_content(source))
     return content
 
 
-def _normalize_payload(payload: dict[str, Any]) -> dict[str, Any]:
-    if payload.get("notARecipe") is True:
-        payload["not_a_recipe"] = True
-    return payload
+def _parse_recipe_json(text: str) -> ExtractionResult:
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError as error:
+        return ExtractionResult(not_a_recipe=True, error_code="AI_PARSE_FAILED", error_message=str(error))
+    if isinstance(payload, dict) and payload.get("notARecipe") is True:
+        return ExtractionResult(not_a_recipe=True)
+    try:
+        return ExtractionResult(recipe=ExtractedRecipe.model_validate(payload))
+    except ValidationError as error:
+        return ExtractionResult(not_a_recipe=True, error_code="INVALID_EXTRACTION_RESULT", error_message=str(error))
 
 
 class OpenAIRecipeExtractionProvider(RecipeExtractionProvider):
@@ -54,21 +162,48 @@ class OpenAIRecipeExtractionProvider(RecipeExtractionProvider):
         self.client = client or AsyncOpenAI(api_key=settings.openai_api_key)
 
     async def extract(self, sources: list[ReadySource]) -> ExtractionResult:
-        completion = await self.client.chat.completions.create(
-            model=self.settings.openai_recipe_model,
-            response_format={"type": "json_object"},
-            messages=[
-                {"role": "system", "content": recipe_extraction_prompt},
-                {"role": "user", "content": _content_for_sources(sources)},
-            ],
-        )
-        text = completion.choices[0].message.content or "{}"
         try:
-            payload = _normalize_payload(json.loads(text))
-            result = ExtractionResult.model_validate(payload)
-        except (json.JSONDecodeError, ValidationError) as error:
-            return ExtractionResult(not_a_recipe=True, error_code="INVALID_EXTRACTION_RESULT", error_message=str(error))
+            response = await self.client.responses.create(
+                model=self.settings.openai_recipe_model,
+                input=[{"role": "user", "content": _content_for_sources(sources)}],
+                text={
+                    "format": {
+                        "type": "json_schema",
+                        "name": "recipe_extraction_result",
+                        "schema": RECIPE_JSON_SCHEMA,
+                        "description": "Recipe extraction result or a not-a-recipe marker.",
+                        "strict": False,
+                    }
+                },
+            )
+        except Exception as error:
+            log_info(
+                logger,
+                "[recipes.ai.openai] Recipe extraction request failed",
+                model=self.settings.openai_recipe_model,
+                sources=[_source_log_summary(source) for source in sources],
+                sourceCount=len(sources),
+                imageSourceCount=len([source for source in sources if source.type == "IMAGE"]),
+                error=repr(error),
+            )
+            return ExtractionResult(not_a_recipe=True, error_code="AI_UNAVAILABLE", error_message="AI extraction is unavailable.")
+
+        text = response.output_text or "{}"
+        result = _parse_recipe_json(text)
         if result.recipe is not None:
-            # Force a full validation path for nested recipe payloads coming from model JSON.
-            result = result.model_copy(update={"recipe": ExtractedRecipe.model_validate(result.recipe)})
+            parsed: Any = result.recipe.model_dump()
+        elif result.not_a_recipe and not result.error_code:
+            parsed = "NOT_A_RECIPE"
+        else:
+            parsed = {"errorCode": result.error_code, "errorMessage": result.error_message}
+        log_info(
+            logger,
+            "[recipes.ai.openai] Recipe extraction response",
+            model=self.settings.openai_recipe_model,
+            sources=[_source_log_summary(source) for source in sources],
+            sourceCount=len(sources),
+            imageSourceCount=len([source for source in sources if source.type == "IMAGE"]),
+            rawOutput=text,
+            parsed=parsed,
+        )
         return result
