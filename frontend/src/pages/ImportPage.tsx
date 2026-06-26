@@ -6,11 +6,12 @@ import { createImport, getImportJob } from "../api/client";
 export function ImportPage() {
   const [text, setText] = useState("");
   const [url, setUrl] = useState("");
+  const [files, setFiles] = useState<File[]>([]);
   const [jobId, setJobId] = useState<string | null>(null);
   const clientImportId = useMemo(() => `import_${Date.now()}_${Math.random().toString(36).slice(2)}`, [jobId]);
 
   const mutation = useMutation({
-    mutationFn: () => createImport({ clientImportId, text, url }),
+    mutationFn: () => createImport({ clientImportId, text, url, files }),
     onSuccess: (job) => setJobId(job.jobId),
   });
   const jobQuery = useQuery({
@@ -41,6 +42,15 @@ export function ImportPage() {
         <label>
           Text
           <textarea value={text} onChange={(event) => setText(event.target.value)} rows={5} />
+        </label>
+        <label>
+          Images
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            multiple
+            onChange={(event) => setFiles(Array.from(event.target.files ?? []))}
+          />
         </label>
         <button type="submit" disabled={mutation.isPending}>
           Import

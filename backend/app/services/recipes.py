@@ -9,12 +9,26 @@ from app.models import Recipe, RecipeReviewFlag, RecipeReviewFlagStatus
 from app.schemas.recipes import (
     IngredientOut,
     RecipeDetailOut,
+    RecipeImageOut,
     RecipeListItemOut,
     RecipeListOut,
     RecipePatchIn,
     RecipeSourceOut,
     ReviewFlagOut,
 )
+
+
+def _image_url(storage_key: str) -> str:
+    return f"/media/{storage_key}"
+
+
+def _serialize_image(image) -> RecipeImageOut:
+    return RecipeImageOut(
+        id=image.id,
+        role=image.role.value,
+        mediaUrl=_image_url(image.storage_key),
+        sourceImageId=image.source_image_id,
+    )
 
 
 def _serialize_flag(flag: RecipeReviewFlag) -> ReviewFlagOut:
@@ -30,6 +44,8 @@ def _serialize_flag(flag: RecipeReviewFlag) -> ReviewFlagOut:
 
 
 def _serialize_recipe_detail(recipe: Recipe) -> RecipeDetailOut:
+    source_images = sorted([image for image in recipe.images if image.role.value == "SOURCE"], key=lambda item: item.position)
+    cover_image = next((image for image in recipe.images if image.id == recipe.cover_image_id), None)
     return RecipeDetailOut(
         id=recipe.id,
         title=recipe.title,
@@ -49,6 +65,8 @@ def _serialize_recipe_detail(recipe: Recipe) -> RecipeDetailOut:
             )
             for ingredient in sorted(recipe.ingredients, key=lambda item: item.position)
         ],
+        images=[_serialize_image(image) for image in source_images],
+        coverImage=_serialize_image(cover_image) if cover_image else None,
         sources=[
             RecipeSourceOut(
                 id=source.id,
@@ -80,6 +98,7 @@ def get_recipe_detail(session: Session, recipe_id: str) -> RecipeDetailOut:
         .where(Recipe.id == recipe_id)
         .options(
             selectinload(Recipe.ingredients),
+            selectinload(Recipe.images),
             selectinload(Recipe.sources),
             selectinload(Recipe.review_flags),
         )

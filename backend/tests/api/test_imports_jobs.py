@@ -7,11 +7,23 @@ from sqlalchemy.pool import StaticPool
 from PIL import Image
 from io import BytesIO
 
+import pytest
 from app.db.base import Base
 from app.db.session import get_session
-from app.imports.jobs import set_url_content_loader_registry
+from app.ai.fake_provider import FakeRecipeExtractionProvider
+from app.ai.schemas import CoverCandidate, ExtractedRecipe, ExtractionQuality, ExtractionResult
+from app.imports.jobs import DefaultUrlContentRegistry, set_recipe_extraction_provider, set_url_content_loader_registry
 from app.imports.url_loaders.types import LoadedRemoteImage, LoadedUrlContent
 from app.main import create_app
+
+
+@pytest.fixture(autouse=True)
+def reset_import_dependencies():
+    set_recipe_extraction_provider(FakeRecipeExtractionProvider())
+    set_url_content_loader_registry(DefaultUrlContentRegistry())
+    yield
+    set_recipe_extraction_provider(FakeRecipeExtractionProvider())
+    set_url_content_loader_registry(DefaultUrlContentRegistry())
 
 
 def client_with_session():
@@ -167,3 +179,75 @@ def test_url_images_use_remaining_capacity_after_attachments():
     assert response.status_code == 200
     assert registry.max_images_seen == 9
     assert [source["type"] for source in detail.json()["sources"]] == ["IMAGE", "URL", "IMAGE"]
+
+
+class LowConfidenceProvider:
+    async def extract(self, sources):
+        return ExtractionResult(
+            recipe=ExtractedRecipe(
+                title="Low confidence recipe",
+                ingredients=[{"name": "Ingredient"}],
+                instructions=["Cook."],
+                quality=ExtractionQuality(
+                    confidence=0,
+                    hasConflicts=False,
+                    hasIgnored=False,
+                    primarySourceRefs=[],
+                    ignoredSourceRefs=[],
+                ),
+            )
+        )
+
+
+def test_low_confidence_import_fails_and_cleans_uploaded_files():
+    client = client_with_session()
+    set_recipe_extraction_provider(LowConfidenceProvider())
+
+    response = client.post(
+        "/imports",
+        data={"clientImportId": "low-confidence"},
+        files=[("files", ("recipe.jpg", image_bytes(), "image/jpeg"))],
+        headers={"X-Client-Id": "client-1"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "failed"
+    assert response.json()["errorCode"] == "NOT_A_RECIPE"
+
+
+class CoverCandidateProvider:
+    async def extract(self, sources):
+        image_ref = next(source.sourceRef for source in sources if source.type == "IMAGE")
+        return ExtractionResult(
+            recipe=ExtractedRecipe(
+                title="Cover recipe",
+                ingredients=[{"name": "Ingredient"}],
+                instructions=["Cook."],
+                quality=ExtractionQuality(
+                    confidence=0.9,
+                    hasConflicts=False,
+                    hasIgnored=False,
+                    primarySourceRefs=[f"image:{image_ref}"],
+                    ignoredSourceRefs=[],
+                ),
+                coverCandidate=CoverCandidate(sourceRef=f"image:{image_ref}", sourcePosition=0),
+            )
+        )
+
+
+def test_cover_candidate_creates_cover_image():
+    client = client_with_session()
+    set_recipe_extraction_provider(CoverCandidateProvider())
+
+    response = client.post(
+        "/imports",
+        data={"clientImportId": "cover"},
+        files=[("files", ("recipe.jpg", image_bytes(), "image/jpeg"))],
+        headers={"X-Client-Id": "client-1"},
+    )
+    recipe_id = response.json()["createdRecipeId"]
+    detail = client.get(f"/recipes/{recipe_id}")
+
+    assert response.status_code == 200
+    assert detail.json()["coverImage"]["role"] == "COVER"
+    assert detail.json()["images"][0]["role"] == "SOURCE"

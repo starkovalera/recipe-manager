@@ -3,6 +3,10 @@ import type { ImportJob, RecipeDetail, RecipeList } from "./types";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
+export function mediaUrl(url: string): string {
+  return url.startsWith("http://") || url.startsWith("https://") ? url : `${API_BASE_URL}${url}`;
+}
+
 export class ApiError extends Error {
   constructor(
     public errorCode: string,

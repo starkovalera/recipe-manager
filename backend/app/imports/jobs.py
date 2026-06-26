@@ -6,21 +6,27 @@ from sqlalchemy.orm import Session
 from fastapi import UploadFile
 
 from app.ai.fake_provider import FakeRecipeExtractionProvider
+from app.ai.provider import RecipeExtractionProvider
 from app.ai.schemas import ReadySource, ready_source_id
 from app.core.errors import ApiError, ErrorCode
 from app.db.init import ensure_default_user
-from app.imports.sources import source_assessments
+from app.imports.cover_guard import CoverCandidate as ImportCoverCandidate
+from app.imports.cover_guard import CoverGuardInput, choose_cover_candidate
+from app.imports.sources import normalize_single_url_quality, source_assessments
 from app.imports.sources import review_reason_codes, should_create_review_flag
 from app.core.config import get_settings
-from app.media.images import image_to_data_url, validate_image_upload
+from app.media.images import create_cover_image, image_to_data_url, validate_image_upload
 from app.imports.url_loaders.generic import GenericUrlContentLoader
+from app.imports.url_loaders.instagram import InstagramUrlContentLoader
 from app.imports.url_loaders.registry import UrlContentLoaderRegistry
+from app.imports.url_loaders.threads import ThreadsUrlContentLoader
 from app.imports.url_loaders.types import LoadedUrlContent
 from app.models import (
     ImportJob,
     ImportJobSource,
     ImportJobStatus,
     ImportSourceStatus,
+    CoverImageSource,
     Ingredient,
     Recipe,
     RecipeImage,
@@ -59,18 +65,40 @@ class UrlContentRegistryProtocol:
 
 class DefaultUrlContentRegistry:
     def __init__(self):
-        self.registry = UrlContentLoaderRegistry([GenericUrlContentLoader()])
+        self.registry = UrlContentLoaderRegistry(
+            [InstagramUrlContentLoader(), ThreadsUrlContentLoader(), GenericUrlContentLoader()]
+        )
 
     async def load(self, url: str, max_images: int, max_image_bytes: int) -> LoadedUrlContent:
         return await self.registry.loader_for(url).load(url, max_images=max_images, max_image_bytes=max_image_bytes)
 
 
 _url_content_loader_registry: UrlContentRegistryProtocol = DefaultUrlContentRegistry()
+_recipe_extraction_provider: RecipeExtractionProvider = FakeRecipeExtractionProvider()
 
 
 def set_url_content_loader_registry(registry: UrlContentRegistryProtocol) -> None:
     global _url_content_loader_registry
     _url_content_loader_registry = registry
+
+
+def set_recipe_extraction_provider(provider: RecipeExtractionProvider) -> None:
+    global _recipe_extraction_provider
+    _recipe_extraction_provider = provider
+
+
+def _cleanup_storage_keys(storage: LocalStorageService, storage_keys: list[str]) -> None:
+    for storage_key in storage_keys:
+        storage.delete(storage_key)
+
+
+def _cover_candidate_ref(source_ref: str | None, accepted_refs: set[str]) -> str | None:
+    if source_ref is None:
+        return None
+    if source_ref in accepted_refs:
+        return source_ref
+    image_ref = f"image:{source_ref}"
+    return image_ref if image_ref in accepted_refs else None
 
 
 def _validate_import_request(text: str | None, url: str | None, files: list[UploadFile]) -> tuple[str | None, str | None]:
@@ -149,8 +177,9 @@ def process_import_job(session: Session, job_id: str) -> None:
     job.started_at = datetime.now(timezone.utc)
     session.commit()
 
-    ready_sources: list[ReadySource] = []
     storage = LocalStorageService(get_settings().upload_dir)
+    saved_storage_keys = [source.image_storage_key for source in job.sources if source.image_storage_key]
+    ready_sources: list[ReadySource] = []
     for source in sorted(job.sources, key=lambda item: item.position):
         if source.type == SourceType.TEXT and source.text:
             ready_sources.append(ReadySource(type="TEXT", text=source.text, position=source.position))
@@ -178,6 +207,7 @@ def process_import_job(session: Session, job_id: str) -> None:
             ready_sources.append(ReadySource(type="URL", url=loaded_url.url, text=loaded_url.text, position=source.position))
             for remote_image in loaded_url.images[:remaining_images]:
                 saved = storage.save(remote_image.bytes, remote_image.original_name, remote_image.mime_type)
+                saved_storage_keys.append(saved.storage_key)
                 ready_sources.append(
                     ReadySource(
                         type="IMAGE",
@@ -190,9 +220,9 @@ def process_import_job(session: Session, job_id: str) -> None:
                     )
                 )
 
-    provider = FakeRecipeExtractionProvider()
-    result = anyio.run(provider.extract, ready_sources)
+    result = anyio.run(_recipe_extraction_provider.extract, ready_sources)
     if result.not_a_recipe or result.recipe is None:
+        _cleanup_storage_keys(storage, saved_storage_keys)
         job.status = ImportJobStatus.FAILED
         job.error_code = ErrorCode.NOT_A_RECIPE.value
         job.error_message = "The provided sources do not contain a recipe."
@@ -201,6 +231,17 @@ def process_import_job(session: Session, job_id: str) -> None:
         return
 
     recipe_result = result.recipe
+    is_single_url_import = len(job.sources) == 1 and job.sources[0].type == SourceType.URL
+    recipe_quality = normalize_single_url_quality(recipe_result.quality, is_single_url_import)
+    recipe_result = recipe_result.model_copy(update={"quality": recipe_quality})
+    if recipe_result.quality.confidence <= get_settings().import_min_confidence:
+        _cleanup_storage_keys(storage, saved_storage_keys)
+        job.status = ImportJobStatus.FAILED
+        job.error_code = ErrorCode.NOT_A_RECIPE.value
+        job.error_message = "The extracted recipe confidence is too low."
+        job.finished_at = datetime.now(timezone.utc)
+        session.commit()
+        return
     recipe = Recipe(
         owner_id=job.owner_id,
         title=recipe_result.title,
@@ -234,6 +275,38 @@ def process_import_job(session: Session, job_id: str) -> None:
             )
             recipe.images.append(image)
             image_by_ref[ready_source_id(source)] = image
+    cover_image: RecipeImage | None = None
+    candidate_ref = _cover_candidate_ref(
+        recipe_result.coverCandidate.sourceRef if recipe_result.coverCandidate else None,
+        set(image_by_ref.keys()),
+    )
+    if candidate_ref is not None and recipe_result.coverCandidate is not None:
+        chosen = anyio.run(
+            choose_cover_candidate,
+            CoverGuardInput(
+                candidate=ImportCoverCandidate(sourceRef=candidate_ref, crop=recipe_result.coverCandidate.crop),
+                acceptedImageRefs=list(image_by_ref.keys()),
+                fallbackCandidates=[],
+                enabled=get_settings().enable_cover_candidate_guard,
+                maxFallbackCandidates=get_settings().max_cover_fallback_candidates,
+            ),
+            None,
+        )
+        if chosen is not None:
+            source_image = image_by_ref[chosen.sourceRef]
+            cover_file = create_cover_image(storage, source_image.storage_key, chosen.crop)
+            saved_storage_keys.append(cover_file.storage_key)
+            cover_image = RecipeImage(
+                role=RecipeImageRole.COVER,
+                source_image=source_image,
+                storage_key=cover_file.storage_key,
+                original_name=cover_file.original_name,
+                mime_type=cover_file.mime_type,
+                size_bytes=cover_file.size_bytes,
+                position=0,
+            )
+            recipe.cover_image_source = CoverImageSource.AI
+            recipe.images.append(cover_image)
     for source in ready_sources:
         source_id = ready_source_id(source)
         assessment = assessments[source_id]
@@ -266,6 +339,8 @@ def process_import_job(session: Session, job_id: str) -> None:
         )
     session.add(recipe)
     session.flush()
+    if cover_image is not None:
+        recipe.cover_image_id = cover_image.id
     job.created_recipe_id = recipe.id
     job.status = ImportJobStatus.SUCCEEDED
     job.finished_at = datetime.now(timezone.utc)

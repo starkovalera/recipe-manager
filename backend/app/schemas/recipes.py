@@ -35,6 +35,13 @@ class ReviewFlagOut(BaseModel):
     resolvedAt: datetime | None = None
 
 
+class RecipeImageOut(BaseModel):
+    id: str
+    role: str
+    mediaUrl: str
+    sourceImageId: str | None = None
+
+
 class RecipeListItemOut(BaseModel):
     id: str
     title: str
@@ -51,6 +58,8 @@ class RecipeDetailOut(RecipeListItemOut):
     cookTimeMinutes: int | None = None
     instructions: list[str]
     ingredients: list[IngredientOut]
+    images: list[RecipeImageOut]
+    coverImage: RecipeImageOut | None = None
     sources: list[RecipeSourceOut]
     reviewFlags: list[ReviewFlagOut]
 

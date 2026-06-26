@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
-import { getRecipe, patchRecipe } from "../api/client";
+import { getRecipe, mediaUrl, patchRecipe } from "../api/client";
 
 export function RecipeDetailPage({ recipeId }: { recipeId: string | null }) {
   const queryClient = useQueryClient();
@@ -25,6 +25,14 @@ export function RecipeDetailPage({ recipeId }: { recipeId: string | null }) {
       {query.error ? <p role="alert">{query.error.message}</p> : null}
       {recipe ? (
         <div className="stack">
+          {recipe.coverImage ? <img src={mediaUrl(recipe.coverImage.mediaUrl)} alt={`${recipe.title} cover`} /> : null}
+          {recipe.images.length > 0 ? (
+            <div>
+              {recipe.images.map((image, index) => (
+                <img key={image.id} src={mediaUrl(image.mediaUrl)} alt={`${recipe.title} source image ${index + 1}`} />
+              ))}
+            </div>
+          ) : null}
           <h3>Ingredients</h3>
           <ul>{recipe.ingredients.map((ingredient) => <li key={ingredient.id}>{ingredient.name}</li>)}</ul>
           <h3>Instructions</h3>
