@@ -27,15 +27,15 @@ class NutritionEstimateIn(BaseModel):
     carbsGrams: float | None = None
 
 
-class RecipeSourceOut(BaseModel):
+class RecipeResourceOut(BaseModel):
     id: str
     type: str
     source: str
-    parentSourceId: str | None = None
+    role: str
+    parentResourceId: str | None = None
     url: str | None = None
     imageId: str | None = None
     text: str | None = None
-    sourceRef: str | None = None
     position: int | None = None
     status: str
     assessmentReason: str | None = None
@@ -54,9 +54,7 @@ class ReviewFlagOut(BaseModel):
 
 class RecipeImageOut(BaseModel):
     id: str
-    role: str
     mediaUrl: str
-    sourceImageId: str | None = None
 
 
 class CoverOptionOut(BaseModel):
@@ -100,11 +98,12 @@ class RecipeDetailOut(RecipeListItemOut):
     ingredients: list[IngredientOut]
     images: list[RecipeImageOut]
     coverImage: RecipeImageOut | None = None
-    coverImageSource: str | None = None
     coverOptions: list[CoverOptionOut]
     collections: list[RecipeCollectionOut]
-    sources: list[RecipeSourceOut]
-    debugSources: list[RecipeSourceOut]
+    resources: list[RecipeResourceOut]
+    sources: list[RecipeResourceOut]
+    debugResources: list[RecipeResourceOut]
+    debugSources: list[RecipeResourceOut]
     reviewFlags: list[ReviewFlagOut]
 
 
@@ -126,5 +125,5 @@ class ReviewFlagPatchIn(BaseModel):
     status: Literal["open", "resolved"] = Field(...)
 
 
-class RecipeSourcePatchIn(BaseModel):
+class RecipeResourcePatchIn(BaseModel):
     status: Literal["used", "deleted"] = Field(...)

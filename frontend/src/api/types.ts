@@ -1,4 +1,4 @@
-export type RecipeImage = { id: string; role: string; mediaUrl: string; sourceImageId?: string | null };
+export type RecipeImage = { id: string; mediaUrl: string };
 
 export type ImportJob = {
   jobId: string;
@@ -19,11 +19,12 @@ export type RecipeList = {
   }>;
 };
 
-export type RecipeSource = {
+export type RecipeResource = {
   id: string;
   type: string;
   source: string;
-  parentSourceId?: string | null;
+  role: string;
+  parentResourceId?: string | null;
   status: string;
   imageId?: string | null;
   text?: string | null;
@@ -51,11 +52,12 @@ export type RecipeDetail = RecipeList["items"][number] & {
   ingredients: Array<{ id: string; name: string; quantity?: string | null; unit?: string | null; note?: string | null; position: number }>;
   images: RecipeImage[];
   coverImage?: RecipeImage | null;
-  coverImageSource?: string | null;
   coverOptions: Array<{ kind: string; image?: RecipeImage | null; label: string; selected: boolean }>;
   collections: Array<{ id: string; name: string }>;
-  sources: RecipeSource[];
-  debugSources?: RecipeSource[];
+  resources: RecipeResource[];
+  sources: RecipeResource[];
+  debugResources?: RecipeResource[];
+  debugSources?: RecipeResource[];
   reviewFlags: ReviewFlag[];
 };
 

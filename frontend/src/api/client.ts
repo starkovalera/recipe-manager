@@ -107,9 +107,9 @@ export async function patchReviewFlag(recipeId: string, flagId: string, status: 
   );
 }
 
-export async function patchRecipeSource(recipeId: string, sourceId: string, status: "used" | "deleted"): Promise<RecipeDetail> {
+export async function patchRecipeResource(recipeId: string, resourceId: string, status: "used" | "deleted"): Promise<RecipeDetail> {
   return request<RecipeDetail>(
-    `/recipes/${recipeId}/sources/${sourceId}`,
+    `/recipes/${recipeId}/resources/${resourceId}`,
     {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },

@@ -4,19 +4,18 @@ from sqlalchemy.orm import Session
 from app.db.base import Base
 from app.db.init import DEFAULT_USER_ID, ensure_default_user
 from app.models import (
-    CoverImageSource,
     ImportJob,
     ImportJobStatus,
     Ingredient,
     Recipe,
     RecipeImage,
-    RecipeImageRole,
+    RecipeResource,
+    RecipeResourceOrigin,
+    RecipeResourceRole,
+    RecipeResourceStatus,
     RecipeReviewFlag,
     RecipeReviewFlagStatus,
     RecipeReviewFlagType,
-    RecipeSource,
-    RecipeSourceOrigin,
-    RecipeSourceStatus,
     SourceName,
     SourceType,
     Tag,
@@ -48,14 +47,12 @@ def test_recipe_graph_persists_core_import_entities():
         owner_id=user.id,
         title="Tomato Pasta",
         source_name=SourceName.OTHER,
-        cover_image_source=CoverImageSource.AI,
         instructions=["Boil pasta", "Add sauce"],
         nutrition_estimate={"calories": 500},
         tags=[tag],
     )
     recipe.ingredients.append(Ingredient(name="Pasta", quantity="200", unit="g", position=0))
     image = RecipeImage(
-        role=RecipeImageRole.SOURCE,
         storage_key="dev/source.jpg",
         original_name="source.jpg",
         mime_type="image/jpeg",
@@ -63,17 +60,36 @@ def test_recipe_graph_persists_core_import_entities():
         position=0,
     )
     recipe.images.append(image)
-    recipe.sources.append(
-        RecipeSource(
+    recipe.resources.append(
+        RecipeResource(
             owner_id=user.id,
             type=SourceType.IMAGE,
-            source=RecipeSourceOrigin.MANUAL,
+            source=RecipeResourceOrigin.MANUAL,
+            role=RecipeResourceRole.SOURCE,
             image=image,
-            source_ref="upload_0",
             position=0,
-            status=RecipeSourceStatus.USED,
+            status=RecipeResourceStatus.USED,
             assessment_reason="Selected as primary evidence by AI.",
             assessment_confidence=0.9,
+        )
+    )
+    cover = RecipeImage(
+        storage_key="dev/cover.jpg",
+        original_name="cover.jpg",
+        mime_type="image/jpeg",
+        size_bytes=64,
+        position=1,
+    )
+    recipe.images.append(cover)
+    recipe.resources.append(
+        RecipeResource(
+            owner_id=user.id,
+            type=SourceType.IMAGE,
+            source=RecipeResourceOrigin.GENERATED,
+            role=RecipeResourceRole.COVER_CANDIDATE,
+            image=cover,
+            position=1,
+            status=RecipeResourceStatus.USED,
         )
     )
     recipe.review_flags.append(
@@ -89,6 +105,8 @@ def test_recipe_graph_persists_core_import_entities():
     job = ImportJob(owner_id=user.id, client_id="client-1", client_import_id="import-1", status=ImportJobStatus.SUCCEEDED)
     recipe.import_jobs.append(job)
     session.add(recipe)
+    session.flush()
+    recipe.cover_image_id = cover.id
     session.commit()
 
     saved = session.query(Recipe).filter_by(title="Tomato Pasta").one()
@@ -97,6 +115,9 @@ def test_recipe_graph_persists_core_import_entities():
     assert saved.ingredients[0].name == "Pasta"
     assert saved.tags[0].name == "dinner"
     assert saved.images[0].storage_key == "dev/source.jpg"
-    assert saved.sources[0].status is RecipeSourceStatus.USED
+    assert saved.resources[0].status is RecipeResourceStatus.USED
+    assert saved.resources[1].source is RecipeResourceOrigin.GENERATED
+    assert saved.resources[1].role is RecipeResourceRole.COVER_CANDIDATE
+    assert saved.cover_image_id == saved.resources[1].image_id
     assert saved.review_flags[0].reason_code == "LOW_CONFIDENCE"
     assert saved.import_jobs[0].client_import_id == "import-1"

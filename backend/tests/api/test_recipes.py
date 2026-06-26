@@ -10,17 +10,16 @@ from app.db.init import ensure_default_user
 from app.db.session import get_session
 from app.main import create_app
 from app.models import (
-    CoverImageSource,
     Ingredient,
     RecipeImage,
-    RecipeImageRole,
+    RecipeResource,
+    RecipeResourceOrigin,
+    RecipeResourceRole,
+    RecipeResourceStatus,
     Recipe,
     RecipeReviewFlag,
     RecipeReviewFlagStatus,
     RecipeReviewFlagType,
-    RecipeSource,
-    RecipeSourceOrigin,
-    RecipeSourceStatus,
     SourceType,
     SourceName,
     Tag,
@@ -57,29 +56,38 @@ def seed_recipe(SessionLocal):
             author_name="chef",
             source_name=SourceName.INSTAGRAM,
             note="old",
-            cover_image_source=CoverImageSource.DEFAULT,
         )
         recipe.ingredients.append(Ingredient(name="Water", quantity="1", unit="cup", position=0))
         tag = Tag(owner_id=user.id, name="quick")
         recipe.tags.append(tag)
-        recipe.images.append(
-            RecipeImage(
-                role=RecipeImageRole.SOURCE,
-                storage_key="source.jpg",
-                original_name="source.jpg",
-                mime_type="image/jpeg",
-                size_bytes=10,
+        source_image = RecipeImage(
+            storage_key="source.jpg",
+            original_name="source.jpg",
+            mime_type="image/jpeg",
+            size_bytes=10,
+            position=0,
+        )
+        recipe.images.append(source_image)
+        recipe.resources.append(
+            RecipeResource(
+                owner_id=user.id,
+                type=SourceType.IMAGE,
+                source=RecipeResourceOrigin.MANUAL,
+                role=RecipeResourceRole.SOURCE,
+                image=source_image,
                 position=0,
+                status=RecipeResourceStatus.USED,
             )
         )
-        recipe.sources.append(
-            RecipeSource(
+        recipe.resources.append(
+            RecipeResource(
                 owner_id=user.id,
                 type=SourceType.TEXT,
-                source=RecipeSourceOrigin.MANUAL,
+                source=RecipeResourceOrigin.MANUAL,
+                role=RecipeResourceRole.SOURCE,
                 text="Soup recipe",
                 position=0,
-                status=RecipeSourceStatus.USED,
+                status=RecipeResourceStatus.USED,
                 assessment_reason="Selected as primary evidence by AI.",
                 assessment_confidence=0.8,
             )
@@ -138,7 +146,6 @@ def test_cover_options_select_source_image_for_generated_cover():
         user = ensure_default_user(session)
         recipe = Recipe(owner_id=user.id, title="Soup", instructions=["Heat water"])
         source_image = RecipeImage(
-            role=RecipeImageRole.SOURCE,
             storage_key="source.jpg",
             original_name="source.jpg",
             mime_type="image/jpeg",
@@ -146,8 +153,6 @@ def test_cover_options_select_source_image_for_generated_cover():
             position=0,
         )
         cover_image = RecipeImage(
-            role=RecipeImageRole.COVER,
-            source_image=source_image,
             storage_key="cover.jpg",
             original_name="cover.jpg",
             mime_type="image/jpeg",
@@ -155,25 +160,46 @@ def test_cover_options_select_source_image_for_generated_cover():
             position=-1,
         )
         recipe.images.extend([source_image, cover_image])
+        recipe.resources.extend(
+            [
+                RecipeResource(
+                    owner_id=user.id,
+                    type=SourceType.IMAGE,
+                    source=RecipeResourceOrigin.MANUAL,
+                    role=RecipeResourceRole.SOURCE,
+                    image=source_image,
+                    position=0,
+                    status=RecipeResourceStatus.USED,
+                ),
+                RecipeResource(
+                    owner_id=user.id,
+                    type=SourceType.IMAGE,
+                    source=RecipeResourceOrigin.GENERATED,
+                    role=RecipeResourceRole.COVER_CANDIDATE,
+                    image=cover_image,
+                    position=-1,
+                    status=RecipeResourceStatus.USED,
+                ),
+            ]
+        )
         session.add(recipe)
         session.flush()
         recipe.cover_image_id = cover_image.id
-        recipe.cover_image_source = CoverImageSource.AI
         session.commit()
         recipe_id = recipe.id
 
     detail = client.get(f"/recipes/{recipe_id}").json()
 
-    assert detail["coverImage"]["role"] == "COVER"
-    assert detail["coverOptions"][0]["kind"] == "CURRENT_COVER"
-    assert detail["coverOptions"][0]["image"]["id"] == detail["coverImage"]["id"]
-    assert detail["coverOptions"][0]["label"] == "Current cover"
-    assert detail["coverOptions"][0]["selected"] is True
-    assert detail["coverOptions"][1]["kind"] == "DEFAULT"
-    assert detail["coverOptions"][1]["selected"] is False
+    assert detail["coverImage"]["id"] == cover_image.id
+    assert detail["coverOptions"][0]["kind"] == "DEFAULT"
+    assert detail["coverOptions"][0]["selected"] is False
+    assert detail["coverOptions"][1]["kind"] == "IMAGE"
+    assert detail["coverOptions"][1]["image"]["id"] == cover_image.id
+    assert detail["coverOptions"][1]["label"] == "Current cover"
+    assert detail["coverOptions"][1]["selected"] is True
     assert detail["coverOptions"][2]["kind"] == "IMAGE"
     assert detail["coverOptions"][2]["label"] == "Image 1"
-    assert detail["coverOptions"][2]["image"]["id"] == detail["coverImage"]["sourceImageId"]
+    assert detail["coverOptions"][2]["image"]["id"] == source_image.id
     assert detail["coverOptions"][2]["selected"] is False
 
 
@@ -239,7 +265,7 @@ def test_patch_recipe_updates_full_editable_fields_and_cover():
     assert payload["tags"] == ["dinner", "quick"]
     assert payload["coverImage"]["id"] == source_image_id
     assert [option["kind"] for option in payload["coverOptions"]] == ["DEFAULT", "IMAGE"]
-    assert payload["coverOptions"][1]["label"] == "Image 1"
+    assert payload["coverOptions"][1]["label"] == "Current cover"
     assert payload["coverOptions"][1]["selected"] is True
 
 
@@ -274,24 +300,26 @@ def test_patch_recipe_source_status_marks_single_source_without_children():
     with SessionLocal() as session:
         user = ensure_default_user(session)
         recipe = Recipe(owner_id=user.id, title="Soup", instructions=["Heat water"])
-        parent = RecipeSource(
+        parent = RecipeResource(
             owner_id=user.id,
             type=SourceType.URL,
-            source=RecipeSourceOrigin.MANUAL,
+            source=RecipeResourceOrigin.MANUAL,
+            role=RecipeResourceRole.SOURCE,
             url="https://example.test/post",
             position=0,
-            status=RecipeSourceStatus.IGNORED,
+            status=RecipeResourceStatus.IGNORED,
         )
-        child = RecipeSource(
+        child = RecipeResource(
             owner_id=user.id,
             type=SourceType.TEXT,
-            source=RecipeSourceOrigin.URL,
+            source=RecipeResourceOrigin.URL,
+            role=RecipeResourceRole.SOURCE,
             text="Soup recipe",
             position=1,
-            status=RecipeSourceStatus.IGNORED,
+            status=RecipeResourceStatus.IGNORED,
         )
         child.parent = parent
-        recipe.sources.extend([parent, child])
+        recipe.resources.extend([parent, child])
         session.add(recipe)
         session.commit()
         recipe_id = recipe.id
@@ -310,9 +338,8 @@ def test_delete_url_source_hides_children_but_keeps_current_cover_image_source()
     client, SessionLocal = client_with_session()
     with SessionLocal() as session:
         user = ensure_default_user(session)
-        recipe = Recipe(owner_id=user.id, title="Soup", instructions=["Heat water"], cover_image_source=CoverImageSource.USER)
+        recipe = Recipe(owner_id=user.id, title="Soup", instructions=["Heat water"])
         source_image = RecipeImage(
-            role=RecipeImageRole.SOURCE,
             storage_key="url-image.jpg",
             original_name="url-image.jpg",
             mime_type="image/jpeg",
@@ -323,33 +350,36 @@ def test_delete_url_source_hides_children_but_keeps_current_cover_image_source()
         session.add(recipe)
         session.flush()
         recipe.cover_image_id = source_image.id
-        parent = RecipeSource(
+        parent = RecipeResource(
             owner_id=user.id,
             type=SourceType.URL,
-            source=RecipeSourceOrigin.MANUAL,
+            source=RecipeResourceOrigin.MANUAL,
+            role=RecipeResourceRole.SOURCE,
             url="https://example.test/post",
             position=0,
-            status=RecipeSourceStatus.IGNORED,
+            status=RecipeResourceStatus.IGNORED,
         )
-        text_child = RecipeSource(
+        text_child = RecipeResource(
             owner_id=user.id,
             type=SourceType.TEXT,
-            source=RecipeSourceOrigin.URL,
+            source=RecipeResourceOrigin.URL,
+            role=RecipeResourceRole.SOURCE,
             text="Soup recipe",
             position=1,
-            status=RecipeSourceStatus.IGNORED,
+            status=RecipeResourceStatus.IGNORED,
         )
-        image_child = RecipeSource(
+        image_child = RecipeResource(
             owner_id=user.id,
             type=SourceType.IMAGE,
-            source=RecipeSourceOrigin.URL,
+            source=RecipeResourceOrigin.URL,
+            role=RecipeResourceRole.SOURCE,
             image_id=source_image.id,
             position=2,
-            status=RecipeSourceStatus.USED,
+            status=RecipeResourceStatus.USED,
         )
         text_child.parent = parent
         image_child.parent = parent
-        recipe.sources.extend([parent, text_child, image_child])
+        recipe.resources.extend([parent, text_child, image_child])
         session.commit()
         recipe_id = recipe.id
         parent_id = parent.id
@@ -368,7 +398,7 @@ def test_delete_url_source_hides_children_but_keeps_current_cover_image_source()
     assert image_child_id in [source["id"] for source in detail["sources"]]
 
     with SessionLocal() as session:
-        rows = {source.id: source.status.value for source in session.query(RecipeSource).all()}
+        rows = {resource.id: resource.status.value for resource in session.query(RecipeResource).all()}
     assert rows[parent_id] == "deleted"
     assert rows[text_child_id] == "deleted"
     assert rows[image_child_id] == "used"

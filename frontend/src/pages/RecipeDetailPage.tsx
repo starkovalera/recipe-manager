@@ -9,11 +9,11 @@ import {
   listCollections,
   mediaUrl,
   patchRecipe,
-  patchRecipeSource,
+  patchRecipeResource,
   patchReviewFlag,
   removeRecipeFromCollection,
 } from "../api/client";
-import type { RecipeDetail, RecipeImage, RecipeSource, ReviewFlag } from "../api/types";
+import type { RecipeDetail, RecipeImage, RecipeResource, ReviewFlag } from "../api/types";
 
 type CoverChoice = { kind: "DEFAULT" | "IMAGE"; imageId?: string | null };
 
@@ -51,9 +51,9 @@ function imageUrl(image: RecipeImage | null | undefined): string {
   return image ? mediaUrl(image.mediaUrl) : defaultRecipeImage;
 }
 
-function sourceImageForOption(sources: RecipeSource[], imageId: string | null | undefined): RecipeSource | undefined {
+function sourceImageForOption(resources: RecipeResource[], imageId: string | null | undefined): RecipeResource | undefined {
   if (!imageId) return undefined;
-  return sources.find((source) => source.type === "IMAGE" && source.imageId === imageId);
+  return resources.find((resource) => resource.type === "IMAGE" && resource.imageId === imageId);
 }
 
 export function RecipeDetailPage({ recipeId, onDeleted }: { recipeId: string; onDeleted: () => void }) {
@@ -100,7 +100,7 @@ export function RecipeDetailPage({ recipeId, onDeleted }: { recipeId: string; on
   const availableCollections = collectionsQuery.data?.items ?? [];
   const openFlagMessages = useMemo(() => reviewMessages(openFlags), [openFlags]);
   const primaryUrlSource = useMemo(
-    () => recipe?.sources.find((source) => source.type === "URL" && !source.parentSourceId) ?? null,
+    () => recipe?.resources.find((source) => source.type === "URL" && !source.parentResourceId) ?? null,
     [recipe],
   );
 
@@ -154,7 +154,7 @@ export function RecipeDetailPage({ recipeId, onDeleted }: { recipeId: string; on
     },
   });
   const sourceMutation = useMutation({
-    mutationFn: ({ sourceId, status }: { sourceId: string; status: "used" | "deleted" }) => patchRecipeSource(recipeId, sourceId, status),
+    mutationFn: ({ sourceId, status }: { sourceId: string; status: "used" | "deleted" }) => patchRecipeResource(recipeId, sourceId, status),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["recipe", recipeId] });
       queryClient.invalidateQueries({ queryKey: ["recipes"] });
@@ -315,7 +315,7 @@ export function RecipeDetailPage({ recipeId, onDeleted }: { recipeId: string; on
                 const optionId = optionImage?.id ?? "DEFAULT";
                 const isDefault = option.kind === "DEFAULT";
                 const isSelected = option.selected;
-                const relatedSource = sourceImageForOption(recipe.sources, optionImage?.id);
+                const relatedSource = sourceImageForOption(recipe.resources, optionImage?.id);
                 const canSetCover = !isSelected;
                 const canDelete = Boolean(relatedSource && !isSelected && !isDefault);
                 return (
@@ -394,10 +394,10 @@ export function RecipeDetailPage({ recipeId, onDeleted }: { recipeId: string; on
           <section>
             <h3>Debug resources</h3>
             <ul>
-              {(recipe.debugSources ?? recipe.sources).map((source) => (
+              {(recipe.debugResources ?? recipe.resources).map((source) => (
                 <li key={source.id}>
                   {source.source}/{source.type}: {source.status}
-                  {source.parentSourceId ? " (from URL)" : ""}
+                  {source.parentResourceId ? " (from URL)" : ""}
                 </li>
               ))}
             </ul>

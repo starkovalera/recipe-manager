@@ -227,7 +227,7 @@ def test_url_images_use_remaining_capacity_after_attachments():
     assert response.status_code == 200
     assert registry.max_images_seen == 9
     sources = detail.json()["sources"]
-    assert [(source["type"], source["source"], source["parentSourceId"]) for source in sources] == [
+    assert [(source["type"], source["source"], source["parentResourceId"]) for source in sources] == [
         ("IMAGE", "MANUAL", None),
         ("URL", "MANUAL", None),
         ("TEXT", "URL", sources[1]["id"]),
@@ -275,7 +275,6 @@ def test_url_video_transcript_survives_when_image_capacity_is_full():
     assert response.status_code == 200
     assert [source.type for source in provider.sources].count("IMAGE") == 10
     assert any(source.type == "TEXT" and source.text == "Video 1 transcript:\nMix batter and bake." for source in provider.sources)
-    assert all(source.sourceRef != "url_video_poster_0" for source in provider.sources)
 
 
 class CapturingProvider(FakeRecipeExtractionProvider):
@@ -303,7 +302,7 @@ def test_ai_receives_short_request_source_ids_without_persisting_source_refs():
 
     assert response.status_code == 200
     assert [source.id for source in provider.sources] == ["source_1", "source_2"]
-    assert all(source["sourceRef"] is None for source in detail.json()["sources"])
+    assert all("sourceRef" not in source for source in detail.json()["sources"])
 
 
 def test_url_author_name_is_passed_to_ai_sources():
@@ -537,8 +536,11 @@ def test_cover_candidate_creates_cover_image():
     detail = client.get(f"/recipes/{recipe_id}")
 
     assert response.status_code == 200
-    assert detail.json()["coverImage"]["role"] == "COVER"
-    assert detail.json()["images"][0]["role"] == "SOURCE"
+    assert detail.json()["coverImage"]["id"] is not None
+    generated_resources = [source for source in detail.json()["sources"] if source["source"] == "GENERATED"]
+    assert generated_resources[0]["role"] == "COVER_CANDIDATE"
+    assert generated_resources[0]["imageId"] == detail.json()["coverImage"]["id"]
+    assert any(option["image"] and option["image"]["id"] == detail.json()["coverImage"]["id"] for option in detail.json()["coverOptions"])
 
 
 class WarningFlagProvider:

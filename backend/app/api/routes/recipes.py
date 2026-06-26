@@ -4,8 +4,8 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user
 from app.db.session import get_session
 from app.models import User
-from app.schemas.recipes import RecipeDetailOut, RecipeListOut, RecipePatchIn, RecipeSourcePatchIn, ReviewFlagOut, ReviewFlagPatchIn
-from app.services.recipes import delete_recipe, get_recipe_detail, list_recipes, patch_recipe, patch_recipe_source_status, set_review_flag_status
+from app.schemas.recipes import RecipeDetailOut, RecipeListOut, RecipePatchIn, RecipeResourcePatchIn, ReviewFlagOut, ReviewFlagPatchIn
+from app.services.recipes import delete_recipe, get_recipe_detail, list_recipes, patch_recipe, patch_recipe_resource_status, set_review_flag_status
 
 router = APIRouter(prefix="/recipes", tags=["recipes"])
 
@@ -47,12 +47,13 @@ def update_review_flag(
     return set_review_flag_status(session, recipe_id, current_user.id, flag_id, patch.status)
 
 
-@router.patch("/{recipe_id}/sources/{source_id}", response_model=RecipeDetailOut)
-def update_recipe_source(
+@router.patch("/{recipe_id}/resources/{resource_id}", response_model=RecipeDetailOut)
+@router.patch("/{recipe_id}/sources/{resource_id}", response_model=RecipeDetailOut)
+def update_recipe_resource(
     recipe_id: str,
-    source_id: str,
-    patch: RecipeSourcePatchIn,
+    resource_id: str,
+    patch: RecipeResourcePatchIn,
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> RecipeDetailOut:
-    return patch_recipe_source_status(session, recipe_id, current_user.id, source_id, patch.status)
+    return patch_recipe_resource_status(session, recipe_id, current_user.id, resource_id, patch.status)

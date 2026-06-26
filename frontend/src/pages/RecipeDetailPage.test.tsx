@@ -28,19 +28,20 @@ describe("RecipeDetailPage", () => {
     sourceName: "MANUAL",
     tags: [],
     nutritionEstimate: null,
-    images: [{ id: "image-1", role: "SOURCE", mediaUrl: "/media/source.jpg" }],
-    coverImage: { id: "cover-1", role: "COVER", mediaUrl: "/media/cover.jpg", sourceImageId: "image-1" },
+    images: [{ id: "image-1", mediaUrl: "/media/source.jpg" }, { id: "cover-1", mediaUrl: "/media/cover.jpg" }],
+    coverImage: { id: "cover-1", mediaUrl: "/media/cover.jpg" },
     coverOptions: [
-      { kind: "CURRENT_COVER", label: "Current cover", selected: true, image: { id: "cover-1", role: "COVER", mediaUrl: "/media/cover.jpg", sourceImageId: "image-1" } },
+      { kind: "IMAGE", label: "Current cover", selected: true, image: { id: "cover-1", mediaUrl: "/media/cover.jpg" } },
       { kind: "DEFAULT", label: "Default image", selected: false },
-      { kind: "IMAGE", label: "Source image", selected: false, image: { id: "image-1", role: "SOURCE", mediaUrl: "/media/source.jpg" } },
+      { kind: "IMAGE", label: "Source image", selected: false, image: { id: "image-1", mediaUrl: "/media/source.jpg" } },
     ],
     collections: [],
-    sources: [
+    resources: [
       {
         id: "source-url",
         type: "URL",
         source: "MANUAL",
+        role: "SOURCE",
         status: "ignored",
         url: "https://example.test/post",
       },
@@ -48,11 +49,22 @@ describe("RecipeDetailPage", () => {
         id: "source-image",
         type: "IMAGE",
         source: "URL",
+        role: "SOURCE",
         status: "used",
-        parentSourceId: "source-url",
+        parentResourceId: "source-url",
         imageId: "image-1",
       },
+      {
+        id: "source-cover",
+        type: "IMAGE",
+        source: "GENERATED",
+        role: "COVER_CANDIDATE",
+        status: "used",
+        imageId: "cover-1",
+      },
     ],
+    sources: [],
+    debugResources: [],
     debugSources: [],
     reviewFlags: [
       {
@@ -123,7 +135,7 @@ describe("RecipeDetailPage", () => {
     fireEvent.click(screen.getByRole("button", { name: /keep source/i }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining("/recipes/recipe-1/sources/source-url"),
+      expect.stringContaining("/recipes/recipe-1/resources/source-url"),
       expect.objectContaining({
         method: "PATCH",
         body: expect.stringContaining('"status":"used"'),

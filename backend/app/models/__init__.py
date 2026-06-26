@@ -55,18 +55,7 @@ class ImportSourceStatus(str, enum.Enum):
     FAILED = "failed"
 
 
-class RecipeImageRole(str, enum.Enum):
-    SOURCE = "SOURCE"
-    COVER = "COVER"
-
-
-class CoverImageSource(str, enum.Enum):
-    AI = "AI"
-    USER = "USER"
-    DEFAULT = "DEFAULT"
-
-
-class RecipeSourceStatus(str, enum.Enum):
+class RecipeResourceStatus(str, enum.Enum):
     USED = "used"
     IGNORED = "ignored"
     CONFLICTING = "conflicting"
@@ -74,10 +63,16 @@ class RecipeSourceStatus(str, enum.Enum):
     DELETED = "deleted"
 
 
-class RecipeSourceOrigin(str, enum.Enum):
+class RecipeResourceOrigin(str, enum.Enum):
     MANUAL = "MANUAL"
     URL = "URL"
     URL_VIDEO = "URL_VIDEO"
+    GENERATED = "GENERATED"
+
+
+class RecipeResourceRole(str, enum.Enum):
+    SOURCE = "SOURCE"
+    COVER_CANDIDATE = "COVER_CANDIDATE"
 
 
 class RecipeReviewFlagStatus(str, enum.Enum):
@@ -105,7 +100,7 @@ class User(TimestampMixin, Base):
     collections: Mapped[list[Collection]] = relationship(back_populates="owner", cascade="all, delete-orphan")
     import_jobs: Mapped[list[ImportJob]] = relationship(back_populates="owner", cascade="all, delete-orphan")
     review_flags: Mapped[list[RecipeReviewFlag]] = relationship(back_populates="owner", cascade="all, delete-orphan")
-    sources: Mapped[list[RecipeSource]] = relationship(back_populates="owner", cascade="all, delete-orphan")
+    resources: Mapped[list[RecipeResource]] = relationship(back_populates="owner", cascade="all, delete-orphan")
 
 
 class Recipe(TimestampMixin, Base):
@@ -122,7 +117,6 @@ class Recipe(TimestampMixin, Base):
     author_name: Mapped[str | None] = mapped_column(String)
     source_name: Mapped[SourceName] = mapped_column(Enum(SourceName), default=SourceName.MANUAL, nullable=False)
     cover_image_id: Mapped[str | None] = mapped_column(String, unique=True)
-    cover_image_source: Mapped[CoverImageSource | None] = mapped_column(Enum(CoverImageSource))
 
     owner: Mapped[User] = relationship(back_populates="recipes")
     ingredients: Mapped[list[Ingredient]] = relationship(back_populates="recipe", cascade="all, delete-orphan")
@@ -131,7 +125,7 @@ class Recipe(TimestampMixin, Base):
         cascade="all, delete-orphan",
         foreign_keys="RecipeImage.recipe_id",
     )
-    sources: Mapped[list[RecipeSource]] = relationship(back_populates="recipe", cascade="all, delete-orphan")
+    resources: Mapped[list[RecipeResource]] = relationship(back_populates="recipe", cascade="all, delete-orphan")
     review_flags: Mapped[list[RecipeReviewFlag]] = relationship(back_populates="recipe", cascade="all, delete-orphan")
     tags: Mapped[list[Tag]] = relationship(secondary="recipe_tags", back_populates="recipes")
     collections: Mapped[list[Collection]] = relationship(secondary="recipe_collections", back_populates="recipes")
@@ -157,8 +151,6 @@ class RecipeImage(Base):
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
     recipe_id: Mapped[str | None] = mapped_column(ForeignKey("recipes.id", ondelete="CASCADE"))
-    role: Mapped[RecipeImageRole] = mapped_column(Enum(RecipeImageRole), default=RecipeImageRole.SOURCE, nullable=False)
-    source_image_id: Mapped[str | None] = mapped_column(ForeignKey("recipe_images.id", ondelete="NO ACTION"))
     storage_key: Mapped[str] = mapped_column(String, nullable=False)
     original_name: Mapped[str] = mapped_column(String, nullable=False)
     mime_type: Mapped[str] = mapped_column(String, nullable=False)
@@ -166,37 +158,36 @@ class RecipeImage(Base):
     position: Mapped[int] = mapped_column(Integer, nullable=False)
 
     recipe: Mapped[Recipe | None] = relationship(back_populates="images", foreign_keys=[recipe_id])
-    source_image: Mapped[RecipeImage | None] = relationship(remote_side=[id])
-    sources: Mapped[list[RecipeSource]] = relationship(back_populates="image")
+    resource: Mapped[RecipeResource | None] = relationship(back_populates="image")
 
 
-class RecipeSource(TimestampMixin, Base):
-    __tablename__ = "recipe_sources"
+class RecipeResource(TimestampMixin, Base):
+    __tablename__ = "recipe_resources"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
     recipe_id: Mapped[str] = mapped_column(ForeignKey("recipes.id", ondelete="CASCADE"), nullable=False)
     owner_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    parent_source_id: Mapped[str | None] = mapped_column(ForeignKey("recipe_sources.id", ondelete="NO ACTION"))
+    parent_resource_id: Mapped[str | None] = mapped_column(ForeignKey("recipe_resources.id", ondelete="NO ACTION"))
     type: Mapped[SourceType] = mapped_column(Enum(SourceType), nullable=False)
-    source: Mapped[RecipeSourceOrigin] = mapped_column(Enum(RecipeSourceOrigin), nullable=False)
+    source: Mapped[RecipeResourceOrigin] = mapped_column(Enum(RecipeResourceOrigin), nullable=False)
+    role: Mapped[RecipeResourceRole] = mapped_column(Enum(RecipeResourceRole), default=RecipeResourceRole.SOURCE, nullable=False)
     url: Mapped[str | None] = mapped_column(String)
-    image_id: Mapped[str | None] = mapped_column(ForeignKey("recipe_images.id", ondelete="NO ACTION"))
+    image_id: Mapped[str | None] = mapped_column(ForeignKey("recipe_images.id", ondelete="NO ACTION"), unique=True)
     text: Mapped[str | None] = mapped_column(Text)
-    source_ref: Mapped[str | None] = mapped_column(String)
     position: Mapped[int | None] = mapped_column(Integer)
-    status: Mapped[RecipeSourceStatus] = mapped_column(
-        Enum(RecipeSourceStatus),
-        default=RecipeSourceStatus.UNKNOWN,
+    status: Mapped[RecipeResourceStatus] = mapped_column(
+        Enum(RecipeResourceStatus),
+        default=RecipeResourceStatus.UNKNOWN,
         nullable=False,
     )
     assessment_reason: Mapped[str | None] = mapped_column(Text)
     assessment_confidence: Mapped[float | None] = mapped_column(Float)
 
-    recipe: Mapped[Recipe] = relationship(back_populates="sources")
-    owner: Mapped[User] = relationship(back_populates="sources")
-    image: Mapped[RecipeImage | None] = relationship(back_populates="sources")
-    parent: Mapped[RecipeSource | None] = relationship(remote_side=[id], back_populates="children")
-    children: Mapped[list[RecipeSource]] = relationship(back_populates="parent")
+    recipe: Mapped[Recipe] = relationship(back_populates="resources")
+    owner: Mapped[User] = relationship(back_populates="resources")
+    image: Mapped[RecipeImage | None] = relationship(back_populates="resource")
+    parent: Mapped[RecipeResource | None] = relationship(remote_side=[id], back_populates="children")
+    children: Mapped[list[RecipeResource]] = relationship(back_populates="parent")
 
 
 class RecipeReviewFlag(TimestampMixin, Base):
