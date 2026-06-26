@@ -9,6 +9,7 @@ __pycache__/
 *.db
 backend/storage/
 backend/.env
+frontend/.env
 node_modules/
 .pnpm-store/
 dist/

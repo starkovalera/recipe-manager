@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import logging
 
 import anyio
 from sqlalchemy import select
@@ -9,6 +10,7 @@ from app.ai.fake_provider import FakeRecipeExtractionProvider
 from app.ai.provider import RecipeExtractionProvider
 from app.ai.schemas import ReadySource, ready_source_id
 from app.core.errors import ApiError, ErrorCode
+from app.core.logging import log_error, log_info
 from app.db.init import ensure_default_user
 from app.imports.cover_guard import CoverCandidate as ImportCoverCandidate
 from app.imports.cover_guard import CoverGuardInput, choose_cover_candidate
@@ -40,6 +42,9 @@ from app.models import (
 )
 from app.schemas.imports import ImportJobOut
 from app.storage.local import LocalStorageService
+
+
+logger = logging.getLogger("recipes.import")
 
 
 def serialize_import_job(job: ImportJob) -> ImportJobOut:
@@ -165,6 +170,18 @@ def create_import_job(
     session.add(job)
     session.commit()
     session.refresh(job)
+    log_info(
+        logger,
+        "[recipes.import] Import job created",
+        ownerId=user.id,
+        importJobId=job.id,
+        clientId=client_id,
+        clientImportId=client_import_id,
+        sourceCount=len(job.sources),
+        hasText=normalized_text is not None,
+        hasUrl=normalized_url is not None,
+        attachmentCount=len(files),
+    )
     process_import_job(session, job.id)
     return session.get(ImportJob, job.id)
 
@@ -176,6 +193,7 @@ def process_import_job(session: Session, job_id: str) -> None:
     job.status = ImportJobStatus.PROCESSING
     job.started_at = datetime.now(timezone.utc)
     session.commit()
+    log_info(logger, "[recipes.import] Import job processing started", ownerId=job.owner_id, importJobId=job.id)
 
     storage = LocalStorageService(get_settings().upload_dir)
     saved_storage_keys = [source.image_storage_key for source in job.sources if source.image_storage_key]
@@ -198,6 +216,14 @@ def process_import_job(session: Session, job_id: str) -> None:
         elif source.type == SourceType.URL and source.url:
             image_count = len([ready for ready in ready_sources if ready.type == "IMAGE"])
             remaining_images = max(0, get_settings().max_import_images - image_count)
+            log_info(
+                logger,
+                "[recipes.import] Import image capacity",
+                ownerId=job.owner_id,
+                importJobId=job.id,
+                acceptedAttachmentCount=image_count,
+                remainingRemoteImageCount=remaining_images,
+            )
             loaded_url = anyio.run(
                 _url_content_loader_registry.load,
                 source.url,
@@ -220,7 +246,33 @@ def process_import_job(session: Session, job_id: str) -> None:
                     )
                 )
 
-    result = anyio.run(_recipe_extraction_provider.extract, ready_sources)
+    started_at = datetime.now(timezone.utc)
+    try:
+        result = anyio.run(_recipe_extraction_provider.extract, ready_sources)
+    except Exception as error:
+        log_error(
+            logger,
+            "[recipes.import] AI extraction provider threw",
+            ownerId=job.owner_id,
+            importJobId=job.id,
+            sourceCount=len(ready_sources),
+            error=repr(error),
+        )
+        _cleanup_storage_keys(storage, saved_storage_keys)
+        job.status = ImportJobStatus.FAILED
+        job.error_code = ErrorCode.AI_UNAVAILABLE.value
+        job.error_message = "AI extraction is unavailable."
+        job.finished_at = datetime.now(timezone.utc)
+        session.commit()
+        return
+    log_info(
+        logger,
+        "[recipes.import] Import step timing",
+        ownerId=job.owner_id,
+        importJobId=job.id,
+        step="ai_extraction",
+        durationMs=int((datetime.now(timezone.utc) - started_at).total_seconds() * 1000),
+    )
     if result.not_a_recipe or result.recipe is None:
         _cleanup_storage_keys(storage, saved_storage_keys)
         job.status = ImportJobStatus.FAILED
@@ -228,6 +280,14 @@ def process_import_job(session: Session, job_id: str) -> None:
         job.error_message = "The provided sources do not contain a recipe."
         job.finished_at = datetime.now(timezone.utc)
         session.commit()
+        log_info(
+            logger,
+            "[recipes.import] Import job failed",
+            ownerId=job.owner_id,
+            importJobId=job.id,
+            errorCode=job.error_code,
+            errorMessage=job.error_message,
+        )
         return
 
     recipe_result = result.recipe
@@ -241,7 +301,27 @@ def process_import_job(session: Session, job_id: str) -> None:
         job.error_message = "The extracted recipe confidence is too low."
         job.finished_at = datetime.now(timezone.utc)
         session.commit()
+        log_info(
+            logger,
+            "[recipes.import] Import job failed",
+            ownerId=job.owner_id,
+            importJobId=job.id,
+            errorCode=job.error_code,
+            errorMessage=job.error_message,
+            confidence=recipe_result.quality.confidence,
+        )
         return
+    log_info(
+        logger,
+        "[recipes.import] AI extraction quality",
+        ownerId=job.owner_id,
+        importJobId=job.id,
+        confidence=recipe_result.quality.confidence,
+        hasConflicts=recipe_result.quality.hasConflicts,
+        hasIgnored=recipe_result.quality.hasIgnored,
+        primarySourceRefs=recipe_result.quality.primarySourceRefs,
+        ignoredSourceRefs=recipe_result.quality.ignoredSourceRefs,
+    )
     recipe = Recipe(
         owner_id=job.owner_id,
         title=recipe_result.title,
@@ -307,6 +387,14 @@ def process_import_job(session: Session, job_id: str) -> None:
             )
             recipe.cover_image_source = CoverImageSource.AI
             recipe.images.append(cover_image)
+            log_info(
+                logger,
+                "[recipes.import] Cover image generated",
+                ownerId=job.owner_id,
+                importJobId=job.id,
+                sourceRef=chosen.sourceRef,
+                storageKey=cover_file.storage_key,
+            )
     for source in ready_sources:
         source_id = ready_source_id(source)
         assessment = assessments[source_id]
@@ -337,6 +425,16 @@ def process_import_job(session: Session, job_id: str) -> None:
                 details={**recipe_result.quality.model_dump(), "reasons": reasons},
             )
         )
+        log_info(
+            logger,
+            "[recipes.import] Recipe review flag created",
+            ownerId=job.owner_id,
+            importJobId=job.id,
+            reasonCodes=reasons,
+            confidence=recipe_result.quality.confidence,
+            hasConflicts=recipe_result.quality.hasConflicts,
+            hasIgnored=recipe_result.quality.hasIgnored,
+        )
     session.add(recipe)
     session.flush()
     if cover_image is not None:
@@ -345,6 +443,14 @@ def process_import_job(session: Session, job_id: str) -> None:
     job.status = ImportJobStatus.SUCCEEDED
     job.finished_at = datetime.now(timezone.utc)
     session.commit()
+    log_info(
+        logger,
+        "[recipes.import] Import job succeeded",
+        ownerId=job.owner_id,
+        importJobId=job.id,
+        recipeId=recipe.id,
+        readySourceCount=len(ready_sources),
+    )
 
 
 def get_import_job(session: Session, job_id: str) -> ImportJob:

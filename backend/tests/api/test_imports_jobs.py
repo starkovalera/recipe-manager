@@ -1,4 +1,5 @@
 from collections.abc import Generator
+import logging
 
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -251,3 +252,24 @@ def test_cover_candidate_creates_cover_image():
     assert response.status_code == 200
     assert detail.json()["coverImage"]["role"] == "COVER"
     assert detail.json()["images"][0]["role"] == "SOURCE"
+
+
+def test_import_logs_lifecycle_without_image_payloads(caplog):
+    client = client_with_session()
+    caplog.set_level(logging.INFO, logger="recipes.import")
+
+    response = client.post(
+        "/imports",
+        data={"clientImportId": "logged"},
+        files=[("files", ("recipe.jpg", image_bytes(), "image/jpeg"))],
+        headers={"X-Client-Id": "client-1"},
+    )
+
+    assert response.status_code == 200
+    messages = [record.getMessage() for record in caplog.records]
+    joined = "\n".join(messages)
+    assert "[recipes.import] Import job created" in joined
+    assert "[recipes.import] AI extraction quality" in joined
+    assert "[recipes.import] Import job succeeded" in joined
+    assert "data:image" not in joined
+    assert "base64" not in joined
