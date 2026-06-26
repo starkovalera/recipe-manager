@@ -117,6 +117,46 @@ def test_recipe_list_and_detail_include_sources_and_flags():
     assert detail["reviewFlags"][0]["reasonCode"] == "LOW_CONFIDENCE"
 
 
+def test_cover_options_select_source_image_for_generated_cover():
+    client, SessionLocal = client_with_session()
+    with SessionLocal() as session:
+        user = ensure_default_user(session)
+        recipe = Recipe(owner_id=user.id, title="Soup", instructions=["Heat water"])
+        source_image = RecipeImage(
+            role=RecipeImageRole.SOURCE,
+            storage_key="source.jpg",
+            original_name="source.jpg",
+            mime_type="image/jpeg",
+            size_bytes=10,
+            position=0,
+        )
+        cover_image = RecipeImage(
+            role=RecipeImageRole.COVER,
+            source_image=source_image,
+            storage_key="cover.jpg",
+            original_name="cover.jpg",
+            mime_type="image/jpeg",
+            size_bytes=10,
+            position=-1,
+        )
+        recipe.images.extend([source_image, cover_image])
+        session.add(recipe)
+        session.flush()
+        recipe.cover_image_id = cover_image.id
+        recipe.cover_image_source = CoverImageSource.AI
+        session.commit()
+        recipe_id = recipe.id
+
+    detail = client.get(f"/recipes/{recipe_id}").json()
+
+    assert detail["coverImage"]["role"] == "COVER"
+    assert detail["coverOptions"][0]["kind"] == "DEFAULT"
+    assert detail["coverOptions"][0]["selected"] is False
+    assert detail["coverOptions"][1]["kind"] == "IMAGE"
+    assert detail["coverOptions"][1]["image"]["id"] == detail["coverImage"]["sourceImageId"]
+    assert detail["coverOptions"][1]["selected"] is True
+
+
 def test_recipe_endpoints_are_scoped_to_current_user():
     client, SessionLocal = client_with_session()
     recipe_id, _ = seed_recipe(SessionLocal)

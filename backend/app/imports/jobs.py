@@ -401,7 +401,7 @@ def process_import_job(session: Session, job_id: str) -> None:
         )
         if chosen is not None:
             source_image = image_by_ref[chosen.sourceRef]
-            cover_file = create_cover_image(storage, source_image.storage_key, chosen.crop)
+            cover_file = create_cover_image(storage, source_image.storage_key, chosen.crop, auto_crop_full_image=True)
             saved_storage_keys.append(cover_file.storage_key)
             cover_image = RecipeImage(
                 role=RecipeImageRole.COVER,

@@ -162,10 +162,20 @@ class OpenAIRecipeExtractionProvider(RecipeExtractionProvider):
         self.client = client or AsyncOpenAI(api_key=settings.openai_api_key)
 
     async def extract(self, sources: list[ReadySource]) -> ExtractionResult:
+        content = _content_for_sources(sources)
+        log_info(
+            logger,
+            "[recipes.ai.openai] Recipe extraction request",
+            model=self.settings.openai_recipe_model,
+            sources=[source.model_dump() for source in sources],
+            sourceCount=len(sources),
+            imageSourceCount=len([source for source in sources if source.type == "IMAGE"]),
+            input=[{"role": "user", "content": content}],
+        )
         try:
             response = await self.client.responses.create(
                 model=self.settings.openai_recipe_model,
-                input=[{"role": "user", "content": _content_for_sources(sources)}],
+                input=[{"role": "user", "content": content}],
                 text={
                     "format": {
                         "type": "json_schema",

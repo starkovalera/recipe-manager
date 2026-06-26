@@ -92,6 +92,10 @@ async def test_openai_provider_uses_reference_responses_input_and_logs_output(ca
     assert content[4] == {"type": "input_image", "detail": "auto", "image_url": "data:image/png;base64,SECRET_IMAGE_DATA_2"}
 
     joined_logs = "\n".join(record.getMessage() for record in caplog.records)
+    assert "[recipes.ai.openai] Recipe extraction request" in joined_logs
+    assert '"input":' in joined_logs
+    assert '"content":' in joined_logs
+    assert '"dataUrl": "<redacted>"' in joined_logs
     assert "[recipes.ai.openai] Recipe extraction response" in joined_logs
     assert '"rawOutput":' in joined_logs
     assert '\\"title\\": \\"Roulade\\"' in joined_logs

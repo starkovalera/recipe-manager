@@ -8,7 +8,7 @@ from typing import TextIO
 from typing import Any
 
 
-SENSITIVE_KEYS = {"dataUrl", "data_url", "bytes", "content", "openai_api_key", "api_key", "authorization"}
+SENSITIVE_KEYS = {"openai_api_key", "api_key", "authorization"}
 
 
 def _safe_value(value: Any) -> Any:

@@ -64,7 +64,7 @@ def _cover_options(recipe: Recipe, source_images: list[RecipeImage], cover_image
                 kind="IMAGE",
                 image=_serialize_image(image),
                 label=image.original_name,
-                selected=cover_image is not None and cover_image.id == image.id,
+                selected=cover_image is not None and (cover_image.id == image.id or cover_image.source_image_id == image.id),
             )
         )
     return options
