@@ -306,6 +306,24 @@ class SourceAssessmentProvider:
         )
 
 
+class SourceIdPrefixedAssessmentProvider:
+    async def extract(self, sources):
+        return ExtractionResult(
+            recipe=ExtractedRecipe(
+                title="Prefixed refs recipe",
+                ingredients=[{"name": "Ingredient"}],
+                instructions=["Cook."],
+                quality=ExtractionQuality(
+                    confidence=0.95,
+                    hasConflicts=False,
+                    hasIgnored=True,
+                    primarySourceRefs=["sourceId=url:1", "sourceId=image:source_0"],
+                    ignoredSourceRefs=["sourceId=image:url_slide_0"],
+                ),
+            )
+        )
+
+
 def test_ai_quality_refs_set_recipe_source_statuses_after_normalization():
     client = client_with_session()
     set_url_content_loader_registry(FakeRegistry())
@@ -314,6 +332,27 @@ def test_ai_quality_refs_set_recipe_source_statuses_after_normalization():
     response = client.post(
         "/imports",
         data={"clientImportId": "source-statuses", "url": "https://example.com/recipe"},
+        files=[("files", ("first.jpg", image_bytes(), "image/jpeg"))],
+        headers={"X-Client-Id": "client-1"},
+    )
+    recipe_id = response.json()["createdRecipeId"]
+    detail = client.get(f"/recipes/{recipe_id}")
+
+    assert response.status_code == 200
+    statuses = {source["sourceRef"]: source["status"] for source in detail.json()["sources"]}
+    assert statuses["image:source_0"] == "used"
+    assert statuses["url:1"] == "used"
+    assert statuses["image:url_slide_0"] == "ignored"
+
+
+def test_ai_quality_refs_with_source_id_prefix_set_recipe_source_statuses():
+    client = client_with_session()
+    set_url_content_loader_registry(FakeRegistry())
+    set_recipe_extraction_provider(SourceIdPrefixedAssessmentProvider())
+
+    response = client.post(
+        "/imports",
+        data={"clientImportId": "source-id-prefixed-statuses", "url": "https://example.com/recipe"},
         files=[("files", ("first.jpg", image_bytes(), "image/jpeg"))],
         headers={"X-Client-Id": "client-1"},
     )

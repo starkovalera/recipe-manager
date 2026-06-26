@@ -71,6 +71,26 @@ def test_quality_source_refs_are_normalized_like_reference_pipeline():
     assert quality.ignoredSourceRefs == ["image:url_slide_0"]
 
 
+def test_quality_source_refs_strip_source_id_prefix_from_ai_output():
+    quality = normalize_quality_source_refs(
+        ExtractionQuality(
+            confidence=0.95,
+            hasConflicts=False,
+            hasIgnored=False,
+            primarySourceRefs=["sourceId=url:0", "sourceId=image:url_slide_0"],
+            ignoredSourceRefs=["sourceId=image:url_slide_1"],
+        ),
+        [
+            ReadySource(type="URL", url="https://example.com/recipe", position=0),
+            ReadySource(type="IMAGE", sourceRef="url_slide_0", position=1),
+            ReadySource(type="IMAGE", sourceRef="url_slide_1", position=2),
+        ],
+    )
+
+    assert quality.primarySourceRefs == ["url:0", "image:url_slide_0"]
+    assert quality.ignoredSourceRefs == ["image:url_slide_1"]
+
+
 def test_review_flag_thresholds_match_import_rules():
     assert should_create_review_flag(ExtractionQuality(confidence=0.75, hasConflicts=False, hasIgnored=False), 0.75)
     assert should_create_review_flag(ExtractionQuality(confidence=1, hasConflicts=True, hasIgnored=False), 0.75)

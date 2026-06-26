@@ -67,7 +67,10 @@ def normalize_quality_source_refs(quality: ExtractionQuality, sources: list[Read
             aliases[source.url] = canonical
 
     def normalize(source_ref: str) -> str:
-        return aliases.get(source_ref, source_ref)
+        value = source_ref.strip()
+        if value.startswith("sourceId="):
+            value = value.removeprefix("sourceId=").strip()
+        return aliases.get(value, value)
 
     return quality.model_copy(
         update={
