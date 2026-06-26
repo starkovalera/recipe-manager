@@ -2,6 +2,7 @@ from app.ai.schemas import ExtractionQuality
 from app.imports.sources import (
     attachment_first_capacity,
     normalize_single_url_quality,
+    review_reason_codes,
     source_assessments,
     should_create_review_flag,
 )
@@ -51,4 +52,14 @@ def test_single_url_quality_clears_internal_conflicts():
 def test_review_flag_thresholds_match_import_rules():
     assert should_create_review_flag(ExtractionQuality(confidence=0.75, hasConflicts=False, hasIgnored=False), 0.75)
     assert should_create_review_flag(ExtractionQuality(confidence=1, hasConflicts=True, hasIgnored=False), 0.75)
+    assert should_create_review_flag(ExtractionQuality(confidence=1, hasConflicts=False, hasIgnored=True), 0.75)
     assert not should_create_review_flag(ExtractionQuality(confidence=0.9, hasConflicts=False, hasIgnored=False), 0.75)
+
+
+def test_review_reason_codes_include_conflicts_ignored_and_low_confidence():
+    reasons = review_reason_codes(
+        ExtractionQuality(confidence=0.7, hasConflicts=True, hasIgnored=True),
+        warn_confidence=0.75,
+    )
+
+    assert reasons == ["CONTENT_CONFLICT", "IGNORED_SOURCES", "LOW_CONFIDENCE"]

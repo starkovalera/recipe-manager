@@ -17,7 +17,7 @@ flowchart TD
   fakeAi -->|"recipe result"| statusMap["Map primarySourceRefs / ignoredSourceRefs<br/>to RecipeSource statuses"]
   statusMap --> coverGuard["Cover guard module exists as black box<br/>not invoked by current minimal pipeline"]
   coverGuard --> db["DB transaction-style write<br/>Recipe, Ingredient, RecipeSource"]
-  db --> maybeFlag{"confidence <= warn threshold?"}
+  db --> maybeFlag{"hasConflicts OR hasIgnored OR<br/>confidence <= IMPORT_WARN_CONFIDENCE?"}
   maybeFlag -->|"yes"| flag["Create CONTENT_WARNING flag"]
   maybeFlag -->|"no"| success
   flag --> success["Mark ImportJob succeeded<br/>createdRecipeId set"]
@@ -43,7 +43,7 @@ flowchart TD
 - URL input currently participates as URL evidence without platform loading.
 - Fake AI provider returns recipe quality and primary source refs.
 - Recipe source statuses are derived from `primarySourceRefs` and `ignoredSourceRefs`.
-- Warning flags are supported by the recipe API and minimal import pipeline.
+- Warning flags are created when `quality.hasConflicts`, `quality.hasIgnored`, or `quality.confidence <= IMPORT_WARN_CONFIDENCE`.
 - Cover guard logic is isolated in `backend/app/imports/cover_guard.py` so it can be removed from the scenario without changing source rules or API routes.
 
 ## Target Gaps Still To Implement

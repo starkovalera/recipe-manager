@@ -57,3 +57,14 @@ def normalize_single_url_quality(quality: ExtractionQuality, is_single_url_impor
 
 def should_create_review_flag(quality: ExtractionQuality, warn_confidence: float) -> bool:
     return quality.hasConflicts or quality.hasIgnored or quality.confidence <= warn_confidence
+
+
+def review_reason_codes(quality: ExtractionQuality, warn_confidence: float) -> list[str]:
+    reasons: list[str] = []
+    if quality.hasConflicts:
+        reasons.append("CONTENT_CONFLICT")
+    if quality.hasIgnored:
+        reasons.append("IGNORED_SOURCES")
+    if quality.confidence <= warn_confidence:
+        reasons.append("LOW_CONFIDENCE")
+    return reasons

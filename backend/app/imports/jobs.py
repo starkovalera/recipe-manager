@@ -8,6 +8,8 @@ from app.ai.schemas import ReadySource, ready_source_id
 from app.core.errors import ApiError, ErrorCode
 from app.db.init import ensure_default_user
 from app.imports.sources import source_assessments
+from app.imports.sources import review_reason_codes, should_create_review_flag
+from app.core.config import get_settings
 from app.models import (
     ImportJob,
     ImportJobSource,
@@ -127,15 +129,17 @@ def process_import_job(session: Session, job_id: str) -> None:
                 assessment_confidence=assessment.confidence,
             )
         )
-    if recipe_result.quality.confidence <= 0.75:
+    warn_confidence = get_settings().import_warn_confidence
+    reasons = review_reason_codes(recipe_result.quality, warn_confidence)
+    if should_create_review_flag(recipe_result.quality, warn_confidence):
         recipe.review_flags.append(
             RecipeReviewFlag(
                 owner_id=job.owner_id,
                 type=RecipeReviewFlagType.CONTENT_WARNING,
                 status=RecipeReviewFlagStatus.OPEN,
-                reason_code="LOW_CONFIDENCE",
-                message="Review suggested: LOW_CONFIDENCE.",
-                details=recipe_result.quality.model_dump(),
+                reason_code=",".join(reasons),
+                message=f"Review suggested: {', '.join(reasons)}.",
+                details={**recipe_result.quality.model_dump(), "reasons": reasons},
             )
         )
     session.add(recipe)
