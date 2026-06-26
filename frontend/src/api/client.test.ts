@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { ApiError, createImport, listRecipes } from "./client";
+import { ApiError, createImport, listRecipes, setApiDebugLoggingForTests } from "./client";
 
 describe("api client", () => {
   beforeEach(() => {
     localStorage.clear();
     vi.restoreAllMocks();
+    setApiDebugLoggingForTests(false);
   });
 
   it("sends import form data with a stable client id", async () => {
@@ -51,5 +52,26 @@ describe("api client", () => {
     const recipes = await listRecipes();
 
     expect(recipes.items[0].title).toBe("Soup");
+  });
+
+  it("logs frontend api requests when debug logging is enabled", async () => {
+    const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ items: [] }),
+      }),
+    );
+    setApiDebugLoggingForTests(true);
+
+    await listRecipes();
+
+    expect(info).toHaveBeenCalledWith("[recipes.frontend.api] request", expect.objectContaining({ method: "GET", path: "/recipes" }));
+    expect(info).toHaveBeenCalledWith(
+      "[recipes.frontend.api] response",
+      expect.objectContaining({ method: "GET", path: "/recipes", status: 200 }),
+    );
   });
 });

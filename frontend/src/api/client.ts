@@ -2,6 +2,11 @@ import { getClientId } from "./clientId";
 import type { ImportJob, RecipeDetail, RecipeList } from "./types";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+let debugApiLogging = import.meta.env.VITE_DEBUG_API === "true";
+
+export function setApiDebugLoggingForTests(enabled: boolean) {
+  debugApiLogging = enabled;
+}
 
 export function mediaUrl(url: string): string {
   return url.startsWith("http://") || url.startsWith("https://") ? url : `${API_BASE_URL}${url}`;
@@ -25,21 +30,52 @@ async function parseResponse<T>(response: Response): Promise<T> {
   return payload as T;
 }
 
+async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const method = init.method ?? "GET";
+  const startedAt = performance.now();
+  if (debugApiLogging) {
+    console.info("[recipes.frontend.api] request", { method, path });
+  }
+  try {
+    const response = await fetch(`${API_BASE_URL}${path}`, init);
+    if (debugApiLogging) {
+      console.info("[recipes.frontend.api] response", {
+        method,
+        path,
+        status: response.status,
+        durationMs: Math.round(performance.now() - startedAt),
+      });
+    }
+    return parseResponse<T>(response);
+  } catch (error) {
+    if (debugApiLogging) {
+      console.error("[recipes.frontend.api] error", {
+        method,
+        path,
+        durationMs: Math.round(performance.now() - startedAt),
+        error,
+      });
+    }
+    throw error;
+  }
+}
+
 export async function listRecipes(): Promise<RecipeList> {
-  return parseResponse<RecipeList>(await fetch(`${API_BASE_URL}/recipes`));
+  return request<RecipeList>("/recipes");
 }
 
 export async function getRecipe(recipeId: string): Promise<RecipeDetail> {
-  return parseResponse<RecipeDetail>(await fetch(`${API_BASE_URL}/recipes/${recipeId}`));
+  return request<RecipeDetail>(`/recipes/${recipeId}`);
 }
 
 export async function patchRecipe(recipeId: string, patch: Partial<Pick<RecipeDetail, "title" | "note" | "instructions">>): Promise<RecipeDetail> {
-  return parseResponse<RecipeDetail>(
-    await fetch(`${API_BASE_URL}/recipes/${recipeId}`, {
+  return request<RecipeDetail>(
+    `/recipes/${recipeId}`,
+    {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(patch),
-    }),
+    },
   );
 }
 
@@ -51,15 +87,16 @@ export async function createImport(input: { clientImportId: string; text?: strin
   for (const file of input.files ?? []) {
     body.append("files", file);
   }
-  return parseResponse<ImportJob>(
-    await fetch(`${API_BASE_URL}/imports`, {
+  return request<ImportJob>(
+    "/imports",
+    {
       method: "POST",
       headers: { "X-Client-Id": getClientId() },
       body,
-    }),
+    },
   );
 }
 
 export async function getImportJob(jobId: string): Promise<ImportJob> {
-  return parseResponse<ImportJob>(await fetch(`${API_BASE_URL}/imports/${jobId}`));
+  return request<ImportJob>(`/imports/${jobId}`);
 }
