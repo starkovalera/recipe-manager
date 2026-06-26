@@ -7,7 +7,16 @@ from sqlalchemy.orm import Session, selectinload
 from app.core.config import get_settings
 from app.core.errors import ApiError, ErrorCode
 from app.core.logging import log_info
-from app.models import CoverImageSource, Ingredient, Recipe, RecipeImage, RecipeReviewFlag, RecipeReviewFlagStatus, Tag
+from app.models import (
+    CoverImageSource,
+    Ingredient,
+    Recipe,
+    RecipeImage,
+    RecipeImageRole,
+    RecipeReviewFlag,
+    RecipeReviewFlagStatus,
+    Tag,
+)
 from app.schemas.recipes import (
     CoverOptionOut,
     IngredientOut,
@@ -50,21 +59,32 @@ def _serialize_flag(flag: RecipeReviewFlag) -> ReviewFlagOut:
 
 
 def _cover_options(recipe: Recipe, source_images: list[RecipeImage], cover_image: RecipeImage | None) -> list[CoverOptionOut]:
-    options = [
+    options: list[CoverOptionOut] = []
+    has_generated_cover = cover_image is not None and cover_image.role == RecipeImageRole.COVER
+    if has_generated_cover:
+        options.append(
+            CoverOptionOut(
+                kind="CURRENT_COVER",
+                image=_serialize_image(cover_image),
+                label="Current cover",
+                selected=True,
+            )
+        )
+    options.append(
         CoverOptionOut(
             kind="DEFAULT",
             image=None,
             label="Default image",
-            selected=recipe.cover_image_id is None or recipe.cover_image_source == CoverImageSource.DEFAULT,
+            selected=cover_image is None and (recipe.cover_image_id is None or recipe.cover_image_source == CoverImageSource.DEFAULT),
         )
-    ]
+    )
     for image in source_images:
         options.append(
             CoverOptionOut(
                 kind="IMAGE",
                 image=_serialize_image(image),
                 label=image.original_name,
-                selected=cover_image is not None and (cover_image.id == image.id or cover_image.source_image_id == image.id),
+                selected=not has_generated_cover and cover_image is not None and cover_image.id == image.id,
             )
         )
     return options

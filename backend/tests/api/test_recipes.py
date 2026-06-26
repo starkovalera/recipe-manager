@@ -150,11 +150,15 @@ def test_cover_options_select_source_image_for_generated_cover():
     detail = client.get(f"/recipes/{recipe_id}").json()
 
     assert detail["coverImage"]["role"] == "COVER"
-    assert detail["coverOptions"][0]["kind"] == "DEFAULT"
-    assert detail["coverOptions"][0]["selected"] is False
-    assert detail["coverOptions"][1]["kind"] == "IMAGE"
-    assert detail["coverOptions"][1]["image"]["id"] == detail["coverImage"]["sourceImageId"]
-    assert detail["coverOptions"][1]["selected"] is True
+    assert detail["coverOptions"][0]["kind"] == "CURRENT_COVER"
+    assert detail["coverOptions"][0]["image"]["id"] == detail["coverImage"]["id"]
+    assert detail["coverOptions"][0]["label"] == "Current cover"
+    assert detail["coverOptions"][0]["selected"] is True
+    assert detail["coverOptions"][1]["kind"] == "DEFAULT"
+    assert detail["coverOptions"][1]["selected"] is False
+    assert detail["coverOptions"][2]["kind"] == "IMAGE"
+    assert detail["coverOptions"][2]["image"]["id"] == detail["coverImage"]["sourceImageId"]
+    assert detail["coverOptions"][2]["selected"] is False
 
 
 def test_recipe_endpoints_are_scoped_to_current_user():
@@ -218,6 +222,8 @@ def test_patch_recipe_updates_full_editable_fields_and_cover():
     assert payload["instructions"] == ["Chop tomatoes", "Cook"]
     assert payload["tags"] == ["dinner", "quick"]
     assert payload["coverImage"]["id"] == source_image_id
+    assert [option["kind"] for option in payload["coverOptions"]] == ["DEFAULT", "IMAGE"]
+    assert payload["coverOptions"][1]["selected"] is True
 
 
 def test_delete_recipe_removes_it_from_list_and_detail():

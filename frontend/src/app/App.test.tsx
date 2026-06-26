@@ -9,7 +9,7 @@ function mockFetch(payloads: Record<string, unknown>) {
     "fetch",
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
-      const path = url.replace("http://localhost:8000", "").replace("http://127.0.0.1:8000", "");
+      const path = new URL(url).pathname;
       const key = `${init?.method ?? "GET"} ${path}`;
       const payload = payloads[key] ?? payloads[`GET ${path}`];
       return {

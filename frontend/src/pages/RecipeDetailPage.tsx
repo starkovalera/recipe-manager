@@ -67,13 +67,13 @@ export function RecipeDetailPage({ recipeId, onDeleted }: { recipeId: string; on
     setNote(recipe.note ?? "");
     const selectedCover = recipe.coverOptions.find((option) => option.selected);
     setCoverChoice(
-      selectedCover?.kind === "IMAGE" && selectedCover.image
+      selectedCover?.image
         ? { kind: "IMAGE", imageId: selectedCover.image.id }
         : { kind: "DEFAULT" },
     );
   }, [recipe]);
 
-  const openFlags = useMemo(() => recipe?.reviewFlags.filter((flag) => flag.status === "open") ?? [], [recipe]);
+  const openFlags = useMemo(() => (recipe?.reviewFlags ?? []).filter((flag) => flag.status === "open"), [recipe]);
   const recipeCollectionIds = useMemo(() => new Set(recipe?.collections?.map((collection) => collection.id) ?? []), [recipe]);
   const availableCollections = collectionsQuery.data?.items ?? [];
 
@@ -209,7 +209,7 @@ export function RecipeDetailPage({ recipeId, onDeleted }: { recipeId: string; on
             <fieldset className="cover-picker">
               <legend>Cover image</legend>
               {recipe.coverOptions.map((option) => {
-                const value = option.kind === "IMAGE" && option.image ? option.image.id : "DEFAULT";
+                const value = option.image ? option.image.id : "DEFAULT";
                 const checked = coverChoice.kind === "DEFAULT" ? value === "DEFAULT" : coverChoice.imageId === value;
                 return (
                   <label className="cover-option" key={value}>
@@ -218,7 +218,7 @@ export function RecipeDetailPage({ recipeId, onDeleted }: { recipeId: string; on
                       name="cover"
                       checked={checked}
                       onChange={() =>
-                        setCoverChoice(option.kind === "IMAGE" && option.image ? { kind: "IMAGE", imageId: option.image.id } : { kind: "DEFAULT" })
+                        setCoverChoice(option.image ? { kind: "IMAGE", imageId: option.image.id } : { kind: "DEFAULT" })
                       }
                     />
                     <img src={option.image ? mediaUrl(option.image.mediaUrl) : defaultRecipeImage} alt={option.label} />
