@@ -1,10 +1,12 @@
 from datetime import datetime, timezone
+import logging
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.config import get_settings
 from app.core.errors import ApiError, ErrorCode
+from app.core.logging import log_info
 from app.models import CoverImageSource, Ingredient, Recipe, RecipeImage, RecipeReviewFlag, RecipeReviewFlagStatus, Tag
 from app.schemas.recipes import (
     CoverOptionOut,
@@ -18,6 +20,8 @@ from app.schemas.recipes import (
     RecipeSourceOut,
     ReviewFlagOut,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def _image_url(storage_key: str) -> str:
@@ -122,6 +126,15 @@ def list_recipes(session: Session, owner_id: str) -> RecipeListOut:
     recipes = session.scalars(
         select(Recipe).where(Recipe.owner_id == owner_id).options(selectinload(Recipe.images)).order_by(Recipe.created_at.desc())
     ).all()
+    bind = session.get_bind()
+    log_info(
+        logger,
+        "[recipes.recipes] Listed recipes",
+        ownerId=owner_id,
+        recipeCount=len(recipes),
+        recipeIds=[recipe.id for recipe in recipes],
+        databaseUrl=str(bind.url) if bind is not None else None,
+    )
     return RecipeListOut(
         items=[
             RecipeListItemOut(

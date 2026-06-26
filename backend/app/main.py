@@ -1,5 +1,8 @@
 from contextlib import asynccontextmanager
+import logging
+import os
 
+from fastapi import Request
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -10,20 +13,32 @@ from app.api.routes.media import router as media_router
 from app.api.routes.recipes import router as recipes_router
 from app.core.config import get_settings
 from app.core.errors import install_error_handlers
-from app.core.logging import configure_logging
+from app.core.logging import configure_logging, log_info
 from app.core.runtime import prepare_runtime
 from app.db.init import ensure_default_user, run_migrations
 from app.db.session import SessionLocal
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
+    log_info(
+        logger,
+        "[recipes.runtime] Application startup",
+        pid=os.getpid(),
+        appEnv=settings.app_env,
+        databaseUrl=settings.database_url,
+        uploadDir=str(settings.upload_dir),
+    )
     prepare_runtime(settings)
     run_migrations(settings.database_url)
     with SessionLocal() as session:
-        ensure_default_user(session)
+        user = ensure_default_user(session)
+        log_info(logger, "[recipes.runtime] Default user ensured", pid=os.getpid(), userId=user.id)
     yield
+    log_info(logger, "[recipes.runtime] Application shutdown", pid=os.getpid(), appEnv=settings.app_env)
 
 
 def create_app() -> FastAPI:
@@ -37,6 +52,24 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    @app.middleware("http")
+    async def log_runtime_request(request: Request, call_next):
+        response = await call_next(request)
+        current_settings = get_settings()
+        log_info(
+            logger,
+            "[recipes.http] Request handled",
+            pid=os.getpid(),
+            method=request.method,
+            path=request.url.path,
+            statusCode=response.status_code,
+            appEnv=current_settings.app_env,
+            databaseUrl=current_settings.database_url,
+            uploadDir=str(current_settings.upload_dir),
+        )
+        return response
+
     install_error_handlers(app)
     app.include_router(health_router)
     app.include_router(collections_router)

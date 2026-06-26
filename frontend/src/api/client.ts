@@ -45,15 +45,18 @@ async function parseResponse<T>(response: Response): Promise<T> {
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const method = init.method ?? "GET";
   const startedAt = performance.now();
+  const url = `${API_BASE_URL}${path}`;
   if (debugApiLogging) {
-    writeApiLog("info", "[recipes.frontend.api] request", { method, path });
+    writeApiLog("info", "[recipes.frontend.api] request", { method, path, baseUrl: API_BASE_URL, url });
   }
   try {
-    const response = await fetch(`${API_BASE_URL}${path}`, init);
+    const response = await fetch(url, init);
     if (debugApiLogging) {
       writeApiLog("info", "[recipes.frontend.api] response", {
         method,
         path,
+        baseUrl: API_BASE_URL,
+        url,
         status: response.status,
         durationMs: Math.round(performance.now() - startedAt),
       });
@@ -64,6 +67,8 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
       writeApiLog("error", "[recipes.frontend.api] error", {
         method,
         path,
+        baseUrl: API_BASE_URL,
+        url,
         durationMs: Math.round(performance.now() - startedAt),
         error,
       });
