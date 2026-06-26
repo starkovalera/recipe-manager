@@ -1,6 +1,9 @@
 import json
 import logging
+import os
+import sys
 from collections.abc import Mapping
+from typing import TextIO
 from typing import Any
 
 
@@ -36,5 +39,11 @@ def log_error(logger: logging.Logger, message: str, **meta: Any) -> None:
         logger.error(message)
 
 
-def configure_logging() -> None:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+def configure_logging(stream: TextIO | None = None, force: bool | None = None) -> None:
+    should_force = "PYTEST_CURRENT_TEST" not in os.environ if force is None else force
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s %(message)s",
+        stream=stream or sys.stdout,
+        force=should_force,
+    )
