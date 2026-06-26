@@ -17,20 +17,33 @@ type Page =
 
 export function App() {
   const [page, setPage] = useState<Page>({ name: "recipes" });
+  const activeSection = page.name === "recipe" ? "recipes" : page.name === "collection" ? "collections" : page.name;
 
   return (
     <QueryClientProvider client={queryClient}>
       <main className="app-shell">
-        <header>
+        <header className="app-header">
           <h1>Recipe Manager</h1>
           <nav className="top-nav" aria-label="Main">
-            <button type="button" onClick={() => setPage({ name: "recipes" })}>
+            <button
+              type="button"
+              className={activeSection === "recipes" ? "is-active" : undefined}
+              onClick={() => setPage({ name: "recipes" })}
+            >
               Recipes
             </button>
-            <button type="button" onClick={() => setPage({ name: "import" })}>
+            <button
+              type="button"
+              className={activeSection === "import" ? "is-active" : undefined}
+              onClick={() => setPage({ name: "import" })}
+            >
               Import
             </button>
-            <button type="button" onClick={() => setPage({ name: "collections" })}>
+            <button
+              type="button"
+              className={activeSection === "collections" ? "is-active" : undefined}
+              onClick={() => setPage({ name: "collections" })}
+            >
               Collections
             </button>
           </nav>

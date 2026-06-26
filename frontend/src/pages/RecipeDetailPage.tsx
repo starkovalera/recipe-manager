@@ -126,13 +126,21 @@ export function RecipeDetailPage({ recipeId, onDeleted }: { recipeId: string; on
       {query.error ? <p role="alert">{query.error.message}</p> : null}
       {recipe ? (
         <div className="stack">
-          <div className="recipe-meta">
-            <span>{recipe.sourceName}</span>
-            {recipe.authorName ? <span>{recipe.authorName}</span> : null}
-            {recipe.cookTimeMinutes ? <span>{recipe.cookTimeMinutes} min</span> : null}
+          <div className="recipe-hero">
+            <div className="recipe-hero-copy">
+              <div className="recipe-meta">
+                <span>{recipe.sourceName}</span>
+                {recipe.authorName ? <span>{recipe.authorName}</span> : null}
+                {recipe.cookTimeMinutes ? <span>{recipe.cookTimeMinutes} min</span> : null}
+              </div>
+              <h2>{recipe.title}</h2>
+            </div>
+            <img
+              className="hero-cover"
+              src={recipe.coverImage ? mediaUrl(recipe.coverImage.mediaUrl) : defaultRecipeImage}
+              alt={`${recipe.title} cover`}
+            />
           </div>
-          <h2>{recipe.title}</h2>
-          <img className="hero-cover" src={recipe.coverImage ? mediaUrl(recipe.coverImage.mediaUrl) : defaultRecipeImage} alt={`${recipe.title} cover`} />
 
           {openFlags.length > 0 ? (
             <section className="flag-strip" aria-label="Open review flags">
@@ -156,7 +164,7 @@ export function RecipeDetailPage({ recipeId, onDeleted }: { recipeId: string; on
             </section>
           </div>
 
-          <section>
+          <section className="nutrition-panel">
             <h3>Nutrition estimate</h3>
             <pre>{JSON.stringify(recipe.nutritionEstimate ?? {}, null, 2)}</pre>
           </section>

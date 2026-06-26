@@ -65,9 +65,14 @@ export function ImportPage({ onImported }: { onImported?: (recipeId: string) => 
         </button>
       </form>
       {mutation.error ? <p role="alert">{mutation.error.message}</p> : null}
-      {job ? <p>Status: {job.status}</p> : null}
-      {job?.status === "succeeded" && job.createdRecipeId ? <p>Created recipe: {job.createdRecipeId}</p> : null}
-      {job?.status === "failed" ? <p role="alert">{job.errorMessage ?? job.errorCode}</p> : null}
+      {job ? (
+        <div className="status-card">
+          <span>Status</span>
+          <strong>{job.status}</strong>
+          {job.status === "succeeded" && job.createdRecipeId ? <small>Created recipe: {job.createdRecipeId}</small> : null}
+          {job.status === "failed" ? <small role="alert">{job.errorMessage ?? job.errorCode}</small> : null}
+        </div>
+      ) : null}
     </section>
   );
 }
