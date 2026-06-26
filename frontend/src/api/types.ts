@@ -15,7 +15,29 @@ export type RecipeList = {
     coverImage?: RecipeImage | null;
     note?: string | null;
     updatedAt?: string | null;
+    hasOpenReviewFlags?: boolean;
   }>;
+};
+
+export type RecipeSource = {
+  id: string;
+  type: string;
+  source: string;
+  parentSourceId?: string | null;
+  status: string;
+  imageId?: string | null;
+  text?: string | null;
+  url?: string | null;
+};
+
+export type ReviewFlag = {
+  id: string;
+  type?: string;
+  status: string;
+  reasonCode: string;
+  message: string;
+  details?: Record<string, unknown> | null;
+  resolvedAt?: string | null;
 };
 
 export type RecipeDetail = RecipeList["items"][number] & {
@@ -32,16 +54,9 @@ export type RecipeDetail = RecipeList["items"][number] & {
   coverImageSource?: string | null;
   coverOptions: Array<{ kind: string; image?: RecipeImage | null; label: string; selected: boolean }>;
   collections: Array<{ id: string; name: string }>;
-  sources: Array<{
-    id: string;
-    type: string;
-    source: string;
-    parentSourceId?: string | null;
-    status: string;
-    text?: string | null;
-    url?: string | null;
-  }>;
-  reviewFlags: Array<{ id: string; type?: string; status: string; reasonCode: string; message: string; details?: Record<string, unknown> | null; resolvedAt?: string | null }>;
+  sources: RecipeSource[];
+  debugSources?: RecipeSource[];
+  reviewFlags: ReviewFlag[];
 };
 
 export type RecipePatch = {

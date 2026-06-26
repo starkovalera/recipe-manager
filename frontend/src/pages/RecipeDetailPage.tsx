@@ -9,9 +9,11 @@ import {
   listCollections,
   mediaUrl,
   patchRecipe,
+  patchRecipeSource,
+  patchReviewFlag,
   removeRecipeFromCollection,
 } from "../api/client";
-import type { RecipeDetail } from "../api/types";
+import type { RecipeDetail, RecipeImage, RecipeSource, ReviewFlag } from "../api/types";
 
 type CoverChoice = { kind: "DEFAULT" | "IMAGE"; imageId?: string | null };
 
@@ -35,6 +37,25 @@ function numberOrNull(value: string): number | null {
   return Number.isFinite(numeric) ? numeric : null;
 }
 
+function reviewMessages(flags: ReviewFlag[]): string[] {
+  const hasConflicts = flags.some((flag) => flag.details?.hasConflicts === true || flag.reasonCode.includes("CONFLICT"));
+  const hasIgnored = flags.some((flag) => flag.details?.hasIgnored === true || flag.reasonCode.includes("IGNORED"));
+  const messages: string[] = [];
+  if (hasConflicts) messages.push("conflicting information was found in the sources");
+  if (hasIgnored) messages.push("some sources were ignored");
+  if (messages.length === 0) messages.push("the imported result needs review");
+  return messages;
+}
+
+function imageUrl(image: RecipeImage | null | undefined): string {
+  return image ? mediaUrl(image.mediaUrl) : defaultRecipeImage;
+}
+
+function sourceImageForOption(sources: RecipeSource[], imageId: string | null | undefined): RecipeSource | undefined {
+  if (!imageId) return undefined;
+  return sources.find((source) => source.type === "IMAGE" && source.imageId === imageId);
+}
+
 export function RecipeDetailPage({ recipeId, onDeleted }: { recipeId: string; onDeleted: () => void }) {
   const queryClient = useQueryClient();
   const query = useQuery({ queryKey: ["recipe", recipeId], queryFn: () => getRecipe(recipeId) });
@@ -52,6 +73,7 @@ export function RecipeDetailPage({ recipeId, onDeleted }: { recipeId: string; on
   const [instructions, setInstructions] = useState("");
   const [note, setNote] = useState("");
   const [coverChoice, setCoverChoice] = useState<CoverChoice>({ kind: "DEFAULT" });
+  const [previewImage, setPreviewImage] = useState<{ label: string; url: string } | null>(null);
 
   useEffect(() => {
     if (!recipe) return;
@@ -76,6 +98,11 @@ export function RecipeDetailPage({ recipeId, onDeleted }: { recipeId: string; on
   const openFlags = useMemo(() => (recipe?.reviewFlags ?? []).filter((flag) => flag.status === "open"), [recipe]);
   const recipeCollectionIds = useMemo(() => new Set(recipe?.collections?.map((collection) => collection.id) ?? []), [recipe]);
   const availableCollections = collectionsQuery.data?.items ?? [];
+  const openFlagMessages = useMemo(() => reviewMessages(openFlags), [openFlags]);
+  const primaryUrlSource = useMemo(
+    () => recipe?.sources.find((source) => source.type === "URL" && !source.parentSourceId) ?? null,
+    [recipe],
+  );
 
   const saveMutation = useMutation({
     mutationFn: () =>
@@ -119,6 +146,27 @@ export function RecipeDetailPage({ recipeId, onDeleted }: { recipeId: string; on
       queryClient.invalidateQueries({ queryKey: ["collections"] });
     },
   });
+  const resolveFlagMutation = useMutation({
+    mutationFn: (flagId: string) => patchReviewFlag(recipeId, flagId, "resolved"),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["recipe", recipeId] });
+      queryClient.invalidateQueries({ queryKey: ["recipes"] });
+    },
+  });
+  const sourceMutation = useMutation({
+    mutationFn: ({ sourceId, status }: { sourceId: string; status: "used" | "deleted" }) => patchRecipeSource(recipeId, sourceId, status),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["recipe", recipeId] });
+      queryClient.invalidateQueries({ queryKey: ["recipes"] });
+    },
+  });
+  const coverMutation = useMutation({
+    mutationFn: (selection: CoverChoice) => patchRecipe(recipeId, { coverSelection: selection }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["recipe", recipeId] });
+      queryClient.invalidateQueries({ queryKey: ["recipes"] });
+    },
+  });
 
   return (
     <section className="panel">
@@ -143,13 +191,18 @@ export function RecipeDetailPage({ recipeId, onDeleted }: { recipeId: string; on
           </div>
 
           {openFlags.length > 0 ? (
-            <section className="flag-strip" aria-label="Open review flags">
-              {openFlags.map((flag) => (
-                <div className="flag-card" key={flag.id}>
-                  <strong>{flag.reasonCode}</strong>
-                  <span>{flag.message}</span>
-                </div>
-              ))}
+            <section className="review-banner" aria-label="Open review flags">
+              <div>
+                <strong>This recipe requires review</strong>
+                <p>This recipe requires review because {openFlagMessages.join(" and ")}.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => openFlags.forEach((flag) => resolveFlagMutation.mutate(flag.id))}
+                disabled={resolveFlagMutation.isPending}
+              >
+                Resolve warning
+              </button>
             </section>
           ) : null}
 
@@ -214,32 +267,106 @@ export function RecipeDetailPage({ recipeId, onDeleted }: { recipeId: string; on
               <textarea value={note} onChange={(event) => setNote(event.target.value)} rows={4} />
             </label>
 
-            <fieldset className="cover-picker">
-              <legend>Cover image</legend>
-              {recipe.coverOptions.map((option) => {
-                const value = option.image ? option.image.id : "DEFAULT";
-                const checked = coverChoice.kind === "DEFAULT" ? value === "DEFAULT" : coverChoice.imageId === value;
-                return (
-                  <label className="cover-option" key={value}>
-                    <input
-                      type="radio"
-                      name="cover"
-                      checked={checked}
-                      onChange={() =>
-                        setCoverChoice(option.image ? { kind: "IMAGE", imageId: option.image.id } : { kind: "DEFAULT" })
-                      }
-                    />
-                    <img src={option.image ? mediaUrl(option.image.mediaUrl) : defaultRecipeImage} alt={option.label} />
-                    <span>{option.label}</span>
-                  </label>
-                );
-              })}
-            </fieldset>
-
             <button type="button" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
               Save
             </button>
           </section>
+
+          <section className="sources-panel">
+            <div className="section-heading">
+              <h3>Sources</h3>
+            </div>
+
+            {primaryUrlSource ? (
+              <div className={`source-url-card ${primaryUrlSource.status === "ignored" ? "is-warning" : ""}`}>
+                <div>
+                  <strong>Source link</strong>
+                  <a href={primaryUrlSource.url ?? "#"} target="_blank" rel="noreferrer">
+                    {primaryUrlSource.url}
+                  </a>
+                  {primaryUrlSource.status === "ignored" ? (
+                    <p>This source was ignored when creating the recipe.</p>
+                  ) : null}
+                </div>
+                <div className="source-actions">
+                  {primaryUrlSource.status === "ignored" ? (
+                    <button
+                      type="button"
+                      onClick={() => sourceMutation.mutate({ sourceId: primaryUrlSource.id, status: "used" })}
+                      disabled={sourceMutation.isPending}
+                    >
+                      Keep source
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => sourceMutation.mutate({ sourceId: primaryUrlSource.id, status: "deleted" })}
+                    disabled={sourceMutation.isPending}
+                  >
+                    Delete source
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
+            <div className="source-image-grid">
+              {recipe.coverOptions.map((option) => {
+                const optionImage = option.image ?? null;
+                const optionId = optionImage?.id ?? "DEFAULT";
+                const isDefault = option.kind === "DEFAULT";
+                const isSelected = option.selected;
+                const relatedSource = sourceImageForOption(recipe.sources, optionImage?.id);
+                const canSetCover = !isSelected;
+                const canDelete = Boolean(relatedSource && !isSelected && !isDefault);
+                return (
+                  <article className={`source-image-card ${isSelected ? "is-selected" : ""}`} key={optionId}>
+                    <button
+                      className="source-image-preview"
+                      type="button"
+                      aria-label={`Open ${option.label}`}
+                      onClick={() => setPreviewImage({ label: option.label, url: imageUrl(optionImage) })}
+                    >
+                      <img src={imageUrl(optionImage)} alt={option.label} />
+                    </button>
+                    <div className="source-image-meta">
+                      <strong>{option.label}</strong>
+                      {isSelected ? <span>Current cover</span> : null}
+                    </div>
+                    <div className="source-image-actions">
+                      {canSetCover ? (
+                        <button
+                          type="button"
+                          onClick={() => coverMutation.mutate(optionImage ? { kind: "IMAGE", imageId: optionImage.id } : { kind: "DEFAULT" })}
+                          disabled={coverMutation.isPending}
+                        >
+                          Use {option.label} as cover
+                        </button>
+                      ) : null}
+                      {canDelete && relatedSource ? (
+                        <button
+                          className="danger-link"
+                          type="button"
+                          onClick={() => sourceMutation.mutate({ sourceId: relatedSource.id, status: "deleted" })}
+                          disabled={sourceMutation.isPending}
+                        >
+                          Delete image
+                        </button>
+                      ) : null}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+
+          {previewImage ? (
+            <div className="image-modal-backdrop" role="presentation" onClick={() => setPreviewImage(null)}>
+              <div className="image-modal" role="dialog" aria-label={previewImage.label} onClick={(event) => event.stopPropagation()}>
+                <button type="button" onClick={() => setPreviewImage(null)}>Close</button>
+                <img src={previewImage.url} alt={previewImage.label} />
+              </div>
+            </div>
+          ) : null}
 
           <section>
             <h3>Collections</h3>
@@ -265,9 +392,9 @@ export function RecipeDetailPage({ recipeId, onDeleted }: { recipeId: string; on
           </section>
 
           <section>
-            <h3>Sources</h3>
+            <h3>Debug resources</h3>
             <ul>
-              {recipe.sources.map((source) => (
+              {(recipe.debugSources ?? recipe.sources).map((source) => (
                 <li key={source.id}>
                   {source.source}/{source.type}: {source.status}
                   {source.parentSourceId ? " (from URL)" : ""}

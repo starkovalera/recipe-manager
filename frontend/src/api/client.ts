@@ -96,6 +96,28 @@ export async function patchRecipe(recipeId: string, patch: RecipePatch): Promise
   );
 }
 
+export async function patchReviewFlag(recipeId: string, flagId: string, status: "open" | "resolved"): Promise<RecipeDetail["reviewFlags"][number]> {
+  return request<RecipeDetail["reviewFlags"][number]>(
+    `/recipes/${recipeId}/review-flags/${flagId}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    },
+  );
+}
+
+export async function patchRecipeSource(recipeId: string, sourceId: string, status: "used" | "deleted"): Promise<RecipeDetail> {
+  return request<RecipeDetail>(
+    `/recipes/${recipeId}/sources/${sourceId}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    },
+  );
+}
+
 export async function createImport(input: { clientImportId: string; text?: string; url?: string; files?: File[] }): Promise<ImportJob> {
   const body = new FormData();
   body.set("clientImportId", input.clientImportId);

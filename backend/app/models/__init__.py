@@ -71,6 +71,7 @@ class RecipeSourceStatus(str, enum.Enum):
     IGNORED = "ignored"
     CONFLICTING = "conflicting"
     UNKNOWN = "unknown"
+    DELETED = "deleted"
 
 
 class RecipeSourceOrigin(str, enum.Enum):

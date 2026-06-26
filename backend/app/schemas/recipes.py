@@ -33,6 +33,7 @@ class RecipeSourceOut(BaseModel):
     source: str
     parentSourceId: str | None = None
     url: str | None = None
+    imageId: str | None = None
     text: str | None = None
     sourceRef: str | None = None
     position: int | None = None
@@ -81,6 +82,7 @@ class RecipeListItemOut(BaseModel):
     coverImage: RecipeImageOut | None = None
     note: str | None = None
     updatedAt: datetime | None = None
+    hasOpenReviewFlags: bool = False
 
 
 class RecipeListOut(BaseModel):
@@ -102,6 +104,7 @@ class RecipeDetailOut(RecipeListItemOut):
     coverOptions: list[CoverOptionOut]
     collections: list[RecipeCollectionOut]
     sources: list[RecipeSourceOut]
+    debugSources: list[RecipeSourceOut]
     reviewFlags: list[ReviewFlagOut]
 
 
@@ -121,3 +124,7 @@ class RecipePatchIn(BaseModel):
 
 class ReviewFlagPatchIn(BaseModel):
     status: Literal["open", "resolved"] = Field(...)
+
+
+class RecipeSourcePatchIn(BaseModel):
+    status: Literal["used", "deleted"] = Field(...)

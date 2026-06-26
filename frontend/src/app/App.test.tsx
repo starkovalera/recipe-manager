@@ -31,7 +31,7 @@ describe("App", () => {
   it("opens on recipe grid with cover previews", async () => {
     mockFetch({
       "GET /recipes": {
-        items: [{ id: "recipe-1", title: "Soup", coverImage: { id: "image-1", mediaUrl: "/media/cover.jpg", role: "COVER" } }],
+        items: [{ id: "recipe-1", title: "Soup", coverImage: { id: "image-1", mediaUrl: "/media/cover.jpg", role: "COVER" }, hasOpenReviewFlags: true }],
       },
     });
 
@@ -39,6 +39,7 @@ describe("App", () => {
 
     await waitFor(() => expect(screen.getByRole("button", { name: /Soup/ })).toBeTruthy());
     expect(screen.getByAltText("Soup cover")).toBeTruthy();
+    expect(screen.getByLabelText("Soup requires review")).toBeTruthy();
   });
 
   it("navigates from import success to recipe detail", async () => {
@@ -58,6 +59,7 @@ describe("App", () => {
         coverOptions: [{ kind: "DEFAULT", label: "Default image", selected: true }],
         collections: [],
         sources: [],
+        debugSources: [],
         reviewFlags: [],
       },
     });

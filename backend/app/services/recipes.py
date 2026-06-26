@@ -15,6 +15,9 @@ from app.models import (
     RecipeImageRole,
     RecipeReviewFlag,
     RecipeReviewFlagStatus,
+    RecipeSource,
+    RecipeSourceStatus,
+    SourceType,
     Tag,
 )
 from app.schemas.recipes import (
@@ -58,6 +61,41 @@ def _serialize_flag(flag: RecipeReviewFlag) -> ReviewFlagOut:
     )
 
 
+def _serialize_source(source: RecipeSource) -> RecipeSourceOut:
+    return RecipeSourceOut(
+        id=source.id,
+        type=source.type.value,
+        source=source.source.value,
+        parentSourceId=source.parent_source_id,
+        url=source.url,
+        imageId=source.image_id,
+        text=source.text,
+        sourceRef=source.source_ref,
+        position=source.position,
+        status=source.status.value,
+        assessmentReason=source.assessment_reason,
+        assessmentConfidence=source.assessment_confidence,
+    )
+
+
+def _source_sort_key(source: RecipeSource) -> tuple[int, str]:
+    return (source.position if source.position is not None else 9999, source.id)
+
+
+def _visible_source_images(recipe: Recipe) -> list[RecipeImage]:
+    deleted_image_source_ids = {
+        source.image_id
+        for source in recipe.sources
+        if source.image_id is not None and source.status == RecipeSourceStatus.DELETED
+    }
+    visible_images = [
+        image
+        for image in recipe.images
+        if image.role == RecipeImageRole.SOURCE and (image.id == recipe.cover_image_id or image.id not in deleted_image_source_ids)
+    ]
+    return sorted(visible_images, key=lambda item: item.position)
+
+
 def _cover_options(recipe: Recipe, source_images: list[RecipeImage], cover_image: RecipeImage | None) -> list[CoverOptionOut]:
     options: list[CoverOptionOut] = []
     has_generated_cover = cover_image is not None and cover_image.role == RecipeImageRole.COVER
@@ -91,14 +129,17 @@ def _cover_options(recipe: Recipe, source_images: list[RecipeImage], cover_image
 
 
 def _serialize_recipe_detail(recipe: Recipe) -> RecipeDetailOut:
-    source_images = sorted([image for image in recipe.images if image.role.value == "SOURCE"], key=lambda item: item.position)
+    source_images = _visible_source_images(recipe)
     cover_image = next((image for image in recipe.images if image.id == recipe.cover_image_id), None)
+    visible_sources = [source for source in recipe.sources if source.status != RecipeSourceStatus.DELETED]
+    debug_sources = list(recipe.sources)
     return RecipeDetailOut(
         id=recipe.id,
         title=recipe.title,
         coverImage=_serialize_image(cover_image) if cover_image else None,
         note=recipe.note,
         updatedAt=recipe.updated_at,
+        hasOpenReviewFlags=any(flag.status == RecipeReviewFlagStatus.OPEN for flag in recipe.review_flags),
         servings=recipe.servings,
         cookTimeMinutes=recipe.cook_time_minutes,
         nutritionEstimate=recipe.nutrition_estimate,
@@ -124,29 +165,18 @@ def _serialize_recipe_detail(recipe: Recipe) -> RecipeDetailOut:
             RecipeCollectionOut(id=collection.id, name=collection.name)
             for collection in sorted(recipe.collections, key=lambda item: item.name)
         ],
-        sources=[
-            RecipeSourceOut(
-                id=source.id,
-                type=source.type.value,
-                source=source.source.value,
-                parentSourceId=source.parent_source_id,
-                url=source.url,
-                text=source.text,
-                sourceRef=source.source_ref,
-                position=source.position,
-                status=source.status.value,
-                assessmentReason=source.assessment_reason,
-                assessmentConfidence=source.assessment_confidence,
-            )
-            for source in sorted(recipe.sources, key=lambda item: item.position if item.position is not None else 9999)
-        ],
+        sources=[_serialize_source(source) for source in sorted(visible_sources, key=_source_sort_key)],
+        debugSources=[_serialize_source(source) for source in sorted(debug_sources, key=_source_sort_key)],
         reviewFlags=[_serialize_flag(flag) for flag in recipe.review_flags],
     )
 
 
 def list_recipes(session: Session, owner_id: str) -> RecipeListOut:
     recipes = session.scalars(
-        select(Recipe).where(Recipe.owner_id == owner_id).options(selectinload(Recipe.images)).order_by(Recipe.created_at.desc())
+        select(Recipe)
+        .where(Recipe.owner_id == owner_id)
+        .options(selectinload(Recipe.images), selectinload(Recipe.review_flags))
+        .order_by(Recipe.created_at.desc())
     ).all()
     bind = session.get_bind()
     log_info(
@@ -167,6 +197,7 @@ def list_recipes(session: Session, owner_id: str) -> RecipeListOut:
                 else None,
                 note=recipe.note,
                 updatedAt=recipe.updated_at,
+                hasOpenReviewFlags=any(flag.status == RecipeReviewFlagStatus.OPEN for flag in recipe.review_flags),
             )
             for recipe in recipes
         ]
@@ -270,3 +301,48 @@ def set_review_flag_status(session: Session, recipe_id: str, owner_id: str, flag
     session.commit()
     session.refresh(flag)
     return _serialize_flag(flag)
+
+
+def _load_recipe_for_source_mutation(session: Session, recipe_id: str, owner_id: str) -> Recipe:
+    recipe = session.scalar(
+        select(Recipe)
+        .where(Recipe.id == recipe_id, Recipe.owner_id == owner_id)
+        .options(
+            selectinload(Recipe.ingredients),
+            selectinload(Recipe.images),
+            selectinload(Recipe.sources).selectinload(RecipeSource.children),
+            selectinload(Recipe.review_flags),
+            selectinload(Recipe.tags),
+            selectinload(Recipe.collections),
+        )
+    )
+    if recipe is None:
+        raise ApiError(ErrorCode.RECIPE_NOT_FOUND, "Recipe not found.", status_code=404)
+    return recipe
+
+
+def _is_current_cover_source(recipe: Recipe, source: RecipeSource) -> bool:
+    return source.image_id is not None and source.image_id == recipe.cover_image_id
+
+
+def patch_recipe_source_status(session: Session, recipe_id: str, owner_id: str, source_id: str, status: str) -> RecipeDetailOut:
+    recipe = _load_recipe_for_source_mutation(session, recipe_id, owner_id)
+    source = next((item for item in recipe.sources if item.id == source_id and item.owner_id == owner_id), None)
+    if source is None:
+        raise ApiError(ErrorCode.RECIPE_NOT_FOUND, "Recipe source not found.", status_code=404)
+
+    if status == "used":
+        source.status = RecipeSourceStatus.USED
+    elif status == "deleted":
+        if _is_current_cover_source(recipe, source):
+            raise ApiError(ErrorCode.RECIPE_NOT_FOUND, "Current cover source cannot be deleted.", status_code=409)
+        source.status = RecipeSourceStatus.DELETED
+        if source.type == SourceType.URL:
+            for child in source.children:
+                if not _is_current_cover_source(recipe, child):
+                    child.status = RecipeSourceStatus.DELETED
+    else:
+        raise ApiError(ErrorCode.RECIPE_NOT_FOUND, "Unsupported source status.", status_code=400)
+
+    session.commit()
+    return get_recipe_detail(session, recipe_id, owner_id)

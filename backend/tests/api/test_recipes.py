@@ -108,6 +108,7 @@ def test_recipe_list_and_detail_include_sources_and_flags():
 
     assert list_response.status_code == 200
     assert list_response.json()["items"][0]["title"] == "Soup"
+    assert list_response.json()["items"][0]["hasOpenReviewFlags"] is True
     assert detail_response.status_code == 200
     detail = detail_response.json()
     assert detail["sourceName"] == "INSTAGRAM"
@@ -117,6 +118,18 @@ def test_recipe_list_and_detail_include_sources_and_flags():
     assert detail["coverOptions"][0]["kind"] == "DEFAULT"
     assert detail["sources"][0]["status"] == "used"
     assert detail["reviewFlags"][0]["reasonCode"] == "LOW_CONFIDENCE"
+
+
+def test_recipe_list_marks_only_open_review_flags():
+    client, SessionLocal = client_with_session()
+    recipe_id, flag_id = seed_recipe(SessionLocal)
+
+    client.patch(f"/recipes/{recipe_id}/review-flags/{flag_id}", json={"status": "resolved"})
+
+    response = client.get("/recipes")
+
+    assert response.status_code == 200
+    assert response.json()["items"][0]["hasOpenReviewFlags"] is False
 
 
 def test_cover_options_select_source_image_for_generated_cover():
@@ -254,3 +267,108 @@ def test_resolve_and_unresolve_review_flag():
     assert reopened.status_code == 200
     assert reopened.json()["status"] == "open"
     assert reopened.json()["resolvedAt"] is None
+
+
+def test_patch_recipe_source_status_marks_single_source_without_children():
+    client, SessionLocal = client_with_session()
+    with SessionLocal() as session:
+        user = ensure_default_user(session)
+        recipe = Recipe(owner_id=user.id, title="Soup", instructions=["Heat water"])
+        parent = RecipeSource(
+            owner_id=user.id,
+            type=SourceType.URL,
+            source=RecipeSourceOrigin.MANUAL,
+            url="https://example.test/post",
+            position=0,
+            status=RecipeSourceStatus.IGNORED,
+        )
+        child = RecipeSource(
+            owner_id=user.id,
+            type=SourceType.TEXT,
+            source=RecipeSourceOrigin.URL,
+            text="Soup recipe",
+            position=1,
+            status=RecipeSourceStatus.IGNORED,
+        )
+        child.parent = parent
+        recipe.sources.extend([parent, child])
+        session.add(recipe)
+        session.commit()
+        recipe_id = recipe.id
+        parent_id = parent.id
+        child_id = child.id
+
+    response = client.patch(f"/recipes/{recipe_id}/sources/{parent_id}", json={"status": "used"})
+
+    assert response.status_code == 200
+    sources = {source["id"]: source for source in response.json()["sources"]}
+    assert sources[parent_id]["status"] == "used"
+    assert sources[child_id]["status"] == "ignored"
+
+
+def test_delete_url_source_hides_children_but_keeps_current_cover_image_source():
+    client, SessionLocal = client_with_session()
+    with SessionLocal() as session:
+        user = ensure_default_user(session)
+        recipe = Recipe(owner_id=user.id, title="Soup", instructions=["Heat water"], cover_image_source=CoverImageSource.USER)
+        source_image = RecipeImage(
+            role=RecipeImageRole.SOURCE,
+            storage_key="url-image.jpg",
+            original_name="url-image.jpg",
+            mime_type="image/jpeg",
+            size_bytes=10,
+            position=0,
+        )
+        recipe.images.append(source_image)
+        session.add(recipe)
+        session.flush()
+        recipe.cover_image_id = source_image.id
+        parent = RecipeSource(
+            owner_id=user.id,
+            type=SourceType.URL,
+            source=RecipeSourceOrigin.MANUAL,
+            url="https://example.test/post",
+            position=0,
+            status=RecipeSourceStatus.IGNORED,
+        )
+        text_child = RecipeSource(
+            owner_id=user.id,
+            type=SourceType.TEXT,
+            source=RecipeSourceOrigin.URL,
+            text="Soup recipe",
+            position=1,
+            status=RecipeSourceStatus.IGNORED,
+        )
+        image_child = RecipeSource(
+            owner_id=user.id,
+            type=SourceType.IMAGE,
+            source=RecipeSourceOrigin.URL,
+            image_id=source_image.id,
+            position=2,
+            status=RecipeSourceStatus.USED,
+        )
+        text_child.parent = parent
+        image_child.parent = parent
+        recipe.sources.extend([parent, text_child, image_child])
+        session.commit()
+        recipe_id = recipe.id
+        parent_id = parent.id
+        text_child_id = text_child.id
+        image_child_id = image_child.id
+        image_id = source_image.id
+
+    response = client.patch(f"/recipes/{recipe_id}/sources/{parent_id}", json={"status": "deleted"})
+
+    assert response.status_code == 200
+    detail = response.json()
+    assert detail["coverImage"]["id"] == image_id
+    assert image_id in [option["image"]["id"] for option in detail["coverOptions"] if option["image"]]
+    assert parent_id not in [source["id"] for source in detail["sources"]]
+    assert text_child_id not in [source["id"] for source in detail["sources"]]
+    assert image_child_id in [source["id"] for source in detail["sources"]]
+
+    with SessionLocal() as session:
+        rows = {source.id: source.status.value for source in session.query(RecipeSource).all()}
+    assert rows[parent_id] == "deleted"
+    assert rows[text_child_id] == "deleted"
+    assert rows[image_child_id] == "used"
