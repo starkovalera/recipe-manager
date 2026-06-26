@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from app.ai.schemas import ExtractionQuality
+from app.ai.schemas import ExtractionQuality, ReadySource, ready_source_id
 
 
 @dataclass(frozen=True)
@@ -53,6 +53,28 @@ def normalize_single_url_quality(quality: ExtractionQuality, is_single_url_impor
     if not is_single_url_import:
         return quality
     return quality.model_copy(update={"hasConflicts": False, "hasIgnored": False, "ignoredSourceRefs": []})
+
+
+def normalize_quality_source_refs(quality: ExtractionQuality, sources: list[ReadySource]) -> ExtractionQuality:
+    aliases: dict[str, str] = {}
+    for source in sources:
+        canonical = ready_source_id(source)
+        aliases[canonical] = canonical
+        if source.type == "IMAGE" and source.sourceRef:
+            aliases[source.sourceRef] = canonical
+            aliases[f"image:{source.sourceRef}"] = canonical
+        elif source.type == "URL" and source.url:
+            aliases[source.url] = canonical
+
+    def normalize(source_ref: str) -> str:
+        return aliases.get(source_ref, source_ref)
+
+    return quality.model_copy(
+        update={
+            "primarySourceRefs": [normalize(source_ref) for source_ref in quality.primarySourceRefs],
+            "ignoredSourceRefs": [normalize(source_ref) for source_ref in quality.ignoredSourceRefs],
+        }
+    )
 
 
 def should_create_review_flag(quality: ExtractionQuality, warn_confidence: float) -> bool:

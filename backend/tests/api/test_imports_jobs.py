@@ -161,6 +161,7 @@ class FakeRegistry:
         self.max_images_seen = max_images
         return LoadedUrlContent(
             url=url,
+            author_name="url_author",
             text="URL recipe text",
             images=[
                 LoadedRemoteImage(bytes=image_bytes(), mime_type="image/jpeg", original_name="remote.jpg", url=f"{url}/remote.jpg", position=0)
@@ -187,6 +188,56 @@ def test_url_images_use_remaining_capacity_after_attachments():
     assert [source["type"] for source in detail.json()["sources"]] == ["IMAGE", "URL", "IMAGE"]
 
 
+class CapturingProvider(FakeRecipeExtractionProvider):
+    def __init__(self):
+        self.sources = []
+
+    async def extract(self, sources):
+        self.sources = sources
+        return await super().extract(sources)
+
+
+def test_url_author_name_is_passed_to_ai_sources():
+    client = client_with_session()
+    registry = FakeRegistry()
+    provider = CapturingProvider()
+    set_url_content_loader_registry(registry)
+    set_recipe_extraction_provider(provider)
+
+    response = client.post(
+        "/imports",
+        data={"clientImportId": "url-author", "url": "https://example.com/recipe"},
+        headers={"X-Client-Id": "client-1"},
+    )
+
+    assert response.status_code == 200
+    url_source = next(source for source in provider.sources if source.type == "URL")
+    assert url_source.authorName == "url_author"
+
+
+def test_mixed_sources_match_reference_ai_source_order_and_refs():
+    client = client_with_session()
+    registry = FakeRegistry()
+    provider = CapturingProvider()
+    set_url_content_loader_registry(registry)
+    set_recipe_extraction_provider(provider)
+
+    response = client.post(
+        "/imports",
+        data={"clientImportId": "mixed-source-order", "text": "Manual recipe text", "url": "https://example.com/recipe"},
+        files=[("files", ("first.jpg", image_bytes(), "image/jpeg"))],
+        headers={"X-Client-Id": "client-1"},
+    )
+
+    assert response.status_code == 200
+    assert [(source.type, source.sourceRef, source.position) for source in provider.sources] == [
+        ("IMAGE", "source_0", 0),
+        ("TEXT", None, 1),
+        ("URL", None, 2),
+        ("IMAGE", "url_slide_0", 3),
+    ]
+
+
 class LowConfidenceProvider:
     async def extract(self, sources):
         return ExtractionResult(
@@ -203,6 +254,45 @@ class LowConfidenceProvider:
                 ),
             )
         )
+
+
+class SourceAssessmentProvider:
+    async def extract(self, sources):
+        return ExtractionResult(
+            recipe=ExtractedRecipe(
+                title="Assessed recipe",
+                ingredients=[{"name": "Ingredient"}],
+                instructions=["Cook."],
+                quality=ExtractionQuality(
+                    confidence=0.9,
+                    hasConflicts=True,
+                    hasIgnored=True,
+                    primarySourceRefs=["source_0", "https://example.com/recipe"],
+                    ignoredSourceRefs=["url_slide_0"],
+                ),
+            )
+        )
+
+
+def test_ai_quality_refs_set_recipe_source_statuses_after_normalization():
+    client = client_with_session()
+    set_url_content_loader_registry(FakeRegistry())
+    set_recipe_extraction_provider(SourceAssessmentProvider())
+
+    response = client.post(
+        "/imports",
+        data={"clientImportId": "source-statuses", "url": "https://example.com/recipe"},
+        files=[("files", ("first.jpg", image_bytes(), "image/jpeg"))],
+        headers={"X-Client-Id": "client-1"},
+    )
+    recipe_id = response.json()["createdRecipeId"]
+    detail = client.get(f"/recipes/{recipe_id}")
+
+    assert response.status_code == 200
+    statuses = {source["sourceRef"]: source["status"] for source in detail.json()["sources"]}
+    assert statuses["image:source_0"] == "used"
+    assert statuses["url:1"] == "used"
+    assert statuses["image:url_slide_0"] == "ignored"
 
 
 def test_low_confidence_import_fails_and_cleans_uploaded_files():
@@ -257,6 +347,44 @@ def test_cover_candidate_creates_cover_image():
     assert response.status_code == 200
     assert detail.json()["coverImage"]["role"] == "COVER"
     assert detail.json()["images"][0]["role"] == "SOURCE"
+
+
+class WarningFlagProvider:
+    async def extract(self, sources):
+        return ExtractionResult(
+            recipe=ExtractedRecipe(
+                title="Warning recipe",
+                ingredients=[{"name": "Ingredient"}],
+                instructions=["Cook."],
+                quality=ExtractionQuality(
+                    confidence=0.7,
+                    hasConflicts=True,
+                    hasIgnored=True,
+                    primarySourceRefs=["text:0"],
+                    ignoredSourceRefs=[],
+                ),
+            )
+        )
+
+
+def test_warning_flag_reasons_match_reference_import_rules():
+    client = client_with_session()
+    set_recipe_extraction_provider(WarningFlagProvider())
+
+    response = client.post(
+        "/imports",
+        data={"clientImportId": "warning-flag", "text": "Recipe text"},
+        headers={"X-Client-Id": "client-1"},
+    )
+    recipe_id = response.json()["createdRecipeId"]
+    detail = client.get(f"/recipes/{recipe_id}")
+
+    assert response.status_code == 200
+    flags = detail.json()["reviewFlags"]
+    assert len(flags) == 1
+    assert flags[0]["type"] == "CONTENT_WARNING"
+    assert flags[0]["reasonCode"] == "CONTENT_CONFLICT"
+    assert flags[0]["details"]["reasons"] == ["CONTENT_CONFLICT", "IGNORED_SOURCES", "LOW_CONFIDENCE"]
 
 
 def test_import_logs_lifecycle_without_image_payloads(caplog):

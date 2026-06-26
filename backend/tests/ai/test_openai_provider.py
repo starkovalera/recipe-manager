@@ -97,3 +97,62 @@ async def test_openai_provider_uses_reference_responses_input_and_logs_output(ca
     assert '\\"title\\": \\"Roulade\\"' in joined_logs
     assert "SECRET_IMAGE_DATA" not in joined_logs
     assert "image:source_0" in joined_logs
+
+
+@pytest.mark.anyio
+async def test_openai_provider_sends_reference_mixed_source_labels_once():
+    raw_output = json.dumps(
+        {
+            "title": "Pilaf",
+            "ingredients": [{"name": "Rice"}],
+            "instructions": ["Cook rice."],
+            "servings": None,
+            "cookTimeMinutes": None,
+            "nutritionEstimate": None,
+            "authorName": None,
+            "tags": [],
+            "quality": {
+                "confidence": 0.9,
+                "hasConflicts": False,
+                "hasIgnored": False,
+                "primarySourceRefs": ["url:0", "text:1", "image:source_0"],
+                "ignoredSourceRefs": [],
+            },
+            "coverCandidate": None,
+        }
+    )
+    client = FakeClient(raw_output)
+    provider = OpenAIRecipeExtractionProvider(Settings(openai_api_key="test-key", openai_recipe_model="gpt-test"), client=client)
+
+    await provider.extract(
+        [
+            ReadySource(
+                type="URL",
+                url="https://www.instagram.com/p/recipe",
+                authorName="chef",
+                text="URL recipe body",
+                position=0,
+            ),
+            ReadySource(type="TEXT", text="User pasted recipe body", position=1),
+            ReadySource(
+                type="IMAGE",
+                sourceRef="source_0",
+                storageKey="uploads/source-0.png",
+                dataUrl="data:image/png;base64,SECRET_IMAGE_DATA",
+                mimeType="image/png",
+                originalName="first.png",
+                position=2,
+            ),
+        ]
+    )
+
+    content = client.responses.calls[0]["input"][0]["content"]
+    text_blocks = [item for item in content if item["type"] == "input_text"]
+    image_blocks = [item for item in content if item["type"] == "input_image"]
+
+    assert len([item for item in text_blocks if "URL recipe body" in item["text"]]) == 1
+    assert len([item for item in text_blocks if "User pasted recipe body" in item["text"]]) == 1
+    assert any("Source sourceId=url:0" in item["text"] and "Fetched authorName: chef" in item["text"] for item in text_blocks)
+    assert any("Source sourceId=text:1" in item["text"] for item in text_blocks)
+    assert any("Source sourceId=image:source_0" in item["text"] for item in text_blocks)
+    assert image_blocks == [{"type": "input_image", "detail": "auto", "image_url": "data:image/png;base64,SECRET_IMAGE_DATA"}]

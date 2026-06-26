@@ -13,7 +13,7 @@ from app.core.errors import ApiError, ErrorCode
 from app.core.logging import log_error, log_info
 from app.imports.cover_guard import CoverCandidate as ImportCoverCandidate
 from app.imports.cover_guard import CoverGuardInput, choose_cover_candidate
-from app.imports.sources import normalize_single_url_quality, source_assessments
+from app.imports.sources import normalize_quality_source_refs, normalize_single_url_quality, source_assessments
 from app.imports.sources import review_reason_codes, should_create_review_flag
 from app.core.config import get_settings
 from app.media.images import create_cover_image, image_to_data_url, validate_image_upload
@@ -150,9 +150,6 @@ def create_import_job(
 
     job = ImportJob(owner_id=owner_id, client_id=client_id, client_import_id=client_import_id, status=ImportJobStatus.PENDING)
     position = 0
-    if normalized_text:
-        job.sources.append(ImportJobSource(type=SourceType.TEXT, status=ImportSourceStatus.READY, text=normalized_text, position=position))
-        position += 1
     storage = LocalStorageService(get_settings().upload_dir)
     for upload in files:
         content = upload.file.read()
@@ -174,6 +171,9 @@ def create_import_job(
                 position=position,
             )
         )
+        position += 1
+    if normalized_text:
+        job.sources.append(ImportJobSource(type=SourceType.TEXT, status=ImportSourceStatus.READY, text=normalized_text, position=position))
         position += 1
     if normalized_url:
         job.sources.append(ImportJobSource(type=SourceType.URL, status=ImportSourceStatus.READY, url=normalized_url, position=position))
@@ -215,7 +215,7 @@ def process_import_job(session: Session, job_id: str) -> None:
             ready_sources.append(
                 ReadySource(
                     type="IMAGE",
-                    sourceRef=f"upload_{source.position}",
+                    sourceRef=f"source_{source.position}",
                     storageKey=source.image_storage_key,
                     dataUrl=image_to_data_url(storage.read(source.image_storage_key), source.mime_type),
                     mimeType=source.mime_type,
@@ -240,14 +240,22 @@ def process_import_job(session: Session, job_id: str) -> None:
                 remaining_images,
                 get_settings().max_upload_bytes,
             )
-            ready_sources.append(ReadySource(type="URL", url=loaded_url.url, text=loaded_url.text, position=source.position))
+            ready_sources.append(
+                ReadySource(
+                    type="URL",
+                    url=loaded_url.url,
+                    authorName=loaded_url.author_name,
+                    text=loaded_url.text,
+                    position=source.position,
+                )
+            )
             for remote_image in loaded_url.images[:remaining_images]:
                 saved = storage.save(remote_image.bytes, remote_image.original_name, remote_image.mime_type)
                 saved_storage_keys.append(saved.storage_key)
                 ready_sources.append(
                     ReadySource(
                         type="IMAGE",
-                        sourceRef=f"remote_{remote_image.position}",
+                        sourceRef=f"url_slide_{remote_image.position}",
                         storageKey=saved.storage_key,
                         dataUrl=image_to_data_url(remote_image.bytes, remote_image.mime_type),
                         mimeType=remote_image.mime_type,
@@ -310,7 +318,8 @@ def process_import_job(session: Session, job_id: str) -> None:
 
     recipe_result = result.recipe
     is_single_url_import = len(job.sources) == 1 and job.sources[0].type == SourceType.URL
-    recipe_quality = normalize_single_url_quality(recipe_result.quality, is_single_url_import)
+    recipe_quality = normalize_quality_source_refs(recipe_result.quality, ready_sources)
+    recipe_quality = normalize_single_url_quality(recipe_quality, is_single_url_import)
     recipe_result = recipe_result.model_copy(update={"quality": recipe_quality})
     if recipe_result.quality.confidence <= get_settings().import_min_confidence:
         _cleanup_storage_keys(storage, saved_storage_keys)
@@ -438,7 +447,7 @@ def process_import_job(session: Session, job_id: str) -> None:
                 owner_id=job.owner_id,
                 type=RecipeReviewFlagType.CONTENT_WARNING,
                 status=RecipeReviewFlagStatus.OPEN,
-                reason_code=",".join(reasons),
+                reason_code=reasons[0],
                 message=f"Review suggested: {', '.join(reasons)}.",
                 details={**recipe_result.quality.model_dump(), "reasons": reasons},
             )

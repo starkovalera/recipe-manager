@@ -9,7 +9,13 @@ from app.imports.url_loaders.types import Fetch, FetchResponse, LoadedRemoteImag
 
 async def httpx_fetch(url: str, max_bytes: int) -> FetchResponse:
     async with httpx.AsyncClient(follow_redirects=True, timeout=10) as client:
-        response = await client.get(url)
+        response = await client.get(
+            url,
+            headers={
+                "accept": "application/activity+json,application/json,text/html,*/*",
+                "user-agent": "Mozilla/5.0 recipe-importer",
+            },
+        )
         response.raise_for_status()
         content = response.content[:max_bytes]
         return FetchResponse(content=content, headers={key.lower(): value for key, value in response.headers.items()})
