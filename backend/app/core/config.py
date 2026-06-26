@@ -42,6 +42,7 @@ class Settings(BaseSettings):
     max_parallel_imports_per_client: int = 1
     stale_import_minutes: int = 30
 
+    ai_provider: Literal["auto", "fake", "openai"] = "auto"
     openai_api_key: str | None = None
     openai_recipe_model: str = "gpt-4.1-mini"
     openai_video_transcription_model: str = "gpt-4o-mini-transcribe"

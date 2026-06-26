@@ -13,7 +13,12 @@ from app.db.base import Base
 from app.db.session import get_session
 from app.ai.fake_provider import FakeRecipeExtractionProvider
 from app.ai.schemas import CoverCandidate, ExtractedRecipe, ExtractionQuality, ExtractionResult
-from app.imports.jobs import DefaultUrlContentRegistry, set_recipe_extraction_provider, set_url_content_loader_registry
+from app.imports.jobs import (
+    DefaultUrlContentRegistry,
+    reset_recipe_extraction_provider,
+    set_recipe_extraction_provider,
+    set_url_content_loader_registry,
+)
 from app.imports.url_loaders.types import LoadedRemoteImage, LoadedUrlContent
 from app.main import create_app
 

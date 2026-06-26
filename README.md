@@ -7,7 +7,8 @@ Greenfield rewrite of the recipe MVP with a FastAPI backend and React/Vite front
 Put your AI key in `backend/.env`:
 
 ```dotenv
-OPENAI_API_KEY=sk-...
+AI_PROVIDER=openai
+OPENAI_API_KEY=<your-openai-key>
 ```
 
 ```powershell
@@ -29,6 +30,7 @@ Frontend API URL is in `frontend/.env`:
 
 ```dotenv
 VITE_API_BASE_URL=http://127.0.0.1:8000
+VITE_DEBUG_API=true
 ```
 
 ```powershell
@@ -62,3 +64,23 @@ clears it on backend restart.
 Current import processing is sync-first: `POST /imports` creates an `ImportJob`,
 processes it immediately, and the frontend still polls `GET /imports/{jobId}` so
 the contract can move to a real background queue later.
+
+## Logs
+
+Backend import logs are printed in the backend terminal:
+
+```text
+[recipes.import] AI provider selected
+[recipes.import] Import job created
+[recipes.import] AI extraction quality
+[recipes.import] Import job succeeded
+```
+
+Frontend API logs are printed in the browser console and, in Vite dev mode, also
+mirrored to the frontend terminal when `VITE_DEBUG_API=true`:
+
+```text
+[recipes.frontend.api] request
+[recipes.frontend.api] response
+[recipes.frontend.api] error
+```

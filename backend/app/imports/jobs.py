@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 from fastapi import UploadFile
 
-from app.ai.fake_provider import FakeRecipeExtractionProvider
+from app.ai.factory import create_recipe_extraction_provider
 from app.ai.provider import RecipeExtractionProvider
 from app.ai.schemas import ReadySource, ready_source_id
 from app.core.errors import ApiError, ErrorCode
@@ -79,7 +79,7 @@ class DefaultUrlContentRegistry:
 
 
 _url_content_loader_registry: UrlContentRegistryProtocol = DefaultUrlContentRegistry()
-_recipe_extraction_provider: RecipeExtractionProvider = FakeRecipeExtractionProvider()
+_recipe_extraction_provider_override: RecipeExtractionProvider | None = None
 
 
 def set_url_content_loader_registry(registry: UrlContentRegistryProtocol) -> None:
@@ -88,8 +88,19 @@ def set_url_content_loader_registry(registry: UrlContentRegistryProtocol) -> Non
 
 
 def set_recipe_extraction_provider(provider: RecipeExtractionProvider) -> None:
-    global _recipe_extraction_provider
-    _recipe_extraction_provider = provider
+    global _recipe_extraction_provider_override
+    _recipe_extraction_provider_override = provider
+
+
+def reset_recipe_extraction_provider() -> None:
+    global _recipe_extraction_provider_override
+    _recipe_extraction_provider_override = None
+
+
+def _recipe_extraction_provider() -> tuple[str, RecipeExtractionProvider]:
+    if _recipe_extraction_provider_override is not None:
+        return "test", _recipe_extraction_provider_override
+    return create_recipe_extraction_provider(get_settings())
 
 
 def _cleanup_storage_keys(storage: LocalStorageService, storage_keys: list[str]) -> None:
@@ -247,8 +258,16 @@ def process_import_job(session: Session, job_id: str) -> None:
                 )
 
     started_at = datetime.now(timezone.utc)
+    provider_name, provider = _recipe_extraction_provider()
+    log_info(
+        logger,
+        "[recipes.import] AI provider selected",
+        ownerId=job.owner_id,
+        importJobId=job.id,
+        provider=provider_name,
+    )
     try:
-        result = anyio.run(_recipe_extraction_provider.extract, ready_sources)
+        result = anyio.run(provider.extract, ready_sources)
     except Exception as error:
         log_error(
             logger,

@@ -8,6 +8,17 @@ export function setApiDebugLoggingForTests(enabled: boolean) {
   debugApiLogging = enabled;
 }
 
+function writeApiLog(level: "info" | "error", message: string, meta: Record<string, unknown>) {
+  console[level](message, meta);
+  if (import.meta.env.DEV && import.meta.env.MODE !== "test") {
+    fetch("/_recipes_client_log", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ level, message, meta }),
+    }).catch(() => undefined);
+  }
+}
+
 export function mediaUrl(url: string): string {
   return url.startsWith("http://") || url.startsWith("https://") ? url : `${API_BASE_URL}${url}`;
 }
@@ -34,12 +45,12 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const method = init.method ?? "GET";
   const startedAt = performance.now();
   if (debugApiLogging) {
-    console.info("[recipes.frontend.api] request", { method, path });
+    writeApiLog("info", "[recipes.frontend.api] request", { method, path });
   }
   try {
     const response = await fetch(`${API_BASE_URL}${path}`, init);
     if (debugApiLogging) {
-      console.info("[recipes.frontend.api] response", {
+      writeApiLog("info", "[recipes.frontend.api] response", {
         method,
         path,
         status: response.status,
@@ -49,7 +60,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     return parseResponse<T>(response);
   } catch (error) {
     if (debugApiLogging) {
-      console.error("[recipes.frontend.api] error", {
+      writeApiLog("error", "[recipes.frontend.api] error", {
         method,
         path,
         durationMs: Math.round(performance.now() - startedAt),
