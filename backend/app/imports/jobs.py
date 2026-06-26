@@ -13,6 +13,7 @@ from app.core.errors import ApiError, ErrorCode
 from app.core.logging import log_error, log_info
 from app.imports.cover_guard import CoverCandidate as ImportCoverCandidate
 from app.imports.cover_guard import CoverGuardInput, choose_cover_candidate
+from app.imports.source_platform import derive_source_name
 from app.imports.sources import normalize_quality_source_refs, normalize_single_url_quality, source_assessments
 from app.imports.sources import review_reason_codes, should_create_review_flag
 from app.core.config import get_settings
@@ -208,6 +209,7 @@ def process_import_job(session: Session, job_id: str) -> None:
     storage = LocalStorageService(get_settings().upload_dir)
     saved_storage_keys = [source.image_storage_key for source in job.sources if source.image_storage_key]
     ready_sources: list[ReadySource] = []
+    loaded_urls: list[str] = []
     for source in sorted(job.sources, key=lambda item: item.position):
         if source.type == SourceType.TEXT and source.text:
             ready_sources.append(ReadySource(type="TEXT", text=source.text, position=source.position))
@@ -240,6 +242,7 @@ def process_import_job(session: Session, job_id: str) -> None:
                 remaining_images,
                 get_settings().max_upload_bytes,
             )
+            loaded_urls.append(loaded_url.url)
             ready_sources.append(
                 ReadySource(
                     type="URL",
@@ -349,6 +352,23 @@ def process_import_job(session: Session, job_id: str) -> None:
         primarySourceRefs=recipe_result.quality.primarySourceRefs,
         ignoredSourceRefs=recipe_result.quality.ignoredSourceRefs,
     )
+    source_name_result = derive_source_name(loaded_urls)
+    if not source_name_result.ok:
+        _cleanup_storage_keys(storage, saved_storage_keys)
+        job.status = ImportJobStatus.FAILED
+        job.error_code = source_name_result.error_code
+        job.error_message = "URL sources include mixed platforms."
+        job.finished_at = datetime.now(timezone.utc)
+        session.commit()
+        log_info(
+            logger,
+            "[recipes.import] Import job failed",
+            ownerId=job.owner_id,
+            importJobId=job.id,
+            errorCode=job.error_code,
+            errorMessage=job.error_message,
+        )
+        return
     recipe = Recipe(
         owner_id=job.owner_id,
         title=recipe_result.title,
@@ -357,6 +377,7 @@ def process_import_job(session: Session, job_id: str) -> None:
         cook_time_minutes=recipe_result.cookTimeMinutes,
         nutrition_estimate=recipe_result.nutritionEstimate.model_dump() if recipe_result.nutritionEstimate else None,
         author_name=recipe_result.authorName,
+        source_name=source_name_result.source_name,
     )
     for index, ingredient in enumerate(recipe_result.ingredients):
         recipe.ingredients.append(

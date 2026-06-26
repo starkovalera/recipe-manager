@@ -148,6 +148,7 @@ button:disabled {
 
 .cover-option {
   width: 140px;
+  min-width: 0;
 }
 
 .cover-option img {
@@ -156,6 +157,12 @@ button:disabled {
   object-fit: cover;
   border: 1px solid #d1d5db;
   border-radius: 4px;
+}
+
+.cover-option span {
+  display: block;
+  max-width: 120px;
+  overflow-wrap: anywhere;
 }
 
 .flag-strip {

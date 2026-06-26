@@ -215,6 +215,38 @@ def test_url_author_name_is_passed_to_ai_sources():
     assert url_source.authorName == "url_author"
 
 
+def test_threads_url_import_sets_recipe_source_name():
+    client = client_with_session()
+    set_url_content_loader_registry(FakeRegistry())
+
+    response = client.post(
+        "/imports",
+        data={"clientImportId": "threads-url", "url": "https://www.threads.com/@cook/post/abc"},
+        headers={"X-Client-Id": "client-1"},
+    )
+    recipe_id = response.json()["createdRecipeId"]
+    detail = client.get(f"/recipes/{recipe_id}")
+
+    assert response.status_code == 200
+    assert detail.json()["sourceName"] == "THREADS"
+
+
+def test_instagram_url_import_sets_recipe_source_name():
+    client = client_with_session()
+    set_url_content_loader_registry(FakeRegistry())
+
+    response = client.post(
+        "/imports",
+        data={"clientImportId": "instagram-url", "url": "https://www.instagram.com/p/abc"},
+        headers={"X-Client-Id": "client-1"},
+    )
+    recipe_id = response.json()["createdRecipeId"]
+    detail = client.get(f"/recipes/{recipe_id}")
+
+    assert response.status_code == 200
+    assert detail.json()["sourceName"] == "INSTAGRAM"
+
+
 def test_mixed_sources_match_reference_ai_source_order_and_refs():
     client = client_with_session()
     registry = FakeRegistry()

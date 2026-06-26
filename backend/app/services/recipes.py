@@ -78,12 +78,12 @@ def _cover_options(recipe: Recipe, source_images: list[RecipeImage], cover_image
             selected=cover_image is None and (recipe.cover_image_id is None or recipe.cover_image_source == CoverImageSource.DEFAULT),
         )
     )
-    for image in source_images:
+    for index, image in enumerate(source_images, start=1):
         options.append(
             CoverOptionOut(
                 kind="IMAGE",
                 image=_serialize_image(image),
-                label=image.original_name,
+                label=f"Image {index}",
                 selected=not has_generated_cover and cover_image is not None and cover_image.id == image.id,
             )
         )
