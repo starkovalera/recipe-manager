@@ -1,23 +1,25 @@
 :root {
   color-scheme: light;
-  --bg: #f4f6f3;
+  --bg: #f3f7f5;
   --surface: #ffffff;
-  --surface-soft: #f8faf7;
-  --surface-warm: #fffaf2;
-  --text: #172033;
-  --muted: #667085;
-  --line: #d8dfd6;
-  --line-strong: #bdc8ba;
-  --accent: #2f6f5e;
-  --accent-strong: #255a4c;
-  --accent-soft: #e4f0eb;
-  --amber: #b66a12;
-  --danger: #b42318;
-  --danger-soft: #fff0ee;
-  --shadow: 0 18px 42px rgba(23, 32, 51, 0.08);
-  --shadow-soft: 0 8px 22px rgba(23, 32, 51, 0.06);
-  --radius: 18px;
-  --radius-sm: 12px;
+  --surface-soft: #f8fbf9;
+  --surface-warm: #fff7ed;
+  --text: #18231f;
+  --text-soft: #34433d;
+  --muted: #66736d;
+  --line: #dbe6e0;
+  --line-strong: #b8c8c0;
+  --accent: #34785f;
+  --accent-strong: #285f4b;
+  --accent-soft: #e3f1eb;
+  --accent-ink: #13392b;
+  --amber: #a96b18;
+  --danger: #aa3f35;
+  --danger-soft: #fff0eb;
+  --shadow: 0 22px 54px rgba(21, 37, 31, 0.1);
+  --shadow-soft: 0 10px 26px rgba(21, 37, 31, 0.07);
+  --radius: 22px;
+  --radius-sm: 14px;
 }
 
 * {
@@ -26,11 +28,14 @@
 
 body {
   margin: 0;
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  letter-spacing: 0;
   color: var(--text);
   background:
-    radial-gradient(circle at 12% 8%, rgba(47, 111, 94, 0.08), transparent 28%),
-    linear-gradient(180deg, #fbfcfa 0%, var(--bg) 42%);
+    linear-gradient(135deg, rgba(52, 120, 95, 0.09), transparent 34%),
+    linear-gradient(180deg, #fbfdfc 0%, var(--bg) 48%);
 }
 
 .app-shell {
@@ -50,17 +55,19 @@ body {
 
 .app-header h1 {
   margin: 0;
-  font-size: clamp(24px, 3vw, 36px);
-  line-height: 1;
+  font-size: 2.15rem;
+  line-height: 1.05;
+  font-weight: 850;
+  color: var(--accent-ink);
 }
 
 .top-nav {
   display: flex;
   gap: 8px;
   padding: 6px;
-  border: 1px solid rgba(189, 200, 186, 0.75);
+  border: 1px solid rgba(184, 200, 192, 0.75);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.78);
+  background: rgba(255, 255, 255, 0.82);
   box-shadow: var(--shadow-soft);
 }
 
@@ -70,6 +77,8 @@ body {
   padding: 8px 14px;
   background: transparent;
   color: var(--muted);
+  font-size: 14px;
+  font-weight: 750;
 }
 
 .top-nav button.is-active,
@@ -84,16 +93,20 @@ body {
 }
 
 .panel {
-  border: 1px solid rgba(189, 200, 186, 0.78);
+  border: 1px solid rgba(184, 200, 192, 0.8);
   border-radius: var(--radius);
   padding: 22px;
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.95);
   box-shadow: var(--shadow);
 }
 
 .panel > h2,
 .section-heading h2 {
   margin-top: 0;
+  color: var(--accent-ink);
+  font-size: 1.75rem;
+  line-height: 1.14;
+  font-weight: 820;
 }
 
 .stack {
@@ -104,9 +117,9 @@ body {
 label {
   display: grid;
   gap: 6px;
-  color: #344054;
+  color: var(--text-soft);
   font-size: 14px;
-  font-weight: 650;
+  font-weight: 720;
 }
 
 input,
@@ -120,8 +133,8 @@ textarea {
   width: 100%;
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
-  padding: 10px 12px;
-  background: #fff;
+  padding: 11px 13px;
+  background: #ffffff;
   color: var(--text);
   outline: none;
   transition: border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
@@ -135,16 +148,17 @@ textarea {
 input:focus,
 textarea:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 4px rgba(47, 111, 94, 0.12);
+  box-shadow: 0 0 0 4px rgba(52, 120, 95, 0.14);
 }
 
 button {
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-sm);
   padding: 10px 14px;
-  background: #fff;
+  background: #ffffff;
   color: var(--text);
   cursor: pointer;
+  font-weight: 720;
   transition: transform 120ms ease, border-color 120ms ease, background 120ms ease, box-shadow 120ms ease;
 }
 
@@ -208,8 +222,9 @@ form button[type="submit"]:hover,
 .recipe-card span {
   min-height: 58px;
   padding: 12px 14px 14px;
-  font-weight: 750;
-  line-height: 1.25;
+  font-weight: 780;
+  line-height: 1.28;
+  color: var(--accent-ink);
 }
 
 .recipe-hero {
@@ -227,8 +242,10 @@ form button[type="submit"]:hover,
 .recipe-hero h2 {
   margin: 0;
   max-width: 760px;
-  font-size: clamp(24px, 3vw, 40px);
-  line-height: 1.12;
+  font-size: 2.35rem;
+  line-height: 1.1;
+  font-weight: 860;
+  color: var(--accent-ink);
 }
 
 .hero-cover {
@@ -253,9 +270,9 @@ form button[type="submit"]:hover,
   border-radius: 999px;
   padding: 6px 10px;
   background: var(--accent-soft);
-  color: #24584a;
+  color: var(--accent-ink);
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 760;
 }
 
 .two-column,
@@ -267,7 +284,7 @@ form button[type="submit"]:hover,
 
 .two-column section,
 .nutrition-panel {
-  border: 1px solid rgba(216, 223, 214, 0.9);
+  border: 1px solid rgba(219, 230, 224, 0.95);
   border-radius: 16px;
   padding: 16px;
   background: var(--surface-soft);
@@ -277,6 +294,10 @@ form button[type="submit"]:hover,
 .nutrition-panel h3,
 .editor-section h3 {
   margin-top: 0;
+  color: var(--text);
+  font-size: 18px;
+  line-height: 1.2;
+  font-weight: 820;
 }
 
 .editor-section {
@@ -298,8 +319,8 @@ form button[type="submit"]:hover,
 
 .cover-picker legend {
   padding: 0 6px;
-  color: #344054;
-  font-weight: 750;
+  color: var(--text-soft);
+  font-weight: 780;
 }
 
 .cover-option {
@@ -330,6 +351,7 @@ form button[type="submit"]:hover,
   max-width: 112px;
   color: var(--muted);
   font-size: 13px;
+  line-height: 1.25;
   overflow-wrap: anywhere;
 }
 
@@ -356,6 +378,12 @@ form button[type="submit"]:hover,
 .status-card span,
 .status-card small {
   color: var(--muted);
+}
+
+.status-card strong,
+.flag-card strong {
+  color: var(--text);
+  font-weight: 820;
 }
 
 .collection-list {
@@ -414,11 +442,14 @@ form button[type="submit"]:hover,
 
 pre {
   white-space: pre-wrap;
-  background: #fff;
+  background: #ffffff;
   border: 1px solid var(--line);
   border-radius: 12px;
   padding: 12px;
-  color: #344054;
+  color: var(--text-soft);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 [role="alert"] {
