@@ -44,6 +44,7 @@ from app.models import (
     SourceType,
 )
 from app.schemas.imports import ImportJobOut
+from app.services.recipe_limits import validate_recipe_size
 from app.storage.local import LocalStorageService
 
 
@@ -563,6 +564,24 @@ def process_import_job(session: Session, job_id: str) -> None:
         return
 
     recipe_result = result.recipe
+    try:
+        validate_recipe_size(recipe_result.ingredients, recipe_result.instructions)
+    except ApiError as error:
+        _cleanup_storage_keys(storage, saved_storage_keys)
+        job.status = ImportJobStatus.FAILED
+        job.error_code = error.error_code.value
+        job.error_message = error.message
+        job.finished_at = datetime.now(timezone.utc)
+        session.commit()
+        log_info(
+            logger,
+            "[recipes.import] Import job failed",
+            ownerId=job.owner_id,
+            importJobId=job.id,
+            errorCode=job.error_code,
+            errorMessage=job.error_message,
+        )
+        return
     is_single_url_import = len(job.sources) == 1 and job.sources[0].type == SourceType.URL
     status_quality = normalize_quality_source_refs(recipe_result.quality, ready_sources)
     recipe_quality = normalize_single_url_quality(status_quality, is_single_url_import)

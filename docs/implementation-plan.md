@@ -309,7 +309,7 @@ pnpm dev
 - [ ] Implement `GET /recipes` with simple list sorted by newest first.
 - [ ] Implement `GET /recipes/{recipe_id}` returning ingredients, tags, images/media URLs, sources, and open/resolved review flags.
 - [ ] Implement `PATCH /recipes/{recipe_id}` for title, servings, cook time, instructions, ingredients, tags, and note.
-- [ ] Trim and truncate note to `MAX_RECIPE_NOTE_CHARS`; never send note through import AI.
+- [ ] Trim and validate note against `MAX_RECIPE_NOTE_CHARS`; never send note through import AI.
 - [ ] Implement `DELETE /recipes/{recipe_id}` with DB cascade. Physical media deletion can be deferred to a later cleanup task unless tests prove it is necessary now.
 - [ ] Implement `GET /recipes/{recipe_id}/sources`.
 - [ ] Implement `PATCH /recipes/{recipe_id}/review-flags/{flag_id}` to resolve/unresolve with `resolvedAt`.

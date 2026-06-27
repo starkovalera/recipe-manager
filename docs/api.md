@@ -15,7 +15,7 @@ Current implemented API surface.
   - Returns recipe detail with ingredients, instructions, sources, and review flags.
 - `PATCH /recipes/{recipeId}`
   - Supports `title`, `servings`, `cookTimeMinutes`, `instructions`, and `note`.
-  - Notes are trimmed and truncated to `MAX_RECIPE_NOTE_CHARS`.
+  - Validates recipe size against `MAX_RECIPE_INGREDIENTS`, `MAX_RECIPE_INSTRUCTION_CHARS`, and `MAX_RECIPE_NOTE_CHARS`.
 - `PATCH /recipes/{recipeId}/review-flags/{flagId}`
   - Body: `{ "status": "open" | "resolved" }`.
 

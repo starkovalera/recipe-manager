@@ -5,6 +5,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
+import pytest
+
+from app.core.config import get_settings
 from app.db.base import Base
 from app.db.init import ensure_default_user
 from app.db.session import get_session
@@ -25,6 +28,16 @@ from app.models import (
     Tag,
     User,
 )
+
+
+@pytest.fixture(autouse=True)
+def reset_settings(monkeypatch):
+    monkeypatch.setenv("MAX_RECIPE_INGREDIENTS", "50")
+    monkeypatch.setenv("MAX_RECIPE_INSTRUCTION_CHARS", "1000")
+    monkeypatch.setenv("MAX_RECIPE_NOTE_CHARS", "500")
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
 
 
 def client_with_session():
@@ -224,15 +237,37 @@ def test_recipe_endpoints_are_scoped_to_current_user():
     assert other_delete.status_code == 404
 
 
-def test_patch_recipe_trims_and_truncates_note():
+def test_patch_recipe_rejects_note_over_limit():
     client, SessionLocal = client_with_session()
     recipe_id, _ = seed_recipe(SessionLocal)
 
     response = client.patch(f"/recipes/{recipe_id}", json={"note": " " + ("x" * 600) + " "})
 
-    assert response.status_code == 200
-    assert len(response.json()["note"]) == 500
-    assert response.json()["note"] == "x" * 500
+    assert response.status_code == 400
+    assert response.json()["errorCode"] == "NOTE_TOO_LONG"
+
+
+def test_patch_recipe_rejects_too_many_ingredients():
+    client, SessionLocal = client_with_session()
+    recipe_id, _ = seed_recipe(SessionLocal)
+
+    response = client.patch(
+        f"/recipes/{recipe_id}",
+        json={"ingredients": [{"name": f"Ingredient {index}"} for index in range(51)]},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["errorCode"] == "RECIPE_TOO_LONG"
+
+
+def test_patch_recipe_rejects_too_long_instructions():
+    client, SessionLocal = client_with_session()
+    recipe_id, _ = seed_recipe(SessionLocal)
+
+    response = client.patch(f"/recipes/{recipe_id}", json={"instructions": ["x" * 1001]})
+
+    assert response.status_code == 400
+    assert response.json()["errorCode"] == "RECIPE_TOO_LONG"
 
 
 def test_patch_recipe_updates_full_editable_fields_and_cover():

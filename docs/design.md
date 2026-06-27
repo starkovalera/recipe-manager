@@ -113,7 +113,9 @@ Initial backend settings:
 - `DATABASE_URL`, default SQLite local file.
 - `UPLOAD_DIR`, default local upload directory.
 - `MAX_IMPORT_IMAGES`, default `10`.
-- `MAX_IMPORT_TEXT_CHARS`, default `500`.
+- `MAX_IMPORT_TEXT_CHARS`, default `1000`.
+- `MAX_RECIPE_INGREDIENTS`, default `50`.
+- `MAX_RECIPE_INSTRUCTION_CHARS`, default `1000`.
 - `MAX_RECIPE_NOTE_CHARS`, default `500`.
 - `MAX_UPLOAD_BYTES`.
 - `MAX_VIDEO_BYTES`.
@@ -184,7 +186,7 @@ Initial endpoints:
 
 ### Recipe Notes
 
-Can be part of `PATCH /recipes/{recipeId}`. The note is plain user text, trimmed and truncated to `MAX_RECIPE_NOTE_CHARS`. It is never sent to AI import processing.
+Can be part of `PATCH /recipes/{recipeId}`. The note is plain user text, trimmed and rejected when it exceeds `MAX_RECIPE_NOTE_CHARS`. It is never sent to AI import processing.
 
 ### Imports
 

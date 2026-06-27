@@ -13,6 +13,7 @@ from app.db.base import Base
 from app.db.session import get_session
 from app.ai.fake_provider import FakeRecipeExtractionProvider
 from app.ai.schemas import CoverCandidate, ExtractedRecipe, ExtractionQuality, ExtractionResult
+from app.core.config import get_settings
 from app.imports.jobs import (
     DefaultUrlContentRegistry,
     reset_recipe_extraction_provider,
@@ -26,13 +27,19 @@ from app.main import create_app
 
 
 @pytest.fixture(autouse=True)
-def reset_import_dependencies():
+def reset_import_dependencies(monkeypatch):
+    monkeypatch.setenv("MAX_IMPORT_TEXT_CHARS", "1000")
+    monkeypatch.setenv("MAX_RECIPE_INGREDIENTS", "50")
+    monkeypatch.setenv("MAX_RECIPE_INSTRUCTION_CHARS", "1000")
+    monkeypatch.setenv("MAX_RECIPE_NOTE_CHARS", "500")
+    get_settings.cache_clear()
     set_recipe_extraction_provider(FakeRecipeExtractionProvider())
     set_url_content_loader_registry(DefaultUrlContentRegistry())
     yield
     set_recipe_extraction_provider(FakeRecipeExtractionProvider())
     set_url_content_loader_registry(DefaultUrlContentRegistry())
     reset_video_processor()
+    get_settings.cache_clear()
 
 
 def client_with_session():
@@ -101,12 +108,24 @@ def test_import_rejects_text_over_limit_before_job_creation():
 
     response = client.post(
         "/imports",
-        data={"clientImportId": "long-text", "text": "x" * 501},
+        data={"clientImportId": "long-text", "text": "x" * 1001},
         headers={"X-Client-Id": "client-1"},
     )
 
     assert response.status_code == 400
     assert response.json()["errorCode"] == "TEXT_TOO_LONG"
+
+
+def test_import_accepts_text_at_limit_before_job_creation():
+    client = client_with_session()
+
+    response = client.post(
+        "/imports",
+        data={"clientImportId": "limit-text", "text": "x" * 1000},
+        headers={"X-Client-Id": "client-1"},
+    )
+
+    assert response.status_code == 200
 
 
 def test_import_rejects_too_many_files_before_processing():
@@ -474,6 +493,42 @@ class LowConfidenceProvider:
         )
 
 
+class TooManyIngredientsProvider:
+    async def extract(self, sources):
+        return ExtractionResult(
+            recipe=ExtractedRecipe(
+                title="Too many ingredients",
+                ingredients=[{"name": f"Ingredient {index}"} for index in range(51)],
+                instructions=["Cook."],
+                quality=ExtractionQuality(
+                    confidence=0.9,
+                    hasConflicts=False,
+                    hasIgnored=False,
+                    primarySourceRefs=[sources[0].id],
+                    ignoredSourceRefs=[],
+                ),
+            )
+        )
+
+
+class TooLongInstructionsProvider:
+    async def extract(self, sources):
+        return ExtractionResult(
+            recipe=ExtractedRecipe(
+                title="Too long instructions",
+                ingredients=[{"name": "Ingredient"}],
+                instructions=["x" * 1001],
+                quality=ExtractionQuality(
+                    confidence=0.9,
+                    hasConflicts=False,
+                    hasIgnored=False,
+                    primarySourceRefs=[sources[0].id],
+                    ignoredSourceRefs=[],
+                ),
+            )
+        )
+
+
 class SourceAssessmentProvider:
     async def extract(self, sources):
         refs = {source.type: source.id for source in sources}
@@ -558,6 +613,38 @@ def test_ai_quality_refs_with_source_id_prefix_set_recipe_source_statuses():
     sources = detail.json()["sources"]
     assert next(source for source in sources if source["type"] == "URL")["status"] == "used"
     assert next(source for source in sources if source["type"] == "TEXT" and source["source"] == "URL")["status"] == "used"
+
+
+def test_import_fails_when_ai_returns_too_many_ingredients():
+    client = client_with_session()
+    set_recipe_extraction_provider(TooManyIngredientsProvider())
+
+    response = client.post(
+        "/imports",
+        data={"clientImportId": "too-many-ingredients", "text": "Recipe text"},
+        headers={"X-Client-Id": "client-1"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "failed"
+    assert response.json()["errorCode"] == "RECIPE_TOO_LONG"
+    assert response.json()["errorMessage"] == "Recipe is too long."
+
+
+def test_import_fails_when_ai_returns_too_long_instructions():
+    client = client_with_session()
+    set_recipe_extraction_provider(TooLongInstructionsProvider())
+
+    response = client.post(
+        "/imports",
+        data={"clientImportId": "too-long-instructions", "text": "Recipe text"},
+        headers={"X-Client-Id": "client-1"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "failed"
+    assert response.json()["errorCode"] == "RECIPE_TOO_LONG"
+    assert response.json()["errorMessage"] == "Recipe is too long."
 
 
 def test_low_confidence_import_fails_and_cleans_uploaded_files():

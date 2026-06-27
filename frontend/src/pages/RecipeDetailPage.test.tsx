@@ -150,9 +150,12 @@ describe("RecipeDetailPage", () => {
     renderPage();
 
     await waitFor(() => expect(screen.getByText("https://example.test/post")).toBeTruthy());
-    expect(screen.getByLabelText(/source deletion details/i).getAttribute("title")).toBe("Delete the link and all related media files.");
+    const deleteButton = screen.getByRole("button", { name: /delete source/i });
+    const infoButton = screen.getByLabelText(/source deletion details/i);
+    expect(infoButton.getAttribute("title")).toBe("Delete the link and all related media files.");
+    expect(deleteButton.compareDocumentPosition(infoButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
-    fireEvent.click(screen.getByRole("button", { name: /delete source/i }));
+    fireEvent.click(deleteButton);
 
     expect(globalThis.confirm).toHaveBeenCalledWith("Are you sure you want to delete this source?");
     expect(fetchMock).not.toHaveBeenCalledWith(
@@ -214,5 +217,37 @@ describe("RecipeDetailPage", () => {
         body: expect.stringContaining('"imageId":"cover-1"'),
       }),
     ));
+  });
+
+  it("validates editable recipe limits before saving", async () => {
+    const fetchMock = stubRecipeFetch();
+    renderPage();
+
+    await waitFor(() => expect(screen.getByRole("button", { name: /Save/i })).toBeTruthy());
+    fireEvent.change(screen.getByLabelText("Ingredients"), {
+      target: { value: Array.from({ length: 51 }, (_, index) => `Ingredient ${index}`).join("\n") },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Save/i }));
+
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("Recipe is too long."));
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      expect.stringContaining("/recipes/recipe-1"),
+      expect.objectContaining({ method: "PATCH" }),
+    );
+  });
+
+  it("validates editable note length before saving", async () => {
+    const fetchMock = stubRecipeFetch();
+    renderPage();
+
+    await waitFor(() => expect(screen.getByRole("button", { name: /Save/i })).toBeTruthy());
+    fireEvent.change(screen.getByLabelText("Note"), { target: { value: "x".repeat(501) } });
+    fireEvent.click(screen.getByRole("button", { name: /Save/i }));
+
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("Recipe note is too long."));
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      expect.stringContaining("/recipes/recipe-1"),
+      expect.objectContaining({ method: "PATCH" }),
+    );
   });
 });

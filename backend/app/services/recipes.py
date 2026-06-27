@@ -4,7 +4,6 @@ import logging
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from app.core.config import get_settings
 from app.core.errors import ApiError, ErrorCode
 from app.core.logging import log_info
 from app.models import (
@@ -30,6 +29,7 @@ from app.schemas.recipes import (
     RecipeResourceOut,
     ReviewFlagOut,
 )
+from app.services.recipe_limits import validate_recipe_note, validate_recipe_size
 
 logger = logging.getLogger(__name__)
 
@@ -218,6 +218,13 @@ def patch_recipe(session: Session, recipe_id: str, owner_id: str, patch: RecipeP
     recipe = session.scalar(select(Recipe).where(Recipe.id == recipe_id, Recipe.owner_id == owner_id))
     if recipe is None:
         raise ApiError(ErrorCode.RECIPE_NOT_FOUND, "Recipe not found.", status_code=404)
+    if patch.ingredients is not None or patch.instructions is not None:
+        validate_recipe_size(
+            patch.ingredients if patch.ingredients is not None else recipe.ingredients,
+            patch.instructions if patch.instructions is not None else recipe.instructions,
+        )
+    if patch.note is not None:
+        validate_recipe_note(patch.note)
     if patch.title is not None:
         recipe.title = patch.title.strip()
     if patch.servings is not None:
@@ -251,7 +258,7 @@ def patch_recipe(session: Session, recipe_id: str, owner_id: str, patch: RecipeP
             tags.append(tag)
         recipe.tags = tags
     if patch.note is not None:
-        recipe.note = patch.note.strip()[: get_settings().max_recipe_note_chars]
+        recipe.note = patch.note.strip()
     if patch.coverSelection is not None:
         if patch.coverSelection.kind == "DEFAULT":
             recipe.cover_image_id = None

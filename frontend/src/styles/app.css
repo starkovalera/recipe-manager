@@ -470,6 +470,12 @@ form button[type="submit"]:hover,
   line-height: 1;
 }
 
+.form-error {
+  margin: 0;
+  color: #9f1d1d;
+  font-weight: 700;
+}
+
 .source-image-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));

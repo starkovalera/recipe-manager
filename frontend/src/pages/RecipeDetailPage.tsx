@@ -17,6 +17,10 @@ import type { RecipeDetail, RecipeImage, RecipeResource, ReviewFlag } from "../a
 
 type CoverChoice = { kind: "DEFAULT" | "IMAGE"; imageId?: string | null };
 
+const MAX_RECIPE_INGREDIENTS = Number(import.meta.env.VITE_MAX_RECIPE_INGREDIENTS ?? 50);
+const MAX_RECIPE_INSTRUCTION_CHARS = Number(import.meta.env.VITE_MAX_RECIPE_INSTRUCTION_CHARS ?? 1000);
+const MAX_RECIPE_NOTE_CHARS = Number(import.meta.env.VITE_MAX_RECIPE_NOTE_CHARS ?? 500);
+
 function joinIngredients(recipe: RecipeDetail): string {
   return recipe.ingredients
     .sort((left, right) => left.position - right.position)
@@ -60,6 +64,23 @@ function confirmDeleteResource(kind: "source" | "image"): boolean {
   return window.confirm(`Are you sure you want to delete this ${kind}?`);
 }
 
+function instructionsLength(value: string): number {
+  return parseLines(value).join("\n").length;
+}
+
+function validateEditableRecipe(ingredients: string, instructions: string, note: string): string | null {
+  if (parseLines(ingredients).length > MAX_RECIPE_INGREDIENTS) {
+    return "Recipe is too long.";
+  }
+  if (instructionsLength(instructions) > MAX_RECIPE_INSTRUCTION_CHARS) {
+    return "Recipe is too long.";
+  }
+  if (note.trim().length > MAX_RECIPE_NOTE_CHARS) {
+    return "Recipe note is too long.";
+  }
+  return null;
+}
+
 export function RecipeDetailPage({ recipeId, onDeleted }: { recipeId: string; onDeleted: () => void }) {
   const queryClient = useQueryClient();
   const query = useQuery({ queryKey: ["recipe", recipeId], queryFn: () => getRecipe(recipeId) });
@@ -78,6 +99,7 @@ export function RecipeDetailPage({ recipeId, onDeleted }: { recipeId: string; on
   const [note, setNote] = useState("");
   const [coverChoice, setCoverChoice] = useState<CoverChoice>({ kind: "DEFAULT" });
   const [previewImage, setPreviewImage] = useState<{ label: string; url: string } | null>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!recipe) return;
@@ -109,8 +131,14 @@ export function RecipeDetailPage({ recipeId, onDeleted }: { recipeId: string; on
   );
 
   const saveMutation = useMutation({
-    mutationFn: () =>
-      patchRecipe(recipeId, {
+    mutationFn: () => {
+      const error = validateEditableRecipe(ingredients, instructions, note);
+      if (error) {
+        setValidationError(error);
+        return Promise.reject(new Error(error));
+      }
+      setValidationError(null);
+      return patchRecipe(recipeId, {
         title,
         cookTimeMinutes: numberOrNull(cookTimeMinutes),
         nutritionEstimate: {
@@ -127,7 +155,8 @@ export function RecipeDetailPage({ recipeId, onDeleted }: { recipeId: string; on
         instructions: parseLines(instructions),
         note,
         coverSelection: coverChoice,
-      }),
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["recipe", recipeId] });
       queryClient.invalidateQueries({ queryKey: ["recipes"] });
@@ -270,6 +299,7 @@ export function RecipeDetailPage({ recipeId, onDeleted }: { recipeId: string; on
               Note
               <textarea value={note} onChange={(event) => setNote(event.target.value)} rows={4} />
             </label>
+            {validationError ? <p role="alert" className="form-error">{validationError}</p> : null}
 
             <button type="button" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
               Save
@@ -304,14 +334,6 @@ export function RecipeDetailPage({ recipeId, onDeleted }: { recipeId: string; on
                   ) : null}
                   <button
                     type="button"
-                    className="source-info-icon"
-                    aria-label="Source deletion details"
-                    title="Delete the link and all related media files."
-                  >
-                    i
-                  </button>
-                  <button
-                    type="button"
                     onClick={() => {
                       if (confirmDeleteResource("source")) {
                         sourceMutation.mutate({ sourceId: primaryUrlSource.id, status: "deleted" });
@@ -320,6 +342,14 @@ export function RecipeDetailPage({ recipeId, onDeleted }: { recipeId: string; on
                     disabled={sourceMutation.isPending}
                   >
                     Delete source
+                  </button>
+                  <button
+                    type="button"
+                    className="source-info-icon"
+                    aria-label="Source deletion details"
+                    title="Delete the link and all related media files."
+                  >
+                    i
                   </button>
                 </div>
               </div>

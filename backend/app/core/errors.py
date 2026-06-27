@@ -7,6 +7,8 @@ from fastapi.responses import JSONResponse
 class ErrorCode(str, Enum):
     INVALID_URL = "INVALID_URL"
     TEXT_TOO_LONG = "TEXT_TOO_LONG"
+    NOTE_TOO_LONG = "NOTE_TOO_LONG"
+    RECIPE_TOO_LONG = "RECIPE_TOO_LONG"
     NOT_A_RECIPE = "NOT_A_RECIPE"
     TOO_MANY_FILES = "TOO_MANY_FILES"
     INVALID_FILE_TYPE = "INVALID_FILE_TYPE"

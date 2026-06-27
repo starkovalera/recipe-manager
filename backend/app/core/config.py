@@ -32,7 +32,9 @@ class Settings(BaseSettings):
     )
 
     max_import_images: int = 10
-    max_import_text_chars: int = 500
+    max_import_text_chars: int = 1000
+    max_recipe_ingredients: int = 50
+    max_recipe_instruction_chars: int = 1000
     max_recipe_note_chars: int = 500
     max_upload_bytes: int = 8 * 1024 * 1024
     max_video_bytes: int = 64 * 1024 * 1024
