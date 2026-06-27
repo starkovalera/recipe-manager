@@ -56,6 +56,10 @@ function sourceImageForOption(resources: RecipeResource[], imageId: string | nul
   return resources.find((resource) => resource.type === "IMAGE" && resource.imageId === imageId);
 }
 
+function confirmDeleteResource(kind: "source" | "image"): boolean {
+  return window.confirm(`Are you sure you want to delete this ${kind}?`);
+}
+
 export function RecipeDetailPage({ recipeId, onDeleted }: { recipeId: string; onDeleted: () => void }) {
   const queryClient = useQueryClient();
   const query = useQuery({ queryKey: ["recipe", recipeId], queryFn: () => getRecipe(recipeId) });
@@ -300,7 +304,19 @@ export function RecipeDetailPage({ recipeId, onDeleted }: { recipeId: string; on
                   ) : null}
                   <button
                     type="button"
-                    onClick={() => sourceMutation.mutate({ sourceId: primaryUrlSource.id, status: "deleted" })}
+                    className="source-info-icon"
+                    aria-label="Source deletion details"
+                    title="Delete the link and all related media files."
+                  >
+                    i
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (confirmDeleteResource("source")) {
+                        sourceMutation.mutate({ sourceId: primaryUrlSource.id, status: "deleted" });
+                      }
+                    }}
                     disabled={sourceMutation.isPending}
                   >
                     Delete source
@@ -346,7 +362,11 @@ export function RecipeDetailPage({ recipeId, onDeleted }: { recipeId: string; on
                         <button
                           className="danger-link"
                           type="button"
-                          onClick={() => sourceMutation.mutate({ sourceId: relatedSource.id, status: "deleted" })}
+                          onClick={() => {
+                            if (confirmDeleteResource("image")) {
+                              sourceMutation.mutate({ sourceId: relatedSource.id, status: "deleted" });
+                            }
+                          }}
                           disabled={sourceMutation.isPending}
                         >
                           Delete image

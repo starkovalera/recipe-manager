@@ -358,6 +358,80 @@ def test_instagram_url_import_sets_recipe_source_name():
     assert detail.json()["sourceName"] == "INSTAGRAM"
 
 
+class ManualPrimaryUrlIgnoredProvider:
+    async def extract(self, sources):
+        manual_text = next(source for source in sources if source.type == "TEXT" and source.text == "Manual recipe text")
+        ignored_refs = [source.id for source in sources if source.id != manual_text.id]
+        return ExtractionResult(
+            recipe=ExtractedRecipe(
+                title="Manual primary recipe",
+                ingredients=[{"name": "Ingredient"}],
+                instructions=["Cook."],
+                quality=ExtractionQuality(
+                    confidence=0.9,
+                    hasConflicts=False,
+                    hasIgnored=True,
+                    primarySourceRefs=[manual_text.id],
+                    ignoredSourceRefs=ignored_refs,
+                ),
+            )
+        )
+
+
+def test_source_name_uses_unignored_primary_sources_after_ai_assessment():
+    client = client_with_session()
+    set_url_content_loader_registry(FakeRegistry())
+    set_recipe_extraction_provider(ManualPrimaryUrlIgnoredProvider())
+
+    response = client.post(
+        "/imports",
+        data={"clientImportId": "manual-primary-url-ignored", "text": "Manual recipe text", "url": "https://www.instagram.com/p/abc"},
+        headers={"X-Client-Id": "client-1"},
+    )
+    recipe_id = response.json()["createdRecipeId"]
+    detail = client.get(f"/recipes/{recipe_id}")
+
+    assert response.status_code == 200
+    assert detail.json()["sourceName"] == "MANUAL"
+    assert next(source for source in detail.json()["sources"] if source["type"] == "URL")["status"] == "ignored"
+
+
+class AllSourcesIgnoredProvider:
+    async def extract(self, sources):
+        return ExtractionResult(
+            recipe=ExtractedRecipe(
+                title="Ignored source recipe",
+                ingredients=[{"name": "Ingredient"}],
+                instructions=["Cook."],
+                quality=ExtractionQuality(
+                    confidence=0.9,
+                    hasConflicts=False,
+                    hasIgnored=True,
+                    primarySourceRefs=[],
+                    ignoredSourceRefs=[source.id for source in sources],
+                ),
+            )
+        )
+
+
+def test_source_name_falls_back_to_other_when_only_url_primary_is_ignored():
+    client = client_with_session()
+    set_url_content_loader_registry(FakeRegistry())
+    set_recipe_extraction_provider(AllSourcesIgnoredProvider())
+
+    response = client.post(
+        "/imports",
+        data={"clientImportId": "ignored-instagram", "url": "https://www.instagram.com/p/abc"},
+        headers={"X-Client-Id": "client-1"},
+    )
+    recipe_id = response.json()["createdRecipeId"]
+    detail = client.get(f"/recipes/{recipe_id}")
+
+    assert response.status_code == 200
+    assert detail.json()["sourceName"] == "OTHER"
+    assert next(source for source in detail.json()["sources"] if source["type"] == "URL")["status"] == "ignored"
+
+
 def test_mixed_sources_match_reference_ai_source_order_and_refs():
     client = client_with_session()
     registry = FakeRegistry()

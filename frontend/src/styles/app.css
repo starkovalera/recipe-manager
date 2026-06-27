@@ -461,6 +461,15 @@ form button[type="submit"]:hover,
   gap: 8px;
 }
 
+.source-info-icon {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: 999px;
+  font-weight: 800;
+  line-height: 1;
+}
+
 .source-image-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));

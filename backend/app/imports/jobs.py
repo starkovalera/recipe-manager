@@ -40,6 +40,7 @@ from app.models import (
     RecipeReviewFlag,
     RecipeReviewFlagStatus,
     RecipeReviewFlagType,
+    SourceName,
     SourceType,
 )
 from app.schemas.imports import ImportJobOut
@@ -214,6 +215,21 @@ def _cover_candidate_ref(source_ref: str | None, accepted_refs: set[str]) -> str
     return image_ref if image_ref in accepted_refs else None
 
 
+def _derive_source_name_from_primary_resources(resources: list[RecipeResource]) -> SourceName:
+    primary_resources = [
+        resource
+        for resource in resources
+        if resource.parent is None and resource.status not in {RecipeResourceStatus.IGNORED, RecipeResourceStatus.DELETED}
+    ]
+    url_values = [resource.url for resource in primary_resources if resource.type == SourceType.URL and resource.url]
+    if url_values:
+        result = derive_source_name(url_values)
+        return result.source_name if result.ok and result.source_name is not None else SourceName.OTHER
+    if any(resource.source == RecipeResourceOrigin.MANUAL and resource.type in {SourceType.IMAGE, SourceType.TEXT} for resource in primary_resources):
+        return SourceName.MANUAL
+    return SourceName.OTHER
+
+
 def _validate_import_request(text: str | None, url: str | None, files: list[UploadFile]) -> tuple[str | None, str | None]:
     settings = get_settings()
     normalized_text = text.strip() if text else None
@@ -306,7 +322,6 @@ def process_import_job(session: Session, job_id: str) -> None:
     storage = LocalStorageService(get_settings().upload_dir)
     saved_storage_keys = [source.image_storage_key for source in job.sources if source.image_storage_key]
     source_drafts: list[SourceDraft] = []
-    loaded_urls: list[str] = []
     imported_author_name: str | None = None
     for source in sorted(job.sources, key=lambda item: item.position):
         if source.type == SourceType.TEXT and source.text:
@@ -352,7 +367,6 @@ def process_import_job(session: Session, job_id: str) -> None:
                 remaining_images,
                 get_settings().max_upload_bytes,
             )
-            loaded_urls.append(loaded_url.url)
             if loaded_url.author_name and imported_author_name is None:
                 imported_author_name = loaded_url.author_name
             source_drafts[-1].url = loaded_url.url
@@ -444,29 +458,10 @@ def process_import_job(session: Session, job_id: str) -> None:
                         )
                     )
 
-    source_name_result = derive_source_name(loaded_urls)
-    if not source_name_result.ok:
-        _cleanup_storage_keys(storage, saved_storage_keys)
-        job.status = ImportJobStatus.FAILED
-        job.error_code = source_name_result.error_code
-        job.error_message = "URL sources include mixed platforms."
-        job.finished_at = datetime.now(timezone.utc)
-        session.commit()
-        log_info(
-            logger,
-            "[recipes.import] Import job failed",
-            ownerId=job.owner_id,
-            importJobId=job.id,
-            errorCode=job.error_code,
-            errorMessage=job.error_message,
-        )
-        return
-
     recipe = Recipe(
         owner_id=job.owner_id,
         title="Import pending",
         instructions=[],
-        source_name=source_name_result.source_name,
     )
     recipe_resources: list[RecipeResource] = []
     image_by_resource: dict[RecipeResource, RecipeImage] = {}
@@ -668,6 +663,7 @@ def process_import_job(session: Session, job_id: str) -> None:
                 storageKey=cover_file.storage_key,
             )
     has_ignored_primary = _apply_source_statuses(recipe_resources, final_resources, status_quality, ai_id_by_resource)
+    recipe.source_name = _derive_source_name_from_primary_resources(recipe_resources)
     warn_confidence = get_settings().import_warn_confidence
     reasons = review_reason_codes(recipe_result.quality, warn_confidence, has_ignored_primary)
     if should_create_primary_review_flag(recipe_result.quality, warn_confidence, has_ignored_primary):

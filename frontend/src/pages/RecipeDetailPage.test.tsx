@@ -143,6 +143,43 @@ describe("RecipeDetailPage", () => {
     ));
   });
 
+  it("shows delete source info and confirms before deleting source resources", async () => {
+    const fetchMock = stubRecipeFetch();
+    vi.stubGlobal("confirm", vi.fn(() => false));
+
+    renderPage();
+
+    await waitFor(() => expect(screen.getByText("https://example.test/post")).toBeTruthy());
+    expect(screen.getByLabelText(/source deletion details/i).getAttribute("title")).toBe("Delete the link and all related media files.");
+
+    fireEvent.click(screen.getByRole("button", { name: /delete source/i }));
+
+    expect(globalThis.confirm).toHaveBeenCalledWith("Are you sure you want to delete this source?");
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      expect.stringContaining("/recipes/recipe-1/resources/source-url"),
+      expect.objectContaining({ method: "PATCH" }),
+    );
+  });
+
+  it("confirms before deleting image resources", async () => {
+    const fetchMock = stubRecipeFetch();
+    vi.stubGlobal("confirm", vi.fn(() => true));
+
+    renderPage();
+
+    await waitFor(() => expect(screen.getByRole("button", { name: /Delete image/i })).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: /Delete image/i }));
+
+    expect(globalThis.confirm).toHaveBeenCalledWith("Are you sure you want to delete this image?");
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/recipes/recipe-1/resources/source-image"),
+      expect.objectContaining({
+        method: "PATCH",
+        body: expect.stringContaining('"status":"deleted"'),
+      }),
+    ));
+  });
+
   it("opens source image preview and can set an image as cover", async () => {
     const fetchMock = stubRecipeFetch();
 
