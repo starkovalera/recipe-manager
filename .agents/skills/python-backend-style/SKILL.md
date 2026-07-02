@@ -172,6 +172,8 @@ recipe = get_recipe_by_id_for_owner(
 
 * Avoid mixing serialization logic with services, routers, repositories, or database models.
 
+* Use mixins, common base classes to store and reuse the same fields / functionality among schemas
+
 ## Two Schema Flows
 
 Keep two schema flows mentally and structurally separate.
