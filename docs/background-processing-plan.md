@@ -1114,6 +1114,8 @@ Rebuild synchronously after:
 
 ### Iteration 7: Pagination for Recipes and Collections
 
+Status: implemented, pending review.
+
 This should happen before or alongside search UI work.
 
 #### Files
@@ -1128,7 +1130,7 @@ backend/app/api/routes/collections.py
 frontend list views
 ```
 
-Currently `GET /recipes` returns all recipes without pagination. Current collection list schema returns `items` only.
+Implemented note: `GET /recipes` and `GET /collections` now accept `limit` and `offset`, default to `limit=24` and `offset=0`, and return `items`, `total`, `limit`, and `offset`. The shared pagination metadata fields live in a schema mixin. The lower-level query functions still support full unpaginated owner-scoped reads when `limit` and `offset` are omitted.
 
 #### Recipes Pagination
 
@@ -1169,17 +1171,6 @@ class CollectionListOut(BaseModel):
 Use `total` for recipes and collections.
 
 ### Iteration 8: Autocomplete + Selected Chips Backend/Frontend
-
-#### Files
-
-```text
-backend/app/api/routes/search.py
-backend/app/schemas/search.py
-backend/app/services/autocomplete.py
-backend/app/services/search.py
-backend/app/main.py
-frontend search UI
-```
 
 #### Autocomplete Sources
 
@@ -1260,16 +1251,6 @@ title           -> filter by recipes.id
 
 ### Iteration 9: Background Task Infrastructure - Dramatiq + Redis
 
-#### Files
-
-```text
-backend/app/core/config.py
-backend/app/workers/...
-backend/app/embeddings/tasks.py later
-backend/README.md
-docker/dev config if present
-```
-
 Add infrastructure before embedding tasks.
 
 Requirements:
@@ -1286,17 +1267,6 @@ Requirements:
 The current README already says imports are sync-first but frontend polling is compatible with a future queue.
 
 ### Iteration 10: RecipeEmbedding + pgvector + Embedding Task
-
-#### Files
-
-```text
-backend/app/models/__init__.py
-backend/app/embeddings/service.py
-backend/app/embeddings/tasks.py
-backend/app/api/routes/recipes.py or backend/app/api/routes/embeddings.py
-backend/app/services/recipes.py
-backend/alembic/versions/<new_revision>.py
-```
 
 #### Model
 
