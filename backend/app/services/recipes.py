@@ -13,6 +13,7 @@ from app.models import (
     SourceName,
     SourceType,
 )
+from app.recipes.filters import RecipeListFilters
 from app.recipes.queries import (
     count_recipes,
     get_recipe as query_recipe,
@@ -45,9 +46,9 @@ def _apply_ingredient_fields(ingredient: Ingredient, name: str, quantity: str | 
     ingredient.position = position
 
 
-def list_recipes(session: Session, owner_id: str, *, limit: int, offset: int) -> tuple[list[Recipe], int]:
-    recipes = query_recipes(session, owner_id, limit=limit, offset=offset)
-    total = count_recipes(session, owner_id)
+def list_recipes(session: Session, owner_id: str, *, filters: RecipeListFilters, limit: int, offset: int) -> tuple[list[Recipe], int]:
+    recipes = query_recipes(session, owner_id, filters=filters, limit=limit, offset=offset)
+    total = count_recipes(session, owner_id, filters=filters)
     return recipes, total
 
 

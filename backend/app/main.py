@@ -12,6 +12,7 @@ from app.api.routes.internal import router as internal_router
 from app.api.routes.media import router as media_router
 from app.api.routes.notifications import router as notifications_router
 from app.api.routes.recipes import router as recipes_router
+from app.api.routes.search import router as search_router
 from app.api.routes.tags import router as tags_router
 from app.core.config import get_settings
 from app.core.errors import install_error_handlers
@@ -80,6 +81,7 @@ def create_app() -> FastAPI:
     app.include_router(media_router)
     app.include_router(notifications_router)
     app.include_router(recipes_router)
+    app.include_router(search_router)
     app.include_router(tags_router)
     return app
 

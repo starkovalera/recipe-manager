@@ -167,6 +167,96 @@ def test_recipe_list_is_paginated_and_owner_scoped():
     assert "Private Recipe" not in [item["title"] for item in payload["items"]]
 
 
+def test_recipe_list_applies_structured_search_filters():
+    client, SessionLocal = client_with_session()
+    with SessionLocal() as session:
+        user = ensure_default_user(session)
+        dinner = Tag(owner_id=user.id, name="dinner")
+        breakfast = Tag(owner_id=user.id, name="breakfast")
+        soup = Recipe(
+            owner_id=user.id,
+            title="Chicken Soup",
+            source_name=SourceName.INSTAGRAM,
+            author_name="soup_author",
+            instructions=["Cook soup"],
+            tags=[dinner],
+        )
+        soup.ingredients.append(Ingredient(name="Chicken", position=0))
+        pancakes = Recipe(
+            owner_id=user.id,
+            title="Pancakes",
+            source_name=SourceName.THREADS,
+            author_name="cake_author",
+            instructions=["Cook pancakes"],
+            tags=[breakfast],
+        )
+        pancakes.ingredients.append(Ingredient(name="Flour", position=0))
+        other_user = User(id="other-user", email="other@example.test")
+        foreign = Recipe(owner_id=other_user.id, title="Private Chicken", instructions=["Hide"])
+        foreign.ingredients.append(Ingredient(name="Chicken", position=0))
+        session.add_all([soup, pancakes, other_user, foreign])
+        session.commit()
+        dinner_id = dinner.id
+        soup_id = soup.id
+
+    cases = [
+        (f"/recipes?tag={dinner_id}", ["Chicken Soup"]),
+        ("/recipes?ingredientQuery=chicken", ["Chicken Soup"]),
+        ("/recipes?sourceName=INSTAGRAM", ["Chicken Soup"]),
+        ("/recipes?authorName=soup_author", ["Chicken Soup"]),
+        (f"/recipes?title={soup_id}", ["Chicken Soup"]),
+        (f"/recipes?tag={dinner_id}&ingredientQuery=flour", []),
+    ]
+
+    for path, expected_titles in cases:
+        response = client.get(path)
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert sorted(item["title"] for item in payload["items"]) == sorted(expected_titles)
+        assert payload["total"] == len(expected_titles)
+
+
+def test_recipe_list_applies_ingredient_query_contains_filters_with_and_semantics():
+    client, SessionLocal = client_with_session()
+    with SessionLocal() as session:
+        user = ensure_default_user(session)
+        protein = Tag(owner_id=user.id, name="protein")
+        cottage_banana = Recipe(
+            owner_id=user.id,
+            title="Cottage Banana Bowl",
+            instructions=["Mix"],
+            tags=[protein],
+        )
+        cottage_banana.ingredients.append(Ingredient(name="Cottage cheese 5%", position=0))
+        cottage_banana.ingredients.append(Ingredient(name="Banana", position=1))
+        soft_cottage = Recipe(owner_id=user.id, title="Soft Cottage Toast", instructions=["Toast"])
+        soft_cottage.ingredients.append(Ingredient(name="Soft cottage cheese", position=0))
+        banana_only = Recipe(owner_id=user.id, title="Banana Snack", instructions=["Slice"])
+        banana_only.ingredients.append(Ingredient(name="Banana", position=0))
+        other_user = User(id="other-user", email="other@example.test")
+        foreign = Recipe(owner_id=other_user.id, title="Private Cottage", instructions=["Hide"])
+        foreign.ingredients.append(Ingredient(name="Cottage cheese 5%", position=0))
+        session.add_all([cottage_banana, soft_cottage, banana_only, other_user, foreign])
+        session.commit()
+        protein_id = protein.id
+
+    cases = [
+        ("/recipes?ingredientQuery=cottage", ["Soft Cottage Toast", "Cottage Banana Bowl"]),
+        ("/recipes?ingredientQuery=banana", ["Banana Snack", "Cottage Banana Bowl"]),
+        ("/recipes?ingredientQuery=cottage&ingredientQuery=banana", ["Cottage Banana Bowl"]),
+        (f"/recipes?tag={protein_id}&ingredientQuery=cottage", ["Cottage Banana Bowl"]),
+    ]
+
+    for path, expected_titles in cases:
+        response = client.get(path)
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert sorted(item["title"] for item in payload["items"]) == sorted(expected_titles)
+        assert payload["total"] == len(expected_titles)
+
+
 def test_recipe_list_marks_only_open_review_flags():
     client, SessionLocal = client_with_session()
     recipe_id, flag_id = seed_recipe(SessionLocal)

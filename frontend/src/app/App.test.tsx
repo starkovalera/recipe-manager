@@ -81,6 +81,46 @@ describe("App", () => {
     await waitFor(() => expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/recipes?limit=24&offset=24"))).toBe(true));
   });
 
+  it("selects autocomplete chips and filters recipe list requests", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const parsed = new URL(url);
+      const path = parsed.pathname;
+      const payloads: Record<string, unknown> = {
+        "GET /recipes": {
+          items: [{ id: "recipe-1", title: "Chicken Soup", coverImage: null }],
+          total: 1,
+          limit: 24,
+          offset: 0,
+        },
+        "GET /search/suggestions": {
+          items: [{ type: "ingredient_query", value: "chicken", label: "Ingredient - chicken" }],
+        },
+        "GET /notifications": { items: [] },
+      };
+      const payload = payloads[`${init?.method ?? "GET"} ${path}`] ?? payloads[`GET ${path}`];
+      return {
+        ok: true,
+        status: 200,
+        text: async () => (payload === undefined ? "{}" : JSON.stringify(payload)),
+      };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<App />);
+
+    await waitFor(() => expect(screen.getByRole("button", { name: /Chicken Soup/ })).toBeTruthy());
+    fireEvent.change(screen.getByLabelText("Search recipes"), { target: { value: "chick" } });
+    await waitFor(() => expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/search/suggestions?q=chick&limit=10"))).toBe(true));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Ingredient - chicken" })).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Ingredient - chicken" }));
+
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/recipes?limit=24&offset=0&ingredientQuery=chicken"))).toBe(true),
+    );
+    expect(screen.getByRole("button", { name: "Remove Ingredient - chicken filter" })).toBeTruthy();
+  });
+
   it("paginates collection list requests", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
@@ -319,6 +359,9 @@ describe("App", () => {
         "GET /notifications": { items: [] },
         "GET /tags": {
           items: [{ id: "tag-1", name: "breakfast", description: "Morning food" }],
+          total: 1,
+          limit: 24,
+          offset: 0,
         },
         "POST /tags": { id: "tag-2", name: "dessert", description: "Sweet" },
         "PATCH /tags/tag-1": { id: "tag-1", name: "brunch", description: "Late morning" },
@@ -378,5 +421,43 @@ describe("App", () => {
       expect.stringContaining("/tags/tag-1"),
       expect.objectContaining({ method: "DELETE" }),
     ));
+  });
+
+  it("paginates tag management requests", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input));
+      const path = url.pathname;
+      const payloads: Record<string, unknown> = {
+        "/recipes": { items: [], total: 0, limit: 24, offset: 0 },
+        "/notifications": { items: [] },
+      };
+      if (path === "/tags") {
+        const offset = Number(url.searchParams.get("offset") ?? "0");
+        return {
+          ok: true,
+          status: 200,
+          text: async () => JSON.stringify({
+            items: [{ id: `tag-${offset}`, name: `tag ${offset}`, description: null }],
+            total: 50,
+            limit: 24,
+            offset,
+          }),
+        };
+      }
+      return {
+        ok: true,
+        status: 200,
+        text: async () => JSON.stringify(payloads[path] ?? {}),
+      };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Tags" }));
+
+    await waitFor(() => expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/tags?limit=24&offset=0"))).toBe(true));
+    await waitFor(() => expect(screen.getByText("Showing 1-24 of 50")).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    await waitFor(() => expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/tags?limit=24&offset=24"))).toBe(true));
   });
 });

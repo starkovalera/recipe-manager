@@ -4,7 +4,8 @@ from fastapi import APIRouter, Query, Response
 
 from app.api.deps import CurrentUserDep, SessionDep
 from app.core.pagination import DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT
-from app.models import Recipe, RecipeReviewFlag
+from app.models import Recipe, RecipeReviewFlag, SourceName
+from app.recipes.filters import RecipeListFilters
 from app.schemas.recipes import RecipeDetailOut, RecipeListOut, RecipePatchIn, RecipeResourcePatchIn, ReviewFlagOut, ReviewFlagPatchIn
 from app.services.recipes import (
     delete_recipe,
@@ -24,8 +25,20 @@ def get_recipes(
     current_user: CurrentUserDep,
     limit: Annotated[int, Query(ge=1, le=MAX_PAGE_LIMIT)] = DEFAULT_PAGE_LIMIT,
     offset: Annotated[int, Query(ge=0)] = 0,
+    tag: str | None = None,
+    ingredient_query: Annotated[list[str] | None, Query(alias="ingredientQuery")] = None,
+    source_name: Annotated[SourceName | None, Query(alias="sourceName")] = None,
+    author_name: Annotated[str | None, Query(alias="authorName")] = None,
+    title: str | None = None,
 ) -> dict[str, list[Recipe] | int]:
-    recipes, total = list_recipes(session, current_user.id, limit=limit, offset=offset)
+    filters = RecipeListFilters(
+        tag_id=tag,
+        ingredient_queries=tuple(ingredient_query or ()),
+        source_name=source_name,
+        author_name=author_name,
+        title_recipe_id=title,
+    )
+    recipes, total = list_recipes(session, current_user.id, filters=filters, limit=limit, offset=offset)
     return {"items": recipes, "total": total, "limit": limit, "offset": offset}
 
 

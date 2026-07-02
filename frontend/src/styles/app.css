@@ -114,6 +114,33 @@ body {
   gap: 16px;
 }
 
+.search-panel {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 18px;
+  padding: 14px;
+  border: 1px solid rgba(219, 230, 224, 0.95);
+  border-radius: 18px;
+  background: var(--surface-soft);
+}
+
+.suggestion-list,
+.selected-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.suggestion-list button {
+  background: #fff;
+}
+
+.selected-chips button {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
 label {
   display: grid;
   gap: 6px;
