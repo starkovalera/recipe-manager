@@ -1277,6 +1277,8 @@ title           -> filter by recipes.id
 
 ### Iteration 9: Background Task Infrastructure - Dramatiq + Redis
 
+Status: implemented, pending review.
+
 Add infrastructure before embedding tasks.
 
 Requirements:

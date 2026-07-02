@@ -28,7 +28,7 @@ Start the import worker in a second backend terminal:
 
 ```powershell
 cd C:\Users\stark\Documents\recipe-manager\backend
-uv run dramatiq app.imports.tasks
+uv run dramatiq app.worker
 ```
 
 Preview mode uses separate local storage and clears preview data on restart:
