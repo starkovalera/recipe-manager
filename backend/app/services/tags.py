@@ -34,8 +34,8 @@ def _find_active_by_normalized_name(session: Session, owner_id: str, normalized_
     return None
 
 
-def list_tags(session: Session, owner_id: str) -> list[Tag]:
-    return list_active_tags(session, owner_id)
+def list_tags(session: Session, owner_id: str, *, limit: int, offset: int) -> tuple[list[Tag], int]:
+    return list_active_tags(session, owner_id, limit=limit, offset=offset), count_active_tags(session, owner_id)
 
 
 def create_tag(session: Session, owner_id: str, name: str, description: str | None, settings: Settings) -> Tag:

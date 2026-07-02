@@ -3,6 +3,7 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 
 from app.schemas.base import CamelModel
+from app.schemas.pagination import PaginatedOutMixin
 
 
 class TagOut(CamelModel):
@@ -12,7 +13,7 @@ class TagOut(CamelModel):
     deleted_at: datetime | None = None
 
 
-class TagListOut(BaseModel):
+class TagListOut(PaginatedOutMixin):
     items: list[TagOut]
 
 

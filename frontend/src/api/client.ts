@@ -9,9 +9,12 @@ import type {
   NotificationsMarkAllReadResult,
   RecipeDetail,
   RecipeList,
+  RecipeListParams,
   RecipePatch,
+  SearchSuggestionList,
   Tag,
   TagList,
+  TagListParams,
   TagUsage,
 } from "./types";
 
@@ -91,17 +94,28 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   }
 }
 
-function withPagination(path: string, params?: { limit?: number; offset?: number }): string {
+function withQuery(path: string, params?: Record<string, string | number | string[] | undefined>): string {
   if (!params) return path;
   const search = new URLSearchParams();
-  if (params.limit !== undefined) search.set("limit", String(params.limit));
-  if (params.offset !== undefined) search.set("offset", String(params.offset));
+  for (const [key, value] of Object.entries(params)) {
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        search.append(key, item);
+      }
+    } else if (value !== undefined) {
+      search.set(key, String(value));
+    }
+  }
   const query = search.toString();
   return query ? `${path}?${query}` : path;
 }
 
-export async function listRecipes(params?: { limit?: number; offset?: number }): Promise<RecipeList> {
-  return request<RecipeList>(withPagination("/recipes", params));
+export async function listRecipes(params?: RecipeListParams): Promise<RecipeList> {
+  return request<RecipeList>(withQuery("/recipes", params));
+}
+
+export async function listSearchSuggestions(params: { q: string; limit?: number }): Promise<SearchSuggestionList> {
+  return request<SearchSuggestionList>(withQuery("/search/suggestions", params));
 }
 
 export async function getRecipe(recipeId: string): Promise<RecipeDetail> {
@@ -193,8 +207,8 @@ export async function listInternalImportJobs(): Promise<InternalImportJobList> {
   return request<InternalImportJobList>("/internal/import-jobs");
 }
 
-export async function listTags(): Promise<TagList> {
-  return request<TagList>("/tags");
+export async function listTags(params?: TagListParams): Promise<TagList> {
+  return request<TagList>(withQuery("/tags", params));
 }
 
 export async function createTag(input: { name: string; description?: string | null }): Promise<Tag> {
@@ -226,7 +240,7 @@ export async function deleteRecipe(recipeId: string): Promise<void> {
 }
 
 export async function listCollections(params?: { limit?: number; offset?: number }): Promise<CollectionList> {
-  return request<CollectionList>(withPagination("/collections", params));
+  return request<CollectionList>(withQuery("/collections", params));
 }
 
 export async function createCollection(input: { name: string; description?: string | null }): Promise<CollectionDetail> {

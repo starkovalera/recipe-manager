@@ -1,6 +1,9 @@
-from fastapi import APIRouter
+from typing import Annotated
+
+from fastapi import APIRouter, Query
 
 from app.api.deps import CurrentUserDep, SessionDep, SettingsDep
+from app.core.pagination import DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT
 from app.models import Tag
 from app.schemas.tags import TagCreateIn, TagListOut, TagOut, TagPatchIn, TagUsageOut
 from app.services.tags import create_tag, delete_tag, get_tag_usage, list_tags, patch_tag
@@ -9,8 +12,14 @@ router = APIRouter(prefix="/tags", tags=["tags"])
 
 
 @router.get("", response_model=TagListOut)
-def get_tags(session: SessionDep, current_user: CurrentUserDep) -> dict[str, list[Tag]]:
-    return {"items": list_tags(session, current_user.id)}
+def get_tags(
+    session: SessionDep,
+    current_user: CurrentUserDep,
+    limit: Annotated[int, Query(ge=1, le=MAX_PAGE_LIMIT)] = DEFAULT_PAGE_LIMIT,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> dict[str, list[Tag] | int]:
+    tags, total = list_tags(session, current_user.id, limit=limit, offset=offset)
+    return {"items": tags, "total": total, "limit": limit, "offset": offset}
 
 
 @router.post("", response_model=TagOut)

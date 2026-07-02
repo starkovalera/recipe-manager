@@ -106,7 +106,7 @@ export function RecipeDetailPage({ recipeId, onDeleted }: { recipeId: string; on
   const queryClient = useQueryClient();
   const query = useQuery({ queryKey: ["recipe", recipeId], queryFn: () => getRecipe(recipeId) });
   const collectionsQuery = useQuery({ queryKey: ["collections"], queryFn: () => listCollections() });
-  const tagsQuery = useQuery({ queryKey: ["tags"], queryFn: listTags });
+  const tagsQuery = useQuery({ queryKey: ["tags", { limit: 100, offset: 0 }], queryFn: () => listTags({ limit: 100, offset: 0 }) });
   const recipe = query.data;
 
   const [title, setTitle] = useState("");

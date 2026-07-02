@@ -39,10 +39,30 @@ export type Tag = {
 
 export type TagList = {
   items: Tag[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+
+export type TagListParams = {
+  limit?: number;
+  offset?: number;
 };
 
 export type TagUsage = {
   recipeCount: number;
+};
+
+export type SearchSuggestion = {
+  type: "tag" | "ingredient_query" | "source_name" | "author_name" | "title";
+  id?: string | null;
+  recipeId?: string | null;
+  value?: string | null;
+  label: string;
+};
+
+export type SearchSuggestionList = {
+  items: SearchSuggestion[];
 };
 
 export type InternalImportJobList = {
@@ -77,6 +97,16 @@ export type RecipeList = {
   total: number;
   limit: number;
   offset: number;
+};
+
+export type RecipeListParams = {
+  limit?: number;
+  offset?: number;
+  tag?: string;
+  ingredientQuery?: string[];
+  sourceName?: string;
+  authorName?: string;
+  title?: string;
 };
 
 export type RecipeResource = {

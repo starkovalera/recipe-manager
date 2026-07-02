@@ -3,6 +3,9 @@ import { useEffect, useState } from "react";
 
 import { createTag, deleteTag, getTagUsage, listTags, patchTag } from "../api/client";
 import type { Tag } from "../api/types";
+import { PaginationControls } from "../components/PaginationControls";
+
+const PAGE_LIMIT = 24;
 
 type TagDraft = {
   name: string;
@@ -15,8 +18,14 @@ function draftFromTag(tag: Tag): TagDraft {
 
 export function TagsPage() {
   const queryClient = useQueryClient();
-  const tagsQuery = useQuery({ queryKey: ["tags"], queryFn: listTags });
+  const [offset, setOffset] = useState(0);
+  const tagsQuery = useQuery({
+    queryKey: ["tags", { limit: PAGE_LIMIT, offset }],
+    queryFn: () => listTags({ limit: PAGE_LIMIT, offset }),
+  });
   const tags = tagsQuery.data?.items ?? [];
+  const total = tagsQuery.data?.total ?? tags.length;
+  const limit = tagsQuery.data?.limit ?? PAGE_LIMIT;
   const [newName, setNewName] = useState("");
   const [newDescription, setNewDescription] = useState("");
   const [drafts, setDrafts] = useState<Record<string, TagDraft>>({});
@@ -44,6 +53,7 @@ export function TagsPage() {
     onSuccess: () => {
       setNewName("");
       setNewDescription("");
+      setOffset(0);
       invalidateTags();
     },
   });
@@ -67,7 +77,7 @@ export function TagsPage() {
 
   return (
     <section className="panel">
-      <h2>Tags ({tags.length})</h2>
+      <h2>Tags ({total})</h2>
       <div className="tag-form-card">
         <input
           aria-label="New tag name"
@@ -125,6 +135,7 @@ export function TagsPage() {
         })}
         {!tagsQuery.isLoading && tags.length === 0 ? <p>No tags yet.</p> : null}
       </div>
+      {tagsQuery.data ? <PaginationControls total={total} limit={limit} offset={tagsQuery.data.offset ?? offset} onPage={setOffset} /> : null}
     </section>
   );
 }

@@ -12,7 +12,8 @@ from app.db.base import Base
 from app.db.init import ensure_default_user
 from app.db.session import get_session
 from app.main import create_app
-from app.models import Ingredient, Recipe, SourceName, Tag
+from app.models import Ingredient, Recipe, SourceName, Tag, User
+from app.tags.queries import list_active_tags as query_tags
 
 
 @pytest.fixture(autouse=True)
@@ -58,6 +59,31 @@ def test_tags_list_returns_active_owner_tags_only():
     assert "active" in names
     assert "deleted" not in names
     assert "other" not in names
+
+
+def test_tags_list_is_paginated_and_owner_scoped():
+    client, SessionLocal = client_with_session()
+    with SessionLocal() as session:
+        user = ensure_default_user(session)
+        tags = [Tag(owner_id=user.id, name=f"tag-{index}") for index in range(5)]
+        deleted = Tag(owner_id=user.id, name="tag-deleted")
+        deleted.deleted_at = datetime.now(timezone.utc)
+        other_user = User(id="other-user", email="other@example.test")
+        foreign = Tag(owner_id=other_user.id, name="tag-foreign")
+        session.add_all([*tags, deleted, other_user, foreign])
+        session.commit()
+        expected_tags = query_tags(session, user.id)
+
+    response = client.get("/tags?limit=2&offset=1")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total"] == len(expected_tags)
+    assert payload["limit"] == 2
+    assert payload["offset"] == 1
+    assert [tag["name"] for tag in payload["items"]] == [tag.name for tag in expected_tags[1:3]]
+    assert "tag-deleted" not in [tag.name for tag in expected_tags]
+    assert "tag-foreign" not in [tag.name for tag in expected_tags]
 
 
 def test_tag_create_rejects_duplicate_active_name_case_insensitively():
