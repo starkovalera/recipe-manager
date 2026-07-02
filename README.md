@@ -4,6 +4,13 @@ Greenfield rewrite of the recipe MVP with a FastAPI backend and React/Vite front
 
 ## Backend
 
+Start local infrastructure first:
+
+```powershell
+cd C:\Users\stark\Documents\recipe-manager
+docker compose up -d postgres redis
+```
+
 Put your AI key in `backend/.env`:
 
 ```dotenv
@@ -17,12 +24,27 @@ uv sync
 uv run fastapi dev app/main.py --host 127.0.0.1 --port 8010
 ```
 
+Start the import worker in a second backend terminal:
+
+```powershell
+cd C:\Users\stark\Documents\recipe-manager\backend
+uv run dramatiq app.imports.tasks
+```
+
 Preview mode uses separate local storage and clears preview data on restart:
 
 ```powershell
 cd C:\Users\stark\Documents\recipe-manager\backend
 $env:APP_ENV="preview"; uv run fastapi dev app/main.py --host 127.0.0.1 --port 8010
 ```
+
+`dev` uses PostgreSQL database `recipe_manager_dev`. `preview` uses
+`recipe_manager_preview` and resets that schema plus local preview uploads on
+backend startup.
+
+`POST /imports` now creates a queued import job and enqueues Dramatiq work. The
+worker process must be running for imports to finish. Frontend polling and
+notification UX are still Phase 1d.
 
 ## Frontend
 
@@ -43,27 +65,60 @@ Set `VITE_API_BASE_URL` if the backend is not running at `http://127.0.0.1:8010`
 
 ## Database Dashboard
 
-The persistent dev SQLite database lives here after the backend starts:
+The normal dev database is PostgreSQL:
 
-```text
-C:\Users\stark\Documents\recipe-manager\backend\storage\dev\app.db
+```dotenv
+postgresql+psycopg://recipe_manager:recipe_manager@127.0.0.1:5432/recipe_manager_dev
 ```
 
-Browser dashboard:
+Adminer is included in Docker Compose:
+
+```powershell
+cd C:\Users\stark\Documents\recipe-manager
+docker compose up -d postgres redis adminer
+```
+
+Open `http://127.0.0.1:8080` and use:
+
+```text
+System: PostgreSQL
+Server: postgres
+Username: recipe_manager
+Password: recipe_manager
+Database: recipe_manager_dev
+```
+
+For preview data, use the same values but set:
+
+```text
+Database: recipe_manager_preview
+```
+
+From desktop PostgreSQL GUIs, for example DBeaver, DataGrip, TablePlus, or pgAdmin, use:
+
+```text
+host: 127.0.0.1
+port: 5432
+database: recipe_manager_dev
+user: recipe_manager
+password: recipe_manager
+```
+
+Use `database: recipe_manager_preview` for preview.
+
+The old SQLite dashboard command is only useful for test/smoke databases and should use another port if Adminer is running:
 
 ```powershell
 cd C:\Users\stark\Documents\recipe-manager\backend
-uv run sqlite_web storage\dev\app.db --host 127.0.0.1 --port 8080
+uv run sqlite_web storage\dev\app.db --host 127.0.0.1 --port 8081
 ```
 
-Open `http://127.0.0.1:8080`.
+Open `http://127.0.0.1:8081` when using a SQLite database explicitly.
 
-Preview mode uses a separate database at `backend\storage\preview\app.db` and
-clears it on backend restart.
-
-Current import processing is sync-first: `POST /imports` creates an `ImportJob`,
-processes it immediately, and the frontend still polls `GET /imports/{jobId}` so
-the contract can move to a real background queue later.
+Current import processing is background-first: `POST /imports` creates an
+`ImportJob(status=queued)`, records job events and notifications, enqueues
+Dramatiq work, and returns `202 Accepted`. The worker records completion status
+and the frontend can poll `GET /imports/{jobId}`.
 
 ## Logs
 

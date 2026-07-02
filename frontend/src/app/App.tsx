@@ -1,56 +1,121 @@
-import { QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { queryClient } from "./queryClient";
+import { listNotifications } from "../api/client";
 import { CollectionDetailPage } from "../pages/CollectionDetailPage";
 import { CollectionsPage } from "../pages/CollectionsPage";
 import { ImportPage } from "../pages/ImportPage";
+import { InternalImportJobsPage } from "../pages/InternalImportJobsPage";
+import { NotificationsPage } from "../pages/NotificationsPage";
 import { RecipeDetailPage } from "../pages/RecipeDetailPage";
 import { RecipeListPage } from "../pages/RecipeListPage";
+import { TagsPage } from "../pages/TagsPage";
 
 type Page =
   | { name: "recipes" }
   | { name: "import" }
   | { name: "recipe"; recipeId: string }
   | { name: "collections" }
-  | { name: "collection"; collectionId: string };
+  | { name: "collection"; collectionId: string }
+  | { name: "notifications" }
+  | { name: "internal-import-jobs" }
+  | { name: "tags" };
 
-export function App() {
+function AppContent() {
   const [page, setPage] = useState<Page>({ name: "recipes" });
+  const activeSection = page.name === "recipe" ? "recipes" : page.name === "collection" ? "collections" : page.name;
+  const notificationsQuery = useQuery({
+    queryKey: ["notifications"],
+    queryFn: listNotifications,
+    refetchInterval: 5000,
+  });
+  const notifications = notificationsQuery.data?.items ?? [];
+  const latestUnreadNotification = notifications.find((notification) => notification.status === "unread");
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <main className="app-shell">
-        <header>
-          <h1>Recipe Manager</h1>
-          <nav className="top-nav" aria-label="Main">
-            <button type="button" onClick={() => setPage({ name: "recipes" })}>
+    <main className="app-shell">
+      <header className="app-header">
+        <h1>Recipe Manager</h1>
+        <nav className="top-nav" aria-label="Main">
+            <button
+              type="button"
+              className={activeSection === "recipes" ? "is-active" : undefined}
+              onClick={() => setPage({ name: "recipes" })}
+            >
               Recipes
             </button>
-            <button type="button" onClick={() => setPage({ name: "import" })}>
+            <button
+              type="button"
+              className={activeSection === "import" ? "is-active" : undefined}
+              onClick={() => setPage({ name: "import" })}
+            >
               Import
             </button>
-            <button type="button" onClick={() => setPage({ name: "collections" })}>
+            <button
+              type="button"
+              className={activeSection === "collections" ? "is-active" : undefined}
+              onClick={() => setPage({ name: "collections" })}
+            >
               Collections
             </button>
-          </nav>
-        </header>
-        <div className="layout">
-          {page.name === "recipes" ? <RecipeListPage onSelect={(recipeId) => setPage({ name: "recipe", recipeId })} /> : null}
-          {page.name === "import" ? <ImportPage onImported={(recipeId) => setPage({ name: "recipe", recipeId })} /> : null}
-          {page.name === "recipe" ? <RecipeDetailPage recipeId={page.recipeId} onDeleted={() => setPage({ name: "recipes" })} /> : null}
-          {page.name === "collections" ? (
-            <CollectionsPage onSelect={(collectionId) => setPage({ name: "collection", collectionId })} />
-          ) : null}
-          {page.name === "collection" ? (
-            <CollectionDetailPage
-              collectionId={page.collectionId}
-              onSelectRecipe={(recipeId) => setPage({ name: "recipe", recipeId })}
-              onDeleted={() => setPage({ name: "collections" })}
-            />
-          ) : null}
+            <button
+              type="button"
+              className={activeSection === "notifications" ? "is-active" : undefined}
+              onClick={() => setPage({ name: "notifications" })}
+            >
+              Notifications
+            </button>
+            <button
+              type="button"
+              className={activeSection === "tags" ? "is-active" : undefined}
+              onClick={() => setPage({ name: "tags" })}
+            >
+              Tags
+            </button>
+            <button
+              type="button"
+              className={activeSection === "internal-import-jobs" ? "is-active" : undefined}
+              onClick={() => setPage({ name: "internal-import-jobs" })}
+            >
+              Import jobs
+            </button>
+        </nav>
+      </header>
+      {latestUnreadNotification ? (
+        <div className="notification-toast" role="status">
+          <strong>{latestUnreadNotification.title}</strong>
+          <span>{latestUnreadNotification.message}</span>
         </div>
-      </main>
+      ) : null}
+      <div className="layout">
+        {page.name === "recipes" ? <RecipeListPage onSelect={(recipeId) => setPage({ name: "recipe", recipeId })} /> : null}
+        {page.name === "import" ? <ImportPage onImported={(recipeId) => setPage({ name: "recipe", recipeId })} /> : null}
+        {page.name === "recipe" ? <RecipeDetailPage recipeId={page.recipeId} onDeleted={() => setPage({ name: "recipes" })} /> : null}
+        {page.name === "collections" ? (
+          <CollectionsPage onSelect={(collectionId) => setPage({ name: "collection", collectionId })} />
+        ) : null}
+        {page.name === "collection" ? (
+          <CollectionDetailPage
+            collectionId={page.collectionId}
+            onSelectRecipe={(recipeId) => setPage({ name: "recipe", recipeId })}
+            onDeleted={() => setPage({ name: "collections" })}
+          />
+        ) : null}
+        {page.name === "notifications" ? (
+          <NotificationsPage notifications={notifications} onOpenRecipe={(recipeId) => setPage({ name: "recipe", recipeId })} />
+        ) : null}
+        {page.name === "tags" ? <TagsPage /> : null}
+        {page.name === "internal-import-jobs" ? <InternalImportJobsPage /> : null}
+      </div>
+    </main>
+  );
+}
+
+export function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AppContent />
     </QueryClientProvider>
   );
 }

@@ -17,6 +17,11 @@ export function RecipeGrid({ recipes, onSelect }: { recipes: RecipeListItem[]; o
     <div className="recipe-grid">
       {recipes.map((recipe) => (
         <button className="recipe-card" key={recipe.id} type="button" onClick={() => onSelect(recipe.id)}>
+          {recipe.hasOpenReviewFlags ? (
+            <span className="recipe-card-flag" aria-label={`${recipe.title} requires review`}>
+              !
+            </span>
+          ) : null}
           <img src={getRecipePreviewUrl(recipe)} alt={`${recipe.title} cover`} />
           <span>{recipe.title}</span>
         </button>

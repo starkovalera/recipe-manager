@@ -1,12 +1,11 @@
-from app.ai.schemas import ExtractionQuality
-from app.ai.schemas import ReadySource
+from app.ai.schemas import ExtractionQuality, ReadySource
 from app.imports.sources import (
     attachment_first_capacity,
     normalize_quality_source_refs,
     normalize_single_url_quality,
     review_reason_codes,
-    source_assessments,
     should_create_review_flag,
+    source_assessments,
 )
 
 

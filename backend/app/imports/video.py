@@ -1,18 +1,18 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from io import BytesIO
-import logging
 
 from openai import OpenAI
 
 from app.core.config import Settings, get_settings
-from app.core.logging import log_error
+from app.core.logging import bind_logger
+from app.imports.constants import IMPORT_VIDEO_LOG_COMPONENT, IMPORT_VIDEO_LOG_PREFIX
 from app.imports.url_loaders.generic import httpx_fetch
 from app.imports.url_loaders.types import Fetch, LoadedRemoteImage, LoadedRemoteVideo
 
-
-logger = logging.getLogger("recipes.import.video")
+logger = logging.getLogger(IMPORT_VIDEO_LOG_COMPONENT)
 SUPPORTED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
 
 
@@ -79,7 +79,10 @@ class VideoProcessor:
             try:
                 poster = await self._download_poster(video, max_image_bytes)
             except Exception as error:
-                log_error(logger, "[recipes.import.video] Video poster download failed", error=repr(error), videoUrl=video.url)
+                bind_logger(logger, component=IMPORT_VIDEO_LOG_COMPONENT, videoUrl=video.url).error(
+                    f"{IMPORT_VIDEO_LOG_PREFIX} Video poster download failed",
+                    error=repr(error),
+                )
                 poster = None
             if poster is not None:
                 poster_images.append(poster)
@@ -87,7 +90,10 @@ class VideoProcessor:
             try:
                 transcript = await self._transcribe(video, max_video_bytes)
             except Exception as error:
-                log_error(logger, "[recipes.import.video] Video transcription failed", error=repr(error), videoUrl=video.url)
+                bind_logger(logger, component=IMPORT_VIDEO_LOG_COMPONENT, videoUrl=video.url).error(
+                    f"{IMPORT_VIDEO_LOG_PREFIX} Video transcription failed",
+                    error=repr(error),
+                )
                 transcript = None
             if transcript:
                 transcripts.append(f"Video {video.position + 1} transcript:\n{transcript}")

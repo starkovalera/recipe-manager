@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.ai.openai_provider import OpenAIRecipeExtractionProvider
+from app.ai.openai_provider import RECIPE_JSON_SCHEMA, OpenAIRecipeExtractionProvider
 from app.ai.schemas import ReadySource
 from app.core.config import Settings
 
@@ -24,12 +24,24 @@ class FakeClient:
         self.responses = FakeResponses(output_text)
 
 
+def test_openai_response_schema_only_requests_cover_candidate_source_ref():
+    cover_schema = RECIPE_JSON_SCHEMA["properties"]["coverCandidate"]
+    cover_properties = cover_schema["properties"]
+
+    assert cover_schema["required"] == ["sourceRef", "confidence"]
+    assert "sourceRef" in cover_properties
+    assert "confidence" in cover_properties
+    assert "sourcePosition" not in cover_properties
+    assert "crop" not in cover_properties
+    assert "reason" not in cover_properties
+
+
 @pytest.mark.anyio
 async def test_openai_provider_uses_reference_responses_input_and_logs_output(caplog):
     raw_output = json.dumps(
         {
             "title": "Roulade",
-            "ingredients": [{"name": "Egg", "quantity": "1", "unit": "pc", "note": None}],
+            "ingredients": [{"name": "Яйцо", "quantity": "1", "unit": "pc", "note": None}],
             "instructions": ["Beat the egg."],
             "servings": 1,
             "cookTimeMinutes": 20,
@@ -45,10 +57,7 @@ async def test_openai_provider_uses_reference_responses_input_and_logs_output(ca
             },
             "coverCandidate": {
                 "sourceRef": "source_1",
-                "sourcePosition": 1,
-                "crop": {"x": 0.05, "y": 0.02, "width": 0.55, "height": 0.45},
                 "confidence": 0.87,
-                "reason": "Finished dish photo is visible.",
             },
         }
     )
@@ -60,6 +69,7 @@ async def test_openai_provider_uses_reference_responses_input_and_logs_output(ca
     result = await provider.extract(
         [
             ReadySource(
+                id="image-source-0",
                 type="IMAGE",
                 sourceRef="source_0",
                 storageKey="uploads/source-0.png",
@@ -69,6 +79,7 @@ async def test_openai_provider_uses_reference_responses_input_and_logs_output(ca
                 position=0,
             ),
             ReadySource(
+                id="image-source-1",
                 type="IMAGE",
                 sourceRef="source_1",
                 storageKey="uploads/source-1.png",
@@ -77,7 +88,9 @@ async def test_openai_provider_uses_reference_responses_input_and_logs_output(ca
                 originalName="second.png",
                 position=1,
             ),
-        ]
+        ],
+        language="ru",
+        tags="десерт, аэрогриль",
     )
 
     assert result.recipe is not None
@@ -86,9 +99,13 @@ async def test_openai_provider_uses_reference_responses_input_and_logs_output(ca
     content = request["input"][0]["content"]
     assert request["model"] == "gpt-test"
     assert content[0]["type"] == "input_text"
-    assert content[1]["text"].startswith("Source sourceId=image:source_0")
+    assert "Return the recipe in ru." in content[0]["text"]
+    assert "десерт, аэрогриль" in content[0]["text"]
+    assert "{language}" not in content[0]["text"]
+    assert "{tags}" not in content[0]["text"]
+    assert content[1]["text"] == "Source type=image, id=image-source-0, content:"
     assert content[2] == {"type": "input_image", "detail": "auto", "image_url": "data:image/png;base64,SECRET_IMAGE_DATA"}
-    assert content[3]["text"].startswith("Source sourceId=image:source_1")
+    assert content[3]["text"] == "Source type=image, id=image-source-1, content:"
     assert content[4] == {"type": "input_image", "detail": "auto", "image_url": "data:image/png;base64,SECRET_IMAGE_DATA_2"}
 
     joined_logs = "\n".join(record.getMessage() for record in caplog.records)
@@ -100,7 +117,7 @@ async def test_openai_provider_uses_reference_responses_input_and_logs_output(ca
     assert '"rawOutput":' in joined_logs
     assert '\\"title\\": \\"Roulade\\"' in joined_logs
     assert "SECRET_IMAGE_DATA" not in joined_logs
-    assert "image:source_0" in joined_logs
+    assert "image-source-0" in joined_logs
 
 
 @pytest.mark.anyio
@@ -119,7 +136,7 @@ async def test_openai_provider_sends_reference_mixed_source_labels_once():
                 "confidence": 0.9,
                 "hasConflicts": False,
                 "hasIgnored": False,
-                "primarySourceRefs": ["url:0", "text:1", "image:source_0"],
+                "primarySourceRefs": ["text-url", "text-manual", "image-manual"],
                 "ignoredSourceRefs": [],
             },
             "coverCandidate": None,
@@ -130,15 +147,10 @@ async def test_openai_provider_sends_reference_mixed_source_labels_once():
 
     await provider.extract(
         [
+            ReadySource(id="text-url", type="TEXT", text="URL recipe body", position=0),
+            ReadySource(id="text-manual", type="TEXT", text="User pasted recipe body", position=1),
             ReadySource(
-                type="URL",
-                url="https://www.instagram.com/p/recipe",
-                authorName="chef",
-                text="URL recipe body",
-                position=0,
-            ),
-            ReadySource(type="TEXT", text="User pasted recipe body", position=1),
-            ReadySource(
+                id="image-manual",
                 type="IMAGE",
                 sourceRef="source_0",
                 storageKey="uploads/source-0.png",
@@ -147,7 +159,9 @@ async def test_openai_provider_sends_reference_mixed_source_labels_once():
                 originalName="first.png",
                 position=2,
             ),
-        ]
+        ],
+        language="ru",
+        tags="десерт",
     )
 
     content = client.responses.calls[0]["input"][0]["content"]
@@ -156,7 +170,7 @@ async def test_openai_provider_sends_reference_mixed_source_labels_once():
 
     assert len([item for item in text_blocks if "URL recipe body" in item["text"]]) == 1
     assert len([item for item in text_blocks if "User pasted recipe body" in item["text"]]) == 1
-    assert any("Source sourceId=url:0" in item["text"] and "Fetched authorName: chef" in item["text"] for item in text_blocks)
-    assert any("Source sourceId=text:1" in item["text"] for item in text_blocks)
-    assert any("Source sourceId=image:source_0" in item["text"] for item in text_blocks)
+    assert any(item["text"] == "Source type=text, id=text-url, content:\nURL recipe body" for item in text_blocks)
+    assert any(item["text"] == "Source type=text, id=text-manual, content:\nUser pasted recipe body" for item in text_blocks)
+    assert any(item["text"] == "Source type=image, id=image-manual, content:" for item in text_blocks)
     assert image_blocks == [{"type": "input_image", "detail": "auto", "image_url": "data:image/png;base64,SECRET_IMAGE_DATA"}]

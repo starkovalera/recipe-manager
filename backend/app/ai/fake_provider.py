@@ -3,7 +3,7 @@ from app.ai.schemas import ExtractedRecipe, ExtractionQuality, ExtractionResult,
 
 
 class FakeRecipeExtractionProvider(RecipeExtractionProvider):
-    async def extract(self, sources: list[ReadySource]) -> ExtractionResult:
+    async def extract(self, sources: list[ReadySource], *, language: str, tags: str) -> ExtractionResult:
         if not sources:
             return ExtractionResult(not_a_recipe=True)
         primary_refs = [ready_source_id(source) for source in sources]

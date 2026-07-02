@@ -66,21 +66,9 @@ RECIPE_JSON_SCHEMA: dict[str, Any] = {
             "additionalProperties": False,
             "properties": {
                 "sourceRef": {"type": "string"},
-                "sourcePosition": {"type": "integer"},
-                "crop": {
-                    "type": ["object", "null"],
-                    "additionalProperties": False,
-                    "properties": {
-                        "x": {"type": "number"},
-                        "y": {"type": "number"},
-                        "width": {"type": "number"},
-                        "height": {"type": "number"},
-                    },
-                },
                 "confidence": {"type": "number"},
-                "reason": {"type": ["string", "null"]},
             },
-            "required": ["sourceRef", "sourcePosition", "confidence"],
+            "required": ["sourceRef", "confidence"],
         },
     },
 }
@@ -109,18 +97,9 @@ def _source_log_summary(source: ReadySource) -> dict[str, Any]:
 
 def _source_label(source: ReadySource) -> dict[str, str]:
     if source.type == "IMAGE":
-        text = (
-            f"Source sourceId={ready_source_id(source)}, image sourceRef={source.sourceRef}, "
-            f"position={source.position}, originalName={source.originalName}"
-        )
-    elif source.type == "URL":
-        text = f"Source sourceId={ready_source_id(source)}, URL at position {source.position}: {source.url}"
-        if source.authorName:
-            text += f"\nFetched authorName: {source.authorName}"
-        if source.text:
-            text += f"\nUntrusted fetched URL text:\n{source.text}"
+        text = f"Source type=image, id={ready_source_id(source)}, content:"
     else:
-        text = f"Source sourceId={ready_source_id(source)}, untrusted text at position {source.position}:\n{source.text}"
+        text = f"Source type=text, id={ready_source_id(source)}, content:\n{source.text}"
     return {"type": "input_text", "text": text}
 
 
@@ -134,8 +113,9 @@ def _source_to_extraction_content(source: ReadySource) -> list[dict[str, Any]]:
     return [label]
 
 
-def _content_for_sources(sources: list[ReadySource]) -> list[dict[str, Any]]:
-    content: list[dict[str, Any]] = [{"type": "input_text", "text": recipe_extraction_prompt}]
+def _content_for_sources(sources: list[ReadySource], *, language: str, tags: str) -> list[dict[str, Any]]:
+    prompt = recipe_extraction_prompt.format(language=language, tags=tags)
+    content: list[dict[str, Any]] = [{"type": "input_text", "text": prompt}]
     for source in sources:
         content.extend(_source_to_extraction_content(source))
     return content
@@ -161,12 +141,14 @@ class OpenAIRecipeExtractionProvider(RecipeExtractionProvider):
         self.settings = settings
         self.client = client or AsyncOpenAI(api_key=settings.openai_api_key)
 
-    async def extract(self, sources: list[ReadySource]) -> ExtractionResult:
-        content = _content_for_sources(sources)
+    async def extract(self, sources: list[ReadySource], *, language: str, tags: str) -> ExtractionResult:
+        content = _content_for_sources(sources, language=language, tags=tags)
         log_info(
             logger,
             "[recipes.ai.openai] Recipe extraction request",
             model=self.settings.openai_recipe_model,
+            language=language,
+            tags=tags,
             sources=[source.model_dump() for source in sources],
             sourceCount=len(sources),
             imageSourceCount=len([source for source in sources if source.type == "IMAGE"]),

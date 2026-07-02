@@ -1,8 +1,9 @@
 from pathlib import Path
 
-from alembic import command
 from alembic.config import Config
 from sqlalchemy import create_engine, inspect
+
+from alembic import command
 
 
 def test_alembic_upgrade_head_creates_core_tables(tmp_path: Path):
@@ -16,4 +17,17 @@ def test_alembic_upgrade_head_creates_core_tables(tmp_path: Path):
 
     engine = create_engine(f"sqlite:///{db_path}")
     tables = set(inspect(engine).get_table_names())
-    assert {"users", "recipes", "import_jobs", "recipe_sources", "recipe_review_flags"}.issubset(tables)
+    assert {"users", "user_settings", "recipes", "import_jobs", "recipe_resources", "recipe_review_flags"}.issubset(tables)
+
+
+def test_alembic_cli_uses_database_url_env(monkeypatch, tmp_path: Path):
+    db_path = tmp_path / "env-migration.db"
+    backend_root = Path(__file__).resolve().parents[2]
+    config = Config(str(backend_root / "alembic.ini"))
+    config.set_main_option("script_location", str(backend_root / "alembic"))
+    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{db_path}")
+
+    command.upgrade(config, "head")
+
+    engine = create_engine(f"sqlite:///{db_path}")
+    assert {"users", "recipes", "import_jobs"}.issubset(set(inspect(engine).get_table_names()))

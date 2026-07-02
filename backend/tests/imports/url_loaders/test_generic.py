@@ -1,5 +1,3 @@
-import pytest
-
 from app.imports.url_loaders.generic import GenericUrlContentLoader
 
 

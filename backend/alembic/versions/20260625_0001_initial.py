@@ -49,7 +49,6 @@ def upgrade() -> None:
         sa.Column("author_name", sa.String(), nullable=True),
         sa.Column("source_name", sa.Enum("MANUAL", "INSTAGRAM", "THREADS", "TT", "OTHER", name="sourcename"), nullable=False),
         sa.Column("cover_image_id", sa.String(), nullable=True),
-        sa.Column("cover_image_source", sa.Enum("AI", "USER", "DEFAULT", name="coverimagesource"), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("(CURRENT_TIMESTAMP)"), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("(CURRENT_TIMESTAMP)"), nullable=False),
         sa.ForeignKeyConstraint(["owner_id"], ["users.id"], ondelete="CASCADE"),
@@ -60,15 +59,12 @@ def upgrade() -> None:
         "recipe_images",
         sa.Column("id", sa.String(), nullable=False),
         sa.Column("recipe_id", sa.String(), nullable=True),
-        sa.Column("role", sa.Enum("SOURCE", "COVER", name="recipeimagerole"), nullable=False),
-        sa.Column("source_image_id", sa.String(), nullable=True),
         sa.Column("storage_key", sa.String(), nullable=False),
         sa.Column("original_name", sa.String(), nullable=False),
         sa.Column("mime_type", sa.String(), nullable=False),
         sa.Column("size_bytes", sa.Integer(), nullable=False),
         sa.Column("position", sa.Integer(), nullable=False),
         sa.ForeignKeyConstraint(["recipe_id"], ["recipes.id"], ondelete="CASCADE"),
-        sa.ForeignKeyConstraint(["source_image_id"], ["recipe_images.id"], ondelete="NO ACTION"),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_table(
@@ -123,25 +119,29 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_table(
-        "recipe_sources",
+        "recipe_resources",
         sa.Column("id", sa.String(), nullable=False),
         sa.Column("recipe_id", sa.String(), nullable=False),
         sa.Column("owner_id", sa.String(), nullable=False),
+        sa.Column("parent_resource_id", sa.String(), nullable=True),
         sa.Column("type", sa.Enum("TEXT", "IMAGE", "URL", name="sourcetype"), nullable=False),
+        sa.Column("source", sa.Enum("MANUAL", "URL", "URL_VIDEO", "GENERATED", name="reciperesourceorigin"), nullable=False),
+        sa.Column("role", sa.Enum("SOURCE", "COVER_CANDIDATE", name="reciperesourcerole"), nullable=False),
         sa.Column("url", sa.String(), nullable=True),
         sa.Column("image_id", sa.String(), nullable=True),
         sa.Column("text", sa.Text(), nullable=True),
-        sa.Column("source_ref", sa.String(), nullable=True),
         sa.Column("position", sa.Integer(), nullable=True),
-        sa.Column("status", sa.Enum("USED", "IGNORED", "CONFLICTING", "UNKNOWN", name="recipesourcestatus"), nullable=False),
+        sa.Column("status", sa.Enum("USED", "IGNORED", "CONFLICTING", "UNKNOWN", "DELETED", name="reciperesourcestatus"), nullable=False),
         sa.Column("assessment_reason", sa.Text(), nullable=True),
         sa.Column("assessment_confidence", sa.Float(), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("(CURRENT_TIMESTAMP)"), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("(CURRENT_TIMESTAMP)"), nullable=False),
         sa.ForeignKeyConstraint(["image_id"], ["recipe_images.id"], ondelete="NO ACTION"),
         sa.ForeignKeyConstraint(["owner_id"], ["users.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["parent_resource_id"], ["recipe_resources.id"], ondelete="NO ACTION"),
         sa.ForeignKeyConstraint(["recipe_id"], ["recipes.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint("image_id"),
     )
     op.create_table(
         "recipe_review_flags",
@@ -194,7 +194,7 @@ def downgrade() -> None:
     op.drop_table("recipe_tags")
     op.drop_table("tags")
     op.drop_table("recipe_review_flags")
-    op.drop_table("recipe_sources")
+    op.drop_table("recipe_resources")
     op.drop_table("import_job_sources")
     op.drop_table("import_jobs")
     op.drop_table("ingredients")

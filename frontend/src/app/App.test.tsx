@@ -1,7 +1,8 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "./App";
+import { queryClient } from "./queryClient";
 
 
 function mockFetch(payloads: Record<string, unknown>) {
@@ -11,7 +12,10 @@ function mockFetch(payloads: Record<string, unknown>) {
       const url = String(input);
       const path = new URL(url).pathname;
       const key = `${init?.method ?? "GET"} ${path}`;
-      const payload = payloads[key] ?? payloads[`GET ${path}`];
+      const payload =
+        payloads[key] ??
+        payloads[`GET ${path}`] ??
+        (path === "/notifications" || path === "/tags" ? { items: [] } : undefined);
       return {
         ok: true,
         status: init?.method === "DELETE" || init?.method === "PUT" ? 204 : 200,
@@ -28,10 +32,15 @@ describe("App", () => {
     vi.restoreAllMocks();
   });
 
+  afterEach(() => {
+    cleanup();
+    queryClient.clear();
+  });
+
   it("opens on recipe grid with cover previews", async () => {
     mockFetch({
       "GET /recipes": {
-        items: [{ id: "recipe-1", title: "Soup", coverImage: { id: "image-1", mediaUrl: "/media/cover.jpg", role: "COVER" } }],
+        items: [{ id: "recipe-1", title: "Soup", coverImage: { id: "image-1", mediaUrl: "/media/cover.jpg", role: "COVER" }, hasOpenReviewFlags: true }],
       },
     });
 
@@ -39,6 +48,7 @@ describe("App", () => {
 
     await waitFor(() => expect(screen.getByRole("button", { name: /Soup/ })).toBeTruthy());
     expect(screen.getByAltText("Soup cover")).toBeTruthy();
+    expect(screen.getByLabelText("Soup requires review")).toBeTruthy();
   });
 
   it("navigates from import success to recipe detail", async () => {
@@ -57,7 +67,10 @@ describe("App", () => {
         images: [],
         coverOptions: [{ kind: "DEFAULT", label: "Default image", selected: true }],
         collections: [],
+        resources: [],
         sources: [],
+        debugResources: [],
+        debugSources: [],
         reviewFlags: [],
       },
     });
@@ -67,7 +80,241 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText("Text"), { target: { value: "Soup recipe" } });
     fireEvent.click(screen.getByRole("button", { name: "Import recipe" }));
 
-    await waitFor(() => expect(screen.getByText("MANUAL")).toBeTruthy());
-    expect(screen.getByRole("heading", { name: "Soup" })).toBeTruthy();
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Soup" })).toBeTruthy());
+    expect(screen.getAllByText("MANUAL").length).toBeGreaterThan(0);
+  });
+
+  it("shows internal import jobs with status history and events", async () => {
+    mockFetch({
+      "GET /recipes": { items: [] },
+      "GET /internal/import-jobs": {
+        items: [
+          {
+            id: "job-1",
+            ownerId: "local-user",
+            clientId: "client-1",
+            clientImportId: "import-1",
+            status: "succeeded",
+            createdRecipeId: "recipe-1",
+            startedAt: "2026-06-27T10:00:00Z",
+            finishedAt: "2026-06-27T10:01:00Z",
+            statusHistory: [
+              { status: "queued", changedAt: "2026-06-27T09:59:00Z" },
+              { status: "running", changedAt: "2026-06-27T10:00:00Z" },
+              { status: "succeeded", changedAt: "2026-06-27T10:01:00Z" },
+            ],
+            sources: [{ id: "source-1", type: "URL", status: "ready", url: "https://example.com/post", position: 0 }],
+            events: [{ id: "event-1", eventType: "recipe_created", createdAt: "2026-06-27T10:01:00Z" }],
+          },
+        ],
+      },
+    });
+
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Import jobs" }));
+
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Import jobs / Job events" })).toBeTruthy());
+    expect(screen.getByText("job-1")).toBeTruthy();
+    expect(screen.getByText(/user local-user/)).toBeTruthy();
+    expect(screen.getByText(/queued/)).toBeTruthy();
+    expect(screen.getByText(/running/)).toBeTruthy();
+    expect(screen.getByText(/recipe_created/)).toBeTruthy();
+    expect(screen.getByText(/https:\/\/example.com\/post/)).toBeTruthy();
+  });
+
+  it("shows notification history, marks notifications read, and opens successful recipe imports", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const path = new URL(url).pathname;
+      const method = init?.method ?? "GET";
+      const payloads: Record<string, unknown> = {
+        "GET /recipes": { items: [] },
+        "GET /notifications": {
+          items: [
+            {
+              id: "notification-1",
+              type: "import_succeeded",
+              status: "unread",
+              title: "Import completed",
+              message: "Soup was imported.",
+              entityType: "recipe",
+              entityId: "recipe-1",
+              data: { importJobId: "job-1", createdRecipeId: "recipe-1", hasReviewFlags: false },
+              createdAt: "2026-06-27T10:01:00Z",
+            },
+          ],
+        },
+        "GET /tags": { items: [] },
+        "GET /recipes/recipe-1": {
+          id: "recipe-1",
+          title: "Soup",
+          sourceName: "MANUAL",
+          tags: [],
+          instructions: ["Cook"],
+          ingredients: [],
+          images: [],
+          coverOptions: [{ kind: "DEFAULT", label: "Default image", selected: true }],
+          collections: [],
+          resources: [],
+          sources: [],
+          debugResources: [],
+          debugSources: [],
+          reviewFlags: [],
+        },
+        "GET /collections": { items: [] },
+      };
+      const payload = payloads[`${method} ${path}`] ?? payloads[`GET ${path}`];
+      return {
+        ok: true,
+        status: method === "PATCH" ? 200 : 200,
+        text: async () => (payload === undefined ? "{}" : JSON.stringify(payload)),
+      };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<App />);
+
+    await waitFor(() => expect(screen.getByRole("status").textContent).toContain("Import completed"));
+    fireEvent.click(screen.getByRole("button", { name: "Notifications" }));
+
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Notifications" })).toBeTruthy());
+    expect(screen.getAllByText("Soup was imported.").length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole("button", { name: "Mark read" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/notifications/notification-1"),
+      expect.objectContaining({
+        method: "PATCH",
+        body: expect.stringContaining('"status":"read"'),
+      }),
+    ));
+
+    fireEvent.click(screen.getByRole("button", { name: "Open recipe" }));
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Soup" })).toBeTruthy());
+  });
+
+  it("marks all visible unread notifications read through the newest notification cutoff", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const path = new URL(url).pathname;
+      const method = init?.method ?? "GET";
+      const payloads: Record<string, unknown> = {
+        "GET /recipes": { items: [] },
+        "GET /notifications": {
+          items: [
+            {
+              id: "notification-new",
+              type: "import_succeeded",
+              status: "unread",
+              title: "Newest",
+              message: "Newest notification.",
+              createdAt: "2026-06-27T10:02:00Z",
+            },
+            {
+              id: "notification-old",
+              type: "import_started",
+              status: "unread",
+              title: "Older",
+              message: "Older notification.",
+              createdAt: "2026-06-27T10:01:00Z",
+            },
+          ],
+        },
+      };
+      const payload = payloads[`${method} ${path}`] ?? payloads[`GET ${path}`];
+      return {
+        ok: true,
+        status: 200,
+        text: async () => (payload === undefined ? "{}" : JSON.stringify(payload)),
+      };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Notifications" }));
+
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Notifications" })).toBeTruthy());
+    await waitFor(() => expect(screen.getAllByText("Newest notification.").length).toBeGreaterThan(0));
+    fireEvent.click(screen.getByRole("button", { name: "Mark all read" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/notifications/read-all"),
+      expect.objectContaining({
+        method: "PATCH",
+        body: expect.stringContaining('"lastNotificationId":"notification-new"'),
+      }),
+    ));
+  });
+
+  it("manages tags and confirms deletion with usage count", async () => {
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const path = new URL(url).pathname;
+      const method = init?.method ?? "GET";
+      const payloads: Record<string, unknown> = {
+        "GET /recipes": { items: [] },
+        "GET /notifications": { items: [] },
+        "GET /tags": {
+          items: [{ id: "tag-1", name: "breakfast", description: "Morning food" }],
+        },
+        "POST /tags": { id: "tag-2", name: "dessert", description: "Sweet" },
+        "PATCH /tags/tag-1": { id: "tag-1", name: "brunch", description: "Late morning" },
+        "GET /tags/tag-1/usage": { recipeCount: 2 },
+        "DELETE /tags/tag-1": {
+          id: "tag-1",
+          name: "brunch",
+          description: "Late morning",
+          deletedAt: "2026-06-28T10:00:00Z",
+        },
+      };
+      const payload = payloads[`${method} ${path}`] ?? payloads[`GET ${path}`];
+      return {
+        ok: true,
+        status: method === "DELETE" ? 200 : 200,
+        text: async () => (payload === undefined ? "{}" : JSON.stringify(payload)),
+      };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Tags" }));
+
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Tags (1)" })).toBeTruthy());
+    await waitFor(() => expect(screen.getByDisplayValue("breakfast")).toBeTruthy());
+    expect(screen.queryByText("Name for breakfast")).toBeNull();
+    expect(screen.queryByText("Description for breakfast")).toBeNull();
+    expect(screen.queryByText("Save breakfast")).toBeNull();
+    expect(screen.queryByText("Delete breakfast")).toBeNull();
+
+    fireEvent.change(screen.getAllByPlaceholderText("Name")[0], { target: { value: "dessert" } });
+    fireEvent.change(screen.getAllByPlaceholderText("Description")[0], { target: { value: "Sweet" } });
+    fireEvent.click(screen.getByRole("button", { name: "Create tag" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/tags"),
+      expect.objectContaining({
+        method: "POST",
+        body: expect.stringContaining('"name":"dessert"'),
+      }),
+    ));
+
+    fireEvent.change(screen.getByDisplayValue("breakfast"), { target: { value: "brunch" } });
+    fireEvent.change(screen.getByDisplayValue("Morning food"), { target: { value: "Late morning" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/tags/tag-1"),
+      expect.objectContaining({
+        method: "PATCH",
+        body: expect.stringContaining('"name":"brunch"'),
+      }),
+    ));
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    await waitFor(() => expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/tags/tag-1/usage"))).toBe(true));
+    expect(confirmSpy).toHaveBeenCalledWith("This tag is used by 2 recipes.");
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/tags/tag-1"),
+      expect.objectContaining({ method: "DELETE" }),
+    ));
   });
 });

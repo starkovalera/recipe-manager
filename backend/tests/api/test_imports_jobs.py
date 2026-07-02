@@ -1,41 +1,55 @@
-from collections.abc import Generator
 import logging
-
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.pool import StaticPool
-from PIL import Image
+from collections.abc import Generator
 from io import BytesIO
 
 import pytest
-from app.db.base import Base
-from app.db.session import get_session
+from fastapi.testclient import TestClient
+from PIL import Image
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import StaticPool
+
 from app.ai.fake_provider import FakeRecipeExtractionProvider
 from app.ai.schemas import CoverCandidate, ExtractedRecipe, ExtractionQuality, ExtractionResult
+from app.api.routes import imports as import_routes
+from app.core.config import get_settings
+from app.db.base import Base
+from app.db.init import ensure_default_user
+from app.db.session import get_session
 from app.imports.jobs import (
-    DefaultUrlContentRegistry,
-    reset_recipe_extraction_provider,
+    process_import_job,
+)
+from app.imports.url_loaders.types import LoadedRemoteImage, LoadedRemoteVideo, LoadedUrlContent
+from app.main import create_app
+from app.models import ImportJob, ImportJobStatus, Ingredient, Notification, Recipe
+from tests.imports.runtime_overrides import (
+    reset_url_content_loader_registry,
     reset_video_processor,
     set_recipe_extraction_provider,
     set_url_content_loader_registry,
     set_video_processor,
 )
-from app.imports.url_loaders.types import LoadedRemoteImage, LoadedRemoteVideo, LoadedUrlContent
-from app.main import create_app
 
 
 @pytest.fixture(autouse=True)
-def reset_import_dependencies():
+def reset_import_dependencies(monkeypatch):
+    monkeypatch.setenv("MAX_IMPORT_TEXT_CHARS", "1000")
+    monkeypatch.setenv("MAX_RECIPE_INGREDIENTS", "50")
+    monkeypatch.setenv("MAX_RECIPE_INSTRUCTION_CHARS", "1000")
+    monkeypatch.setenv("MAX_RECIPE_NOTE_CHARS", "500")
+    monkeypatch.setenv("MAX_PARALLEL_IMPORTS_PER_CLIENT", "3")
+    get_settings.cache_clear()
     set_recipe_extraction_provider(FakeRecipeExtractionProvider())
-    set_url_content_loader_registry(DefaultUrlContentRegistry())
+    reset_url_content_loader_registry()
+    monkeypatch.setattr(import_routes, "enqueue_import_job", lambda import_job_id: None, raising=False)
     yield
     set_recipe_extraction_provider(FakeRecipeExtractionProvider())
-    set_url_content_loader_registry(DefaultUrlContentRegistry())
+    reset_url_content_loader_registry()
     reset_video_processor()
+    get_settings.cache_clear()
 
 
-def client_with_session():
+def client_with_session_factory():
     engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False}, poolclass=StaticPool)
     Base.metadata.create_all(engine)
     SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
@@ -49,13 +63,35 @@ def client_with_session():
 
     app = create_app()
     app.dependency_overrides[get_session] = override_session
-    return TestClient(app)
+    app.state.SessionLocal = SessionLocal
+    return TestClient(app), SessionLocal
+
+
+def client_with_session():
+    client, _ = client_with_session_factory()
+    return client
 
 
 def image_bytes() -> bytes:
     out = BytesIO()
     Image.new("RGB", (20, 20), color=(255, 0, 0)).save(out, format="JPEG")
     return out.getvalue()
+
+
+def run_import_worker(client: TestClient, job_id: str) -> None:
+    with client.app.state.SessionLocal() as session:
+        process_import_job(session, job_id)
+
+
+def poll_import(client: TestClient, job_id: str):
+    return client.get(f"/imports/{job_id}")
+
+
+def process_import_response(client: TestClient, response):
+    assert response.status_code == 202
+    job_id = response.json()["jobId"]
+    run_import_worker(client, job_id)
+    return poll_import(client, job_id)
 
 
 def test_text_import_creates_job_and_polling_returns_recipe():
@@ -69,11 +105,55 @@ def test_text_import_creates_job_and_polling_returns_recipe():
     job_id = created.json()["jobId"]
     polled = client.get(f"/imports/{job_id}")
 
-    assert created.status_code == 200
-    assert created.json()["status"] in {"pending", "processing", "succeeded"}
+    assert created.status_code == 202
+    assert created.json()["status"] == "queued"
     assert polled.status_code == 200
-    assert polled.json()["status"] == "succeeded"
-    assert polled.json()["createdRecipeId"]
+    assert polled.json()["status"] == "queued"
+    assert polled.json()["createdRecipeId"] is None
+
+    run_import_worker(client, job_id)
+    completed = poll_import(client, job_id)
+
+    assert completed.json()["status"] == "succeeded"
+    assert completed.json()["createdRecipeId"]
+
+
+def test_text_import_sets_ingredient_search_name():
+    client, SessionLocal = client_with_session_factory()
+
+    created = client.post(
+        "/imports",
+        data={"clientImportId": "import-search-name", "text": "Tomato soup recipe"},
+        headers={"X-Client-Id": "client-1"},
+    )
+    completed = process_import_response(client, created)
+    recipe_id = completed.json()["createdRecipeId"]
+
+    with SessionLocal() as session:
+        ingredient = session.query(Ingredient).filter_by(recipe_id=recipe_id).one()
+
+    assert ingredient.search_name == "ingredient"
+
+
+def test_text_import_sets_recipe_search_text_and_hash():
+    client, SessionLocal = client_with_session_factory()
+
+    created = client.post(
+        "/imports",
+        data={"clientImportId": "import-recipe-search-text", "text": "Tomato soup recipe"},
+        headers={"X-Client-Id": "client-1"},
+    )
+    completed = process_import_response(client, created)
+    recipe_id = completed.json()["createdRecipeId"]
+
+    with SessionLocal() as session:
+        recipe = session.query(Recipe).filter_by(id=recipe_id).one()
+
+    assert recipe.search_text is not None
+    assert "imported recipe" in recipe.search_text
+    assert "ingredient" in recipe.search_text
+    assert recipe.search_text_hash is not None
+    assert len(recipe.search_text_hash) == 64
 
 
 def test_duplicate_client_import_id_returns_existing_job():
@@ -82,9 +162,95 @@ def test_duplicate_client_import_id_returns_existing_job():
     first = client.post("/imports", data={"clientImportId": "same", "text": "Recipe"}, headers={"X-Client-Id": "client-1"})
     second = client.post("/imports", data={"clientImportId": "same", "text": "Recipe"}, headers={"X-Client-Id": "client-1"})
 
-    assert first.status_code == 200
+    assert first.status_code == 202
     assert second.status_code == 200
     assert second.json()["jobId"] == first.json()["jobId"]
+
+
+def test_import_records_job_events_and_notifications():
+    client, SessionLocal = client_with_session_factory()
+
+    response = client.post("/imports", data={"clientImportId": "evented", "text": "Recipe"}, headers={"X-Client-Id": "client-1"})
+
+    assert response.status_code == 202
+    with SessionLocal() as session:
+        job = session.get(ImportJob, response.json()["jobId"])
+        notifications = session.query(Notification).order_by(Notification.created_at).all()
+
+        assert [event.event_type for event in job.events] == ["queued"]
+        assert [notification.type for notification in notifications] == ["import_started"]
+
+    run_import_worker(client, response.json()["jobId"])
+    with SessionLocal() as session:
+        job = session.get(ImportJob, response.json()["jobId"])
+        notifications = session.query(Notification).order_by(Notification.created_at).all()
+
+        assert [event.event_type for event in job.events] == [
+            "queued",
+            "worker_started",
+            "source_downloaded",
+            "ai_called",
+            "ai_succeeded",
+            "recipe_created",
+        ]
+        assert [notification.type for notification in notifications] == ["import_started", "import_succeeded"]
+
+
+def test_active_import_limit_uses_database_state():
+    client, SessionLocal = client_with_session_factory()
+    with SessionLocal() as session:
+        user = ensure_default_user(session)
+        for index in range(2):
+            session.add(
+                ImportJob(
+                    owner_id=user.id,
+                    client_id=f"client-{index}",
+                    client_import_id=f"active-{index}",
+                    dedupe_key=f"active-{index}",
+                    status=ImportJobStatus.QUEUED,
+                )
+            )
+        session.commit()
+
+    response = client.post("/imports", data={"clientImportId": "third", "text": "Recipe"}, headers={"X-Client-Id": "client-3"})
+
+    assert response.status_code == 202
+
+    blocked = client.post("/imports", data={"clientImportId": "fourth", "text": "Recipe"}, headers={"X-Client-Id": "client-4"})
+
+    assert blocked.status_code == 400
+    assert blocked.json()["errorCode"] == "ACTIVE_IMPORT_EXISTS"
+
+
+def test_idempotency_key_returns_existing_job_for_different_client_import_id():
+    client = client_with_session()
+
+    first = client.post(
+        "/imports",
+        data={"clientImportId": "first", "text": "Recipe"},
+        headers={"X-Client-Id": "client-1", "Idempotency-Key": "same-key"},
+    )
+    second = client.post(
+        "/imports",
+        data={"clientImportId": "second", "text": "Recipe"},
+        headers={"X-Client-Id": "client-1", "Idempotency-Key": "same-key"},
+    )
+
+    assert first.status_code == 202
+    assert second.status_code == 200
+    assert second.json()["jobId"] == first.json()["jobId"]
+
+
+def test_create_import_enqueues_job(monkeypatch):
+    enqueued: list[str] = []
+    monkeypatch.setattr(import_routes, "enqueue_import_job", enqueued.append)
+    client = client_with_session()
+
+    response = client.post("/imports", data={"clientImportId": "queued", "text": "Recipe"}, headers={"X-Client-Id": "client-1"})
+
+    assert response.status_code == 202
+    assert response.json()["status"] == "queued"
+    assert enqueued == [response.json()["jobId"]]
 
 
 def test_import_requires_at_least_one_source():
@@ -101,12 +267,24 @@ def test_import_rejects_text_over_limit_before_job_creation():
 
     response = client.post(
         "/imports",
-        data={"clientImportId": "long-text", "text": "x" * 501},
+        data={"clientImportId": "long-text", "text": "x" * 1001},
         headers={"X-Client-Id": "client-1"},
     )
 
     assert response.status_code == 400
     assert response.json()["errorCode"] == "TEXT_TOO_LONG"
+
+
+def test_import_accepts_text_at_limit_before_job_creation():
+    client = client_with_session()
+
+    response = client.post(
+        "/imports",
+        data={"clientImportId": "limit-text", "text": "x" * 1000},
+        headers={"X-Client-Id": "client-1"},
+    )
+
+    assert response.status_code == 202
 
 
 def test_import_rejects_too_many_files_before_processing():
@@ -147,6 +325,7 @@ def test_image_attachment_import_creates_image_source():
         files=[("files", ("recipe.jpg", image_bytes(), "image/jpeg"))],
         headers={"X-Client-Id": "client-1"},
     )
+    response = process_import_response(client, response)
     recipe_id = response.json()["createdRecipeId"]
     detail = client.get(f"/recipes/{recipe_id}")
 
@@ -221,12 +400,19 @@ def test_url_images_use_remaining_capacity_after_attachments():
         files=[("files", ("recipe.jpg", image_bytes(), "image/jpeg"))],
         headers={"X-Client-Id": "client-1"},
     )
+    response = process_import_response(client, response)
     recipe_id = response.json()["createdRecipeId"]
     detail = client.get(f"/recipes/{recipe_id}")
 
     assert response.status_code == 200
     assert registry.max_images_seen == 9
-    assert [source["type"] for source in detail.json()["sources"]] == ["IMAGE", "URL", "IMAGE"]
+    sources = detail.json()["sources"]
+    assert [(source["type"], source["source"], source["parentResourceId"]) for source in sources] == [
+        ("IMAGE", "MANUAL", None),
+        ("URL", "MANUAL", None),
+        ("TEXT", "URL", sources[1]["id"]),
+        ("IMAGE", "URL", sources[1]["id"]),
+    ]
 
 
 def test_url_video_poster_and_transcript_are_passed_to_ai_sources():
@@ -241,14 +427,15 @@ def test_url_video_poster_and_transcript_are_passed_to_ai_sources():
         data={"clientImportId": "video-url", "url": "https://example.com/recipe"},
         headers={"X-Client-Id": "client-1"},
     )
+    response = process_import_response(client, response)
 
     assert response.status_code == 200
-    assert [(source.type, source.sourceRef, source.position) for source in provider.sources] == [
-        ("URL", None, 0),
-        ("TEXT", None, 1),
-        ("IMAGE", "url_video_poster_0", 2),
+    assert [(source.type, source.text, source.originalName) for source in provider.sources] == [
+        ("TEXT", "URL recipe text", None),
+        ("TEXT", "Video 1 transcript:\nMix batter and bake.", None),
+        ("IMAGE", None, "poster-video.mp4.jpg"),
     ]
-    assert provider.sources[1].text == "Video 1 transcript:\nMix batter and bake."
+    assert all(source.id for source in provider.sources)
 
 
 def test_url_video_transcript_survives_when_image_capacity_is_full():
@@ -265,20 +452,86 @@ def test_url_video_transcript_survives_when_image_capacity_is_full():
         files=files,
         headers={"X-Client-Id": "client-1"},
     )
+    response = process_import_response(client, response)
 
     assert response.status_code == 200
     assert [source.type for source in provider.sources].count("IMAGE") == 10
     assert any(source.type == "TEXT" and source.text == "Video 1 transcript:\nMix batter and bake." for source in provider.sources)
-    assert all(source.sourceRef != "url_video_poster_0" for source in provider.sources)
 
 
 class CapturingProvider(FakeRecipeExtractionProvider):
     def __init__(self):
         self.sources = []
 
-    async def extract(self, sources):
+    async def extract(self, sources, *, language: str, tags: str):
         self.sources = sources
-        return await super().extract(sources)
+        return await super().extract(sources, language=language, tags=tags)
+
+
+class TaggingProvider(FakeRecipeExtractionProvider):
+    def __init__(self):
+        self.language: str | None = None
+        self.tags: str | None = None
+
+    async def extract(self, sources, *, language: str, tags: str):
+        self.language = language
+        self.tags = tags
+        result = await super().extract(sources, language=language, tags=tags)
+        assert result.recipe is not None
+        result.recipe.tags = ["десерт", "unknown-tag", "АЭРОГРИЛЬ", "десерт", " аэроГРИЛЬ "]
+        return result
+
+
+def test_import_passes_user_language_and_active_tags_to_ai_and_attaches_known_tags(caplog):
+    client = client_with_session()
+    provider = TaggingProvider()
+    set_recipe_extraction_provider(provider)
+    caplog.set_level(logging.INFO, logger="recipes.import")
+
+    response = client.post(
+        "/imports",
+        data={"clientImportId": "ai-tags", "text": "Recipe text"},
+        headers={"X-Client-Id": "client-1"},
+    )
+    response = process_import_response(client, response)
+    recipe_id = response.json()["createdRecipeId"]
+    detail = client.get(f"/recipes/{recipe_id}")
+
+    assert response.status_code == 200
+    assert provider.language == "ru"
+    assert provider.tags is not None
+    assert "десерт" in provider.tags
+    assert "аэрогриль" in provider.tags
+    assert [tag["name"] for tag in detail.json()["tags"]] == ["аэрогриль", "десерт"]
+    joined_logs = "\n".join(record.getMessage() for record in caplog.records)
+    assert "AI tags processed" in joined_logs
+    assert '"component": "recipes.import"' in joined_logs
+    assert '"returnedCount": 5' in joined_logs
+    assert '"duplicateCount": 2' in joined_logs
+    assert '"validCount": 2' in joined_logs
+    assert '"validTags": ["десерт", "аэрогриль"]' in joined_logs
+    assert '"invalidCount": 1' in joined_logs
+    assert '"invalidTags": ["unknown-tag"]' in joined_logs
+
+
+def test_ai_receives_short_request_source_ids_without_persisting_source_refs():
+    client = client_with_session()
+    provider = CapturingProvider()
+    set_recipe_extraction_provider(provider)
+
+    response = client.post(
+        "/imports",
+        data={"clientImportId": "short-ai-ids", "text": "Recipe text"},
+        files=[("files", ("recipe.jpg", image_bytes(), "image/jpeg"))],
+        headers={"X-Client-Id": "client-1"},
+    )
+    response = process_import_response(client, response)
+    recipe_id = response.json()["createdRecipeId"]
+    detail = client.get(f"/recipes/{recipe_id}")
+
+    assert response.status_code == 200
+    assert [source.id for source in provider.sources] == ["source_1", "source_2"]
+    assert all("sourceRef" not in source for source in detail.json()["sources"])
 
 
 def test_url_author_name_is_passed_to_ai_sources():
@@ -293,10 +546,14 @@ def test_url_author_name_is_passed_to_ai_sources():
         data={"clientImportId": "url-author", "url": "https://example.com/recipe"},
         headers={"X-Client-Id": "client-1"},
     )
+    response = process_import_response(client, response)
 
     assert response.status_code == 200
-    url_source = next(source for source in provider.sources if source.type == "URL")
-    assert url_source.authorName == "url_author"
+    recipe_id = response.json()["createdRecipeId"]
+    detail = client.get(f"/recipes/{recipe_id}")
+
+    assert all(source.type != "URL" for source in provider.sources)
+    assert detail.json()["authorName"] == "url_author"
 
 
 def test_threads_url_import_sets_recipe_source_name():
@@ -308,6 +565,7 @@ def test_threads_url_import_sets_recipe_source_name():
         data={"clientImportId": "threads-url", "url": "https://www.threads.com/@cook/post/abc"},
         headers={"X-Client-Id": "client-1"},
     )
+    response = process_import_response(client, response)
     recipe_id = response.json()["createdRecipeId"]
     detail = client.get(f"/recipes/{recipe_id}")
 
@@ -324,11 +582,88 @@ def test_instagram_url_import_sets_recipe_source_name():
         data={"clientImportId": "instagram-url", "url": "https://www.instagram.com/p/abc"},
         headers={"X-Client-Id": "client-1"},
     )
+    response = process_import_response(client, response)
     recipe_id = response.json()["createdRecipeId"]
     detail = client.get(f"/recipes/{recipe_id}")
 
     assert response.status_code == 200
     assert detail.json()["sourceName"] == "INSTAGRAM"
+
+
+class ManualPrimaryUrlIgnoredProvider:
+    async def extract(self, sources, *, language: str, tags: str):
+        manual_text = next(source for source in sources if source.type == "TEXT" and source.text == "Manual recipe text")
+        ignored_refs = [source.id for source in sources if source.id != manual_text.id]
+        return ExtractionResult(
+            recipe=ExtractedRecipe(
+                title="Manual primary recipe",
+                ingredients=[{"name": "Ingredient"}],
+                instructions=["Cook."],
+                quality=ExtractionQuality(
+                    confidence=0.9,
+                    hasConflicts=False,
+                    hasIgnored=True,
+                    primarySourceRefs=[manual_text.id],
+                    ignoredSourceRefs=ignored_refs,
+                ),
+            )
+        )
+
+
+def test_source_name_uses_unignored_primary_sources_after_ai_assessment():
+    client = client_with_session()
+    set_url_content_loader_registry(FakeRegistry())
+    set_recipe_extraction_provider(ManualPrimaryUrlIgnoredProvider())
+
+    response = client.post(
+        "/imports",
+        data={"clientImportId": "manual-primary-url-ignored", "text": "Manual recipe text", "url": "https://www.instagram.com/p/abc"},
+        headers={"X-Client-Id": "client-1"},
+    )
+    response = process_import_response(client, response)
+    recipe_id = response.json()["createdRecipeId"]
+    detail = client.get(f"/recipes/{recipe_id}")
+
+    assert response.status_code == 200
+    assert detail.json()["sourceName"] == "MANUAL"
+    assert next(source for source in detail.json()["sources"] if source["type"] == "URL")["status"] == "ignored"
+
+
+class AllSourcesIgnoredProvider:
+    async def extract(self, sources, *, language: str, tags: str):
+        return ExtractionResult(
+            recipe=ExtractedRecipe(
+                title="Ignored source recipe",
+                ingredients=[{"name": "Ingredient"}],
+                instructions=["Cook."],
+                quality=ExtractionQuality(
+                    confidence=0.9,
+                    hasConflicts=False,
+                    hasIgnored=True,
+                    primarySourceRefs=[],
+                    ignoredSourceRefs=[source.id for source in sources],
+                ),
+            )
+        )
+
+
+def test_source_name_falls_back_to_other_when_only_url_primary_is_ignored():
+    client = client_with_session()
+    set_url_content_loader_registry(FakeRegistry())
+    set_recipe_extraction_provider(AllSourcesIgnoredProvider())
+
+    response = client.post(
+        "/imports",
+        data={"clientImportId": "ignored-instagram", "url": "https://www.instagram.com/p/abc"},
+        headers={"X-Client-Id": "client-1"},
+    )
+    response = process_import_response(client, response)
+    recipe_id = response.json()["createdRecipeId"]
+    detail = client.get(f"/recipes/{recipe_id}")
+
+    assert response.status_code == 200
+    assert detail.json()["sourceName"] == "OTHER"
+    assert next(source for source in detail.json()["sources"] if source["type"] == "URL")["status"] == "ignored"
 
 
 def test_mixed_sources_match_reference_ai_source_order_and_refs():
@@ -344,18 +679,20 @@ def test_mixed_sources_match_reference_ai_source_order_and_refs():
         files=[("files", ("first.jpg", image_bytes(), "image/jpeg"))],
         headers={"X-Client-Id": "client-1"},
     )
+    response = process_import_response(client, response)
 
     assert response.status_code == 200
-    assert [(source.type, source.sourceRef, source.position) for source in provider.sources] == [
-        ("IMAGE", "source_0", 0),
-        ("TEXT", None, 1),
-        ("URL", None, 2),
-        ("IMAGE", "url_slide_0", 3),
+    assert [(source.type, source.text, source.originalName) for source in provider.sources] == [
+        ("IMAGE", None, "first.jpg"),
+        ("TEXT", "Manual recipe text", None),
+        ("TEXT", "URL recipe text", None),
+        ("IMAGE", None, "remote.jpg"),
     ]
+    assert all(source.id for source in provider.sources)
 
 
 class LowConfidenceProvider:
-    async def extract(self, sources):
+    async def extract(self, sources, *, language: str, tags: str):
         return ExtractionResult(
             recipe=ExtractedRecipe(
                 title="Low confidence recipe",
@@ -372,8 +709,46 @@ class LowConfidenceProvider:
         )
 
 
+class TooManyIngredientsProvider:
+    async def extract(self, sources, *, language: str, tags: str):
+        return ExtractionResult(
+            recipe=ExtractedRecipe(
+                title="Too many ingredients",
+                ingredients=[{"name": f"Ingredient {index}"} for index in range(51)],
+                instructions=["Cook."],
+                quality=ExtractionQuality(
+                    confidence=0.9,
+                    hasConflicts=False,
+                    hasIgnored=False,
+                    primarySourceRefs=[sources[0].id],
+                    ignoredSourceRefs=[],
+                ),
+            )
+        )
+
+
+class TooLongInstructionsProvider:
+    async def extract(self, sources, *, language: str, tags: str):
+        return ExtractionResult(
+            recipe=ExtractedRecipe(
+                title="Too long instructions",
+                ingredients=[{"name": "Ingredient"}],
+                instructions=["x" * 1001],
+                quality=ExtractionQuality(
+                    confidence=0.9,
+                    hasConflicts=False,
+                    hasIgnored=False,
+                    primarySourceRefs=[sources[0].id],
+                    ignoredSourceRefs=[],
+                ),
+            )
+        )
+
+
 class SourceAssessmentProvider:
-    async def extract(self, sources):
+    async def extract(self, sources, *, language: str, tags: str):
+        refs = {source.type: source.id for source in sources}
+        image_ids = [source.id for source in sources if source.type == "IMAGE"]
         return ExtractionResult(
             recipe=ExtractedRecipe(
                 title="Assessed recipe",
@@ -383,15 +758,17 @@ class SourceAssessmentProvider:
                     confidence=0.9,
                     hasConflicts=True,
                     hasIgnored=True,
-                    primarySourceRefs=["source_0", "https://example.com/recipe"],
-                    ignoredSourceRefs=["url_slide_0"],
+                    primarySourceRefs=[image_ids[0], refs["TEXT"]],
+                    ignoredSourceRefs=[image_ids[1]],
                 ),
             )
         )
 
 
 class SourceIdPrefixedAssessmentProvider:
-    async def extract(self, sources):
+    async def extract(self, sources, *, language: str, tags: str):
+        image_ids = [source.id for source in sources if source.type == "IMAGE"]
+        text_id = next(source.id for source in sources if source.type == "TEXT")
         return ExtractionResult(
             recipe=ExtractedRecipe(
                 title="Prefixed refs recipe",
@@ -401,8 +778,8 @@ class SourceIdPrefixedAssessmentProvider:
                     confidence=0.95,
                     hasConflicts=False,
                     hasIgnored=True,
-                    primarySourceRefs=["sourceId=url:1", "sourceId=image:source_0"],
-                    ignoredSourceRefs=["sourceId=image:url_slide_0"],
+                    primarySourceRefs=[f"sourceId={text_id}", f"sourceId={image_ids[0]}"],
+                    ignoredSourceRefs=[f"sourceId={image_ids[1]}"],
                 ),
             )
         )
@@ -419,14 +796,20 @@ def test_ai_quality_refs_set_recipe_source_statuses_after_normalization():
         files=[("files", ("first.jpg", image_bytes(), "image/jpeg"))],
         headers={"X-Client-Id": "client-1"},
     )
+    response = process_import_response(client, response)
     recipe_id = response.json()["createdRecipeId"]
     detail = client.get(f"/recipes/{recipe_id}")
 
     assert response.status_code == 200
-    statuses = {source["sourceRef"]: source["status"] for source in detail.json()["sources"]}
-    assert statuses["image:source_0"] == "used"
-    assert statuses["url:1"] == "used"
-    assert statuses["image:url_slide_0"] == "ignored"
+    sources = detail.json()["sources"]
+    manual_image = next(source for source in sources if source["type"] == "IMAGE" and source["source"] == "MANUAL")
+    url_parent = next(source for source in sources if source["type"] == "URL")
+    url_text = next(source for source in sources if source["type"] == "TEXT" and source["source"] == "URL")
+    url_image = next(source for source in sources if source["type"] == "IMAGE" and source["source"] == "URL")
+    assert manual_image["status"] == "used"
+    assert url_text["status"] == "used"
+    assert url_image["status"] == "ignored"
+    assert url_parent["status"] == "used"
 
 
 def test_ai_quality_refs_with_source_id_prefix_set_recipe_source_statuses():
@@ -440,14 +823,48 @@ def test_ai_quality_refs_with_source_id_prefix_set_recipe_source_statuses():
         files=[("files", ("first.jpg", image_bytes(), "image/jpeg"))],
         headers={"X-Client-Id": "client-1"},
     )
+    response = process_import_response(client, response)
     recipe_id = response.json()["createdRecipeId"]
     detail = client.get(f"/recipes/{recipe_id}")
 
     assert response.status_code == 200
-    statuses = {source["sourceRef"]: source["status"] for source in detail.json()["sources"]}
-    assert statuses["image:source_0"] == "used"
-    assert statuses["url:1"] == "used"
-    assert statuses["image:url_slide_0"] == "ignored"
+    sources = detail.json()["sources"]
+    assert next(source for source in sources if source["type"] == "URL")["status"] == "used"
+    assert next(source for source in sources if source["type"] == "TEXT" and source["source"] == "URL")["status"] == "used"
+
+
+def test_import_fails_when_ai_returns_too_many_ingredients():
+    client = client_with_session()
+    set_recipe_extraction_provider(TooManyIngredientsProvider())
+
+    response = client.post(
+        "/imports",
+        data={"clientImportId": "too-many-ingredients", "text": "Recipe text"},
+        headers={"X-Client-Id": "client-1"},
+    )
+    response = process_import_response(client, response)
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "failed"
+    assert response.json()["errorCode"] == "RECIPE_TOO_LONG"
+    assert response.json()["errorMessage"] == "Recipe is too long."
+
+
+def test_import_fails_when_ai_returns_too_long_instructions():
+    client = client_with_session()
+    set_recipe_extraction_provider(TooLongInstructionsProvider())
+
+    response = client.post(
+        "/imports",
+        data={"clientImportId": "too-long-instructions", "text": "Recipe text"},
+        headers={"X-Client-Id": "client-1"},
+    )
+    response = process_import_response(client, response)
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "failed"
+    assert response.json()["errorCode"] == "RECIPE_TOO_LONG"
+    assert response.json()["errorMessage"] == "Recipe is too long."
 
 
 def test_low_confidence_import_fails_and_cleans_uploaded_files():
@@ -460,6 +877,7 @@ def test_low_confidence_import_fails_and_cleans_uploaded_files():
         files=[("files", ("recipe.jpg", image_bytes(), "image/jpeg"))],
         headers={"X-Client-Id": "client-1"},
     )
+    response = process_import_response(client, response)
 
     assert response.status_code == 200
     assert response.json()["status"] == "failed"
@@ -467,8 +885,8 @@ def test_low_confidence_import_fails_and_cleans_uploaded_files():
 
 
 class CoverCandidateProvider:
-    async def extract(self, sources):
-        image_ref = next(source.sourceRef for source in sources if source.type == "IMAGE")
+    async def extract(self, sources, *, language: str, tags: str):
+        image_ref = next(source.id for source in sources if source.type == "IMAGE")
         return ExtractionResult(
             recipe=ExtractedRecipe(
                 title="Cover recipe",
@@ -478,10 +896,10 @@ class CoverCandidateProvider:
                     confidence=0.9,
                     hasConflicts=False,
                     hasIgnored=False,
-                    primarySourceRefs=[f"image:{image_ref}"],
+                    primarySourceRefs=[image_ref],
                     ignoredSourceRefs=[],
                 ),
-                coverCandidate=CoverCandidate(sourceRef=f"image:{image_ref}", sourcePosition=0),
+                coverCandidate=CoverCandidate(sourceRef=image_ref, confidence=0.9),
             )
         )
 
@@ -496,16 +914,20 @@ def test_cover_candidate_creates_cover_image():
         files=[("files", ("recipe.jpg", image_bytes(), "image/jpeg"))],
         headers={"X-Client-Id": "client-1"},
     )
+    response = process_import_response(client, response)
     recipe_id = response.json()["createdRecipeId"]
     detail = client.get(f"/recipes/{recipe_id}")
 
     assert response.status_code == 200
-    assert detail.json()["coverImage"]["role"] == "COVER"
-    assert detail.json()["images"][0]["role"] == "SOURCE"
+    assert detail.json()["coverImage"]["id"] is not None
+    generated_resources = [source for source in detail.json()["sources"] if source["source"] == "GENERATED"]
+    assert generated_resources[0]["role"] == "COVER_CANDIDATE"
+    assert generated_resources[0]["imageId"] == detail.json()["coverImage"]["id"]
+    assert any(option["image"] and option["image"]["id"] == detail.json()["coverImage"]["id"] for option in detail.json()["coverOptions"])
 
 
 class WarningFlagProvider:
-    async def extract(self, sources):
+    async def extract(self, sources, *, language: str, tags: str):
         return ExtractionResult(
             recipe=ExtractedRecipe(
                 title="Warning recipe",
@@ -515,7 +937,7 @@ class WarningFlagProvider:
                     confidence=0.7,
                     hasConflicts=True,
                     hasIgnored=True,
-                    primarySourceRefs=["text:0"],
+                    primarySourceRefs=[sources[0].id],
                     ignoredSourceRefs=[],
                 ),
             )
@@ -531,15 +953,94 @@ def test_warning_flag_reasons_match_reference_import_rules():
         data={"clientImportId": "warning-flag", "text": "Recipe text"},
         headers={"X-Client-Id": "client-1"},
     )
+    response = process_import_response(client, response)
     recipe_id = response.json()["createdRecipeId"]
     detail = client.get(f"/recipes/{recipe_id}")
 
     assert response.status_code == 200
+    assert response.json()["status"] == "succeeded_with_flags"
     flags = detail.json()["reviewFlags"]
     assert len(flags) == 1
     assert flags[0]["type"] == "CONTENT_WARNING"
     assert flags[0]["reasonCode"] == "CONTENT_CONFLICT"
-    assert flags[0]["details"]["reasons"] == ["CONTENT_CONFLICT", "IGNORED_SOURCES", "LOW_CONFIDENCE"]
+    assert flags[0]["details"]["reasons"] == ["CONTENT_CONFLICT", "LOW_CONFIDENCE"]
+
+
+class ChildIgnoredWithoutPrimaryIgnoredProvider:
+    async def extract(self, sources, *, language: str, tags: str):
+        text_source = next(source for source in sources if source.type == "TEXT")
+        image_source = next(source for source in sources if source.type == "IMAGE")
+        return ExtractionResult(
+            recipe=ExtractedRecipe(
+                title="Child ignored recipe",
+                ingredients=[{"name": "Ingredient"}],
+                instructions=["Cook."],
+                quality=ExtractionQuality(
+                    confidence=0.9,
+                    hasConflicts=False,
+                    hasIgnored=True,
+                    primarySourceRefs=[text_source.id],
+                    ignoredSourceRefs=[image_source.id],
+                ),
+            )
+        )
+
+
+class PrimaryIgnoredProvider:
+    async def extract(self, sources, *, language: str, tags: str):
+        return ExtractionResult(
+            recipe=ExtractedRecipe(
+                title="Primary ignored recipe",
+                ingredients=[{"name": "Ingredient"}],
+                instructions=["Cook."],
+                quality=ExtractionQuality(
+                    confidence=0.9,
+                    hasConflicts=False,
+                    hasIgnored=True,
+                    primarySourceRefs=[],
+                    ignoredSourceRefs=[source.id for source in sources],
+                ),
+            )
+        )
+
+
+def test_child_ignored_does_not_create_warning_when_primary_url_is_used():
+    client = client_with_session()
+    set_url_content_loader_registry(FakeRegistry())
+    set_recipe_extraction_provider(ChildIgnoredWithoutPrimaryIgnoredProvider())
+
+    response = client.post(
+        "/imports",
+        data={"clientImportId": "child-ignored", "url": "https://example.com/recipe"},
+        headers={"X-Client-Id": "client-1"},
+    )
+    response = process_import_response(client, response)
+    recipe_id = response.json()["createdRecipeId"]
+    detail = client.get(f"/recipes/{recipe_id}")
+
+    assert response.status_code == 200
+    assert next(source for source in detail.json()["sources"] if source["type"] == "URL")["status"] == "used"
+    assert detail.json()["reviewFlags"] == []
+
+
+def test_ignored_primary_url_creates_warning_flag():
+    client = client_with_session()
+    set_url_content_loader_registry(FakeRegistry())
+    set_recipe_extraction_provider(PrimaryIgnoredProvider())
+
+    response = client.post(
+        "/imports",
+        data={"clientImportId": "primary-ignored", "url": "https://example.com/recipe"},
+        headers={"X-Client-Id": "client-1"},
+    )
+    response = process_import_response(client, response)
+    recipe_id = response.json()["createdRecipeId"]
+    detail = client.get(f"/recipes/{recipe_id}")
+
+    assert response.status_code == 200
+    url_parent = next(source for source in detail.json()["sources"] if source["type"] == "URL")
+    assert url_parent["status"] == "ignored"
+    assert detail.json()["reviewFlags"][0]["details"]["reasons"] == ["IGNORED_PRIMARY_SOURCE"]
 
 
 def test_import_logs_lifecycle_without_image_payloads(caplog):
@@ -552,12 +1053,14 @@ def test_import_logs_lifecycle_without_image_payloads(caplog):
         files=[("files", ("recipe.jpg", image_bytes(), "image/jpeg"))],
         headers={"X-Client-Id": "client-1"},
     )
+    response = process_import_response(client, response)
 
     assert response.status_code == 200
     messages = [record.getMessage() for record in caplog.records]
     joined = "\n".join(messages)
-    assert "[recipes.import] Import job created" in joined
-    assert "[recipes.import] AI extraction quality" in joined
-    assert "[recipes.import] Import job succeeded" in joined
+    assert "Import job created" in joined
+    assert "AI extraction quality" in joined
+    assert "Import job succeeded" in joined
+    assert '"component": "recipes.import"' in joined
     assert "data:image" not in joined
     assert "base64" not in joined

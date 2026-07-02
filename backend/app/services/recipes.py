@@ -1,151 +1,55 @@
-from datetime import datetime, timezone
 import logging
+from datetime import datetime, timezone
 
-from sqlalchemy import select
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session
 
-from app.core.config import get_settings
 from app.core.errors import ApiError, ErrorCode
 from app.core.logging import log_info
 from app.models import (
-    CoverImageSource,
     Ingredient,
     Recipe,
-    RecipeImage,
-    RecipeImageRole,
+    RecipeResource,
+    RecipeResourceStatus,
     RecipeReviewFlag,
     RecipeReviewFlagStatus,
-    Tag,
+    SourceName,
+    SourceType,
 )
-from app.schemas.recipes import (
-    CoverOptionOut,
-    IngredientOut,
-    RecipeCollectionOut,
-    RecipeDetailOut,
-    RecipeImageOut,
-    RecipeListItemOut,
-    RecipeListOut,
-    RecipePatchIn,
-    RecipeSourceOut,
-    ReviewFlagOut,
+from app.recipes.queries import (
+    get_recipe as query_recipe,
+    get_recipe_detail as query_recipe_detail,
+    get_recipe_for_resource_mutation as query_recipe_for_resource_mutation,
+    get_recipe_image,
+    get_recipe_review_flag,
+    list_recipes as query_recipes,
 )
+from app.schemas.recipes import RecipePatchIn
+from app.services.recipe_limits import validate_recipe_note, validate_recipe_size
+from app.services.search_text import build_ingredient_search_name, refresh_recipe_search_text
+from app.tags.queries import list_active_tags_by_ids
 
 logger = logging.getLogger(__name__)
 
 
-def _image_url(storage_key: str) -> str:
-    return f"/media/{storage_key}"
+def _clean_optional(value: str | None) -> str | None:
+    if value is None:
+        return None
+    cleaned = value.strip()
+    return cleaned or None
 
 
-def _serialize_image(image) -> RecipeImageOut:
-    return RecipeImageOut(
-        id=image.id,
-        role=image.role.value,
-        mediaUrl=_image_url(image.storage_key),
-        sourceImageId=image.source_image_id,
-    )
+def _apply_ingredient_fields(ingredient: Ingredient, name: str, quantity: str | None, unit: str | None, note: str | None, position: int) -> None:
+    cleaned_name = name.strip()
+    ingredient.name = cleaned_name
+    ingredient.search_name = build_ingredient_search_name(cleaned_name)
+    ingredient.quantity = _clean_optional(quantity)
+    ingredient.unit = _clean_optional(unit)
+    ingredient.note = _clean_optional(note)
+    ingredient.position = position
 
 
-def _serialize_flag(flag: RecipeReviewFlag) -> ReviewFlagOut:
-    return ReviewFlagOut(
-        id=flag.id,
-        type=flag.type.value,
-        status=flag.status.value,
-        reasonCode=flag.reason_code,
-        message=flag.message,
-        details=flag.details,
-        resolvedAt=flag.resolved_at,
-    )
-
-
-def _cover_options(recipe: Recipe, source_images: list[RecipeImage], cover_image: RecipeImage | None) -> list[CoverOptionOut]:
-    options: list[CoverOptionOut] = []
-    has_generated_cover = cover_image is not None and cover_image.role == RecipeImageRole.COVER
-    if has_generated_cover:
-        options.append(
-            CoverOptionOut(
-                kind="CURRENT_COVER",
-                image=_serialize_image(cover_image),
-                label="Current cover",
-                selected=True,
-            )
-        )
-    options.append(
-        CoverOptionOut(
-            kind="DEFAULT",
-            image=None,
-            label="Default image",
-            selected=cover_image is None and (recipe.cover_image_id is None or recipe.cover_image_source == CoverImageSource.DEFAULT),
-        )
-    )
-    for index, image in enumerate(source_images, start=1):
-        options.append(
-            CoverOptionOut(
-                kind="IMAGE",
-                image=_serialize_image(image),
-                label=f"Image {index}",
-                selected=not has_generated_cover and cover_image is not None and cover_image.id == image.id,
-            )
-        )
-    return options
-
-
-def _serialize_recipe_detail(recipe: Recipe) -> RecipeDetailOut:
-    source_images = sorted([image for image in recipe.images if image.role.value == "SOURCE"], key=lambda item: item.position)
-    cover_image = next((image for image in recipe.images if image.id == recipe.cover_image_id), None)
-    return RecipeDetailOut(
-        id=recipe.id,
-        title=recipe.title,
-        coverImage=_serialize_image(cover_image) if cover_image else None,
-        note=recipe.note,
-        updatedAt=recipe.updated_at,
-        servings=recipe.servings,
-        cookTimeMinutes=recipe.cook_time_minutes,
-        nutritionEstimate=recipe.nutrition_estimate,
-        authorName=recipe.author_name,
-        sourceName=recipe.source_name.value,
-        tags=sorted(tag.name for tag in recipe.tags),
-        instructions=recipe.instructions,
-        ingredients=[
-            IngredientOut(
-                id=ingredient.id,
-                name=ingredient.name,
-                quantity=ingredient.quantity,
-                unit=ingredient.unit,
-                note=ingredient.note,
-                position=ingredient.position,
-            )
-            for ingredient in sorted(recipe.ingredients, key=lambda item: item.position)
-        ],
-        images=[_serialize_image(image) for image in source_images],
-        coverImageSource=recipe.cover_image_source.value if recipe.cover_image_source else None,
-        coverOptions=_cover_options(recipe, source_images, cover_image),
-        collections=[
-            RecipeCollectionOut(id=collection.id, name=collection.name)
-            for collection in sorted(recipe.collections, key=lambda item: item.name)
-        ],
-        sources=[
-            RecipeSourceOut(
-                id=source.id,
-                type=source.type.value,
-                url=source.url,
-                text=source.text,
-                sourceRef=source.source_ref,
-                position=source.position,
-                status=source.status.value,
-                assessmentReason=source.assessment_reason,
-                assessmentConfidence=source.assessment_confidence,
-            )
-            for source in sorted(recipe.sources, key=lambda item: item.position if item.position is not None else 9999)
-        ],
-        reviewFlags=[_serialize_flag(flag) for flag in recipe.review_flags],
-    )
-
-
-def list_recipes(session: Session, owner_id: str) -> RecipeListOut:
-    recipes = session.scalars(
-        select(Recipe).where(Recipe.owner_id == owner_id).options(selectinload(Recipe.images)).order_by(Recipe.created_at.desc())
-    ).all()
+def list_recipes(session: Session, owner_id: str) -> list[Recipe]:
+    recipes = query_recipes(session, owner_id)
     bind = session.get_bind()
     log_info(
         logger,
@@ -155,108 +59,126 @@ def list_recipes(session: Session, owner_id: str) -> RecipeListOut:
         recipeIds=[recipe.id for recipe in recipes],
         databaseUrl=str(bind.url) if bind is not None else None,
     )
-    return RecipeListOut(
-        items=[
-            RecipeListItemOut(
-                id=recipe.id,
-                title=recipe.title,
-                coverImage=_serialize_image(next((image for image in recipe.images if image.id == recipe.cover_image_id), None))
-                if recipe.cover_image_id
-                else None,
-                note=recipe.note,
-                updatedAt=recipe.updated_at,
-            )
-            for recipe in recipes
-        ]
-    )
+    return recipes
 
 
-def get_recipe_detail(session: Session, recipe_id: str, owner_id: str) -> RecipeDetailOut:
-    recipe = session.scalar(
-        select(Recipe)
-        .where(Recipe.id == recipe_id, Recipe.owner_id == owner_id)
-        .options(
-            selectinload(Recipe.ingredients),
-            selectinload(Recipe.images),
-            selectinload(Recipe.sources),
-            selectinload(Recipe.review_flags),
-            selectinload(Recipe.tags),
-            selectinload(Recipe.collections),
+def get_recipe_detail(session: Session, recipe_id: str, owner_id: str) -> Recipe:
+    recipe = query_recipe_detail(session, recipe_id, owner_id)
+    if recipe is None:
+        raise ApiError(ErrorCode.RECIPE_NOT_FOUND, "Recipe not found.", status_code=404)
+    return recipe
+
+
+def _validate_recipe_patch(recipe: Recipe, patch: RecipePatchIn) -> None:
+    if patch.ingredients is not None or patch.instructions is not None:
+        validate_recipe_size(
+            patch.ingredients if patch.ingredients is not None else recipe.ingredients,
+            patch.instructions if patch.instructions is not None else recipe.instructions,
         )
-    )
-    if recipe is None:
-        raise ApiError(ErrorCode.RECIPE_NOT_FOUND, "Recipe not found.", status_code=404)
-    return _serialize_recipe_detail(recipe)
+    if patch.note is not None:
+        validate_recipe_note(patch.note)
 
 
-def patch_recipe(session: Session, recipe_id: str, owner_id: str, patch: RecipePatchIn) -> RecipeDetailOut:
-    recipe = session.scalar(select(Recipe).where(Recipe.id == recipe_id, Recipe.owner_id == owner_id))
-    if recipe is None:
-        raise ApiError(ErrorCode.RECIPE_NOT_FOUND, "Recipe not found.", status_code=404)
+def _apply_recipe_scalar_patch(recipe: Recipe, patch: RecipePatchIn) -> None:
     if patch.title is not None:
         recipe.title = patch.title.strip()
+    if patch.source_name is not None:
+        recipe.source_name = SourceName(patch.source_name)
+    if "author_name" in patch.model_fields_set:
+        recipe.author_name = _clean_optional(patch.author_name)
     if patch.servings is not None:
         recipe.servings = patch.servings
-    if patch.cookTimeMinutes is not None:
-        recipe.cook_time_minutes = patch.cookTimeMinutes
-    if patch.nutritionEstimate is not None:
-        recipe.nutrition_estimate = patch.nutritionEstimate.model_dump()
-    if patch.ingredients is not None:
-        recipe.ingredients = [
-            Ingredient(
-                name=ingredient.name.strip(),
-                quantity=ingredient.quantity.strip() if ingredient.quantity else None,
-                unit=ingredient.unit.strip() if ingredient.unit else None,
-                note=ingredient.note.strip() if ingredient.note else None,
-                position=index,
-            )
-            for index, ingredient in enumerate(patch.ingredients)
-            if ingredient.name.strip()
-        ]
+    if patch.cook_time_minutes is not None:
+        recipe.cook_time_minutes = patch.cook_time_minutes
+    if patch.nutrition_estimate is not None:
+        recipe.nutrition_estimate = patch.nutrition_estimate.model_dump(by_alias=True)
     if patch.instructions is not None:
         recipe.instructions = [step.strip() for step in patch.instructions if step.strip()]
-    if patch.tags is not None:
-        tags: list[Tag] = []
-        for name in sorted({tag.strip() for tag in patch.tags if tag.strip()}):
-            tag = session.scalar(select(Tag).where(Tag.owner_id == recipe.owner_id, Tag.name == name))
-            if tag is None:
-                tag = Tag(owner_id=recipe.owner_id, name=name)
-                session.add(tag)
-                session.flush()
-            tags.append(tag)
-        recipe.tags = tags
     if patch.note is not None:
-        recipe.note = patch.note.strip()[: get_settings().max_recipe_note_chars]
-    if patch.coverSelection is not None:
-        if patch.coverSelection.kind == "DEFAULT":
-            recipe.cover_image_id = None
-            recipe.cover_image_source = CoverImageSource.DEFAULT
-        elif patch.coverSelection.imageId:
-            image = session.scalar(select(RecipeImage).where(RecipeImage.id == patch.coverSelection.imageId, RecipeImage.recipe_id == recipe.id))
-            if image is None:
-                raise ApiError(ErrorCode.RECIPE_NOT_FOUND, "Cover image not found.", status_code=404)
-            recipe.cover_image_id = image.id
-            recipe.cover_image_source = CoverImageSource.USER
+        recipe.note = patch.note.strip()
+
+
+def _replace_recipe_ingredients(recipe: Recipe, patch: RecipePatchIn) -> None:
+    if patch.ingredients is None:
+        return
+
+    existing_by_id = {ingredient.id: ingredient for ingredient in recipe.ingredients}
+    next_ingredients: list[Ingredient] = []
+    seen_ids: set[str] = set()
+    for index, ingredient_in in enumerate(patch.ingredients):
+        if not ingredient_in.name.strip():
+            raise ApiError(ErrorCode.INVALID_INGREDIENT, "Ingredient name is required.")
+        if ingredient_in.id is not None:
+            ingredient = existing_by_id.get(ingredient_in.id)
+            if ingredient is None or ingredient.id in seen_ids:
+                raise ApiError(ErrorCode.RECIPE_NOT_FOUND, "Ingredient not found.", status_code=404)
+            seen_ids.add(ingredient.id)
+        else:
+            ingredient = Ingredient()
+        _apply_ingredient_fields(
+            ingredient,
+            ingredient_in.name,
+            ingredient_in.quantity,
+            ingredient_in.unit,
+            ingredient_in.note,
+            index,
+        )
+        next_ingredients.append(ingredient)
+    recipe.ingredients = next_ingredients
+
+
+def _apply_recipe_tags(session: Session, recipe: Recipe, patch: RecipePatchIn) -> None:
+    if patch.tag_ids is None:
+        return
+
+    unique_tag_ids = list(dict.fromkeys(patch.tag_ids))
+    tags = list_active_tags_by_ids(session, recipe.owner_id, unique_tag_ids)
+    if len(tags) != len(unique_tag_ids):
+        raise ApiError(ErrorCode.INVALID_TAG, "Some tags are invalid.")
+    by_id = {tag.id: tag for tag in tags}
+    recipe.tags = [by_id[tag_id] for tag_id in unique_tag_ids]
+
+
+def _apply_cover_selection(session: Session, recipe: Recipe, patch: RecipePatchIn) -> None:
+    if patch.cover_selection is None:
+        return
+
+    if patch.cover_selection.kind == "DEFAULT":
+        recipe.cover_image_id = None
+        return
+    if patch.cover_selection.image_id:
+        image = get_recipe_image(session, patch.cover_selection.image_id, recipe.id)
+        if image is None:
+            raise ApiError(ErrorCode.RECIPE_NOT_FOUND, "Cover image not found.", status_code=404)
+        recipe.cover_image_id = image.id
+
+
+def patch_recipe(session: Session, recipe_id: str, owner_id: str, patch: RecipePatchIn) -> Recipe:
+    recipe = query_recipe(session, recipe_id, owner_id)
+    if recipe is None:
+        raise ApiError(ErrorCode.RECIPE_NOT_FOUND, "Recipe not found.", status_code=404)
+
+    _validate_recipe_patch(recipe, patch)
+    _apply_recipe_scalar_patch(recipe, patch)
+    _replace_recipe_ingredients(recipe, patch)
+    _apply_recipe_tags(session, recipe, patch)
+    _apply_cover_selection(session, recipe, patch)
+
+    refresh_recipe_search_text(recipe)
     session.commit()
     return get_recipe_detail(session, recipe_id, owner_id)
 
 
 def delete_recipe(session: Session, recipe_id: str, owner_id: str) -> None:
-    recipe = session.scalar(select(Recipe).where(Recipe.id == recipe_id, Recipe.owner_id == owner_id))
+    recipe = query_recipe(session, recipe_id, owner_id)
     if recipe is None:
         raise ApiError(ErrorCode.RECIPE_NOT_FOUND, "Recipe not found.", status_code=404)
     session.delete(recipe)
     session.commit()
 
 
-def set_review_flag_status(session: Session, recipe_id: str, owner_id: str, flag_id: str, status: str) -> ReviewFlagOut:
-    flag = session.scalar(
-        select(RecipeReviewFlag).where(
-            RecipeReviewFlag.id == flag_id,
-            RecipeReviewFlag.recipe_id == recipe_id,
-            RecipeReviewFlag.owner_id == owner_id,
-        )
-    )
+def set_review_flag_status(session: Session, recipe_id: str, owner_id: str, flag_id: str, status: str) -> RecipeReviewFlag:
+    flag = get_recipe_review_flag(session, flag_id, recipe_id, owner_id)
     if flag is None:
         raise ApiError(ErrorCode.RECIPE_NOT_FOUND, "Review flag not found.", status_code=404)
     if status == "resolved":
@@ -267,4 +189,38 @@ def set_review_flag_status(session: Session, recipe_id: str, owner_id: str, flag
         flag.resolved_at = None
     session.commit()
     session.refresh(flag)
-    return _serialize_flag(flag)
+    return flag
+
+
+def _load_recipe_for_resource_mutation(session: Session, recipe_id: str, owner_id: str) -> Recipe:
+    recipe = query_recipe_for_resource_mutation(session, recipe_id, owner_id)
+    if recipe is None:
+        raise ApiError(ErrorCode.RECIPE_NOT_FOUND, "Recipe not found.", status_code=404)
+    return recipe
+
+
+def _is_current_cover_resource(recipe: Recipe, resource: RecipeResource) -> bool:
+    return resource.image_id is not None and resource.image_id == recipe.cover_image_id
+
+
+def patch_recipe_resource_status(session: Session, recipe_id: str, owner_id: str, resource_id: str, status: str) -> Recipe:
+    recipe = _load_recipe_for_resource_mutation(session, recipe_id, owner_id)
+    resource = next((item for item in recipe.resources if item.id == resource_id and item.owner_id == owner_id), None)
+    if resource is None:
+        raise ApiError(ErrorCode.RECIPE_NOT_FOUND, "Recipe resource not found.", status_code=404)
+
+    if status == "used":
+        resource.status = RecipeResourceStatus.USED
+    elif status == "deleted":
+        if _is_current_cover_resource(recipe, resource):
+            raise ApiError(ErrorCode.RECIPE_NOT_FOUND, "Current cover resource cannot be deleted.", status_code=409)
+        resource.status = RecipeResourceStatus.DELETED
+        if resource.type == SourceType.URL:
+            for child in resource.children:
+                if not _is_current_cover_resource(recipe, child):
+                    child.status = RecipeResourceStatus.DELETED
+    else:
+        raise ApiError(ErrorCode.RECIPE_NOT_FOUND, "Unsupported source status.", status_code=400)
+
+    session.commit()
+    return get_recipe_detail(session, recipe_id, owner_id)

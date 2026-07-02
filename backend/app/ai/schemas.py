@@ -27,10 +27,10 @@ class ExtractionQuality(BaseModel):
 
 class CoverCandidate(BaseModel):
     sourceRef: str = Field(min_length=1)
-    sourcePosition: int = Field(ge=0)
-    crop: dict[str, float] | None = None
-    confidence: float = Field(default=0, ge=0, le=1)
-    reason: str | None = None
+    confidence: float = Field(ge=0, le=1)
+    sourcePosition: None = None
+    crop: None = None
+    reason: None = None
 
 
 class ExtractedRecipe(BaseModel):
@@ -54,6 +54,7 @@ class ExtractionResult(BaseModel):
 
 
 class ReadySource(BaseModel):
+    id: str | None = None
     type: Literal["IMAGE", "URL", "TEXT"]
     position: int
     sourceRef: str | None = None
@@ -67,6 +68,8 @@ class ReadySource(BaseModel):
 
 
 def ready_source_id(source: ReadySource) -> str:
+    if source.id:
+        return source.id
     if source.type == "IMAGE":
         return f"image:{source.sourceRef}"
     if source.type == "URL":
