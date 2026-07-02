@@ -11,6 +11,12 @@ Current implemented API surface.
 
 - `GET /recipes?limit=24&offset=0`
   - Returns `{ items: [{ id, title, note, updatedAt, coverImage, hasOpenReviewFlags }], total, limit, offset }`.
+  - Optional structured filters:
+    - `tag=<tagId>`
+    - `ingredientQuery=<text>`; may be repeated, each value requires at least one ingredient whose `search_name` contains the normalized query text
+    - `sourceName=MANUAL|INSTAGRAM|THREADS|TT|OTHER`
+    - `authorName=<author name>`
+    - `title=<recipeId from title suggestion>`
 - `GET /recipes/{recipeId}`
   - Returns recipe detail with ingredients, instructions, tags as `{ id, name, description, deletedAt }`, sources, and review flags.
 - `PATCH /recipes/{recipeId}`
@@ -37,8 +43,9 @@ Current implemented API surface.
 
 ## Tags
 
-- `GET /tags`
-  - Returns active current-user tags only: `{ items: [{ id, name, description, deletedAt }] }`.
+- `GET /tags?limit=24&offset=0`
+  - Returns active current-user tags only: `{ items, total, limit, offset }`.
+  - `items`: `[{ id, name, description, deletedAt }]`.
 - `POST /tags`
   - Body: `{ "name": string, "description"?: string | null }`.
   - Enforces `MAX_TAGS_PER_USER`.
@@ -52,6 +59,15 @@ Current implemented API surface.
 - `DELETE /tags/{tagId}`
   - Soft-deletes the tag with `deletedAt`.
   - Preserves existing `recipe_tags` links.
+
+## Search
+
+- `GET /search/suggestions?q=<text>&limit=10`
+  - Returns `{ items: [{ type, id, recipeId, value, label }] }`.
+  - Suggestion `type` values: `tag`, `ingredient_query`, `source_name`, `author_name`, `title`.
+  - `ingredient_query` is a primary text-based ingredient filter suggestion derived from the user's current query text, not from a concrete ingredient row.
+  - Sources are direct current-user table values only: active `tags.name`, `recipes.source_name`, `recipes.author_name`, and `recipes.title`. Ingredient suggestions use the current query as an `ingredient_query` action.
+  - Collections, recent searches, search suggestion tables, and canonical ingredient aliases are not included.
 
 ## Imports
 

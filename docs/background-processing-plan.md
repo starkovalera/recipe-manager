@@ -121,12 +121,13 @@ This checklist applies to every phase. Any phase that touches import, resources,
 - Current AI `coverCandidate` output schema expects only `sourceRef` and `confidence`; the Python parsing layer keeps legacy `sourcePosition`, `crop`, and `reason` fields as `None` for compatibility with internal code/tests.
 - Current AI prompt text remains unchanged unless a separate prompt migration is explicitly approved.
 - Default local user/admin always has `UserSettings` with `recipe_language` from backend settings/env, and default tags are seeded idempotently for that user.
-- Tags are owner-scoped. Normal user-facing tag APIs return active tags only. Tag deletion is soft-delete via `deleted_at` and preserves `recipe_tags` links. Active duplicate tag names are rejected case-insensitively per owner.
+- Tags are owner-scoped. `GET /tags` is owner-scoped, active-only, and paginated with `{ items, total, limit, offset }`; lower-level tag query functions may return the full active owner-scoped list when pagination arguments are omitted. Tag deletion is soft-delete via `deleted_at` and preserves `recipe_tags` links. Active duplicate tag names are rejected case-insensitively per owner.
 - Recipe tags are selected by active current-owner tag IDs only. Recipe edit does not create tags. Deleted, foreign, or unknown tag IDs are rejected.
 - AI-returned recipe tags are matched only against active current-owner tags by normalized name. Duplicate AI tags are dropped before persistence, and invalid AI tags are logged and ignored.
 - Recipe ingredients are edited and saved as structured rows. The only required ingredient field is `name`; `quantity`, `unit`, and `note` are optional. Frontend ingredient edits remain local until the whole recipe form is saved. `Ingredient.search_name` is an internal normalized/casefolded derivative of `Ingredient.name`, is not exposed through API responses, and is recalculated during import and manual recipe edits. Recipe PATCH updates existing ingredients by `id`, creates new ingredients without `id`, deletes existing ingredients omitted from the payload, and rejects empty ingredient names.
 - `Recipe.search_text` and `Recipe.search_text_hash` are internal derived fields, not API response fields. They are built only from `title`, `source_name`, `author_name`, `ingredients.search_name`, `instructions`, `nutrition_estimate`, and `cook_time_minutes`, and are rebuilt after successful import and relevant manual recipe edits.
 - Recipe and collection list endpoints are owner-scoped and paginated. Public list responses include `items`, `total`, `limit`, and `offset`. Lower-level query functions may return full owner-scoped lists when `limit` and `offset` are omitted.
+- Selected search chips are hard filters. Free text is reserved for vector search. `ingredient_query` is an MVP text-based ingredient filter: each query value requires at least one ingredient whose `search_name` contains the normalized value, and multiple `ingredient_query` chips are combined with AND semantics.
 - URL source status aggregation is preserved.
 - Final and primary resource status mapping is preserved.
 - Review flag creation rules are preserved.
@@ -1171,7 +1172,29 @@ class CollectionListOut(BaseModel):
 
 Use `total` for recipes and collections.
 
+#### Tags Pagination
+
+Add query params:
+
+```http
+GET /tags?limit=24&offset=0
+```
+
+Response:
+
+```python
+class TagListOut(BaseModel):
+    items: list[TagOut]
+    total: int
+    limit: int
+    offset: int
+```
+
+Use the same pagination envelope as recipes and collections.
+
 ### Iteration 8: Autocomplete + Selected Chips Backend/Frontend
+
+Status: implemented, pending review.
 
 #### Autocomplete Sources
 
@@ -1184,7 +1207,7 @@ tags.name
 recipes.source_name
 recipes.author_name
 recipes.title
-ingredients.search_name
+ingredient_query from current user input
 ```
 
 Do not include:
@@ -1202,7 +1225,7 @@ canonical ingredient aliases
 class SearchSuggestionOut(BaseModel):
     type: Literal[
         "tag",
-        "ingredient_name",
+        "ingredient_query",
         "source_name",
         "author_name",
         "title",
@@ -1220,7 +1243,7 @@ Examples:
 ```
 
 ```json
-{"type": "ingredient_name", "value": "курица", "label": "курица"}
+{"type": "ingredient_query", "value": "cottage", "label": "Ingredient - cottage"}
 ```
 
 ```json
@@ -1244,11 +1267,13 @@ Chip behavior:
 
 ```text
 tag             -> filter by recipe_tags.tag_id
-ingredient_name -> filter by ingredients.search_name
+ingredient_query -> hard textual filter: recipe has at least one ingredient whose search_name contains value
 source_name     -> filter by recipes.source_name
 author_name     -> filter by recipes.author_name
 title           -> filter by recipes.id
 ```
+
+`ingredient_query` is intentionally not canonical ingredient search. It is a lightweight MVP text-based ingredient filter. It avoids the need for ingredient catalog/hierarchy while supporting common queries like `cottage` matching `cottage cheese 5%`, `soft cottage cheese`, and `low-fat cottage cheese`.
 
 ### Iteration 9: Background Task Infrastructure - Dramatiq + Redis
 
@@ -1473,7 +1498,7 @@ Only implement agreed filters from selected chips:
 
 ```text
 tag
-ingredient_name
+ingredient_query
 source_name
 author_name
 title

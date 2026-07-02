@@ -14,9 +14,9 @@ After each completed phase or subphase, review the finished work and propose can
 - Show user-facing errors when creating a duplicate tag or exceeding the configured tag limit.
 - Show a recipe-count badge/counter next to each tag.
 - Add a way to navigate from a tag to the list of recipes containing that tag.
-- Add pagination for tag management on backend and frontend.
 - Add tag sorting options.
 - Add quick tag search/autocomplete by tag name.
+- If `MAX_TAGS_PER_USER` becomes greater than backend `MAX_PAGE_LIMIT`, replace the recipe editor's current `limit=100` tag loading with a searchable/paginated tag picker.
 
 ## Ingredients
 
