@@ -74,6 +74,9 @@ export type RecipeList = {
     updatedAt?: string | null;
     hasOpenReviewFlags?: boolean;
   }>;
+  total: number;
+  limit: number;
+  offset: number;
 };
 
 export type RecipeResource = {
@@ -133,6 +136,9 @@ export type RecipePatch = {
 
 export type CollectionList = {
   items: Array<{ id: string; name: string; description?: string | null; recipeCount: number }>;
+  total: number;
+  limit: number;
+  offset: number;
 };
 
 export type CollectionDetail = CollectionList["items"][number] & {

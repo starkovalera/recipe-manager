@@ -51,6 +51,68 @@ describe("App", () => {
     expect(screen.getByLabelText("Soup requires review")).toBeTruthy();
   });
 
+  it("paginates recipe list requests", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const path = new URL(url).pathname;
+      const payloads: Record<string, unknown> = {
+        "GET /recipes": {
+          items: [{ id: "recipe-1", title: "Soup", coverImage: null }],
+          total: 25,
+          limit: 24,
+          offset: 0,
+        },
+        "GET /notifications": { items: [] },
+      };
+      const payload = payloads[`${init?.method ?? "GET"} ${path}`] ?? payloads[`GET ${path}`];
+      return {
+        ok: true,
+        status: 200,
+        text: async () => (payload === undefined ? "{}" : JSON.stringify(payload)),
+      };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<App />);
+
+    await waitFor(() => expect(screen.getByRole("button", { name: /Soup/ })).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+
+    await waitFor(() => expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/recipes?limit=24&offset=24"))).toBe(true));
+  });
+
+  it("paginates collection list requests", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const path = new URL(url).pathname;
+      const payloads: Record<string, unknown> = {
+        "GET /recipes": { items: [], total: 0, limit: 24, offset: 0 },
+        "GET /notifications": { items: [] },
+        "GET /collections": {
+          items: [{ id: "collection-1", name: "Weeknight", recipeCount: 0 }],
+          total: 25,
+          limit: 24,
+          offset: 0,
+        },
+      };
+      const payload = payloads[`${init?.method ?? "GET"} ${path}`] ?? payloads[`GET ${path}`];
+      return {
+        ok: true,
+        status: 200,
+        text: async () => (payload === undefined ? "{}" : JSON.stringify(payload)),
+      };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Collections" }));
+
+    await waitFor(() => expect(screen.getByRole("button", { name: /Weeknight/ })).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+
+    await waitFor(() => expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/collections?limit=24&offset=24"))).toBe(true));
+  });
+
   it("navigates from import success to recipe detail", async () => {
     mockFetch({
       "GET /recipes": { items: [] },

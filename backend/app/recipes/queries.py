@@ -1,6 +1,7 @@
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
+from app.db.query_utils import list_scalars_with_optional_pagination
 from app.models import Recipe, RecipeImage, RecipeResource, RecipeReviewFlag
 
 
@@ -8,13 +9,18 @@ def get_recipe(session: Session, recipe_id: str, owner_id: str) -> Recipe | None
     return session.scalar(select(Recipe).where(Recipe.id == recipe_id, Recipe.owner_id == owner_id))
 
 
-def list_recipes(session: Session, owner_id: str) -> list[Recipe]:
-    return session.scalars(
+def count_recipes(session: Session, owner_id: str) -> int:
+    return session.scalar(select(func.count()).select_from(Recipe).where(Recipe.owner_id == owner_id)) or 0
+
+
+def list_recipes(session: Session, owner_id: str, *, limit: int | None = None, offset: int | None = None) -> list[Recipe]:
+    query = (
         select(Recipe)
         .where(Recipe.owner_id == owner_id)
         .options(selectinload(Recipe.images), selectinload(Recipe.review_flags))
         .order_by(Recipe.created_at.desc())
-    ).all()
+    )
+    return list_scalars_with_optional_pagination(session, query, limit=limit, offset=offset)
 
 
 def get_recipe_detail(session: Session, recipe_id: str, owner_id: str) -> Recipe | None:

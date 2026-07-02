@@ -105,7 +105,7 @@ function validateEditableRecipe(ingredients: EditableIngredient[], instructions:
 export function RecipeDetailPage({ recipeId, onDeleted }: { recipeId: string; onDeleted: () => void }) {
   const queryClient = useQueryClient();
   const query = useQuery({ queryKey: ["recipe", recipeId], queryFn: () => getRecipe(recipeId) });
-  const collectionsQuery = useQuery({ queryKey: ["collections"], queryFn: listCollections });
+  const collectionsQuery = useQuery({ queryKey: ["collections"], queryFn: () => listCollections() });
   const tagsQuery = useQuery({ queryKey: ["tags"], queryFn: listTags });
   const recipe = query.data;
 

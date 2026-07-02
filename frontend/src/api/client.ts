@@ -91,8 +91,17 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   }
 }
 
-export async function listRecipes(): Promise<RecipeList> {
-  return request<RecipeList>("/recipes");
+function withPagination(path: string, params?: { limit?: number; offset?: number }): string {
+  if (!params) return path;
+  const search = new URLSearchParams();
+  if (params.limit !== undefined) search.set("limit", String(params.limit));
+  if (params.offset !== undefined) search.set("offset", String(params.offset));
+  const query = search.toString();
+  return query ? `${path}?${query}` : path;
+}
+
+export async function listRecipes(params?: { limit?: number; offset?: number }): Promise<RecipeList> {
+  return request<RecipeList>(withPagination("/recipes", params));
 }
 
 export async function getRecipe(recipeId: string): Promise<RecipeDetail> {
@@ -216,8 +225,8 @@ export async function deleteRecipe(recipeId: string): Promise<void> {
   await request<void>(`/recipes/${recipeId}`, { method: "DELETE" });
 }
 
-export async function listCollections(): Promise<CollectionList> {
-  return request<CollectionList>("/collections");
+export async function listCollections(params?: { limit?: number; offset?: number }): Promise<CollectionList> {
+  return request<CollectionList>(withPagination("/collections", params));
 }
 
 export async function createCollection(input: { name: string; description?: string | null }): Promise<CollectionDetail> {

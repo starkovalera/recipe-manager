@@ -14,10 +14,15 @@ After each completed phase or subphase, review the finished work and propose can
 - Show user-facing errors when creating a duplicate tag or exceeding the configured tag limit.
 - Show a recipe-count badge/counter next to each tag.
 - Add a way to navigate from a tag to the list of recipes containing that tag.
-- Add pagination for tag management.
+- Add pagination for tag management on backend and frontend.
 - Add tag sorting options.
 - Add quick tag search/autocomplete by tag name.
 
 ## Ingredients
 
 - Validate ingredient field lengths on both frontend and backend when editing recipes.
+
+## Pagination and Lists
+
+- Adapt frontend flows more fully to paginated recipe and collection responses where any remaining list usage still assumes full result sets.
+- Add sorting and filters for collections on backend and frontend.

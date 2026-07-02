@@ -9,8 +9,8 @@ Current implemented API surface.
 
 ## Recipes
 
-- `GET /recipes`
-  - Returns `{ items: [{ id, title, note, updatedAt }] }`.
+- `GET /recipes?limit=24&offset=0`
+  - Returns `{ items: [{ id, title, note, updatedAt, coverImage, hasOpenReviewFlags }], total, limit, offset }`.
 - `GET /recipes/{recipeId}`
   - Returns recipe detail with ingredients, instructions, tags as `{ id, name, description, deletedAt }`, sources, and review flags.
 - `PATCH /recipes/{recipeId}`
@@ -19,6 +19,21 @@ Current implemented API surface.
   - Validates recipe size against `MAX_RECIPE_INGREDIENTS`, `MAX_RECIPE_INSTRUCTION_CHARS`, and `MAX_RECIPE_NOTE_CHARS`.
 - `PATCH /recipes/{recipeId}/review-flags/{flagId}`
   - Body: `{ "status": "open" | "resolved" }`.
+
+## Collections
+
+- `GET /collections?limit=24&offset=0`
+  - Returns `{ items: [{ id, name, description, recipeCount }], total, limit, offset }`.
+- `POST /collections`
+  - Body: `{ "name": string, "description"?: string | null }`.
+- `GET /collections/{collectionId}`
+  - Returns collection detail with recipe tiles.
+- `DELETE /collections/{collectionId}`
+  - Deletes the collection.
+- `PUT /collections/{collectionId}/recipes/{recipeId}`
+  - Adds a recipe to the collection.
+- `DELETE /collections/{collectionId}/recipes/{recipeId}`
+  - Removes a recipe from the collection.
 
 ## Tags
 

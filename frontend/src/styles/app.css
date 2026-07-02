@@ -826,6 +826,19 @@ form button[type="submit"]:hover,
   background: var(--surface-soft);
 }
 
+.pagination-controls {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  margin-top: 16px;
+}
+
+.pagination-controls > div {
+  display: flex;
+  gap: 8px;
+}
+
 .section-heading {
   display: flex;
   justify-content: space-between;

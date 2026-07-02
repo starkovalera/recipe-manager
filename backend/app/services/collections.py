@@ -1,14 +1,14 @@
 from sqlalchemy.orm import Session
 
-from app.collections.queries import get_collection, get_collection_with_recipes, list_collections as query_collections
+from app.collections.queries import count_collections, get_collection, get_collection_with_recipes, list_collections as query_collections
 from app.core.errors import ApiError, ErrorCode
 from app.models import Collection
 from app.recipes.queries import get_recipe
 from app.schemas.collections import CollectionIn
 
 
-def list_collections(session: Session, owner_id: str) -> list[Collection]:
-    return query_collections(session, owner_id)
+def list_collections(session: Session, owner_id: str, *, limit: int, offset: int) -> tuple[list[Collection], int]:
+    return query_collections(session, owner_id, limit=limit, offset=offset), count_collections(session, owner_id)
 
 
 def create_collection(session: Session, owner_id: str, payload: CollectionIn) -> Collection:

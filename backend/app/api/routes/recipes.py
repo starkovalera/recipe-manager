@@ -1,6 +1,9 @@
-from fastapi import APIRouter, Response
+from typing import Annotated
+
+from fastapi import APIRouter, Query, Response
 
 from app.api.deps import CurrentUserDep, SessionDep
+from app.core.pagination import DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT
 from app.models import Recipe, RecipeReviewFlag
 from app.schemas.recipes import RecipeDetailOut, RecipeListOut, RecipePatchIn, RecipeResourcePatchIn, ReviewFlagOut, ReviewFlagPatchIn
 from app.services.recipes import (
@@ -16,8 +19,14 @@ router = APIRouter(prefix="/recipes", tags=["recipes"])
 
 
 @router.get("", response_model=RecipeListOut)
-def get_recipes(session: SessionDep, current_user: CurrentUserDep) -> dict[str, list[Recipe]]:
-    return {"items": list_recipes(session, current_user.id)}
+def get_recipes(
+    session: SessionDep,
+    current_user: CurrentUserDep,
+    limit: Annotated[int, Query(ge=1, le=MAX_PAGE_LIMIT)] = DEFAULT_PAGE_LIMIT,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> dict[str, list[Recipe] | int]:
+    recipes, total = list_recipes(session, current_user.id, limit=limit, offset=offset)
+    return {"items": recipes, "total": total, "limit": limit, "offset": offset}
 
 
 @router.get("/{recipe_id}", response_model=RecipeDetailOut)

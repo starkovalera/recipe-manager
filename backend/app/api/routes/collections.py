@@ -1,6 +1,9 @@
-from fastapi import APIRouter, Response
+from typing import Annotated
+
+from fastapi import APIRouter, Query, Response
 
 from app.api.deps import CurrentUserDep, SessionDep
+from app.core.pagination import DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT
 from app.models import Collection
 from app.schemas.collections import CollectionDetailOut, CollectionIn, CollectionListOut
 from app.services.collections import (
@@ -16,8 +19,14 @@ router = APIRouter(prefix="/collections", tags=["collections"])
 
 
 @router.get("", response_model=CollectionListOut)
-def get_collections(session: SessionDep, current_user: CurrentUserDep) -> dict[str, list[Collection]]:
-    return {"items": list_collections(session, current_user.id)}
+def get_collections(
+    session: SessionDep,
+    current_user: CurrentUserDep,
+    limit: Annotated[int, Query(ge=1, le=MAX_PAGE_LIMIT)] = DEFAULT_PAGE_LIMIT,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> dict[str, list[Collection] | int]:
+    collections, total = list_collections(session, current_user.id, limit=limit, offset=offset)
+    return {"items": collections, "total": total, "limit": limit, "offset": offset}
 
 
 @router.post("", response_model=CollectionDetailOut)

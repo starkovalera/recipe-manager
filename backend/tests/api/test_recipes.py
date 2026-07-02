@@ -28,6 +28,7 @@ from app.models import (
     Tag,
     User,
 )
+from app.recipes.queries import list_recipes as query_recipes
 
 
 @pytest.fixture(autouse=True)
@@ -142,6 +143,28 @@ def test_recipe_list_and_detail_include_sources_and_flags():
     assert detail["coverOptions"][0]["kind"] == "DEFAULT"
     assert detail["sources"][0]["status"] == "used"
     assert detail["reviewFlags"][0]["reasonCode"] == "LOW_CONFIDENCE"
+
+
+def test_recipe_list_is_paginated_and_owner_scoped():
+    client, SessionLocal = client_with_session()
+    with SessionLocal() as session:
+        user = ensure_default_user(session)
+        recipes = [Recipe(owner_id=user.id, title=f"Recipe {index}", instructions=["Cook"]) for index in range(5)]
+        other_user = User(id="other-user", email="other@example.test")
+        other_recipe = Recipe(owner_id=other_user.id, title="Private Recipe", instructions=["Hide"])
+        session.add_all([*recipes, other_user, other_recipe])
+        session.commit()
+        assert len(query_recipes(session, user.id)) == 5
+
+    response = client.get("/recipes?limit=2&offset=1")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total"] == 5
+    assert payload["limit"] == 2
+    assert payload["offset"] == 1
+    assert len(payload["items"]) == 2
+    assert "Private Recipe" not in [item["title"] for item in payload["items"]]
 
 
 def test_recipe_list_marks_only_open_review_flags():

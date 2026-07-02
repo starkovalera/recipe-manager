@@ -2,6 +2,7 @@ from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from app.models import Recipe
 from app.schemas.base import CamelModel
+from app.schemas.pagination import PaginatedOutMixin
 from app.schemas.recipes import RecipeListItemOut
 
 
@@ -24,7 +25,7 @@ class CollectionOut(CamelModel):
         return len(self.recipe_items)
 
 
-class CollectionListOut(BaseModel):
+class CollectionListOut(PaginatedOutMixin):
     items: list[CollectionOut]
 
 

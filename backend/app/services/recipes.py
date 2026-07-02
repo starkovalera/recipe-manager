@@ -1,10 +1,8 @@
-import logging
 from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
 from app.core.errors import ApiError, ErrorCode
-from app.core.logging import log_info
 from app.models import (
     Ingredient,
     Recipe,
@@ -16,6 +14,7 @@ from app.models import (
     SourceType,
 )
 from app.recipes.queries import (
+    count_recipes,
     get_recipe as query_recipe,
     get_recipe_detail as query_recipe_detail,
     get_recipe_for_resource_mutation as query_recipe_for_resource_mutation,
@@ -27,8 +26,6 @@ from app.schemas.recipes import RecipePatchIn
 from app.services.recipe_limits import validate_recipe_note, validate_recipe_size
 from app.services.search_text import build_ingredient_search_name, refresh_recipe_search_text
 from app.tags.queries import list_active_tags_by_ids
-
-logger = logging.getLogger(__name__)
 
 
 def _clean_optional(value: str | None) -> str | None:
@@ -48,18 +45,10 @@ def _apply_ingredient_fields(ingredient: Ingredient, name: str, quantity: str | 
     ingredient.position = position
 
 
-def list_recipes(session: Session, owner_id: str) -> list[Recipe]:
-    recipes = query_recipes(session, owner_id)
-    bind = session.get_bind()
-    log_info(
-        logger,
-        "[recipes.recipes] Listed recipes",
-        ownerId=owner_id,
-        recipeCount=len(recipes),
-        recipeIds=[recipe.id for recipe in recipes],
-        databaseUrl=str(bind.url) if bind is not None else None,
-    )
-    return recipes
+def list_recipes(session: Session, owner_id: str, *, limit: int, offset: int) -> tuple[list[Recipe], int]:
+    recipes = query_recipes(session, owner_id, limit=limit, offset=offset)
+    total = count_recipes(session, owner_id)
+    return recipes, total
 
 
 def get_recipe_detail(session: Session, recipe_id: str, owner_id: str) -> Recipe:

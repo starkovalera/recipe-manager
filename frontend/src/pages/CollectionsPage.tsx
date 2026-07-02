@@ -2,12 +2,21 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FormEvent, useState } from "react";
 
 import { createCollection, deleteCollection, listCollections } from "../api/client";
+import { PaginationControls } from "../components/PaginationControls";
+
+const PAGE_LIMIT = 24;
 
 export function CollectionsPage({ onSelect }: { onSelect: (collectionId: string) => void }) {
   const queryClient = useQueryClient();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const query = useQuery({ queryKey: ["collections"], queryFn: listCollections });
+  const [offset, setOffset] = useState(0);
+  const query = useQuery({
+    queryKey: ["collections", { limit: PAGE_LIMIT, offset }],
+    queryFn: () => listCollections({ limit: PAGE_LIMIT, offset }),
+  });
+  const total = query.data?.total ?? query.data?.items.length ?? 0;
+  const limit = query.data?.limit ?? PAGE_LIMIT;
   const createMutation = useMutation({
     mutationFn: () => createCollection({ name, description }),
     onSuccess: (collection) => {
@@ -58,6 +67,7 @@ export function CollectionsPage({ onSelect }: { onSelect: (collectionId: string)
           </div>
         ))}
       </div>
+      {query.data ? <PaginationControls total={total} limit={limit} offset={query.data.offset ?? offset} onPage={setOffset} /> : null}
     </section>
   );
 }

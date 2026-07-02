@@ -16,6 +16,7 @@ from app.models import (
     Tag,
 )
 from app.schemas.base import CamelModel
+from app.schemas.pagination import PaginatedOutMixin
 from app.schemas.tags import TagOut
 
 
@@ -116,7 +117,7 @@ class RecipeListItemOut(CamelModel):
         return any(flag.status == RecipeReviewFlagStatus.OPEN for flag in self.review_flag_items)
 
 
-class RecipeListOut(CamelModel):
+class RecipeListOut(PaginatedOutMixin):
     items: list[RecipeListItemOut]
 
 

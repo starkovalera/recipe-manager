@@ -5,6 +5,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.collections.queries import list_collections as query_collections
 from app.db.base import Base
 from app.db.init import ensure_default_user
 from app.db.session import get_session
@@ -62,6 +63,27 @@ def test_collection_create_list_detail_membership_and_delete():
     assert after_remove.json()["recipes"] == []
     assert deleted.status_code == 204
     assert client.get(f"/collections/{collection_id}").status_code == 404
+
+
+def test_collection_list_is_paginated_and_owner_scoped():
+    client, SessionLocal = client_with_session()
+    with SessionLocal() as session:
+        user = ensure_default_user(session)
+        collections = [Collection(owner_id=user.id, name=f"Collection {index}") for index in range(5)]
+        other_user = User(id="other-user", email="other@example.test")
+        other_collection = Collection(owner_id=other_user.id, name="Private")
+        session.add_all([*collections, other_user, other_collection])
+        session.commit()
+        assert len(query_collections(session, user.id)) == 5
+
+    response = client.get("/collections?limit=2&offset=1")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total"] == 5
+    assert payload["limit"] == 2
+    assert payload["offset"] == 1
+    assert [item["name"] for item in payload["items"]] == ["Collection 1", "Collection 2"]
 
 
 def test_collection_endpoints_are_scoped_to_current_user():
