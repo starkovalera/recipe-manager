@@ -1,11 +1,11 @@
 from collections.abc import Generator
+from datetime import datetime, timezone
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
-
-import pytest
 
 from app.core.config import get_settings
 from app.db.base import Base
@@ -14,17 +14,17 @@ from app.db.session import get_session
 from app.main import create_app
 from app.models import (
     Ingredient,
+    Recipe,
     RecipeImage,
     RecipeResource,
     RecipeResourceOrigin,
     RecipeResourceRole,
     RecipeResourceStatus,
-    Recipe,
     RecipeReviewFlag,
     RecipeReviewFlagStatus,
     RecipeReviewFlagType,
-    SourceType,
     SourceName,
+    SourceType,
     Tag,
     User,
 )
@@ -135,7 +135,10 @@ def test_recipe_list_and_detail_include_sources_and_flags():
     assert detail["sourceName"] == "INSTAGRAM"
     assert detail["authorName"] == "chef"
     assert detail["nutritionEstimate"] == {"calories": 120, "proteinGrams": 5}
-    assert detail["tags"] == ["quick"]
+    assert len(detail["tags"]) == 1
+    assert detail["tags"][0]["name"] == "quick"
+    assert detail["tags"][0]["description"] is None
+    assert detail["tags"][0]["deletedAt"] is None
     assert detail["coverOptions"][0]["kind"] == "DEFAULT"
     assert detail["sources"][0]["status"] == "used"
     assert detail["reviewFlags"][0]["reasonCode"] == "LOW_CONFIDENCE"
@@ -260,6 +263,16 @@ def test_patch_recipe_rejects_too_many_ingredients():
     assert response.json()["errorCode"] == "RECIPE_TOO_LONG"
 
 
+def test_patch_recipe_rejects_empty_ingredient_name():
+    client, SessionLocal = client_with_session()
+    recipe_id, _ = seed_recipe(SessionLocal)
+
+    response = client.patch(f"/recipes/{recipe_id}", json={"ingredients": [{"name": "   "}]})
+
+    assert response.status_code == 400
+    assert response.json()["errorCode"] == "INVALID_INGREDIENT"
+
+
 def test_patch_recipe_rejects_too_long_instructions():
     client, SessionLocal = client_with_session()
     recipe_id, _ = seed_recipe(SessionLocal)
@@ -275,16 +288,25 @@ def test_patch_recipe_updates_full_editable_fields_and_cover():
     recipe_id, _ = seed_recipe(SessionLocal)
     detail = client.get(f"/recipes/{recipe_id}").json()
     source_image_id = detail["images"][0]["id"]
+    with SessionLocal() as session:
+        user = ensure_default_user(session)
+        dinner = Tag(owner_id=user.id, name="dinner", description="Evening")
+        session.add(dinner)
+        session.commit()
+        dinner_id = dinner.id
+        quick_id = detail["tags"][0]["id"]
 
     response = client.patch(
         f"/recipes/{recipe_id}",
         json={
             "title": "Better Soup",
+            "sourceName": "THREADS",
+            "authorName": "better_chef",
             "cookTimeMinutes": 35,
             "nutritionEstimate": {"calories": 200, "proteinGrams": 8, "fatGrams": 2, "carbsGrams": 30},
             "ingredients": [{"name": "Tomato", "quantity": "2", "unit": "pcs", "note": "ripe"}],
             "instructions": ["Chop tomatoes", "Cook"],
-            "tags": ["dinner", "quick"],
+            "tagIds": [dinner_id, quick_id],
             "note": "new note",
             "coverSelection": {"kind": "IMAGE", "imageId": source_image_id},
         },
@@ -293,15 +315,114 @@ def test_patch_recipe_updates_full_editable_fields_and_cover():
     assert response.status_code == 200
     payload = response.json()
     assert payload["title"] == "Better Soup"
+    assert payload["sourceName"] == "THREADS"
+    assert payload["authorName"] == "better_chef"
     assert payload["cookTimeMinutes"] == 35
     assert payload["nutritionEstimate"]["calories"] == 200
     assert payload["ingredients"][0]["name"] == "Tomato"
     assert payload["instructions"] == ["Chop tomatoes", "Cook"]
-    assert payload["tags"] == ["dinner", "quick"]
+    assert [tag["name"] for tag in payload["tags"]] == ["dinner", "quick"]
     assert payload["coverImage"]["id"] == source_image_id
     assert [option["kind"] for option in payload["coverOptions"]] == ["DEFAULT", "IMAGE"]
     assert payload["coverOptions"][1]["label"] == "Current cover"
     assert payload["coverOptions"][1]["selected"] is True
+
+
+def test_patch_recipe_rebuilds_search_text_when_search_fields_change():
+    client, SessionLocal = client_with_session()
+    recipe_id, _ = seed_recipe(SessionLocal)
+    with SessionLocal() as session:
+        recipe = session.query(Recipe).filter_by(id=recipe_id).one()
+        recipe.search_text = "old"
+        recipe.search_text_hash = "old-hash"
+        session.commit()
+
+    response = client.patch(
+        f"/recipes/{recipe_id}",
+        json={
+            "title": "Better Soup",
+            "sourceName": "THREADS",
+            "authorName": "thread_chef",
+            "cookTimeMinutes": 45,
+            "nutritionEstimate": {"calories": 150},
+            "ingredients": [{"id": client.get(f"/recipes/{recipe_id}").json()["ingredients"][0]["id"], "name": "Filtered Water"}],
+            "instructions": ["Simmer slowly"],
+        },
+    )
+
+    assert response.status_code == 200
+    with SessionLocal() as session:
+        recipe = session.query(Recipe).filter_by(id=recipe_id).one()
+
+    assert recipe.search_text_hash != "old-hash"
+    assert "better soup" in recipe.search_text
+    assert "threads" in recipe.search_text
+    assert "thread_chef" in recipe.search_text
+    assert "filtered water" in recipe.search_text
+    assert "simmer slowly" in recipe.search_text
+    assert "150" in recipe.search_text
+
+
+def test_patch_recipe_updates_ingredients_by_id_creates_new_and_deletes_omitted():
+    client, SessionLocal = client_with_session()
+    recipe_id, _ = seed_recipe(SessionLocal)
+    with SessionLocal() as session:
+        recipe = session.query(Recipe).filter_by(id=recipe_id).one()
+        existing_id = recipe.ingredients[0].id
+        recipe.ingredients.append(Ingredient(name="Salt", quantity="1", unit="pinch", position=1))
+        session.commit()
+        omitted_id = recipe.ingredients[1].id
+
+    response = client.patch(
+        f"/recipes/{recipe_id}",
+        json={
+            "ingredients": [
+                {"id": existing_id, "name": "Filtered Water", "quantity": "2", "unit": "cups", "note": "warm"},
+                {"name": "Pepper", "quantity": "1", "unit": "pinch", "note": None},
+            ]
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert [ingredient["name"] for ingredient in payload["ingredients"]] == ["Filtered Water", "Pepper"]
+    assert payload["ingredients"][0]["id"] == existing_id
+    assert payload["ingredients"][0]["quantity"] == "2"
+    assert payload["ingredients"][0]["unit"] == "cups"
+    assert payload["ingredients"][0]["note"] == "warm"
+    assert payload["ingredients"][1]["id"] != existing_id
+    with SessionLocal() as session:
+        ingredients = {ingredient.id: ingredient for ingredient in session.query(Ingredient).filter_by(recipe_id=recipe_id).all()}
+    assert existing_id in ingredients
+    assert omitted_id not in ingredients
+    assert ingredients[existing_id].search_name == "filtered water"
+
+
+def test_patch_recipe_rejects_invalid_deleted_or_foreign_tag_ids_without_auto_create():
+    client, SessionLocal = client_with_session()
+    recipe_id, _ = seed_recipe(SessionLocal)
+    with SessionLocal() as session:
+        user = ensure_default_user(session)
+        deleted = Tag(owner_id=user.id, name="deleted")
+        deleted.deleted_at = datetime.now(timezone.utc)
+        other_user = User(id="other-user", email="other@example.test")
+        foreign = Tag(owner_id=other_user.id, name="foreign")
+        session.add_all([deleted, other_user, foreign])
+        session.commit()
+        deleted_id = deleted.id
+        foreign_id = foreign.id
+
+    for tag_ids in ([deleted_id], [foreign_id], ["missing-tag"]):
+        response = client.patch(f"/recipes/{recipe_id}", json={"tagIds": tag_ids})
+
+        assert response.status_code == 400
+        assert response.json()["errorCode"] == "INVALID_TAG"
+
+    legacy_response = client.patch(f"/recipes/{recipe_id}", json={"tags": ["new-freeform"]})
+
+    assert legacy_response.status_code == 422
+    with SessionLocal() as session:
+        assert session.query(Tag).filter_by(name="new-freeform").first() is None
 
 
 def test_delete_recipe_removes_it_from_list_and_detail():

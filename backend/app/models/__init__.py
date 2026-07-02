@@ -11,15 +11,18 @@ from sqlalchemy import (
     Enum,
     Float,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
     UniqueConstraint,
+    event,
     func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.services.search_text import build_ingredient_search_name
 
 
 def new_id() -> str:
@@ -41,10 +44,12 @@ class SourceType(str, enum.Enum):
 
 
 class ImportJobStatus(str, enum.Enum):
-    PENDING = "pending"
-    PROCESSING = "processing"
+    QUEUED = "queued"
+    RUNNING = "running"
     SUCCEEDED = "succeeded"
+    SUCCEEDED_WITH_FLAGS = "succeeded_with_flags"
     FAILED = "failed"
+    CANCELLED = "cancelled"
 
 
 class ImportSourceStatus(str, enum.Enum):
@@ -101,6 +106,21 @@ class User(TimestampMixin, Base):
     import_jobs: Mapped[list[ImportJob]] = relationship(back_populates="owner", cascade="all, delete-orphan")
     review_flags: Mapped[list[RecipeReviewFlag]] = relationship(back_populates="owner", cascade="all, delete-orphan")
     resources: Mapped[list[RecipeResource]] = relationship(back_populates="owner", cascade="all, delete-orphan")
+    notifications: Mapped[list[Notification]] = relationship(back_populates="owner", cascade="all, delete-orphan")
+    settings: Mapped[UserSettings | None] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+        uselist=False,
+    )
+
+
+class UserSettings(TimestampMixin, Base):
+    __tablename__ = "user_settings"
+
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    recipe_language: Mapped[str] = mapped_column(String, nullable=False)
+
+    user: Mapped[User] = relationship(back_populates="settings")
 
 
 class Recipe(TimestampMixin, Base):
@@ -116,6 +136,8 @@ class Recipe(TimestampMixin, Base):
     note: Mapped[str | None] = mapped_column(Text)
     author_name: Mapped[str | None] = mapped_column(String)
     source_name: Mapped[SourceName] = mapped_column(Enum(SourceName), default=SourceName.MANUAL, nullable=False)
+    search_text: Mapped[str | None] = mapped_column(Text)
+    search_text_hash: Mapped[str | None] = mapped_column(String)
     cover_image_id: Mapped[str | None] = mapped_column(String, unique=True)
 
     owner: Mapped[User] = relationship(back_populates="recipes")
@@ -138,12 +160,19 @@ class Ingredient(Base):
     id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
     recipe_id: Mapped[str] = mapped_column(ForeignKey("recipes.id", ondelete="CASCADE"), nullable=False)
     name: Mapped[str] = mapped_column(String, nullable=False)
+    search_name: Mapped[str] = mapped_column(String, nullable=False)
     quantity: Mapped[str | None] = mapped_column(String)
     unit: Mapped[str | None] = mapped_column(String)
     note: Mapped[str | None] = mapped_column(String)
     position: Mapped[int] = mapped_column(Integer, nullable=False)
 
     recipe: Mapped[Recipe] = relationship(back_populates="ingredients")
+
+
+@event.listens_for(Ingredient, "before_insert")
+@event.listens_for(Ingredient, "before_update")
+def _set_ingredient_search_name(mapper: Any, connection: Any, target: Ingredient) -> None:
+    target.search_name = build_ingredient_search_name(target.name)
 
 
 class RecipeImage(Base):
@@ -217,11 +246,12 @@ class RecipeReviewFlag(TimestampMixin, Base):
 
 class Tag(TimestampMixin, Base):
     __tablename__ = "tags"
-    __table_args__ = (UniqueConstraint("owner_id", "name"),)
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
     owner_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     name: Mapped[str] = mapped_column(String, nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     owner: Mapped[User] = relationship(back_populates="tags")
     recipes: Mapped[list[Recipe]] = relationship(secondary="recipe_tags", back_populates="tags")
@@ -256,13 +286,17 @@ class RecipeCollection(Base):
 
 class ImportJob(TimestampMixin, Base):
     __tablename__ = "import_jobs"
-    __table_args__ = (UniqueConstraint("owner_id", "client_import_id"),)
+    __table_args__ = (
+        UniqueConstraint("owner_id", "client_import_id"),
+        Index("ix_import_jobs_owner_dedupe_key", "owner_id", "dedupe_key", unique=True),
+    )
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
     owner_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     client_id: Mapped[str] = mapped_column(String, nullable=False)
     client_import_id: Mapped[str | None] = mapped_column(String)
-    status: Mapped[ImportJobStatus] = mapped_column(Enum(ImportJobStatus), default=ImportJobStatus.PENDING, nullable=False)
+    dedupe_key: Mapped[str | None] = mapped_column(String)
+    status: Mapped[ImportJobStatus] = mapped_column(Enum(ImportJobStatus), default=ImportJobStatus.QUEUED, nullable=False)
     error_code: Mapped[str | None] = mapped_column(String)
     error_message: Mapped[str | None] = mapped_column(Text)
     created_recipe_id: Mapped[str | None] = mapped_column(ForeignKey("recipes.id", ondelete="NO ACTION"))
@@ -272,6 +306,7 @@ class ImportJob(TimestampMixin, Base):
     owner: Mapped[User] = relationship(back_populates="import_jobs")
     created_recipe: Mapped[Recipe | None] = relationship(back_populates="import_jobs")
     sources: Mapped[list[ImportJobSource]] = relationship(back_populates="import_job", cascade="all, delete-orphan")
+    events: Mapped[list[JobEvent]] = relationship(back_populates="import_job", cascade="all, delete-orphan")
 
 
 class ImportJobSource(TimestampMixin, Base):
@@ -296,3 +331,32 @@ class ImportJobSource(TimestampMixin, Base):
     position: Mapped[int] = mapped_column(Integer, nullable=False)
 
     import_job: Mapped[ImportJob] = relationship(back_populates="sources")
+
+
+class JobEvent(Base):
+    __tablename__ = "job_events"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
+    import_job_id: Mapped[str] = mapped_column(ForeignKey("import_jobs.id", ondelete="CASCADE"), nullable=False)
+    event_type: Mapped[str] = mapped_column(String, nullable=False)
+    payload: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    import_job: Mapped[ImportJob] = relationship(back_populates="events")
+
+
+class Notification(TimestampMixin, Base):
+    __tablename__ = "notifications"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
+    owner_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    type: Mapped[str] = mapped_column(String, nullable=False)
+    status: Mapped[str] = mapped_column(String, default="unread", nullable=False)
+    title: Mapped[str] = mapped_column(String, nullable=False)
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    entity_type: Mapped[str | None] = mapped_column(String)
+    entity_id: Mapped[str | None] = mapped_column(String)
+    data: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    owner: Mapped[User] = relationship(back_populates="notifications")

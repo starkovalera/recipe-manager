@@ -1,4 +1,5 @@
 from logging.config import fileConfig
+import os
 from pathlib import Path
 
 from alembic import context
@@ -15,8 +16,12 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 
 
+def migration_url() -> str:
+    return os.getenv("DATABASE_URL") or config.get_main_option("sqlalchemy.url")
+
+
 def run_migrations_offline() -> None:
-    url = config.get_main_option("sqlalchemy.url")
+    url = migration_url()
     context.configure(url=url, target_metadata=target_metadata, literal_binds=True)
 
     with context.begin_transaction():
@@ -24,7 +29,8 @@ def run_migrations_offline() -> None:
 
 
 def run_migrations_online() -> None:
-    url = config.get_main_option("sqlalchemy.url")
+    url = migration_url()
+    config.set_main_option("sqlalchemy.url", url)
     if url and url.startswith("sqlite:///"):
         Path(url.removeprefix("sqlite:///")).parent.mkdir(parents=True, exist_ok=True)
     connectable = engine_from_config(

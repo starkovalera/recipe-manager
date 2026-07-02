@@ -3,12 +3,27 @@ import logging
 import os
 import sys
 from collections.abc import Mapping
+from dataclasses import dataclass
 from datetime import datetime
-from typing import TextIO
-from typing import Any
-
+from typing import Any, TextIO
 
 SENSITIVE_KEYS = {"openai_api_key", "api_key", "authorization"}
+
+
+@dataclass(frozen=True)
+class BoundLogger:
+    logger: logging.Logger
+    context: Mapping[str, Any]
+
+    def info(self, message: str, **meta: Any) -> None:
+        log_info(self.logger, message, **self.context, **meta)
+
+    def error(self, message: str, **meta: Any) -> None:
+        log_error(self.logger, message, **self.context, **meta)
+
+
+def bind_logger(logger: logging.Logger, **context: Any) -> BoundLogger:
+    return BoundLogger(logger=logger, context=context)
 
 
 def _safe_value(value: Any) -> Any:

@@ -8,7 +8,6 @@ from app.core.logging import log_error, log_info
 from app.imports.url_loaders.generic import GenericUrlContentLoader, httpx_fetch
 from app.imports.url_loaders.types import Fetch, LoadedRemoteImage, LoadedRemoteVideo, LoadedUrlContent
 
-
 logger = logging.getLogger("recipes.url.instagram")
 SUPPORTED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
 MAX_EMBED_BYTES = 2 * 1024 * 1024

@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { RecipeDetailPage } from "./RecipeDetailPage";
 
@@ -19,14 +19,19 @@ describe("RecipeDetailPage", () => {
     vi.restoreAllMocks();
   });
 
+  afterEach(() => {
+    cleanup();
+  });
+
   const recipeDetail = {
     id: "recipe-1",
     title: "Soup",
     note: null,
     instructions: ["Cook."],
-    ingredients: [{ id: "ingredient-1", name: "Tomato", position: 0 }],
+    ingredients: [{ id: "ingredient-1", name: "Tomato", quantity: "2", unit: "pcs", note: "ripe", position: 0 }],
     sourceName: "MANUAL",
-    tags: [],
+    authorName: "chef",
+    tags: [{ id: "tag-1", name: "quick", description: null }],
     nutritionEstimate: null,
     images: [{ id: "image-1", mediaUrl: "/media/source.jpg" }, { id: "cover-1", mediaUrl: "/media/cover.jpg" }],
     coverImage: { id: "cover-1", mediaUrl: "/media/cover.jpg" },
@@ -78,14 +83,25 @@ describe("RecipeDetailPage", () => {
     ],
   };
 
-  function stubRecipeFetch() {
+  function stubRecipeFetch(detail = recipeDetail) {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
       const url = input.toString();
       if (url.includes("/collections")) {
         return { ok: true, json: async () => ({ items: [] }) };
       }
+      if (url.includes("/tags")) {
+        return {
+          ok: true,
+          json: async () => ({
+            items: [
+              { id: "tag-1", name: "quick", description: null },
+              { id: "tag-2", name: "dinner", description: "Evening" },
+            ],
+          }),
+        };
+      }
       if (url.includes("/recipes/recipe-1")) {
-        return { ok: true, json: async () => recipeDetail };
+        return { ok: true, json: async () => detail };
       }
       return { ok: true, json: async () => ({ items: [] }) };
     });
@@ -219,17 +235,136 @@ describe("RecipeDetailPage", () => {
     ));
   });
 
-  it("validates editable recipe limits before saving", async () => {
+  it("selects existing active tags and saves recipe tagIds without free-form tag input", async () => {
     const fetchMock = stubRecipeFetch();
     renderPage();
 
-    await waitFor(() => expect(screen.getByRole("button", { name: /Save/i })).toBeTruthy());
-    fireEvent.change(screen.getByLabelText("Ingredients"), {
-      target: { value: Array.from({ length: 51 }, (_, index) => `Ingredient ${index}`).join("\n") },
+    await waitFor(() => expect(screen.getByRole("button", { name: /dinner/i })).toBeTruthy());
+    expect(screen.queryByLabelText("Tags")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: /dinner/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^Save$/i }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/recipes/recipe-1"),
+      expect.objectContaining({
+        method: "PATCH",
+        body: expect.stringContaining('"tagIds":["tag-1","tag-2"]'),
+      }),
+    ));
+  });
+
+  it("edits ingredients as structured rows and saves them with the recipe", async () => {
+    const fetchMock = stubRecipeFetch();
+    renderPage();
+
+    await waitFor(() => expect(screen.getByLabelText("Ingredient 1 name")).toBeTruthy());
+    expect(screen.getByLabelText("Ingredient 1 quantity")).toHaveProperty("value", "2");
+    expect(screen.getByLabelText("Ingredient 1 unit")).toHaveProperty("value", "pcs");
+    expect(screen.getByLabelText("Ingredient 1 note")).toHaveProperty("value", "ripe");
+
+    fireEvent.change(screen.getByLabelText("Ingredient 1 name"), { target: { value: "Cherry tomato" } });
+    fireEvent.change(screen.getByLabelText("Ingredient 1 quantity"), { target: { value: "200" } });
+    fireEvent.change(screen.getByLabelText("Ingredient 1 unit"), { target: { value: "g" } });
+    fireEvent.change(screen.getByLabelText("Ingredient 1 note"), { target: { value: "halved" } });
+    fireEvent.click(screen.getByRole("button", { name: /^Save$/i }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/recipes/recipe-1"),
+      expect.objectContaining({
+        method: "PATCH",
+        body: expect.stringContaining('"ingredients":[{"id":"ingredient-1","name":"Cherry tomato","quantity":"200","unit":"g","note":"halved"}]'),
+      }),
+    ));
+  });
+
+  it("edits source metadata and saves it with the recipe", async () => {
+    const fetchMock = stubRecipeFetch();
+    renderPage();
+
+    await waitFor(() => expect(screen.getByLabelText("Author name")).toBeTruthy());
+    expect(screen.getByLabelText("Author name")).toHaveProperty("value", "chef");
+    expect(screen.getByLabelText("Source type")).toHaveProperty("value", "MANUAL");
+
+    fireEvent.change(screen.getByLabelText("Author name"), { target: { value: "thread_chef" } });
+    fireEvent.change(screen.getByLabelText("Source type"), { target: { value: "THREADS" } });
+    fireEvent.click(screen.getByRole("button", { name: /^Save$/i }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/recipes/recipe-1"),
+      expect.objectContaining({
+        method: "PATCH",
+        body: expect.stringContaining('"sourceName":"THREADS"'),
+      }),
+    ));
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/recipes/recipe-1"),
+      expect.objectContaining({
+        method: "PATCH",
+        body: expect.stringContaining('"authorName":"thread_chef"'),
+      }),
+    );
+  });
+
+  it("adds and deletes ingredient rows locally before saving", async () => {
+    const fetchMock = stubRecipeFetch();
+    renderPage();
+
+    await waitFor(() => expect(screen.getByLabelText("New ingredient name")).toBeTruthy());
+    fireEvent.change(screen.getByLabelText("New ingredient name"), { target: { value: "Basil" } });
+    fireEvent.change(screen.getByLabelText("New ingredient quantity"), { target: { value: "5" } });
+    fireEvent.change(screen.getByLabelText("New ingredient unit"), { target: { value: "leaves" } });
+    fireEvent.click(screen.getByRole("button", { name: /Add ingredient/i }));
+
+    expect(screen.getByLabelText("Ingredient 2 name")).toHaveProperty("value", "Basil");
+    fireEvent.click(screen.getByRole("button", { name: /Delete ingredient 1/i }));
+    expect(screen.queryByLabelText("Ingredient 1 name")).toBeTruthy();
+    expect(screen.getByLabelText("Ingredient 1 name")).toHaveProperty("value", "Basil");
+
+    fireEvent.click(screen.getByRole("button", { name: /^Save$/i }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/recipes/recipe-1"),
+      expect.objectContaining({
+        method: "PATCH",
+        body: expect.stringContaining('"ingredients":[{"name":"Basil","quantity":"5","unit":"leaves","note":null}]'),
+      }),
+    ));
+  });
+
+  it("validates editable recipe limits before saving", async () => {
+    const fetchMock = stubRecipeFetch({
+      ...recipeDetail,
+      ingredients: Array.from({ length: 51 }, (_, index) => ({
+        id: `ingredient-${index}`,
+        name: `Ingredient ${index}`,
+        quantity: "",
+        unit: "",
+        note: "",
+        position: index,
+      })),
     });
+    renderPage();
+
+    await waitFor(() => expect(screen.getByLabelText("Ingredient 51 name")).toBeTruthy());
     fireEvent.click(screen.getByRole("button", { name: /Save/i }));
 
     await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("Recipe is too long."));
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      expect.stringContaining("/recipes/recipe-1"),
+      expect.objectContaining({ method: "PATCH" }),
+    );
+  });
+
+  it("validates empty ingredient names before saving", async () => {
+    const fetchMock = stubRecipeFetch();
+    renderPage();
+
+    await waitFor(() => expect(screen.getByLabelText("Ingredient 1 name")).toBeTruthy());
+    fireEvent.change(screen.getByLabelText("Ingredient 1 name"), { target: { value: "" } });
+    fireEvent.click(screen.getByRole("button", { name: /Save/i }));
+
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("Ingredient name is required."));
     expect(fetchMock).not.toHaveBeenCalledWith(
       expect.stringContaining("/recipes/recipe-1"),
       expect.objectContaining({ method: "PATCH" }),

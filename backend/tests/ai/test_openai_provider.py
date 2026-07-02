@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.ai.openai_provider import OpenAIRecipeExtractionProvider
+from app.ai.openai_provider import RECIPE_JSON_SCHEMA, OpenAIRecipeExtractionProvider
 from app.ai.schemas import ReadySource
 from app.core.config import Settings
 
@@ -24,12 +24,24 @@ class FakeClient:
         self.responses = FakeResponses(output_text)
 
 
+def test_openai_response_schema_only_requests_cover_candidate_source_ref():
+    cover_schema = RECIPE_JSON_SCHEMA["properties"]["coverCandidate"]
+    cover_properties = cover_schema["properties"]
+
+    assert cover_schema["required"] == ["sourceRef", "confidence"]
+    assert "sourceRef" in cover_properties
+    assert "confidence" in cover_properties
+    assert "sourcePosition" not in cover_properties
+    assert "crop" not in cover_properties
+    assert "reason" not in cover_properties
+
+
 @pytest.mark.anyio
 async def test_openai_provider_uses_reference_responses_input_and_logs_output(caplog):
     raw_output = json.dumps(
         {
             "title": "Roulade",
-            "ingredients": [{"name": "Egg", "quantity": "1", "unit": "pc", "note": None}],
+            "ingredients": [{"name": "Яйцо", "quantity": "1", "unit": "pc", "note": None}],
             "instructions": ["Beat the egg."],
             "servings": 1,
             "cookTimeMinutes": 20,
@@ -45,10 +57,7 @@ async def test_openai_provider_uses_reference_responses_input_and_logs_output(ca
             },
             "coverCandidate": {
                 "sourceRef": "source_1",
-                "sourcePosition": 1,
-                "crop": {"x": 0.05, "y": 0.02, "width": 0.55, "height": 0.45},
                 "confidence": 0.87,
-                "reason": "Finished dish photo is visible.",
             },
         }
     )
@@ -79,7 +88,9 @@ async def test_openai_provider_uses_reference_responses_input_and_logs_output(ca
                 originalName="second.png",
                 position=1,
             ),
-        ]
+        ],
+        language="ru",
+        tags="десерт, аэрогриль",
     )
 
     assert result.recipe is not None
@@ -88,6 +99,10 @@ async def test_openai_provider_uses_reference_responses_input_and_logs_output(ca
     content = request["input"][0]["content"]
     assert request["model"] == "gpt-test"
     assert content[0]["type"] == "input_text"
+    assert "Return the recipe in ru." in content[0]["text"]
+    assert "десерт, аэрогриль" in content[0]["text"]
+    assert "{language}" not in content[0]["text"]
+    assert "{tags}" not in content[0]["text"]
     assert content[1]["text"] == "Source type=image, id=image-source-0, content:"
     assert content[2] == {"type": "input_image", "detail": "auto", "image_url": "data:image/png;base64,SECRET_IMAGE_DATA"}
     assert content[3]["text"] == "Source type=image, id=image-source-1, content:"
@@ -144,7 +159,9 @@ async def test_openai_provider_sends_reference_mixed_source_labels_once():
                 originalName="first.png",
                 position=2,
             ),
-        ]
+        ],
+        language="ru",
+        tags="десерт",
     )
 
     content = client.responses.calls[0]["input"][0]["content"]

@@ -1,5 +1,19 @@
 import { getClientId } from "./clientId";
-import type { CollectionDetail, CollectionList, ImportJob, RecipeDetail, RecipeList, RecipePatch } from "./types";
+import type {
+  CollectionDetail,
+  CollectionList,
+  ImportJob,
+  InternalImportJobList,
+  Notification,
+  NotificationList,
+  NotificationsMarkAllReadResult,
+  RecipeDetail,
+  RecipeList,
+  RecipePatch,
+  Tag,
+  TagList,
+  TagUsage,
+} from "./types";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 let debugApiLogging = import.meta.env.VITE_DEBUG_API === "true";
@@ -138,6 +152,64 @@ export async function createImport(input: { clientImportId: string; text?: strin
 
 export async function getImportJob(jobId: string): Promise<ImportJob> {
   return request<ImportJob>(`/imports/${jobId}`);
+}
+
+export async function listNotifications(): Promise<NotificationList> {
+  return request<NotificationList>("/notifications");
+}
+
+export async function patchNotification(notificationId: string, status: "read" | "unread"): Promise<Notification> {
+  return request<Notification>(
+    `/notifications/${notificationId}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    },
+  );
+}
+
+export async function markAllNotificationsRead(lastNotificationId: string): Promise<NotificationsMarkAllReadResult> {
+  return request<NotificationsMarkAllReadResult>(
+    "/notifications/read-all",
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lastNotificationId }),
+    },
+  );
+}
+
+export async function listInternalImportJobs(): Promise<InternalImportJobList> {
+  return request<InternalImportJobList>("/internal/import-jobs");
+}
+
+export async function listTags(): Promise<TagList> {
+  return request<TagList>("/tags");
+}
+
+export async function createTag(input: { name: string; description?: string | null }): Promise<Tag> {
+  return request<Tag>("/tags", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
+export async function patchTag(tagId: string, input: { name: string; description?: string | null }): Promise<Tag> {
+  return request<Tag>(`/tags/${tagId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
+export async function getTagUsage(tagId: string): Promise<TagUsage> {
+  return request<TagUsage>(`/tags/${tagId}/usage`);
+}
+
+export async function deleteTag(tagId: string): Promise<Tag> {
+  return request<Tag>(`/tags/${tagId}`, { method: "DELETE" });
 }
 
 export async function deleteRecipe(recipeId: string): Promise<void> {

@@ -2,11 +2,14 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from app.db.base import Base
-from app.db.init import DEFAULT_USER_ID, ensure_default_user
+from app.db.defaults import DEFAULT_RECIPE_LANGUAGE, DEFAULT_TAG_NAMES, DEFAULT_USER_ID
+from app.db.init import ensure_default_user
 from app.models import (
     ImportJob,
     ImportJobStatus,
     Ingredient,
+    JobEvent,
+    Notification,
     Recipe,
     RecipeImage,
     RecipeResource,
@@ -19,6 +22,7 @@ from app.models import (
     SourceName,
     SourceType,
     Tag,
+    UserSettings,
 )
 
 
@@ -39,6 +43,23 @@ def test_ensure_default_user_is_idempotent():
     assert session.query(type(first)).count() == 1
 
 
+def test_ensure_default_user_creates_settings_and_default_tags_idempotently():
+    session = create_session()
+
+    user = ensure_default_user(session, recipe_language="en")
+    ensure_default_user(session, recipe_language="en")
+
+    settings = session.get(UserSettings, user.id)
+    tag_names = [tag.name for tag in session.query(Tag).filter_by(owner_id=user.id).order_by(Tag.name).all()]
+
+    assert settings is not None
+    assert DEFAULT_RECIPE_LANGUAGE == "ru"
+    assert settings.recipe_language == "en"
+    assert sorted(tag_names) == sorted(DEFAULT_TAG_NAMES)
+    assert {"аэрогриль", "духовка", "мороженое"}.issubset(set(tag_names))
+    assert session.query(Tag).filter_by(owner_id=user.id).count() == len(DEFAULT_TAG_NAMES)
+
+
 def test_recipe_graph_persists_core_import_entities():
     session = create_session()
     user = ensure_default_user(session)
@@ -51,7 +72,7 @@ def test_recipe_graph_persists_core_import_entities():
         nutrition_estimate={"calories": 500},
         tags=[tag],
     )
-    recipe.ingredients.append(Ingredient(name="Pasta", quantity="200", unit="g", position=0))
+    recipe.ingredients.append(Ingredient(name="Pasta", search_name="pasta", quantity="200", unit="g", position=0))
     image = RecipeImage(
         storage_key="dev/source.jpg",
         original_name="source.jpg",
@@ -102,8 +123,25 @@ def test_recipe_graph_persists_core_import_entities():
             details={"confidence": 0.7},
         )
     )
-    job = ImportJob(owner_id=user.id, client_id="client-1", client_import_id="import-1", status=ImportJobStatus.SUCCEEDED)
+    job = ImportJob(
+        owner_id=user.id,
+        client_id="client-1",
+        client_import_id="import-1",
+        dedupe_key="import-1",
+        status=ImportJobStatus.SUCCEEDED,
+    )
+    job.events.append(JobEvent(event_type="queued", payload={"clientImportId": "import-1"}))
     recipe.import_jobs.append(job)
+    user.notifications.append(
+        Notification(
+            type="import_succeeded",
+            title="Import completed",
+            message="Recipe imported.",
+            entity_type="recipe",
+            entity_id="recipe-1",
+            data={"importJobId": "import-1"},
+        )
+    )
     session.add(recipe)
     session.flush()
     recipe.cover_image_id = cover.id
@@ -121,3 +159,19 @@ def test_recipe_graph_persists_core_import_entities():
     assert saved.cover_image_id == saved.resources[1].image_id
     assert saved.review_flags[0].reason_code == "LOW_CONFIDENCE"
     assert saved.import_jobs[0].client_import_id == "import-1"
+    assert saved.import_jobs[0].dedupe_key == "import-1"
+    assert saved.import_jobs[0].events[0].event_type == "queued"
+    assert saved.owner.notifications[0].type == "import_succeeded"
+
+
+def test_ingredient_persists_search_name():
+    session = create_session()
+    user = ensure_default_user(session)
+    recipe = Recipe(owner_id=user.id, title="Toast", instructions=["Toast bread"])
+    recipe.ingredients.append(Ingredient(name="  Fresh   Bread  ", search_name="fresh bread", position=0))
+    session.add(recipe)
+    session.commit()
+
+    saved = session.query(Ingredient).one()
+
+    assert saved.search_name == "fresh bread"

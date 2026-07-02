@@ -7,25 +7,33 @@ import {
   deleteRecipe,
   getRecipe,
   listCollections,
+  listTags,
   mediaUrl,
   patchRecipe,
   patchRecipeResource,
   patchReviewFlag,
   removeRecipeFromCollection,
 } from "../api/client";
-import type { RecipeDetail, RecipeImage, RecipeResource, ReviewFlag } from "../api/types";
+import type { RecipeDetail, RecipeImage, RecipeResource, ReviewFlag, Tag } from "../api/types";
 
 type CoverChoice = { kind: "DEFAULT" | "IMAGE"; imageId?: string | null };
+type EditableIngredient = { id?: string; name: string; quantity: string; unit: string; note: string };
 
+const SOURCE_NAME_OPTIONS = ["MANUAL", "INSTAGRAM", "THREADS", "TT", "OTHER"] as const;
 const MAX_RECIPE_INGREDIENTS = Number(import.meta.env.VITE_MAX_RECIPE_INGREDIENTS ?? 50);
 const MAX_RECIPE_INSTRUCTION_CHARS = Number(import.meta.env.VITE_MAX_RECIPE_INSTRUCTION_CHARS ?? 1000);
 const MAX_RECIPE_NOTE_CHARS = Number(import.meta.env.VITE_MAX_RECIPE_NOTE_CHARS ?? 500);
 
-function joinIngredients(recipe: RecipeDetail): string {
+function editableIngredientsFromRecipe(recipe: RecipeDetail): EditableIngredient[] {
   return recipe.ingredients
     .sort((left, right) => left.position - right.position)
-    .map((ingredient) => [ingredient.quantity, ingredient.unit, ingredient.name, ingredient.note].filter(Boolean).join(" "))
-    .join("\n");
+    .map((ingredient) => ({
+      id: ingredient.id,
+      name: ingredient.name,
+      quantity: ingredient.quantity ?? "",
+      unit: ingredient.unit ?? "",
+      note: ingredient.note ?? "",
+    }));
 }
 
 function parseLines(value: string): string[] {
@@ -60,6 +68,11 @@ function sourceImageForOption(resources: RecipeResource[], imageId: string | nul
   return resources.find((resource) => resource.type === "IMAGE" && resource.imageId === imageId);
 }
 
+function selectedCoverChoice(recipe: RecipeDetail | null | undefined): CoverChoice {
+  const selectedCover = recipe?.coverOptions.find((option) => option.selected);
+  return selectedCover?.image ? { kind: "IMAGE", imageId: selectedCover.image.id } : { kind: "DEFAULT" };
+}
+
 function confirmDeleteResource(kind: "source" | "image"): boolean {
   return window.confirm(`Are you sure you want to delete this ${kind}?`);
 }
@@ -68,9 +81,17 @@ function instructionsLength(value: string): number {
   return parseLines(value).join("\n").length;
 }
 
-function validateEditableRecipe(ingredients: string, instructions: string, note: string): string | null {
-  if (parseLines(ingredients).length > MAX_RECIPE_INGREDIENTS) {
+function optionalText(value: string): string | null {
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
+function validateEditableRecipe(ingredients: EditableIngredient[], instructions: string, note: string): string | null {
+  if (ingredients.length > MAX_RECIPE_INGREDIENTS) {
     return "Recipe is too long.";
+  }
+  if (ingredients.some((ingredient) => !ingredient.name.trim())) {
+    return "Ingredient name is required.";
   }
   if (instructionsLength(instructions) > MAX_RECIPE_INSTRUCTION_CHARS) {
     return "Recipe is too long.";
@@ -85,45 +106,48 @@ export function RecipeDetailPage({ recipeId, onDeleted }: { recipeId: string; on
   const queryClient = useQueryClient();
   const query = useQuery({ queryKey: ["recipe", recipeId], queryFn: () => getRecipe(recipeId) });
   const collectionsQuery = useQuery({ queryKey: ["collections"], queryFn: listCollections });
+  const tagsQuery = useQuery({ queryKey: ["tags"], queryFn: listTags });
   const recipe = query.data;
 
   const [title, setTitle] = useState("");
+  const [sourceName, setSourceName] = useState("MANUAL");
+  const [authorName, setAuthorName] = useState("");
   const [cookTimeMinutes, setCookTimeMinutes] = useState("");
   const [calories, setCalories] = useState("");
   const [proteinGrams, setProteinGrams] = useState("");
   const [fatGrams, setFatGrams] = useState("");
   const [carbsGrams, setCarbsGrams] = useState("");
-  const [tags, setTags] = useState("");
-  const [ingredients, setIngredients] = useState("");
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [ingredients, setIngredients] = useState<EditableIngredient[]>([]);
+  const [newIngredient, setNewIngredient] = useState<EditableIngredient>({ name: "", quantity: "", unit: "", note: "" });
   const [instructions, setInstructions] = useState("");
   const [note, setNote] = useState("");
-  const [coverChoice, setCoverChoice] = useState<CoverChoice>({ kind: "DEFAULT" });
+  const [coverChoice, setCoverChoice] = useState<CoverChoice | null>(null);
   const [previewImage, setPreviewImage] = useState<{ label: string; url: string } | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!recipe) return;
     setTitle(recipe.title);
+    setSourceName(recipe.sourceName);
+    setAuthorName(recipe.authorName ?? "");
     setCookTimeMinutes(recipe.cookTimeMinutes?.toString() ?? "");
     setCalories(recipe.nutritionEstimate?.calories?.toString() ?? "");
     setProteinGrams(recipe.nutritionEstimate?.proteinGrams?.toString() ?? "");
     setFatGrams(recipe.nutritionEstimate?.fatGrams?.toString() ?? "");
     setCarbsGrams(recipe.nutritionEstimate?.carbsGrams?.toString() ?? "");
-    setTags(recipe.tags.join(", "));
-    setIngredients(joinIngredients(recipe));
+    setSelectedTagIds(recipe.tags.map((tag) => tag.id));
+    setIngredients(editableIngredientsFromRecipe(recipe));
+    setNewIngredient({ name: "", quantity: "", unit: "", note: "" });
     setInstructions(recipe.instructions.join("\n"));
     setNote(recipe.note ?? "");
-    const selectedCover = recipe.coverOptions.find((option) => option.selected);
-    setCoverChoice(
-      selectedCover?.image
-        ? { kind: "IMAGE", imageId: selectedCover.image.id }
-        : { kind: "DEFAULT" },
-    );
+    setCoverChoice(selectedCoverChoice(recipe));
   }, [recipe]);
 
   const openFlags = useMemo(() => (recipe?.reviewFlags ?? []).filter((flag) => flag.status === "open"), [recipe]);
   const recipeCollectionIds = useMemo(() => new Set(recipe?.collections?.map((collection) => collection.id) ?? []), [recipe]);
   const availableCollections = collectionsQuery.data?.items ?? [];
+  const availableTags = tagsQuery.data?.items ?? [];
   const openFlagMessages = useMemo(() => reviewMessages(openFlags), [openFlags]);
   const primaryUrlSource = useMemo(
     () => recipe?.resources.find((source) => source.type === "URL" && !source.parentResourceId) ?? null,
@@ -140,6 +164,8 @@ export function RecipeDetailPage({ recipeId, onDeleted }: { recipeId: string; on
       setValidationError(null);
       return patchRecipe(recipeId, {
         title,
+        sourceName,
+        authorName: optionalText(authorName),
         cookTimeMinutes: numberOrNull(cookTimeMinutes),
         nutritionEstimate: {
           calories: numberOrNull(calories),
@@ -147,14 +173,17 @@ export function RecipeDetailPage({ recipeId, onDeleted }: { recipeId: string; on
           fatGrams: numberOrNull(fatGrams),
           carbsGrams: numberOrNull(carbsGrams),
         },
-        tags: tags
-          .split(",")
-          .map((tag) => tag.trim())
-          .filter(Boolean),
-        ingredients: parseLines(ingredients).map((name) => ({ name })),
+        tagIds: selectedTagIds,
+        ingredients: ingredients.map((ingredient) => ({
+          ...(ingredient.id ? { id: ingredient.id } : {}),
+          name: ingredient.name.trim(),
+          quantity: optionalText(ingredient.quantity),
+          unit: optionalText(ingredient.unit),
+          note: optionalText(ingredient.note),
+        })),
         instructions: parseLines(instructions),
         note,
-        coverSelection: coverChoice,
+        coverSelection: coverChoice ?? selectedCoverChoice(recipe),
       });
     },
     onSuccess: () => {
@@ -200,6 +229,32 @@ export function RecipeDetailPage({ recipeId, onDeleted }: { recipeId: string; on
       queryClient.invalidateQueries({ queryKey: ["recipes"] });
     },
   });
+
+  function toggleTag(tag: Tag): void {
+    setSelectedTagIds((current) =>
+      current.includes(tag.id) ? current.filter((tagId) => tagId !== tag.id) : [...current, tag.id],
+    );
+  }
+
+  function updateIngredient(index: number, field: keyof EditableIngredient, value: string): void {
+    setIngredients((current) => current.map((ingredient, ingredientIndex) =>
+      ingredientIndex === index ? { ...ingredient, [field]: value } : ingredient,
+    ));
+  }
+
+  function deleteIngredient(index: number): void {
+    setIngredients((current) => current.filter((_, ingredientIndex) => ingredientIndex !== index));
+  }
+
+  function updateNewIngredient(field: keyof EditableIngredient, value: string): void {
+    setNewIngredient((current) => ({ ...current, [field]: value }));
+  }
+
+  function addIngredient(): void {
+    if (!newIngredient.name.trim()) return;
+    setIngredients((current) => [...current, newIngredient]);
+    setNewIngredient({ name: "", quantity: "", unit: "", note: "" });
+  }
 
   return (
     <section className="panel">
@@ -261,6 +316,22 @@ export function RecipeDetailPage({ recipeId, onDeleted }: { recipeId: string; on
               Title
               <input value={title} onChange={(event) => setTitle(event.target.value)} />
             </label>
+            <div className="form-grid">
+              <label>
+                Source type
+                <select value={sourceName} onChange={(event) => setSourceName(event.target.value)}>
+                  {SOURCE_NAME_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Author name
+                <input value={authorName} onChange={(event) => setAuthorName(event.target.value)} />
+              </label>
+            </div>
             <label>
               Time, min
               <input inputMode="numeric" value={cookTimeMinutes} onChange={(event) => setCookTimeMinutes(event.target.value)} />
@@ -283,14 +354,86 @@ export function RecipeDetailPage({ recipeId, onDeleted }: { recipeId: string; on
                 <input inputMode="decimal" value={carbsGrams} onChange={(event) => setCarbsGrams(event.target.value)} />
               </label>
             </div>
-            <label>
-              Tags
-              <input value={tags} onChange={(event) => setTags(event.target.value)} />
-            </label>
-            <label>
-              Ingredients
-              <textarea value={ingredients} onChange={(event) => setIngredients(event.target.value)} rows={6} />
-            </label>
+            <div className="recipe-tag-selector" aria-label="Recipe tags">
+              <span className="field-label">Tags</span>
+              <div className="recipe-tag-chips">
+                {availableTags.map((tag) => {
+                  const selected = selectedTagIds.includes(tag.id);
+                  return (
+                    <button
+                      key={tag.id}
+                      type="button"
+                      className={`recipe-tag-chip ${selected ? "is-selected" : ""}`}
+                      aria-pressed={selected}
+                      onClick={() => toggleTag(tag)}
+                    >
+                      {tag.name}
+                    </button>
+                  );
+                })}
+              </div>
+              {tagsQuery.isLoading ? <p className="muted">Loading tags...</p> : null}
+              {!tagsQuery.isLoading && availableTags.length === 0 ? <p className="muted">No tags yet.</p> : null}
+            </div>
+            <div className="ingredient-editor">
+              <span className="field-label">Ingredients</span>
+              <div className="ingredient-card ingredient-card-new">
+                <h4>Add ingredient</h4>
+                <div className="ingredient-grid">
+                  <label>
+                    New ingredient name
+                    <input value={newIngredient.name} onChange={(event) => updateNewIngredient("name", event.target.value)} />
+                  </label>
+                  <label>
+                    New ingredient quantity
+                    <input value={newIngredient.quantity} onChange={(event) => updateNewIngredient("quantity", event.target.value)} />
+                  </label>
+                  <label>
+                    New ingredient unit
+                    <input value={newIngredient.unit} onChange={(event) => updateNewIngredient("unit", event.target.value)} />
+                  </label>
+                  <label>
+                    New ingredient note
+                    <input value={newIngredient.note} onChange={(event) => updateNewIngredient("note", event.target.value)} />
+                  </label>
+                </div>
+                <button type="button" onClick={addIngredient} disabled={!newIngredient.name.trim()}>
+                  Add ingredient
+                </button>
+              </div>
+              <div className="ingredient-list">
+                {ingredients.map((ingredient, index) => (
+                  <div className="ingredient-card ingredient-row" key={index}>
+                    <div className="ingredient-grid">
+                      <label>
+                        {`Ingredient ${index + 1} name`}
+                        <input value={ingredient.name} onChange={(event) => updateIngredient(index, "name", event.target.value)} />
+                      </label>
+                      <label>
+                        {`Ingredient ${index + 1} quantity`}
+                        <input value={ingredient.quantity} onChange={(event) => updateIngredient(index, "quantity", event.target.value)} />
+                      </label>
+                      <label>
+                        {`Ingredient ${index + 1} unit`}
+                        <input value={ingredient.unit} onChange={(event) => updateIngredient(index, "unit", event.target.value)} />
+                      </label>
+                      <label>
+                        {`Ingredient ${index + 1} note`}
+                        <input value={ingredient.note} onChange={(event) => updateIngredient(index, "note", event.target.value)} />
+                      </label>
+                    </div>
+                    <button
+                      type="button"
+                      className="ingredient-delete-button"
+                      aria-label={`Delete ingredient ${index + 1}`}
+                      onClick={() => deleteIngredient(index)}
+                    >
+                      x
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
             <label>
               Instructions
               <textarea value={instructions} onChange={(event) => setInstructions(event.target.value)} rows={6} />

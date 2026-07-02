@@ -1,5 +1,3 @@
-import pytest
-
 from app.imports.url_loaders.generic import GenericUrlContentLoader
 from app.imports.url_loaders.registry import UrlContentLoaderRegistry, normalize_import_url
 

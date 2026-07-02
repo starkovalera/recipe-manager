@@ -5,7 +5,6 @@ from app.core.config import get_settings
 from app.core.errors import ApiError, ErrorCode
 from app.storage.local import LocalStorageService
 
-
 router = APIRouter(prefix="/media", tags=["media"])
 
 

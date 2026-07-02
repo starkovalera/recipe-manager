@@ -1,4 +1,4 @@
-from app.imports.source_platform import detect_source_name_from_url, derive_source_name
+from app.imports.source_platform import derive_source_name, detect_source_name_from_url
 from app.models import SourceName
 
 

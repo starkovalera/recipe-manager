@@ -4,7 +4,7 @@ from io import BytesIO
 
 from PIL import Image
 
-from app.storage.base import StoredFile, StorageService
+from app.storage.base import StorageService, StoredFile
 
 SUPPORTED_IMAGE_TYPES = {"image/jpeg": "JPEG", "image/png": "PNG", "image/webp": "WEBP"}
 

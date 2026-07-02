@@ -1,0 +1,55 @@
+from sqlalchemy.orm import Session
+
+from app.imports.events import record_job_event
+from app.models import ImportJob, ImportJobStatus
+from app.services.notifications import create_notification
+
+
+def handle_import_started(session: Session, job: ImportJob, *, client_import_id: str, dedupe_key: str) -> None:
+    record_job_event(job, "queued", {"clientImportId": client_import_id, "dedupeKey": dedupe_key})
+    create_notification(
+        session,
+        owner_id=job.owner_id,
+        type="import_started",
+        title="Import started",
+        message="Recipe import started.",
+        entity_type="import_job",
+        entity_id=job.id,
+        data={"importJobId": job.id},
+    )
+
+
+def handle_import_failed(session: Session, job: ImportJob) -> None:
+    record_job_event(job, "failed", {"errorCode": job.error_code, "errorMessage": job.error_message})
+    create_notification(
+        session,
+        owner_id=job.owner_id,
+        type="import_failed",
+        title="Import failed",
+        message=job.error_message or "Recipe import failed.",
+        entity_type="import_job",
+        entity_id=job.id,
+        data={"importJobId": job.id, "recipeId": job.created_recipe_id, "errorCode": job.error_code},
+    )
+
+
+def handle_recipe_created(session: Session, job: ImportJob, *, recipe_id: str, status: ImportJobStatus) -> None:
+    record_job_event(job, "recipe_created", {"recipeId": recipe_id, "status": status.value})
+    if status == ImportJobStatus.SUCCEEDED_WITH_FLAGS:
+        notification_type = "import_succeeded_with_flags"
+        title = "Import completed with warning"
+        message = "Recipe import completed and needs review."
+    else:
+        notification_type = "import_succeeded"
+        title = "Import completed"
+        message = "Recipe import completed."
+    create_notification(
+        session,
+        owner_id=job.owner_id,
+        type=notification_type,
+        title=title,
+        message=message,
+        entity_type="recipe",
+        entity_id=recipe_id,
+        data={"importJobId": job.id, "recipeId": recipe_id, "errorCode": job.error_code},
+    )

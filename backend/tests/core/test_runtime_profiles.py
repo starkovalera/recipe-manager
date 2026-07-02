@@ -49,3 +49,37 @@ def test_preview_runtime_refuses_paths_outside_preview_storage(tmp_path: Path):
 
     with pytest.raises(RuntimeError, match="preview"):
         prepare_runtime(settings)
+
+
+def test_preview_runtime_resets_postgres_state_and_uploads(tmp_path: Path):
+    preview_root = tmp_path / "storage" / "preview"
+    upload_dir = preview_root / "uploads"
+    upload_dir.mkdir(parents=True)
+    saved = upload_dir / "saved.txt"
+    saved.write_text("delete", encoding="utf-8")
+    reset_calls: list[str] = []
+    settings = Settings(
+        app_env="preview",
+        database_url="postgresql+psycopg://recipe:recipe@127.0.0.1:5432/recipe_manager_preview",
+        upload_dir=upload_dir,
+    )
+
+    prepare_runtime(settings, reset_database=lambda database_url: reset_calls.append(database_url))
+
+    assert reset_calls == ["postgresql+psycopg://recipe:recipe@127.0.0.1:5432/recipe_manager_preview"]
+    assert upload_dir.exists()
+    assert list(upload_dir.iterdir()) == []
+
+
+def test_preview_runtime_requires_reset_hook_for_postgres(tmp_path: Path):
+    preview_root = tmp_path / "storage" / "preview"
+    upload_dir = preview_root / "uploads"
+    upload_dir.mkdir(parents=True)
+    settings = Settings(
+        app_env="preview",
+        database_url="postgresql+psycopg://recipe:recipe@127.0.0.1:5432/recipe_manager_preview",
+        upload_dir=upload_dir,
+    )
+
+    with pytest.raises(RuntimeError, match="reset"):
+        prepare_runtime(settings)

@@ -1,8 +1,9 @@
 # Current Import Pipeline
 
-This is the current sync-first implementation state. The API keeps the `ImportJob`
-contract so the frontend shape can stay stable when the real background queue is
-added later.
+This is the current backend queue-first implementation state. The API creates
+`ImportJob(status=queued)`, enqueues Dramatiq work, and the worker runs the
+existing synchronous import pipeline in the background. Frontend polling UX is
+implemented in Phase 1d.
 
 ```mermaid
 flowchart TD
@@ -11,12 +12,13 @@ flowchart TD
   validate -->|"no usable source"| fail400["400 NOT_A_RECIPE"]
   validate -->|"text too long"| failText["400 TEXT_TOO_LONG"]
   validate -->|"too many/invalid files"| failFiles["400 TOO_MANY_FILES / INVALID_FILE_TYPE / FILE_TOO_LARGE"]
-  validate -->|"ok"| dedupe{"Existing owner/clientImportId?"}
+  validate -->|"ok"| dedupe{"Existing owner/dedupe_key?"}
   dedupe -->|"yes"| existing["Return existing ImportJob"]
-  dedupe -->|"no"| persist["Persist ImportJob pending<br/>Persist TEXT/IMAGE/URL ImportJobSource rows"]
+  dedupe -->|"no"| persist["Persist ImportJob queued<br/>Persist TEXT/IMAGE/URL ImportJobSource rows<br/>record import_started + queued event"]
 
-  persist --> process["Process synchronously in POST /imports"]
-  process --> tree["Build RecipeSource tree<br/>primary sources have parent_source_id = null"]
+  persist --> enqueue["Enqueue import_recipe_task<br/>return 202 Accepted"]
+  enqueue --> process["Dramatiq worker runs sync handler<br/>status=running + worker_started event"]
+  process --> tree["Build RecipeResource tree<br/>primary resources have parent_resource_id = null"]
   tree --> images["Save attachment images first<br/>IMAGE + source=MANUAL"]
   images --> text["Add text input<br/>TEXT + source=MANUAL"]
   text --> url{"URL source?"}
@@ -31,7 +33,7 @@ flowchart TD
   ai --> quality{"confidence <= IMPORT_MIN_CONFIDENCE?"}
   quality -->|"yes"| lowConfidence["Mark ImportJob failed<br/>cleanup saved files"]
   quality -->|"no"| singleUrl["Normalize single URL internal conflicts"]
-  singleUrl --> sources["Map primarySourceRefs / ignoredSourceRefs<br/>to final RecipeSource statuses"]
+  singleUrl --> sources["Map primarySourceRefs / ignoredSourceRefs<br/>to final RecipeResource statuses"]
   sources --> cover{"AI coverCandidate references accepted image?"}
   cover -->|"no"| write
   cover -->|"yes"| guard["cover_guard black box<br/>ENABLE_COVER_CANDIDATE_GUARD default off"]
@@ -41,8 +43,9 @@ flowchart TD
   aggregate --> warn{"hasConflicts OR ignored primary source OR<br/>confidence <= IMPORT_WARN_CONFIDENCE?"}
   warn -->|"yes"| flag["Create CONTENT_WARNING flag"]
   warn -->|"no"| success
-  flag --> success["Mark ImportJob succeeded<br/>createdRecipeId set"]
-  success --> poll["Frontend polls GET /imports/{jobId}<br/>until terminal status"]
+  flag --> flagged["Mark ImportJob succeeded_with_flags<br/>createdRecipeId set"]
+  flagged --> poll
+  success["Mark ImportJob succeeded<br/>createdRecipeId set<br/>record completion notification"] --> poll["Frontend polls GET /imports/{jobId}<br/>until terminal status"]
   failJob --> poll
   lowConfidence --> poll
   poll --> detail["GET /recipes/{id}<br/>returns sources, images, cover, flags"]
@@ -60,16 +63,18 @@ flowchart TD
 
 ## Implemented Rules
 
-- `clientImportId` deduplicates imports for the default local user.
-- `POST /imports` processes synchronously for the local MVP and returns a terminal job when processing completes.
+- `clientImportId` deduplicates imports for the default local user through `ImportJob.dedupe_key`; `Idempotency-Key` can be used as an HTTP-level alias.
+- `POST /imports` returns `202 Accepted` for a new queued job; duplicate dedupe keys return the existing job.
+- Dramatiq workers execute the existing synchronous import pipeline.
+- Import processing records `JobEvent` rows and persisted user `Notification` rows, but notification polling API remains deferred.
 - Text input participates as recipe evidence.
 - Attachments are accepted before URL images and occupy `MAX_IMPORT_IMAGES` capacity.
 - URL images are loaded only within the remaining image capacity.
 - URL loader order is Instagram, Threads, then generic fallback.
-- `RecipeSource.source` records origin: `MANUAL`, `URL`, or `URL_VIDEO`.
+- `RecipeResource.source` records origin: `MANUAL`, `URL`, `URL_VIDEO`, or `GENERATED`.
 - URL imports create a parent URL source plus child final sources for URL text, URL images, video transcript, and video poster.
-- AI receives final sources only: all `RecipeSource` rows where `type != URL`, labeled with short request-local ids such as `source_1`.
-- The backend keeps an in-memory mapping from each request-local AI id back to its `RecipeSource` object for status and cover processing; `RecipeSource.source_ref` is not used by the import runtime.
+- AI receives final sources only: all `RecipeResource` rows where `type != URL`, labeled with short request-local ids such as `source_1`.
+- The backend keeps an in-memory mapping from each request-local AI id back to its `RecipeResource` object for status and cover processing.
 - Final recipe source statuses are derived from AI `primarySourceRefs` and `ignoredSourceRefs`.
 - Primary URL source status is aggregated from children: used if any child is used, ignored if all children are ignored, otherwise unknown.
 - Single URL import normalizes internal conflicts before warning/failure decisions, but source statuses still use the raw AI refs.
@@ -80,8 +85,6 @@ flowchart TD
 
 ## Current Deferrals
 
-- Real background queue/worker. The API contract already supports polling, but processing is sync-first.
-- Real OpenAI provider wiring for production imports; tests/dev use the provider interface and fake provider.
-- Video transcript/poster processing.
+- Frontend polling and notification UX are Phase 1d.
 - Full live Instagram/Threads scraping resilience. Current platform loaders are isolated and fixture-tested.
 - Cloud storage, auth, mobile-specific flows, and generated frontend API types.

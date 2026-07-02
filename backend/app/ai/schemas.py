@@ -27,10 +27,10 @@ class ExtractionQuality(BaseModel):
 
 class CoverCandidate(BaseModel):
     sourceRef: str = Field(min_length=1)
-    sourcePosition: int = Field(ge=0)
-    crop: dict[str, float] | None = None
-    confidence: float = Field(default=0, ge=0, le=1)
-    reason: str | None = None
+    confidence: float = Field(ge=0, le=1)
+    sourcePosition: None = None
+    crop: None = None
+    reason: None = None
 
 
 class ExtractedRecipe(BaseModel):
