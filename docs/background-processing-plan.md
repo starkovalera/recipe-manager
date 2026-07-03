@@ -1713,6 +1713,8 @@ Recipes without RecipeEmbedding rows are not included in the admin embeddings pa
 
 ### Iteration 11: Semantic/Vector Search Endpoint
 
+Status: implemented, pending review.
+
 #### Files
 
 ```text
@@ -1796,7 +1798,8 @@ Implement explicit states:
 
 ```text
 No selected chips, no text:
-  return latest recipes or empty? choose existing product behavior and document it.
+  frontend uses existing GET /recipes default grid behavior.
+  POST /search can return latest recipes if called directly with no filters.
 
 Selected chips only:
   return matching recipes sorted by default order.
@@ -1816,6 +1819,18 @@ Recipe has skipped_due_to_flags:
 ```
 
 Return empty list, not error, for no matches.
+
+Implemented endpoint: `POST /search`.
+
+Frontend behavior:
+
+```text
+No active search text and no chips:
+  GET /recipes
+
+Free text or selected chips present:
+  POST /search
+```
 
 ## Phase 3: UI and Diagnostics
 

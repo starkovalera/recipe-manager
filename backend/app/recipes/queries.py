@@ -13,7 +13,7 @@ def get_recipe(session: Session, recipe_id: str, owner_id: str) -> Recipe | None
     return session.scalar(select(Recipe).where(Recipe.id == recipe_id, Recipe.owner_id == owner_id))
 
 
-def _apply_recipe_list_filters(query: Select[Any], filters: RecipeListFilters) -> Select[Any]:
+def apply_recipe_list_filters(query: Select[Any], filters: RecipeListFilters) -> Select[Any]:
     if filters.tag_id is not None:
         query = query.where(Recipe.tags.any(Tag.id == filters.tag_id))
     for ingredient_query in filters.ingredient_queries:
@@ -32,7 +32,7 @@ def _apply_recipe_list_filters(query: Select[Any], filters: RecipeListFilters) -
 def count_recipes(session: Session, owner_id: str, *, filters: RecipeListFilters | None = None) -> int:
     query = select(func.count()).select_from(Recipe).where(Recipe.owner_id == owner_id)
     if filters is not None:
-        query = _apply_recipe_list_filters(query, filters)
+        query = apply_recipe_list_filters(query, filters)
     return session.scalar(query) or 0
 
 
@@ -51,7 +51,7 @@ def list_recipes(
         .order_by(Recipe.created_at.desc())
     )
     if filters is not None:
-        query = _apply_recipe_list_filters(query, filters)
+        query = apply_recipe_list_filters(query, filters)
     return list_scalars_with_optional_pagination(session, query, limit=limit, offset=offset)
 
 

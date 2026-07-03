@@ -1,8 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
-import { listRecipes, listSearchSuggestions } from "../api/client";
-import type { RecipeListParams, SearchSuggestion } from "../api/types";
+import { listRecipes, listSearchSuggestions, searchRecipes } from "../api/client";
+import type { RecipeList, RecipeListParams, SearchRequest, SearchResponse, SearchSuggestion } from "../api/types";
 import { PaginationControls } from "../components/PaginationControls";
 import { RecipeGrid } from "../components/RecipeGrid";
 
@@ -31,13 +31,25 @@ export function RecipeListPage({ onSelect }: { onSelect: (recipeId: string) => v
   const [chips, setChips] = useState<SearchSuggestion[]>([]);
   const normalizedSearchText = searchText.trim();
   const recipeParams = paramsForChips(chips, PAGE_LIMIT, offset);
-  const query = useQuery({ queryKey: ["recipes", recipeParams], queryFn: () => listRecipes(recipeParams) });
+  const shouldUseSearch = normalizedSearchText.length > 0 || chips.length > 0;
+  const searchRequest: SearchRequest = {
+    text: normalizedSearchText || null,
+    selected: chips,
+    limit: PAGE_LIMIT,
+    offset,
+  };
+  const query = useQuery<RecipeList | SearchResponse>({
+    queryKey: shouldUseSearch ? ["recipeSearch", searchRequest] : ["recipes", recipeParams],
+    queryFn: () => (shouldUseSearch ? searchRecipes(searchRequest) : listRecipes(recipeParams)),
+  });
   const suggestionsQuery = useQuery({
     queryKey: ["searchSuggestions", normalizedSearchText],
     queryFn: () => listSearchSuggestions({ q: normalizedSearchText, limit: SUGGESTION_LIMIT }),
     enabled: normalizedSearchText.length > 0,
   });
-  const total = query.data?.total ?? query.data?.items.length ?? 0;
+  const data = query.data;
+  const hasMore = data && "hasMore" in data ? data.hasMore : false;
+  const total = data && "total" in data ? data.total : offset + (data?.items.length ?? 0) + (hasMore ? 1 : 0);
   const limit = query.data?.limit ?? PAGE_LIMIT;
 
   function addChip(chip: SearchSuggestion) {
@@ -60,7 +72,13 @@ export function RecipeListPage({ onSelect }: { onSelect: (recipeId: string) => v
       <div className="search-panel">
         <label>
           Search recipes
-          <input value={searchText} onChange={(event) => setSearchText(event.target.value)} />
+          <input
+            value={searchText}
+            onChange={(event) => {
+              setSearchText(event.target.value);
+              setOffset(0);
+            }}
+          />
         </label>
         {suggestionsQuery.data && suggestionsQuery.data.items.length > 0 ? (
           <div className="suggestion-list">

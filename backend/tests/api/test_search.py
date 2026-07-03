@@ -1,5 +1,4 @@
 from collections.abc import Generator
-from datetime import datetime, timezone
 
 import pytest
 from fastapi.testclient import TestClient
@@ -12,12 +11,24 @@ from app.db.base import Base
 from app.db.init import ensure_default_user
 from app.db.session import get_session
 from app.main import create_app
-from app.models import Ingredient, Recipe, SourceName, Tag, User
+from app.models import Ingredient, Recipe, RecipeEmbedding, RecipeEmbeddingStatus, SourceName, Tag, User
+
+
+class StaticEmbeddingProvider:
+    model = "test-embedding"
+
+    def __init__(self, vector: list[float]) -> None:
+        self.vector = vector
+
+    def embed(self, text: str) -> list[float]:
+        return self.vector
 
 
 @pytest.fixture(autouse=True)
 def reset_settings(monkeypatch):
-    monkeypatch.setenv("MAX_TAGS_PER_USER", "50")
+    monkeypatch.setenv("MAX_RECIPE_INGREDIENTS", "50")
+    monkeypatch.setenv("MAX_RECIPE_INSTRUCTION_CHARS", "1000")
+    monkeypatch.setenv("MAX_RECIPE_NOTE_CHARS", "500")
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()
@@ -40,69 +51,128 @@ def client_with_session():
     return TestClient(app), SessionLocal
 
 
-def test_search_suggestions_return_owner_scoped_direct_matches():
+def add_recipe(
+    session: Session,
+    *,
+    owner_id: str,
+    title: str,
+    vector: list[float] | None,
+    status: RecipeEmbeddingStatus | None = RecipeEmbeddingStatus.READY,
+    tags: list[Tag] | None = None,
+    ingredients: list[str] | None = None,
+    source_name: SourceName = SourceName.MANUAL,
+    author_name: str | None = None,
+) -> Recipe:
+    recipe = Recipe(owner_id=owner_id, title=title, instructions=["Cook"], source_name=source_name, author_name=author_name)
+    for position, ingredient_name in enumerate(ingredients or []):
+        recipe.ingredients.append(Ingredient(name=ingredient_name, position=position))
+    recipe.tags.extend(tags or [])
+    if vector is not None and status is not None:
+        recipe.embedding = RecipeEmbedding(model="test-embedding", status=status.value, embedding=vector, input_hash=f"hash-{title}")
+    session.add(recipe)
+    return recipe
+
+
+def test_semantic_search_ranks_ready_embeddings_and_is_owner_scoped(monkeypatch):
     client, SessionLocal = client_with_session()
     with SessionLocal() as session:
         user = ensure_default_user(session)
-        tag = Tag(owner_id=user.id, name="quick")
-        deleted_tag = Tag(owner_id=user.id, name="quick deleted")
         other_user = User(id="other-user", email="other@example.test")
-        foreign_tag = Tag(owner_id=other_user.id, name="quick foreign")
-        recipe = Recipe(
-            owner_id=user.id,
-            title="Quick soup",
-            source_name=SourceName.INSTAGRAM,
-            author_name="fast_chef",
-            instructions=["Cook"],
-            tags=[tag],
-        )
-        recipe.ingredients.append(Ingredient(name="Chicken", position=0))
-        other_recipe = Recipe(owner_id=other_user.id, title="Quick private soup", instructions=["Hide"])
-        deleted_tag.deleted_at = datetime.now(timezone.utc)
-        session.add_all([recipe, deleted_tag, other_user, foreign_tag, other_recipe])
+        session.add(other_user)
+        add_recipe(session, owner_id=user.id, title="Close Soup", vector=[0.9])
+        add_recipe(session, owner_id=user.id, title="Far Salad", vector=[0.1])
+        add_recipe(session, owner_id=other_user.id, title="Private Close", vector=[1.0])
         session.commit()
+    monkeypatch.setattr("app.services.search.get_embedding_provider", lambda: ("test", StaticEmbeddingProvider([1.0])))
 
-    response = client.get("/search/suggestions?q=quick")
+    response = client.post("/search", json={"text": "warm soup", "limit": 10, "offset": 0})
 
     assert response.status_code == 200
     payload = response.json()
-    assert {"type": "tag", "id": tag.id, "recipeId": None, "value": None, "label": "quick"} in payload["items"]
-    assert {"type": "title", "id": None, "recipeId": recipe.id, "value": None, "label": "Quick soup"} in payload["items"]
-    labels = [item["label"] for item in payload["items"]]
-    assert "quick deleted" not in labels
-    assert "quick foreign" not in labels
-    assert "Quick private soup" not in labels
+    assert [item["title"] for item in payload["items"]] == ["Close Soup", "Far Salad"]
+    assert payload["hasMore"] is False
+    assert payload["limit"] == 10
+    assert payload["offset"] == 0
+    assert all(item["matchReasons"][0]["type"] == "semantic" for item in payload["items"])
 
 
-def test_search_suggestions_include_source_author_and_primary_ingredient_query():
+def test_semantic_search_applies_selected_chips_as_hard_filters(monkeypatch):
     client, SessionLocal = client_with_session()
     with SessionLocal() as session:
         user = ensure_default_user(session)
-        recipe = Recipe(
-            owner_id=user.id,
-            title="Dinner",
-            source_name=SourceName.THREADS,
-            author_name="dinner_author",
-            instructions=["Cook"],
-        )
-        recipe.ingredients.append(Ingredient(name="Cottage cheese 5%", position=0))
-        session.add(recipe)
+        dessert = Tag(owner_id=user.id, name="dessert")
+        dinner = Tag(owner_id=user.id, name="dinner")
+        add_recipe(session, owner_id=user.id, title="Apple Cake", vector=[0.9], tags=[dessert], ingredients=["Apple"])
+        add_recipe(session, owner_id=user.id, title="Apple Soup", vector=[1.0], tags=[dinner], ingredients=["Apple"])
+        add_recipe(session, owner_id=user.id, title="Berry Cake", vector=[0.8], tags=[dessert], ingredients=["Berry"])
+        session.commit()
+        dessert_id = dessert.id
+    monkeypatch.setattr("app.services.search.get_embedding_provider", lambda: ("test", StaticEmbeddingProvider([1.0])))
+
+    response = client.post(
+        "/search",
+        json={
+            "text": "apple",
+            "selected": [
+                {"type": "tag", "id": dessert_id},
+                {"type": "ingredient_query", "value": "apple"},
+            ],
+            "limit": 10,
+            "offset": 0,
+        },
+    )
+
+    assert response.status_code == 200
+    assert [item["title"] for item in response.json()["items"]] == ["Apple Cake"]
+
+
+def test_search_without_text_returns_filtered_latest_recipes():
+    client, SessionLocal = client_with_session()
+    with SessionLocal() as session:
+        user = ensure_default_user(session)
+        add_recipe(session, owner_id=user.id, title="Banana Toast", vector=None, ingredients=["Banana"])
+        add_recipe(session, owner_id=user.id, title="Apple Toast", vector=None, ingredients=["Apple"])
         session.commit()
 
-    author_response = client.get("/search/suggestions?q=dinner")
-    ingredient_response = client.get("/search/suggestions?q=cottage")
-    source_response = client.get("/search/suggestions?q=thr")
+    response = client.post(
+        "/search",
+        json={"selected": [{"type": "ingredient_query", "value": "banana"}], "limit": 10, "offset": 0},
+    )
 
-    assert author_response.status_code == 200
-    assert {"type": "author_name", "id": None, "recipeId": None, "value": "dinner_author", "label": "dinner_author"} in author_response.json()["items"]
-    assert ingredient_response.status_code == 200
-    assert ingredient_response.json()["items"][0] == {
-        "type": "ingredient_query",
-        "id": None,
-        "recipeId": None,
-        "value": "cottage",
-        "label": "Ingredient - cottage",
-    }
-    assert "ingredient_name" not in [item["type"] for item in ingredient_response.json()["items"]]
-    assert source_response.status_code == 200
-    assert {"type": "source_name", "id": None, "recipeId": None, "value": "THREADS", "label": "THREADS"} in source_response.json()["items"]
+    assert response.status_code == 200
+    payload = response.json()
+    assert [item["title"] for item in payload["items"]] == ["Banana Toast"]
+    assert payload["hasMore"] is False
+
+
+def test_semantic_search_excludes_non_ready_embeddings(monkeypatch):
+    client, SessionLocal = client_with_session()
+    with SessionLocal() as session:
+        user = ensure_default_user(session)
+        add_recipe(session, owner_id=user.id, title="Ready Recipe", vector=[0.8], status=RecipeEmbeddingStatus.READY)
+        add_recipe(session, owner_id=user.id, title="Skipped Recipe", vector=[1.0], status=RecipeEmbeddingStatus.SKIPPED_DUE_TO_FLAGS)
+        add_recipe(session, owner_id=user.id, title="No Embedding Recipe", vector=None)
+        session.commit()
+    monkeypatch.setattr("app.services.search.get_embedding_provider", lambda: ("test", StaticEmbeddingProvider([1.0])))
+
+    response = client.post("/search", json={"text": "recipe", "limit": 10, "offset": 0})
+
+    assert response.status_code == 200
+    assert [item["title"] for item in response.json()["items"]] == ["Ready Recipe"]
+
+
+def test_search_uses_limit_plus_one_for_has_more(monkeypatch):
+    client, SessionLocal = client_with_session()
+    with SessionLocal() as session:
+        user = ensure_default_user(session)
+        add_recipe(session, owner_id=user.id, title="One", vector=[0.9])
+        add_recipe(session, owner_id=user.id, title="Two", vector=[0.8])
+        session.commit()
+    monkeypatch.setattr("app.services.search.get_embedding_provider", lambda: ("test", StaticEmbeddingProvider([1.0])))
+
+    response = client.post("/search", json={"text": "recipe", "limit": 1, "offset": 0})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert [item["title"] for item in payload["items"]] == ["One"]
+    assert payload["hasMore"] is True

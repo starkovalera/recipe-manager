@@ -65,6 +65,22 @@ export type SearchSuggestionList = {
   items: SearchSuggestion[];
 };
 
+export type SearchRequest = {
+  text?: string | null;
+  selected?: SearchSuggestion[];
+  limit?: number;
+  offset?: number;
+};
+
+export type SearchResponse = {
+  items: Array<RecipeList["items"][number] & {
+    matchReasons: Array<{ type: "semantic" | "filter"; label: string; score?: number | null }>;
+  }>;
+  limit: number;
+  offset: number;
+  hasMore: boolean;
+};
+
 export type InternalImportJobList = {
   items: Array<{
     id: string;

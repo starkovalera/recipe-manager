@@ -67,6 +67,16 @@ Current implemented API surface.
 
 ## Search
 
+- `POST /search`
+  - Body: `{ "text"?: string | null, "selected"?: SearchChip[], "limit"?: number, "offset"?: number }`.
+  - `SearchChip.type`: `tag`, `ingredient_query`, `source_name`, `author_name`, or `title`.
+  - Returns `{ items: [{ id, title, note, coverImage, hasOpenReviewFlags, matchReasons }], limit, offset, hasMore }`.
+  - Uses `hasMore`, not `total`.
+  - Free text is semantic/vector search only and searches current-user recipes with `RecipeEmbedding.status = ready`.
+  - Selected chips are hard filters. With both text and chips, filters are applied before vector ranking.
+  - Without text, selected chips return matching recipes sorted by the default recipe order.
+  - Without text and without selected chips, the frontend continues using `GET /recipes` for the default recipe grid.
+  - Recipes without ready embeddings, including `skipped_due_to_flags`, are absent from semantic results.
 - `GET /search/suggestions?q=<text>&limit=10`
   - Returns `{ items: [{ type, id, recipeId, value, label }] }`.
   - Suggestion `type` values: `tag`, `ingredient_query`, `source_name`, `author_name`, `title`.

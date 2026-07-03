@@ -12,6 +12,8 @@ import type {
   RecipeList,
   RecipeListParams,
   RecipePatch,
+  SearchRequest,
+  SearchResponse,
   SearchSuggestionList,
   Tag,
   TagList,
@@ -117,6 +119,14 @@ export async function listRecipes(params?: RecipeListParams): Promise<RecipeList
 
 export async function listSearchSuggestions(params: { q: string; limit?: number }): Promise<SearchSuggestionList> {
   return request<SearchSuggestionList>(withQuery("/search/suggestions", params));
+}
+
+export async function searchRecipes(input: SearchRequest): Promise<SearchResponse> {
+  return request<SearchResponse>("/search", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
 }
 
 export async function getRecipe(recipeId: string): Promise<RecipeDetail> {

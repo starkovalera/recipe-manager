@@ -82,16 +82,26 @@ describe("App", () => {
   });
 
   it("selects autocomplete chips and filters recipe list requests", async () => {
+    const searchBodies: Array<{ text?: string | null; selected?: Array<{ type: string; value?: string | null }> }> = [];
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       const parsed = new URL(url);
       const path = parsed.pathname;
+      if (path === "/search" && init?.method === "POST" && typeof init.body === "string") {
+        searchBodies.push(JSON.parse(init.body));
+      }
       const payloads: Record<string, unknown> = {
         "GET /recipes": {
           items: [{ id: "recipe-1", title: "Chicken Soup", coverImage: null }],
           total: 1,
           limit: 24,
           offset: 0,
+        },
+        "POST /search": {
+          items: [{ id: "recipe-1", title: "Chicken Soup", coverImage: null, matchReasons: [{ type: "filter", label: "Selected filters" }] }],
+          limit: 24,
+          offset: 0,
+          hasMore: false,
         },
         "GET /search/suggestions": {
           items: [{ type: "ingredient_query", value: "chicken", label: "Ingredient - chicken" }],
@@ -112,11 +122,12 @@ describe("App", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: /Chicken Soup/ })).toBeTruthy());
     fireEvent.change(screen.getByLabelText("Search recipes"), { target: { value: "chick" } });
     await waitFor(() => expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/search/suggestions?q=chick&limit=10"))).toBe(true));
+    await waitFor(() => expect(searchBodies.some((body) => body.text === "chick")).toBe(true));
     await waitFor(() => expect(screen.getByRole("button", { name: "Ingredient - chicken" })).toBeTruthy());
     fireEvent.click(screen.getByRole("button", { name: "Ingredient - chicken" }));
 
     await waitFor(() =>
-      expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/recipes?limit=24&offset=0&ingredientQuery=chicken"))).toBe(true),
+      expect(searchBodies.some((body) => body.selected?.some((chip) => chip.type === "ingredient_query" && chip.value === "chicken"))).toBe(true),
     );
     expect(screen.getByRole("button", { name: "Remove Ingredient - chicken filter" })).toBeTruthy();
   });
