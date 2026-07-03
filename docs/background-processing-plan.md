@@ -1964,6 +1964,13 @@ flowchart TD
   - internal job/event diagnostics;
   - operational settings that should not be exposed to normal users;
   - access control for admin-only pages.
+- Replace the current temporary local-admin guard with real permission checks for all internal/admin surfaces:
+  - backend `GET /internal/import-jobs`;
+  - backend `GET /internal/embeddings`;
+  - backend `POST /internal/embeddings/{recipe_id}/retry`;
+  - web `Import jobs / Job events` page;
+  - web `Recipe embeddings` page;
+  - future user management, user settings, admin settings, and worker diagnostics pages.
 - Replace `get_current_user` default local-user behavior with authenticated user resolution.
 - Keep a clean dependency boundary so mobile can use the same backend APIs.
 - Verify all owner-scoped data access:
@@ -1976,6 +1983,9 @@ flowchart TD
   - search/embedding jobs when present.
 - Hide internal/admin pages from normal users once real roles are introduced:
   - import jobs / job events;
+  - recipe embeddings;
+  - user management;
+  - user settings and admin settings where applicable;
   - debug/audit views;
   - worker diagnostics.
 - Ensure workers operate under persisted `owner_id` and never infer user identity from worker runtime context.
