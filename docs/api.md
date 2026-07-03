@@ -108,7 +108,15 @@ Current implemented API surface.
   - Real admin-only authorization is deferred to Phase 5.
 - `GET /internal/embeddings`
   - Internal diagnostics endpoint for the current local/admin workflow.
-  - Returns recipe embedding status, model, input hash, attempts, errors, timestamps, owner id, and recipe title.
+  - Returns one row per existing `RecipeEmbedding`.
+  - Rows include recipe embedding status, model, input hash, attempts, errors, timestamps, owner id, recipe title, and embedding event history.
+  - Recipes without a `RecipeEmbedding` row are not returned.
+  - Event history is internal audit/debug data only; current embedding status is read from `RecipeEmbedding.status`, not computed from events.
+  - Real admin-only authorization is deferred to Phase 5.
+- `POST /internal/embeddings/{recipeId}/retry`
+  - Internal diagnostics action for the current local/admin workflow.
+  - Requests manual embedding retry for an existing `RecipeEmbedding` row.
+  - Writes `retry_requested`, `scheduled`, and, if queueing succeeds, `enqueued` embedding events.
   - Real admin-only authorization is deferred to Phase 5.
 
 ## Current Deferrals

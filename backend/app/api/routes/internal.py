@@ -1,10 +1,14 @@
 from fastapi import APIRouter
 
 from app.api.deps import SessionDep
+from app.core.errors import ApiError, ErrorCode
 from app.embeddings.diagnostics import list_internal_recipe_embeddings
+from app.embeddings.queries import get_recipe_embedding_with_recipe
+from app.embeddings.service import retry_recipe_embedding
 from app.imports.queries import list_internal_import_jobs
 from app.models import ImportJob, RecipeEmbedding
 from app.schemas.internal import InternalImportJobListOut, InternalRecipeEmbeddingListOut
+from app.schemas.recipes import RecipeEmbeddingOut
 
 router = APIRouter(prefix="/internal", tags=["internal"])
 
@@ -17,3 +21,11 @@ def get_internal_import_jobs(session: SessionDep) -> dict[str, list[ImportJob]]:
 @router.get("/embeddings", response_model=InternalRecipeEmbeddingListOut)
 def get_internal_recipe_embeddings(session: SessionDep) -> dict[str, list[RecipeEmbedding]]:
     return {"items": list_internal_recipe_embeddings(session)}
+
+
+@router.post("/embeddings/{recipe_id}/retry", response_model=RecipeEmbeddingOut)
+def retry_internal_recipe_embedding(recipe_id: str, session: SessionDep) -> RecipeEmbedding:
+    embedding = get_recipe_embedding_with_recipe(session, recipe_id)
+    if embedding is None:
+        raise ApiError(ErrorCode.RECIPE_NOT_FOUND, "Recipe embedding not found.", status_code=404)
+    return retry_recipe_embedding(session, recipe_id, embedding.recipe.owner_id)

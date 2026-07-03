@@ -8,7 +8,7 @@ def list_internal_recipe_embeddings(session: Session) -> list[RecipeEmbedding]:
     return list(
         session.scalars(
             select(RecipeEmbedding)
-            .options(selectinload(RecipeEmbedding.recipe))
+            .options(selectinload(RecipeEmbedding.recipe), selectinload(RecipeEmbedding.events))
             .order_by(RecipeEmbedding.updated_at.desc(), RecipeEmbedding.created_at.desc())
         )
     )

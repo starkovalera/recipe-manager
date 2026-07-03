@@ -128,6 +128,7 @@ This checklist applies to every phase. Any phase that touches import, resources,
 - `Recipe.search_text` and `Recipe.search_text_hash` are internal derived fields, not API response fields. They are built only from `title`, `source_name`, `author_name`, `ingredients.search_name`, `instructions`, `nutrition_estimate`, and `cook_time_minutes`, and are rebuilt after successful import and relevant manual recipe edits.
 - `RecipeEmbedding` is optional technical search-index state: `Recipe 1 -- 0..1 RecipeEmbedding`. `recipe_embeddings.recipe_id` is both primary key and foreign key to `recipes.id` with cascade delete. Application code creates or updates the row only when the embedding subsystem needs to record state.
 - `RecipeEmbedding.input_hash` is independent from `Recipe.search_text_hash`. Embedding input is built only from `title`, `ingredients.search_name`, `instructions`, `nutrition_estimate`, and `cook_time_minutes`. Recipes with open review flags are marked `skipped_due_to_flags` and are not enqueued for embedding until the last open flag is resolved. Embedding tasks do not create user-facing notifications.
+- `RecipeEmbeddingEvent` is append-only internal audit/debug history for `RecipeEmbedding`. It is not user-facing notification data and current embedding status is never computed from events. `RecipeEmbeddingEvent.recipe_id` points to `recipe_embeddings.recipe_id` and cascades through `RecipeEmbedding`.
 - Recipe and collection list endpoints are owner-scoped and paginated. Public list responses include `items`, `total`, `limit`, and `offset`. Lower-level query functions may return full owner-scoped lists when `limit` and `offset` are omitted.
 - Selected search chips are hard filters. Free text is reserved for vector search. `ingredient_name` has been replaced with `ingredient_query` in autocomplete, API parameters, and frontend types. Autocomplete always returns an `ingredient_query` suggestion first for a non-empty `q`, for example `Ingredient - cottage`. Concrete ingredient suggestions are no longer returned, to avoid encouraging overly exact ingredient choices. `/recipes` accepts repeatable `ingredientQuery=<text>` query parameters. Each `ingredientQuery` value filters recipes through `contains` matching against `Ingredient.search_name`, and multiple `ingredientQuery` values are combined with AND semantics.
 - URL source status aggregation is preserved.
@@ -1463,7 +1464,7 @@ No user notifications for embedding tasks. Logs/audit are enough.
 
 ### Iteration 10b: RecipeEmbeddingEvent Audit History
 
-Status: planned. Requires explicit approval before implementation.
+Status: implemented, pending review.
 
 Goal: add append-only internal audit/debug history for the `RecipeEmbedding` lifecycle. This is not user-facing notification functionality and must not change how current embedding status is computed.
 
@@ -1650,24 +1651,18 @@ Do not write `already_ready` from scheduler checks; it is worker-only.
 Extend the internal/admin embeddings functionality:
 
 ```text
-GET /admin/recipe-embeddings
+GET /internal/embeddings
   returns only existing RecipeEmbedding rows
-  supports pagination
-  optional status filter
-  admin-safe according to current project conventions
+  includes event history
+  uses existing internal/admin-safe-by-convention surface
 
-GET /admin/recipe-embeddings/{recipe_id}/events
-  returns events for an existing RecipeEmbedding
-  supports pagination
-  sorted by created_at
-
-POST /admin/recipe-embeddings/{recipe_id}/retry
+POST /internal/embeddings/{recipe_id}/retry
   triggers manual retry
   writes retry_requested
   writes enqueued if queueing succeeds
 ```
 
-If admin auth is not implemented yet, follow existing internal-route conventions and do not expose unsafe public admin routes beyond the currently accepted internal/admin surface.
+Dedicated paginated `/admin/recipe-embeddings` endpoints are deferred until real admin auth/routes are introduced. Current implementation extends the existing `/internal/embeddings` local/admin diagnostics page.
 
 Admin page "Recipe embeddings" should show one row per existing `RecipeEmbedding` row:
 

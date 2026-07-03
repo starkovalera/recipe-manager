@@ -3,7 +3,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field, computed_field
 
-from app.models import ImportJobSource, JobEvent, Recipe
+from app.models import ImportJobSource, JobEvent, Recipe, RecipeEmbeddingEvent
 from app.schemas.base import CamelModel
 
 EVENT_STATUS_MAP = {
@@ -28,6 +28,7 @@ class InternalImportJobSourceOut(CamelModel):
 class InternalJobEventOut(CamelModel):
     id: str
     event_type: str
+    status_after: str | None = None
     payload: dict[str, Any] | None = None
     created_at: datetime | None = None
 
@@ -103,6 +104,7 @@ class InternalRecipeEmbeddingOut(CamelModel):
     created_at: datetime | None = None
     updated_at: datetime | None = None
     recipe_item: Recipe | None = Field(default=None, validation_alias="recipe", exclude=True)
+    event_items: list[RecipeEmbeddingEvent] = Field(default_factory=list, validation_alias="events", exclude=True)
 
     @computed_field
     @property
@@ -113,6 +115,11 @@ class InternalRecipeEmbeddingOut(CamelModel):
     @property
     def recipe_title(self) -> str | None:
         return self.recipe_item.title if self.recipe_item is not None else None
+
+    @computed_field
+    @property
+    def events(self) -> list[InternalJobEventOut]:
+        return [InternalJobEventOut.model_validate(event) for event in sorted(self.event_items, key=lambda item: item.created_at, reverse=True)]
 
 
 class InternalRecipeEmbeddingListOut(BaseModel):

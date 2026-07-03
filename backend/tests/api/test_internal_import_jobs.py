@@ -17,6 +17,7 @@ from app.models import (
     ImportSourceStatus,
     Recipe,
     RecipeEmbedding,
+    RecipeEmbeddingEvent,
     RecipeEmbeddingStatus,
     SourceType,
 )
@@ -89,7 +90,17 @@ def test_internal_embeddings_returns_recipe_embedding_status():
             status=RecipeEmbeddingStatus.READY.value,
             failed_attempts=1,
         )
+        recipe.embedding.events.append(
+            RecipeEmbeddingEvent(
+                owner_id=user.id,
+                event_type="saved",
+                status_after=RecipeEmbeddingStatus.READY.value,
+                payload={"dimension": 1536},
+            )
+        )
+        recipe_without_embedding = Recipe(owner_id=user.id, title="No embedding", instructions=["Wait"])
         session.add(recipe)
+        session.add(recipe_without_embedding)
         session.commit()
 
     response = client.get("/internal/embeddings")
@@ -103,3 +114,35 @@ def test_internal_embeddings_returns_recipe_embedding_status():
     assert item["model"] == "test-embedding"
     assert item["inputHash"] == "hash-1"
     assert item["failedAttempts"] == 1
+    assert len(response.json()["items"]) == 1
+    assert item["events"][0]["eventType"] == "saved"
+    assert item["events"][0]["statusAfter"] == "ready"
+    assert item["events"][0]["payload"] == {"dimension": 1536}
+
+
+def test_internal_embedding_retry_uses_existing_embedding_owner(monkeypatch):
+    client, SessionLocal = client_with_session()
+    enqueued: list[str] = []
+    with SessionLocal() as session:
+        user = ensure_default_user(session)
+        recipe = Recipe(owner_id=user.id, title="Soup", instructions=["Heat water"])
+        recipe.embedding = RecipeEmbedding(
+            model="test-embedding",
+            input_hash="hash-1",
+            status=RecipeEmbeddingStatus.FAILED.value,
+            failed_attempts=1,
+        )
+        session.add(recipe)
+        session.commit()
+        recipe_id = recipe.id
+
+    monkeypatch.setattr("app.embeddings.service.enqueue_recipe_embedding", enqueued.append)
+    response = client.post(f"/internal/embeddings/{recipe_id}/retry")
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "stale"
+    assert enqueued == [recipe_id]
+    with SessionLocal() as session:
+        embedding = session.get(RecipeEmbedding, recipe_id)
+        assert embedding is not None
+        assert [event.event_type for event in embedding.events] == ["retry_requested", "scheduled", "enqueued"]

@@ -14,6 +14,7 @@ from app.models import (
     Notification,
     Recipe,
     RecipeEmbedding,
+    RecipeEmbeddingEvent,
     RecipeEmbeddingStatus,
     RecipeImage,
     RecipeResource,
@@ -237,3 +238,32 @@ def test_deleting_recipe_deletes_embedding_row():
     session.commit()
 
     assert session.get(RecipeEmbedding, recipe_id) is None
+
+
+def test_recipe_embedding_event_belongs_to_embedding_and_cascades_with_recipe():
+    session = create_session()
+    user = ensure_default_user(session)
+    recipe = Recipe(owner_id=user.id, title="Toast", instructions=["Toast bread"])
+    recipe.embedding = RecipeEmbedding(model="test-embedding", status=RecipeEmbeddingStatus.STALE.value)
+    session.add(recipe)
+    session.flush()
+    event = RecipeEmbeddingEvent(
+        recipe_id=recipe.id,
+        owner_id=user.id,
+        event_type="scheduled",
+        status_after=RecipeEmbeddingStatus.STALE.value,
+        payload={"reason": "test"},
+    )
+    recipe.embedding.events.append(event)
+    session.commit()
+    event_id = event.id
+
+    saved = session.get(RecipeEmbedding, recipe.id)
+    assert saved is not None
+    assert saved.events[0].id == event_id
+    assert saved.events[0].payload == {"reason": "test"}
+
+    session.delete(recipe)
+    session.commit()
+
+    assert session.get(RecipeEmbeddingEvent, event_id) is None

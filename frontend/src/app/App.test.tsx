@@ -239,9 +239,19 @@ describe("App", () => {
             failedAttempts: 1,
             updatedAt: "2026-07-02T10:00:00Z",
             lastAttemptAt: "2026-07-02T09:59:00Z",
+            events: [
+              {
+                id: "event-1",
+                eventType: "saved",
+                statusAfter: "ready",
+                createdAt: "2026-07-02T10:00:00Z",
+                payload: { dimension: 1536 },
+              },
+            ],
           },
         ],
       },
+      "POST /internal/embeddings/recipe-1/retry": {},
     });
 
     render(<App />);
@@ -252,6 +262,12 @@ describe("App", () => {
     expect(screen.getByText(/ready - user local-user - recipe recipe-1/)).toBeTruthy();
     expect(screen.getByText("test-embedding")).toBeTruthy();
     expect(screen.getByText("abcdef123456...")).toBeTruthy();
+    expect(screen.getByText("Events (1)")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    await waitFor(() => expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining("/internal/embeddings/recipe-1/retry"),
+      expect.objectContaining({ method: "POST" }),
+    ));
   });
 
   it("shows notification history, marks notifications read, and opens successful recipe imports", async () => {

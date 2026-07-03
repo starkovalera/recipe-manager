@@ -212,6 +212,10 @@ export async function listInternalRecipeEmbeddings(): Promise<InternalRecipeEmbe
   return request<InternalRecipeEmbeddingList>("/internal/embeddings");
 }
 
+export async function retryInternalRecipeEmbedding(recipeId: string): Promise<void> {
+  await request<void>(`/internal/embeddings/${recipeId}/retry`, { method: "POST" });
+}
+
 export async function listTags(params?: TagListParams): Promise<TagList> {
   return request<TagList>(withQuery("/tags", params));
 }

@@ -268,6 +268,27 @@ class RecipeEmbedding(TimestampMixin, Base):
     last_error_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     recipe: Mapped[Recipe] = relationship(back_populates="embedding")
+    events: Mapped[list[RecipeEmbeddingEvent]] = relationship(back_populates="embedding", cascade="all, delete-orphan")
+
+
+class RecipeEmbeddingEvent(Base):
+    __tablename__ = "embedding_events"
+    __table_args__ = (
+        Index("ix_embedding_events_recipe_created_at", "recipe_id", "created_at"),
+        Index("ix_embedding_events_owner_created_at", "owner_id", "created_at"),
+        Index("ix_embedding_events_type_created_at", "event_type", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
+    recipe_id: Mapped[str] = mapped_column(ForeignKey("recipe_embeddings.recipe_id", ondelete="CASCADE"), nullable=False)
+    owner_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    event_type: Mapped[str] = mapped_column(String, nullable=False)
+    status_after: Mapped[str | None] = mapped_column(String)
+    payload: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    embedding: Mapped[RecipeEmbedding] = relationship(back_populates="events")
+    owner: Mapped[User] = relationship()
 
 
 class Tag(TimestampMixin, Base):

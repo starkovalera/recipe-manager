@@ -32,6 +32,15 @@ def get_recipe_embedding(session: Session, recipe_id: str) -> RecipeEmbedding | 
     return session.get(RecipeEmbedding, recipe_id)
 
 
+def get_recipe_embedding_with_recipe(session: Session, recipe_id: str) -> RecipeEmbedding | None:
+    query = (
+        select(RecipeEmbedding)
+        .where(RecipeEmbedding.recipe_id == recipe_id)
+        .options(selectinload(RecipeEmbedding.recipe))
+    )
+    return session.scalar(query)
+
+
 def get_or_create_recipe_embedding(session: Session, recipe_id: str, *, model: str) -> RecipeEmbedding:
     embedding = get_recipe_embedding(session, recipe_id)
     if embedding is not None:

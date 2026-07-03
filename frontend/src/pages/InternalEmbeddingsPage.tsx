@@ -1,6 +1,7 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 
-import { listInternalRecipeEmbeddings } from "../api/client";
+import { listInternalRecipeEmbeddings, retryInternalRecipeEmbedding } from "../api/client";
+import { queryClient } from "../app/queryClient";
 
 function formatDate(value?: string | null) {
   return value ? new Date(value).toLocaleString() : "-";
@@ -12,6 +13,10 @@ function shortHash(value?: string | null) {
 
 export function InternalEmbeddingsPage() {
   const query = useQuery({ queryKey: ["internal-embeddings"], queryFn: listInternalRecipeEmbeddings });
+  const retryMutation = useMutation({
+    mutationFn: retryInternalRecipeEmbedding,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["internal-embeddings"] }),
+  });
 
   if (query.isLoading) return <section className="panel">Loading embeddings...</section>;
   if (query.error) return <section className="panel" role="alert">{query.error.message}</section>;
@@ -35,6 +40,11 @@ export function InternalEmbeddingsPage() {
                   <span>Last attempt {formatDate(embedding.lastAttemptAt)}</span>
                 </div>
               </header>
+              <div className="actions-row">
+                <button type="button" onClick={() => retryMutation.mutate(embedding.recipeId)} disabled={retryMutation.isPending}>
+                  Retry
+                </button>
+              </div>
               <dl className="debug-grid">
                 <div>
                   <dt>Model</dt>
@@ -53,6 +63,23 @@ export function InternalEmbeddingsPage() {
                   <dd>{embedding.errorMessage ? `${formatDate(embedding.lastErrorAt)} - ${embedding.errorMessage}` : "-"}</dd>
                 </div>
               </dl>
+              <details className="debug-events">
+                <summary>Events ({embedding.events.length})</summary>
+                {embedding.events.length ? (
+                  <ul>
+                    {embedding.events.map((event) => (
+                      <li key={event.id}>
+                        <strong>{event.eventType}</strong>
+                        <span> {event.statusAfter ?? "-"} </span>
+                        <span>{formatDate(event.createdAt)}</span>
+                        {event.payload ? <pre>{JSON.stringify(event.payload, null, 2)}</pre> : null}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p>No embedding events yet.</p>
+                )}
+              </details>
             </article>
           ))
         ) : (

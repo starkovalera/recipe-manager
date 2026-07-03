@@ -99,6 +99,13 @@ export type InternalRecipeEmbeddingList = {
     lastErrorAt?: string | null;
     createdAt?: string | null;
     updatedAt?: string | null;
+    events: Array<{
+      id: string;
+      eventType: string;
+      statusAfter?: string | null;
+      payload?: Record<string, unknown> | null;
+      createdAt?: string | null;
+    }>;
   }>;
 };
 

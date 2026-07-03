@@ -10,7 +10,7 @@ from app.ai.schemas import ReadySource
 from app.core.config import get_settings
 from app.core.errors import ApiError, ErrorCode
 from app.core.logging import BoundLogger, bind_logger
-from app.embeddings.service import enqueue_recipe_embedding, prepare_recipe_embedding
+from app.embeddings.service import enqueue_recipe_embedding_with_event, prepare_recipe_embedding
 from app.imports.constants import IMPORT_LOG_COMPONENT, IMPORT_LOG_PREFIX
 from app.imports.cover_generation import CoverGenerationContext, generate_cover_image
 from app.imports.events import record_job_event
@@ -341,14 +341,15 @@ def process_import_job(session: Session, job_id: str) -> None:
     session.flush()
     if cover_image is not None:
         recipe.cover_image_id = cover_image.id
-    _, should_enqueue_embedding = prepare_recipe_embedding(recipe)
+    embedding, should_enqueue_embedding = prepare_recipe_embedding(recipe)
     job.created_recipe_id = recipe.id
     job.status = ImportJobStatus.SUCCEEDED_WITH_FLAGS if has_review_flag else ImportJobStatus.SUCCEEDED
     job.finished_at = datetime.now(timezone.utc)
     handle_recipe_created(session, job, recipe_id=recipe.id, status=job.status)
     session.commit()
     if should_enqueue_embedding:
-        enqueue_recipe_embedding(recipe.id)
+        enqueue_recipe_embedding_with_event(session, embedding=embedding, owner_id=recipe.owner_id)
+        session.commit()
     log.info(
         f"{IMPORT_LOG_PREFIX} Import job succeeded",
         recipeId=recipe.id,
