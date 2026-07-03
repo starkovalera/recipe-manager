@@ -5,6 +5,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.api.deps import get_current_user
 from app.db.base import Base
 from app.db.init import ensure_default_user
 from app.db.session import get_session
@@ -20,6 +21,7 @@ from app.models import (
     RecipeEmbeddingEvent,
     RecipeEmbeddingStatus,
     SourceType,
+    User,
 )
 
 
@@ -38,6 +40,16 @@ def client_with_session():
     app = create_app()
     app.dependency_overrides[get_session] = override_session
     return TestClient(app), SessionLocal
+
+
+def test_internal_routes_require_admin_user():
+    client, _ = client_with_session()
+    client.app.dependency_overrides[get_current_user] = lambda: User(id="regular-user", email="regular@example.test")
+
+    response = client.get("/internal/import-jobs")
+
+    assert response.status_code == 403
+    assert response.json() == {"errorCode": "FORBIDDEN", "message": "Admin access is required."}
 
 
 def test_internal_import_jobs_returns_jobs_sources_events_and_status_history():

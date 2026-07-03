@@ -26,6 +26,7 @@ class ErrorCode(str, Enum):
     DUPLICATE_TAG = "DUPLICATE_TAG"
     TAG_LIMIT_EXCEEDED = "TAG_LIMIT_EXCEEDED"
     INVALID_TAG = "INVALID_TAG"
+    FORBIDDEN = "FORBIDDEN"
 
 
 class ApiError(Exception):

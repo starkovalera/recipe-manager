@@ -1,6 +1,6 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
-from app.api.deps import SessionDep
+from app.api.deps import SessionDep, require_admin_user
 from app.core.errors import ApiError, ErrorCode
 from app.embeddings.diagnostics import list_internal_recipe_embeddings
 from app.embeddings.queries import get_recipe_embedding_with_recipe
@@ -10,7 +10,7 @@ from app.models import ImportJob, RecipeEmbedding
 from app.schemas.internal import InternalImportJobListOut, InternalRecipeEmbeddingListOut
 from app.schemas.recipes import RecipeEmbeddingOut
 
-router = APIRouter(prefix="/internal", tags=["internal"])
+router = APIRouter(prefix="/internal", tags=["internal"], dependencies=[Depends(require_admin_user)])
 
 
 @router.get("/import-jobs", response_model=InternalImportJobListOut)
