@@ -265,3 +265,12 @@ class ReviewFlagPatchIn(CamelModel):
 
 class RecipeResourcePatchIn(CamelModel):
     status: Literal["used", "deleted"]
+
+
+class RecipeEmbeddingOut(CamelModel):
+    recipe_id: str
+    status: str
+    model: str
+    input_hash: str | None = None
+    failed_attempts: int
+    error_message: str | None = None

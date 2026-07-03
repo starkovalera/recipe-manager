@@ -10,7 +10,16 @@ from app.db.init import ensure_default_user
 from app.db.session import get_session
 from app.imports.events import record_job_event
 from app.main import create_app
-from app.models import ImportJob, ImportJobSource, ImportJobStatus, ImportSourceStatus, SourceType
+from app.models import (
+    ImportJob,
+    ImportJobSource,
+    ImportJobStatus,
+    ImportSourceStatus,
+    Recipe,
+    RecipeEmbedding,
+    RecipeEmbeddingStatus,
+    SourceType,
+)
 
 
 def client_with_session():
@@ -67,3 +76,30 @@ def test_internal_import_jobs_returns_jobs_sources_events_and_status_history():
     assert item["sources"][0]["url"] == "https://example.com/post"
     assert [event["eventType"] for event in item["events"]] == ["queued", "worker_started", "recipe_created"]
     assert [entry["status"] for entry in item["statusHistory"]] == ["queued", "running", "succeeded"]
+
+
+def test_internal_embeddings_returns_recipe_embedding_status():
+    client, SessionLocal = client_with_session()
+    with SessionLocal() as session:
+        user = ensure_default_user(session)
+        recipe = Recipe(owner_id=user.id, title="Soup", instructions=["Heat water"])
+        recipe.embedding = RecipeEmbedding(
+            model="test-embedding",
+            input_hash="hash-1",
+            status=RecipeEmbeddingStatus.READY.value,
+            failed_attempts=1,
+        )
+        session.add(recipe)
+        session.commit()
+
+    response = client.get("/internal/embeddings")
+
+    assert response.status_code == 200
+    item = response.json()["items"][0]
+    assert item["recipeId"] == recipe.id
+    assert item["recipeTitle"] == "Soup"
+    assert item["ownerId"] == "local-user"
+    assert item["status"] == "ready"
+    assert item["model"] == "test-embedding"
+    assert item["inputHash"] == "hash-1"
+    assert item["failedAttempts"] == 1

@@ -42,6 +42,7 @@ def reset_import_dependencies(monkeypatch):
     set_recipe_extraction_provider(FakeRecipeExtractionProvider())
     reset_url_content_loader_registry()
     monkeypatch.setattr(import_routes, "enqueue_import_job", lambda import_job_id: None, raising=False)
+    monkeypatch.setattr("app.embeddings.service.enqueue_recipe_embedding", lambda recipe_id: None)
     yield
     set_recipe_extraction_provider(FakeRecipeExtractionProvider())
     reset_url_content_loader_registry()

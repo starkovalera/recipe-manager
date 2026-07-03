@@ -5,6 +5,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     JSON,
     DateTime,
@@ -89,6 +90,14 @@ class RecipeReviewFlagType(str, enum.Enum):
     CONTENT_WARNING = "CONTENT_WARNING"
 
 
+class RecipeEmbeddingStatus(str, enum.Enum):
+    STALE = "stale"
+    RUNNING = "running"
+    READY = "ready"
+    FAILED = "failed"
+    SKIPPED_DUE_TO_FLAGS = "skipped_due_to_flags"
+
+
 class TimestampMixin:
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
@@ -152,6 +161,7 @@ class Recipe(TimestampMixin, Base):
     tags: Mapped[list[Tag]] = relationship(secondary="recipe_tags", back_populates="recipes")
     collections: Mapped[list[Collection]] = relationship(secondary="recipe_collections", back_populates="recipes")
     import_jobs: Mapped[list[ImportJob]] = relationship(back_populates="created_recipe")
+    embedding: Mapped[RecipeEmbedding | None] = relationship(back_populates="recipe", cascade="all, delete-orphan", uselist=False)
 
 
 class Ingredient(Base):
@@ -242,6 +252,22 @@ class RecipeReviewFlag(TimestampMixin, Base):
 
     recipe: Mapped[Recipe] = relationship(back_populates="review_flags")
     owner: Mapped[User] = relationship(back_populates="review_flags")
+
+
+class RecipeEmbedding(TimestampMixin, Base):
+    __tablename__ = "recipe_embeddings"
+
+    recipe_id: Mapped[str] = mapped_column(ForeignKey("recipes.id", ondelete="CASCADE"), primary_key=True)
+    embedding: Mapped[list[float] | None] = mapped_column(Vector(1536).with_variant(JSON(), "sqlite"))
+    model: Mapped[str] = mapped_column(String, nullable=False)
+    input_hash: Mapped[str | None] = mapped_column(String)
+    status: Mapped[str] = mapped_column(String, nullable=False)
+    error_message: Mapped[str | None] = mapped_column(Text)
+    failed_attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    last_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_error_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    recipe: Mapped[Recipe] = relationship(back_populates="embedding")
 
 
 class Tag(TimestampMixin, Base):

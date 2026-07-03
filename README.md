@@ -15,8 +15,11 @@ Put your AI key in `backend/.env`:
 
 ```dotenv
 AI_PROVIDER=openai
+EMBEDDING_PROVIDER=openai
 OPENAI_API_KEY=<your-openai-key>
 ```
+
+Without an OpenAI key, recipe extraction and embeddings use local fake providers.
 
 ```powershell
 cd C:\Users\stark\Documents\recipe-manager\backend

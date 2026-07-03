@@ -126,6 +126,8 @@ This checklist applies to every phase. Any phase that touches import, resources,
 - AI-returned recipe tags are matched only against active current-owner tags by normalized name. Duplicate AI tags are dropped before persistence, and invalid AI tags are logged and ignored.
 - Recipe ingredients are edited and saved as structured rows. The only required ingredient field is `name`; `quantity`, `unit`, and `note` are optional. Frontend ingredient edits remain local until the whole recipe form is saved. `Ingredient.search_name` is an internal normalized/casefolded derivative of `Ingredient.name`, is not exposed through API responses, and is recalculated during import and manual recipe edits. Recipe PATCH updates existing ingredients by `id`, creates new ingredients without `id`, deletes existing ingredients omitted from the payload, and rejects empty ingredient names.
 - `Recipe.search_text` and `Recipe.search_text_hash` are internal derived fields, not API response fields. They are built only from `title`, `source_name`, `author_name`, `ingredients.search_name`, `instructions`, `nutrition_estimate`, and `cook_time_minutes`, and are rebuilt after successful import and relevant manual recipe edits.
+- `RecipeEmbedding` is optional technical search-index state: `Recipe 1 -- 0..1 RecipeEmbedding`. `recipe_embeddings.recipe_id` is both primary key and foreign key to `recipes.id` with cascade delete. Application code creates or updates the row only when the embedding subsystem needs to record state.
+- `RecipeEmbedding.input_hash` is independent from `Recipe.search_text_hash`. Embedding input is built only from `title`, `ingredients.search_name`, `instructions`, `nutrition_estimate`, and `cook_time_minutes`. Recipes with open review flags are marked `skipped_due_to_flags` and are not enqueued for embedding until the last open flag is resolved. Embedding tasks do not create user-facing notifications.
 - Recipe and collection list endpoints are owner-scoped and paginated. Public list responses include `items`, `total`, `limit`, and `offset`. Lower-level query functions may return full owner-scoped lists when `limit` and `offset` are omitted.
 - Selected search chips are hard filters. Free text is reserved for vector search. `ingredient_name` has been replaced with `ingredient_query` in autocomplete, API parameters, and frontend types. Autocomplete always returns an `ingredient_query` suggestion first for a non-empty `q`, for example `Ingredient - cottage`. Concrete ingredient suggestions are no longer returned, to avoid encouraging overly exact ingredient choices. `/recipes` accepts repeatable `ingredientQuery=<text>` query parameters. Each `ingredientQuery` value filters recipes through `contains` matching against `Ingredient.search_name`, and multiple `ingredientQuery` values are combined with AND semantics.
 - URL source status aggregation is preserved.
@@ -453,7 +455,8 @@ flowchart TD
   pagination --> autocomplete["Autocomplete + selected chips"]
   autocomplete --> workerInfra["Dramatiq + Redis embedding infra"]
   workerInfra --> embeddings["RecipeEmbedding + pgvector task"]
-  embeddings --> search["Semantic/vector search endpoint"]
+  embeddings --> embeddingEvents["RecipeEmbeddingEvent audit history"]
+  embeddingEvents --> search["Semantic/vector search endpoint"]
 ```
 
 ### Phase 2 Goal
@@ -1296,9 +1299,19 @@ The current README already says imports are sync-first but frontend polling is c
 
 ### Iteration 10: RecipeEmbedding + pgvector + Embedding Task
 
+Status: implemented, pending review.
+
 #### Model
 
 Use name `RecipeEmbedding`, not `RecipeEmbeddingJob`.
+
+Relationship semantics:
+
+```text
+Recipe 1 -- 0..1 RecipeEmbedding
+```
+
+`Recipe` is the primary domain entity. `RecipeEmbedding` is technical search-index state and may be absent. If a `RecipeEmbedding` row exists, there is exactly one row per recipe because `recipe_embeddings.recipe_id` is both primary key and foreign key to `recipes.id` with `ondelete="CASCADE"`. Do not add `embedding_id` to `recipes`.
 
 ```python
 class RecipeEmbedding(Base):
@@ -1339,6 +1352,8 @@ skipped_due_to_flags
 No `desired_input_hash`.
 
 Task receives `recipe_id` only. Do not pass hash as task argument in MVP.
+
+Application code should create/update `RecipeEmbedding` only when the embedding subsystem needs to record state: scheduling, skipping due to review flags, retrying, running, failing, or saving a ready vector. Code that reads `recipe.embedding` must handle `None`.
 
 #### pgvector
 
@@ -1445,6 +1460,261 @@ Behavior:
 No watchdog/repair job yet.
 
 No user notifications for embedding tasks. Logs/audit are enough.
+
+### Iteration 10b: RecipeEmbeddingEvent Audit History
+
+Status: planned. Requires explicit approval before implementation.
+
+Goal: add append-only internal audit/debug history for the `RecipeEmbedding` lifecycle. This is not user-facing notification functionality and must not change how current embedding status is computed.
+
+#### Architecture Rules
+
+```text
+RecipeEmbedding remains the source of truth for current embedding/indexing state.
+RecipeEmbeddingEvent is history/audit only.
+Do not compute current embedding status from events.
+Do not rename RecipeEmbedding to RecipeEmbeddingJob.
+Do not add RecipeEmbeddingAttempt.
+Do not create user notifications for embedding events.
+Admin embeddings UI shows only recipes that already have a RecipeEmbedding row.
+```
+
+Relationship semantics:
+
+```text
+Recipe 1 -- 0..1 RecipeEmbedding
+RecipeEmbedding 1 -- 0..N RecipeEmbeddingEvent
+```
+
+`RecipeEmbeddingEvent.recipe_id` points to `recipe_embeddings.recipe_id`, not directly to `recipes.id`. If `Recipe` is deleted, `RecipeEmbedding` is deleted by cascade, and `RecipeEmbeddingEvent` rows are deleted by cascade through `RecipeEmbedding`.
+
+#### Model
+
+Create `RecipeEmbeddingEvent`:
+
+```python
+class RecipeEmbeddingEvent(Base):
+    __tablename__ = "embedding_events"
+    __table_args__ = (
+        Index("ix_embedding_events_recipe_created_at", "recipe_id", "created_at"),
+        Index("ix_embedding_events_owner_created_at", "owner_id", "created_at"),
+        Index("ix_embedding_events_type_created_at", "event_type", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
+    recipe_id: Mapped[str] = mapped_column(
+        ForeignKey("recipe_embeddings.recipe_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    owner_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    event_type: Mapped[str] = mapped_column(String, nullable=False)
+    status_after: Mapped[str | None] = mapped_column(String)
+    payload: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    embedding: Mapped["RecipeEmbedding"] = relationship(back_populates="events")
+    owner: Mapped["User"] = relationship()
+```
+
+Update `RecipeEmbedding`:
+
+```python
+events: Mapped[list["RecipeEmbeddingEvent"]] = relationship(
+    back_populates="embedding",
+    cascade="all, delete-orphan",
+)
+```
+
+Do not use a DB enum for `event_type` in this iteration. Keep it as a string, like existing `JobEvent.event_type`.
+
+#### Migration
+
+Create table `embedding_events`:
+
+```text
+id string primary key
+recipe_id string not null, FK -> recipe_embeddings.recipe_id ON DELETE CASCADE
+owner_id string not null, FK -> users.id ON DELETE CASCADE
+event_type string not null
+status_after string nullable
+payload JSON nullable
+created_at timezone datetime, server_default now, not null
+```
+
+Create indexes:
+
+```text
+ix_embedding_events_recipe_created_at(recipe_id, created_at)
+ix_embedding_events_owner_created_at(owner_id, created_at)
+ix_embedding_events_type_created_at(event_type, created_at)
+```
+
+#### Event API
+
+Create constants and helper in `backend/app/embeddings/events.py`.
+
+Event constants:
+
+```python
+class EmbeddingEventType:
+    SCHEDULED = "scheduled"
+    ENQUEUED = "enqueued"
+    STARTED = "started"
+    SKIPPED_DUE_TO_FLAGS = "skipped_due_to_flags"
+    ALREADY_READY = "already_ready"
+    PROVIDER_SUCCEEDED = "provider_succeeded"
+    SAVED = "saved"
+    STALE_REQUEUED = "stale_requeued"
+    FAILED = "failed"
+    RETRY_REQUESTED = "retry_requested"
+```
+
+Helper:
+
+```python
+def add_embedding_event(
+    session: Session,
+    *,
+    embedding: RecipeEmbedding,
+    owner_id: str,
+    event_type: str,
+    payload: dict[str, Any] | None = None,
+) -> RecipeEmbeddingEvent:
+    event = RecipeEmbeddingEvent(
+        recipe_id=embedding.recipe_id,
+        owner_id=owner_id,
+        event_type=event_type,
+        status_after=embedding.status,
+        payload=payload,
+    )
+    session.add(event)
+    return event
+```
+
+Set `RecipeEmbedding.status` first, then call `add_embedding_event`, so `status_after` snapshots the state after the event is applied. Write event rows in the same transaction as the related `RecipeEmbedding` state change where possible.
+
+#### Event Writing Rules
+
+```text
+scheduled:
+  write when embedding recalculation is needed and status becomes stale
+  payload: reason, model
+
+enqueued:
+  write after embed_recipe(recipe_id) is successfully queued
+  payload: taskName, recipeId
+
+skipped_due_to_flags:
+  write after status becomes skipped_due_to_flags
+  payload: reason=open_review_flags, openFlagCount
+
+started:
+  write when worker sets status=running
+  payload: model, inputHash
+
+already_ready:
+  write only when an actual worker task starts and exits as no-op
+  payload: model, inputHash
+
+provider_succeeded:
+  write after provider returns vector successfully, before or around saving it
+  payload: model, inputHash, dimension, durationMs
+
+saved:
+  write after vector is persisted and status becomes ready
+  payload: model, inputHash, dimension
+
+stale_requeued:
+  write when recipe changed while provider call was running and computed vector is discarded
+  payload: reason, taskInputHash, latestInputHash
+  also write enqueued if requeue succeeds
+
+failed:
+  write after status becomes failed
+  payload: model, inputHash, error, temporary, failedAttempts
+
+retry_requested:
+  write when manual retry is requested
+  payload: source=manual, previousStatus, failedAttempts
+  also write enqueued if retry is queued
+```
+
+Do not write `already_ready` from scheduler checks; it is worker-only.
+
+#### Admin API and UI
+
+Extend the internal/admin embeddings functionality:
+
+```text
+GET /admin/recipe-embeddings
+  returns only existing RecipeEmbedding rows
+  supports pagination
+  optional status filter
+  admin-safe according to current project conventions
+
+GET /admin/recipe-embeddings/{recipe_id}/events
+  returns events for an existing RecipeEmbedding
+  supports pagination
+  sorted by created_at
+
+POST /admin/recipe-embeddings/{recipe_id}/retry
+  triggers manual retry
+  writes retry_requested
+  writes enqueued if queueing succeeds
+```
+
+If admin auth is not implemented yet, follow existing internal-route conventions and do not expose unsafe public admin routes beyond the currently accepted internal/admin surface.
+
+Admin page "Recipe embeddings" should show one row per existing `RecipeEmbedding` row:
+
+```text
+recipe title
+recipe id
+owner id
+owner email if easy to join
+current RecipeEmbedding.status
+model
+short input_hash
+failed_attempts
+last_attempt_at
+last_error_at
+updated_at
+actions: retry, open recipe, expand events
+```
+
+Expandable events:
+
+```text
+created_at
+event_type
+status_after
+payload
+```
+
+Sort events by `created_at`; use newest first unless the existing internal UI convention says otherwise.
+
+#### Tests
+
+Add/update tests:
+
+```text
+RecipeEmbeddingEvent can be created for an existing RecipeEmbedding.
+add_embedding_event stores recipe_id, owner_id, event_type, status_after, payload.
+Deleting Recipe cascades Recipe -> RecipeEmbedding -> RecipeEmbeddingEvent.
+Scheduling writes scheduled and enqueued.
+Open review flags write skipped_due_to_flags and do not enqueue.
+Worker success writes started, provider_succeeded, saved.
+Worker no-op writes already_ready.
+Provider failure writes failed.
+Stale requeue writes stale_requeued and enqueued.
+Manual retry writes retry_requested and enqueued if queued.
+Internal/admin embeddings API/UI returns existing RecipeEmbedding rows and their events.
+Recipes without RecipeEmbedding rows are not included in the admin embeddings page.
+```
 
 ### Iteration 11: Semantic/Vector Search Endpoint
 

@@ -6,6 +6,7 @@ import { listNotifications } from "../api/client";
 import { CollectionDetailPage } from "../pages/CollectionDetailPage";
 import { CollectionsPage } from "../pages/CollectionsPage";
 import { ImportPage } from "../pages/ImportPage";
+import { InternalEmbeddingsPage } from "../pages/InternalEmbeddingsPage";
 import { InternalImportJobsPage } from "../pages/InternalImportJobsPage";
 import { NotificationsPage } from "../pages/NotificationsPage";
 import { RecipeDetailPage } from "../pages/RecipeDetailPage";
@@ -20,6 +21,7 @@ type Page =
   | { name: "collection"; collectionId: string }
   | { name: "notifications" }
   | { name: "internal-import-jobs" }
+  | { name: "internal-embeddings" }
   | { name: "tags" };
 
 function AppContent() {
@@ -80,6 +82,13 @@ function AppContent() {
             >
               Import jobs
             </button>
+            <button
+              type="button"
+              className={activeSection === "internal-embeddings" ? "is-active" : undefined}
+              onClick={() => setPage({ name: "internal-embeddings" })}
+            >
+              Embeddings
+            </button>
         </nav>
       </header>
       {latestUnreadNotification ? (
@@ -107,6 +116,7 @@ function AppContent() {
         ) : null}
         {page.name === "tags" ? <TagsPage /> : null}
         {page.name === "internal-import-jobs" ? <InternalImportJobsPage /> : null}
+        {page.name === "internal-embeddings" ? <InternalEmbeddingsPage /> : null}
       </div>
     </main>
   );

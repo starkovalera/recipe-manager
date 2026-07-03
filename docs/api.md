@@ -25,6 +25,11 @@ Current implemented API surface.
   - Validates recipe size against `MAX_RECIPE_INGREDIENTS`, `MAX_RECIPE_INSTRUCTION_CHARS`, and `MAX_RECIPE_NOTE_CHARS`.
 - `PATCH /recipes/{recipeId}/review-flags/{flagId}`
   - Body: `{ "status": "open" | "resolved" }`.
+- `POST /recipes/{recipeId}/embedding/retry`
+  - Retries embedding generation for the current-user recipe.
+  - If the recipe has open review flags, marks embedding state as `skipped_due_to_flags` and does not enqueue work.
+  - Otherwise marks embedding state as `stale` and enqueues `embed_recipe_task`.
+  - Returns `{ recipeId, status, model, inputHash, failedAttempts, errorMessage }`.
 
 ## Collections
 
@@ -100,6 +105,10 @@ Current implemented API surface.
 - `GET /internal/import-jobs`
   - Internal diagnostics endpoint for the current local/admin workflow.
   - Returns import jobs with owner/client ids, sources, status history, and job events.
+  - Real admin-only authorization is deferred to Phase 5.
+- `GET /internal/embeddings`
+  - Internal diagnostics endpoint for the current local/admin workflow.
+  - Returns recipe embedding status, model, input hash, attempts, errors, timestamps, owner id, and recipe title.
   - Real admin-only authorization is deferred to Phase 5.
 
 ## Current Deferrals

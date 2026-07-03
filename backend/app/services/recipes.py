@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 
 from app.core.errors import ApiError, ErrorCode
+from app.embeddings.service import enqueue_recipe_embedding, prepare_recipe_embedding
 from app.models import (
     Ingredient,
     Recipe,
@@ -155,7 +156,10 @@ def patch_recipe(session: Session, recipe_id: str, owner_id: str, patch: RecipeP
     _apply_cover_selection(session, recipe, patch)
 
     refresh_recipe_search_text(recipe)
+    _, should_enqueue_embedding = prepare_recipe_embedding(recipe)
     session.commit()
+    if should_enqueue_embedding:
+        enqueue_recipe_embedding(recipe.id)
     return get_recipe_detail(session, recipe_id, owner_id)
 
 
@@ -177,7 +181,10 @@ def set_review_flag_status(session: Session, recipe_id: str, owner_id: str, flag
     else:
         flag.status = RecipeReviewFlagStatus.OPEN
         flag.resolved_at = None
+    _, should_enqueue_embedding = prepare_recipe_embedding(flag.recipe)
     session.commit()
+    if should_enqueue_embedding:
+        enqueue_recipe_embedding(recipe_id)
     session.refresh(flag)
     return flag
 

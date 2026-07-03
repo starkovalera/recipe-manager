@@ -4,9 +4,18 @@ from fastapi import APIRouter, Query, Response
 
 from app.api.deps import CurrentUserDep, SessionDep
 from app.core.pagination import DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT
-from app.models import Recipe, RecipeReviewFlag, SourceName
+from app.embeddings.service import retry_recipe_embedding
+from app.models import Recipe, RecipeEmbedding, RecipeReviewFlag, SourceName
 from app.recipes.filters import RecipeListFilters
-from app.schemas.recipes import RecipeDetailOut, RecipeListOut, RecipePatchIn, RecipeResourcePatchIn, ReviewFlagOut, ReviewFlagPatchIn
+from app.schemas.recipes import (
+    RecipeDetailOut,
+    RecipeEmbeddingOut,
+    RecipeListOut,
+    RecipePatchIn,
+    RecipeResourcePatchIn,
+    ReviewFlagOut,
+    ReviewFlagPatchIn,
+)
 from app.services.recipes import (
     delete_recipe,
     get_recipe_detail,
@@ -72,6 +81,11 @@ def update_review_flag(
     current_user: CurrentUserDep,
 ) -> RecipeReviewFlag:
     return set_review_flag_status(session, recipe_id, current_user.id, flag_id, patch.status)
+
+
+@router.post("/{recipe_id}/embedding/retry", response_model=RecipeEmbeddingOut)
+def retry_embedding(recipe_id: str, session: SessionDep, current_user: CurrentUserDep) -> RecipeEmbedding:
+    return retry_recipe_embedding(session, recipe_id, current_user.id)
 
 
 @router.patch("/{recipe_id}/resources/{resource_id}", response_model=RecipeDetailOut)

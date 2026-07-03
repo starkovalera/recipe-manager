@@ -85,6 +85,23 @@ export type InternalImportJobList = {
   }>;
 };
 
+export type InternalRecipeEmbeddingList = {
+  items: Array<{
+    recipeId: string;
+    ownerId?: string | null;
+    recipeTitle?: string | null;
+    status: string;
+    model: string;
+    inputHash?: string | null;
+    failedAttempts: number;
+    errorMessage?: string | null;
+    lastAttemptAt?: string | null;
+    lastErrorAt?: string | null;
+    createdAt?: string | null;
+    updatedAt?: string | null;
+  }>;
+};
+
 export type RecipeList = {
   items: Array<{
     id: string;

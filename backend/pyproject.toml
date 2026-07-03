@@ -9,6 +9,7 @@ dependencies = [
   "fastapi[standard]>=0.115",
   "httpx>=0.27",
   "openai>=1.50",
+  "pgvector>=0.4.2",
   "pillow>=10.4",
   "psycopg[binary]>=3.2",
   "pydantic-settings>=2.4",

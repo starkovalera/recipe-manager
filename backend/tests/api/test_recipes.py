@@ -15,6 +15,7 @@ from app.main import create_app
 from app.models import (
     Ingredient,
     Recipe,
+    RecipeEmbeddingStatus,
     RecipeImage,
     RecipeResource,
     RecipeResourceOrigin,
@@ -31,11 +32,19 @@ from app.models import (
 from app.recipes.queries import list_recipes as query_recipes
 
 
+class StaticEmbeddingProvider:
+    model = "test-embedding"
+
+    def embed(self, text: str) -> list[float]:
+        return [0.1]
+
+
 @pytest.fixture(autouse=True)
 def reset_settings(monkeypatch):
     monkeypatch.setenv("MAX_RECIPE_INGREDIENTS", "50")
     monkeypatch.setenv("MAX_RECIPE_INSTRUCTION_CHARS", "1000")
     monkeypatch.setenv("MAX_RECIPE_NOTE_CHARS", "500")
+    monkeypatch.setattr("app.embeddings.service.enqueue_recipe_embedding", lambda recipe_id: None)
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()
@@ -267,6 +276,26 @@ def test_recipe_list_marks_only_open_review_flags():
 
     assert response.status_code == 200
     assert response.json()["items"][0]["hasOpenReviewFlags"] is False
+
+
+def test_retry_embedding_endpoint_marks_stale_and_enqueues(monkeypatch):
+    client, SessionLocal = client_with_session()
+    with SessionLocal() as session:
+        user = ensure_default_user(session)
+        recipe = Recipe(owner_id=user.id, title="Soup", instructions=["Heat water"])
+        recipe.ingredients.append(Ingredient(name="Water", position=0))
+        session.add(recipe)
+        session.commit()
+        recipe_id = recipe.id
+    enqueued: list[str] = []
+    monkeypatch.setattr("app.embeddings.service.get_embedding_provider", lambda: ("test", StaticEmbeddingProvider()))
+    monkeypatch.setattr("app.embeddings.service.enqueue_recipe_embedding", enqueued.append)
+
+    response = client.post(f"/recipes/{recipe_id}/embedding/retry")
+
+    assert response.status_code == 200
+    assert response.json()["status"] == RecipeEmbeddingStatus.STALE.value
+    assert enqueued == [recipe_id]
 
 
 def test_cover_options_select_source_image_for_generated_cover():

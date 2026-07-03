@@ -54,6 +54,8 @@ class Settings(BaseSettings):
     openai_api_key: str | None = None
     openai_recipe_model: str = "gpt-4.1-mini"
     openai_video_transcription_model: str = "gpt-4o-mini-transcribe"
+    embedding_provider: Literal["auto", "fake", "openai"] = "auto"
+    openai_embedding_model: str = "text-embedding-3-small"
     enable_cover_candidate_guard: bool = False
     max_cover_fallback_candidates: int = 0
     openai_cover_validation_model: str = "gpt-4.1-mini"

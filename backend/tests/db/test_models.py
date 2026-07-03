@@ -1,4 +1,6 @@
-from sqlalchemy import create_engine
+import pytest
+from sqlalchemy import create_engine, insert
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.db.base import Base
@@ -11,6 +13,8 @@ from app.models import (
     JobEvent,
     Notification,
     Recipe,
+    RecipeEmbedding,
+    RecipeEmbeddingStatus,
     RecipeImage,
     RecipeResource,
     RecipeResourceOrigin,
@@ -175,3 +179,61 @@ def test_ingredient_persists_search_name():
     saved = session.query(Ingredient).one()
 
     assert saved.search_name == "fresh bread"
+
+
+def test_recipe_can_exist_without_embedding_row():
+    session = create_session()
+    user = ensure_default_user(session)
+    recipe = Recipe(owner_id=user.id, title="Toast", instructions=["Toast bread"])
+    session.add(recipe)
+    session.commit()
+
+    saved = session.get(Recipe, recipe.id)
+
+    assert saved is not None
+    assert saved.embedding is None
+
+
+def test_recipe_embedding_is_one_to_optional_one():
+    session = create_session()
+    user = ensure_default_user(session)
+    recipe = Recipe(owner_id=user.id, title="Toast", instructions=["Toast bread"])
+    session.add(recipe)
+    session.commit()
+
+    embedding = RecipeEmbedding(
+        recipe_id=recipe.id,
+        model="test-embedding",
+        status=RecipeEmbeddingStatus.STALE.value,
+    )
+    session.add(embedding)
+    session.commit()
+    session.refresh(recipe)
+
+    assert recipe.embedding is not None
+    assert recipe.embedding.recipe_id == recipe.id
+
+    with pytest.raises(IntegrityError):
+        session.execute(
+            insert(RecipeEmbedding).values(
+                recipe_id=recipe.id,
+                model="test-embedding",
+                status=RecipeEmbeddingStatus.STALE.value,
+            )
+        )
+        session.commit()
+
+
+def test_deleting_recipe_deletes_embedding_row():
+    session = create_session()
+    user = ensure_default_user(session)
+    recipe = Recipe(owner_id=user.id, title="Toast", instructions=["Toast bread"])
+    recipe.embedding = RecipeEmbedding(model="test-embedding", status=RecipeEmbeddingStatus.READY.value)
+    session.add(recipe)
+    session.commit()
+    recipe_id = recipe.id
+
+    session.delete(recipe)
+    session.commit()
+
+    assert session.get(RecipeEmbedding, recipe_id) is None

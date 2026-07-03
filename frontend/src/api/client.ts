@@ -4,6 +4,7 @@ import type {
   CollectionList,
   ImportJob,
   InternalImportJobList,
+  InternalRecipeEmbeddingList,
   Notification,
   NotificationList,
   NotificationsMarkAllReadResult,
@@ -205,6 +206,10 @@ export async function markAllNotificationsRead(lastNotificationId: string): Prom
 
 export async function listInternalImportJobs(): Promise<InternalImportJobList> {
   return request<InternalImportJobList>("/internal/import-jobs");
+}
+
+export async function listInternalRecipeEmbeddings(): Promise<InternalRecipeEmbeddingList> {
+  return request<InternalRecipeEmbeddingList>("/internal/embeddings");
 }
 
 export async function listTags(params?: TagListParams): Promise<TagList> {

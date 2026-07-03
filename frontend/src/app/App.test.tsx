@@ -224,6 +224,36 @@ describe("App", () => {
     expect(screen.getByText(/https:\/\/example.com\/post/)).toBeTruthy();
   });
 
+  it("shows internal recipe embedding status", async () => {
+    mockFetch({
+      "GET /recipes": { items: [] },
+      "GET /internal/embeddings": {
+        items: [
+          {
+            recipeId: "recipe-1",
+            ownerId: "local-user",
+            recipeTitle: "Soup",
+            status: "ready",
+            model: "test-embedding",
+            inputHash: "abcdef1234567890",
+            failedAttempts: 1,
+            updatedAt: "2026-07-02T10:00:00Z",
+            lastAttemptAt: "2026-07-02T09:59:00Z",
+          },
+        ],
+      },
+    });
+
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Embeddings" }));
+
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Recipe embeddings" })).toBeTruthy());
+    expect(screen.getByText("Soup")).toBeTruthy();
+    expect(screen.getByText(/ready - user local-user - recipe recipe-1/)).toBeTruthy();
+    expect(screen.getByText("test-embedding")).toBeTruthy();
+    expect(screen.getByText("abcdef123456...")).toBeTruthy();
+  });
+
   it("shows notification history, marks notifications read, and opens successful recipe imports", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
