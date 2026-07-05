@@ -6,7 +6,7 @@ from collections.abc import Iterable
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.core.errors import ApiError, ErrorCode
+from app.core.errors import ApiError, ApiErrorCode
 from app.core.logging import bind_logger
 from app.embeddings.input import build_recipe_embedding_hash, build_recipe_embedding_input
 from app.embeddings.runtime import get_embedding_provider
@@ -436,7 +436,7 @@ def explain_search(session: Session, owner_id: str, request: SearchRequestIn) ->
 def get_embedding_input_preview(session: Session, recipe_id: str) -> EmbeddingInputPreviewOut:
     recipe = get_recipe_for_embedding_input_preview(session, recipe_id)
     if recipe is None:
-        raise ApiError(ErrorCode.RECIPE_NOT_FOUND, "Recipe not found.", status_code=404)
+        raise ApiError(ApiErrorCode.RECIPE_NOT_FOUND, "Recipe not found.", status_code=404)
     return EmbeddingInputPreviewOut(
         recipe_id=recipe.id,
         input=build_recipe_embedding_input(recipe),

@@ -339,9 +339,10 @@ class ThreadsUrlContentLoader:
                 image = await _download_image(descriptor, self.fetch, max_image_bytes)
             except Exception as error:
                 log_error(logger, "[recipes.url.threads] Image download failed", error=repr(error), url=descriptor.url, position=descriptor.position)
-                image = None
-            if image:
-                images.append(image)
+                raise
+            if image is None:
+                raise ValueError(f"Threads image could not be downloaded: {descriptor.url}")
+            images.append(image)
         text = "\n\n".join(captions) or _meta_content(html, ["og:description", "twitter:description", "description"]) or ""
         log_info(
             logger,

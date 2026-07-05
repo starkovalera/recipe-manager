@@ -19,8 +19,13 @@ def handle_import_started(session: Session, job: ImportJob, *, client_import_id:
     )
 
 
-def handle_import_failed(session: Session, job: ImportJob) -> None:
-    record_job_event(job, "failed", {"errorCode": job.error_code, "errorMessage": job.error_message})
+def handle_import_failed(session: Session, job: ImportJob, *, payload: dict | None = None) -> None:
+    event_payload = {
+        "errorCode": job.error_code.value if job.error_code is not None else None,
+        "errorMessage": job.error_message,
+        **(payload or {}),
+    }
+    record_job_event(job, "failed", event_payload)
     create_notification(
         session,
         owner_id=job.owner_id,
@@ -29,7 +34,7 @@ def handle_import_failed(session: Session, job: ImportJob) -> None:
         message=job.error_message or "Recipe import failed.",
         entity_type="import_job",
         entity_id=job.id,
-        data={"importJobId": job.id, "recipeId": job.created_recipe_id, "errorCode": job.error_code},
+        data={"importJobId": job.id, "recipeId": job.created_recipe_id, "errorCode": job.error_code.value if job.error_code else None},
     )
 
 
@@ -51,5 +56,5 @@ def handle_recipe_created(session: Session, job: ImportJob, *, recipe_id: str, s
         message=message,
         entity_type="recipe",
         entity_id=recipe_id,
-        data={"importJobId": job.id, "recipeId": recipe_id, "errorCode": job.error_code},
+        data={"importJobId": job.id, "recipeId": recipe_id, "errorCode": job.error_code.value if job.error_code else None},
     )

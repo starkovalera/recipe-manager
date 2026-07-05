@@ -9,7 +9,7 @@ implemented in Phase 1d.
 flowchart TD
   start["Frontend import form"] --> submit["POST /imports multipart<br/>clientImportId + optional url/text/files"]
   submit --> validate{"Validate request"}
-  validate -->|"no usable source"| fail400["400 NOT_A_RECIPE"]
+  validate -->|"no usable source"| fail400["400 NO_IMPORT_SOURCES"]
   validate -->|"text too long"| failText["400 TEXT_TOO_LONG"]
   validate -->|"too many/invalid files"| failFiles["400 TOO_MANY_FILES / INVALID_FILE_TYPE / FILE_TOO_LARGE"]
   validate -->|"ok"| dedupe{"Existing owner/dedupe_key?"}

@@ -238,6 +238,7 @@ def test_internal_search_explain_applies_filters_and_ready_embeddings(monkeypatc
     assert payload["items"][0]["debug"]["similarity"] == 1.0
     assert payload["items"][0]["debug"]["embeddingInputPreview"] == "apple cake apple bake"
     assert payload["items"][0]["matchReasons"] == [
+        {"type": "tag", "label": dessert_id, "score": None},
         {"type": "ingredient_query", "label": "apple", "score": None},
         {"type": "semantic", "label": "Semantic match", "score": 1.0},
     ]

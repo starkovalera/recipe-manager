@@ -83,7 +83,7 @@ class VideoProcessor:
                     f"{IMPORT_VIDEO_LOG_PREFIX} Video poster download failed",
                     error=repr(error),
                 )
-                poster = None
+                raise
             if poster is not None:
                 poster_images.append(poster)
 
@@ -94,7 +94,7 @@ class VideoProcessor:
                     f"{IMPORT_VIDEO_LOG_PREFIX} Video transcription failed",
                     error=repr(error),
                 )
-                transcript = None
+                raise
             if transcript:
                 transcripts.append(f"Video {video.position + 1} transcript:\n{transcript}")
 

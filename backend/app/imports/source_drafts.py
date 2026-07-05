@@ -7,6 +7,7 @@ import anyio
 
 from app.core.logging import bind_logger, log_error
 from app.imports.constants import IMPORT_LOG_COMPONENT, IMPORT_LOG_PREFIX
+from app.imports.error_codes import ImportProcessingError, ImportProcessingErrorCode
 from app.imports.recipe_builder import SourceDraft
 from app.imports.url_loaders.types import LoadedUrlContent
 from app.imports.video import FirstPassVideoSources
@@ -113,12 +114,19 @@ def _append_url_source_drafts(
         acceptedAttachmentCount=image_count,
         remainingRemoteImageCount=remaining_images,
     ).info(f"{IMPORT_LOG_PREFIX} Import image capacity")
-    loaded_url = anyio.run(
-        context.url_content_loader.load,
-        source.url,
-        remaining_images,
-        context.settings.max_upload_bytes,
-    )
+    try:
+        loaded_url = anyio.run(
+            context.url_content_loader.load,
+            source.url,
+            remaining_images,
+            context.settings.max_upload_bytes,
+        )
+    except Exception as error:
+        raise ImportProcessingError(
+            ImportProcessingErrorCode.SECONDARY_RESOURCE_UPLOADING_FAILED,
+            diagnostic_message=repr(error),
+            payload={"resourceType": SourceType.URL.value, "url": source.url},
+        ) from error
     source_drafts[-1].url = loaded_url.url
     source_drafts.append(
         SourceDraft(
@@ -130,7 +138,19 @@ def _append_url_source_drafts(
         )
     )
     for remote_image in loaded_url.images[:remaining_images]:
-        saved = context.storage.save(remote_image.bytes, remote_image.original_name, remote_image.mime_type)
+        try:
+            saved = context.storage.save(remote_image.bytes, remote_image.original_name, remote_image.mime_type)
+        except Exception as error:
+            raise ImportProcessingError(
+                ImportProcessingErrorCode.SECONDARY_RESOURCE_UPLOADING_FAILED,
+                diagnostic_message=repr(error),
+                payload={
+                    "resourceType": SourceType.IMAGE.value,
+                    "url": source.url,
+                    "originalName": remote_image.original_name,
+                    "mimeType": remote_image.mime_type,
+                },
+            ) from error
         context.saved_storage_keys.append(saved.storage_key)
         source_drafts.append(
             SourceDraft(
@@ -179,7 +199,11 @@ def _append_url_video_source_drafts(
             videoCount=len(loaded_videos),
             error=repr(error),
         )
-        first_pass_video_sources = FirstPassVideoSources()
+        raise ImportProcessingError(
+            ImportProcessingErrorCode.SECONDARY_RESOURCE_UPLOADING_FAILED,
+            diagnostic_message=repr(error),
+            payload={"resourceType": "VIDEO", "videoCount": len(loaded_videos)},
+        ) from error
     trimmed_transcript = (first_pass_video_sources.transcript_text or "").strip()
     bind_logger(
         context.logger,
@@ -206,7 +230,18 @@ def _append_url_video_source_drafts(
         image_count = len([draft for draft in source_drafts if draft.type == SourceType.IMAGE])
         if image_count >= context.settings.max_import_images:
             break
-        saved = context.storage.save(poster.bytes, poster.original_name, poster.mime_type)
+        try:
+            saved = context.storage.save(poster.bytes, poster.original_name, poster.mime_type)
+        except Exception as error:
+            raise ImportProcessingError(
+                ImportProcessingErrorCode.SECONDARY_RESOURCE_UPLOADING_FAILED,
+                diagnostic_message=repr(error),
+                payload={
+                    "resourceType": "VIDEO_POSTER",
+                    "originalName": poster.original_name,
+                    "mimeType": poster.mime_type,
+                },
+            ) from error
         context.saved_storage_keys.append(saved.storage_key)
         source_drafts.append(
             SourceDraft(

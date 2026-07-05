@@ -1,5 +1,7 @@
 import json
 
+import pytest
+
 from app.imports.url_loaders.instagram import InstagramUrlContentLoader
 from app.imports.url_loaders.threads import ThreadsUrlContentLoader
 
@@ -22,8 +24,6 @@ async def test_instagram_loader_parses_embed_sidecar_and_normalizes_url():
     async def fetch(url: str, max_bytes: int) -> FakeResponse:
         seen_urls.append(url)
         if url.startswith("https://cdn.test/"):
-            if "bad" in url:
-                return FakeResponse(b"not image", "text/plain")
             return FakeResponse(f"bytes:{url}".encode(), "image/jpeg")
         return FakeResponse(
             instagram_embed_html(
@@ -47,13 +47,6 @@ async def test_instagram_loader_parses_embed_sidecar_and_normalizes_url():
                                     "display_resources": [
                                         {"src": "https://cdn.test/poster.jpg", "config_width": 640, "config_height": 640}
                                     ],
-                                }
-                            },
-                            {
-                                "node": {
-                                    "display_resources": [
-                                        {"src": "https://cdn.test/bad.jpg", "config_width": 900, "config_height": 900}
-                                    ]
                                 }
                             },
                             {
@@ -83,11 +76,35 @@ async def test_instagram_loader_parses_embed_sidecar_and_normalizes_url():
     assert loaded.author_name == "chef"
     assert [(image.url, image.position) for image in loaded.images] == [
         ("https://cdn.test/large.jpg", 0),
-        ("https://cdn.test/second.jpg", 2),
+        ("https://cdn.test/second.jpg", 1),
     ]
     assert [(video.url, video.poster_url, video.position, video.original_name) for video in loaded.videos] == [
         ("https://cdn.test/video.mp4", "https://cdn.test/poster.jpg", 0, "video.mp4")
     ]
+
+
+async def test_instagram_loader_fails_when_detected_image_cannot_be_downloaded():
+    async def fetch(url: str, max_bytes: int) -> FakeResponse:
+        if url.startswith("https://cdn.test/"):
+            return FakeResponse(b"not image", "text/plain")
+        return FakeResponse(
+            instagram_embed_html(
+                {
+                    "owner": {"username": "chef"},
+                    "edge_media_to_caption": {"edges": [{"node": {"text": "Pasta recipe"}}]},
+                    "display_resources": [
+                        {"src": "https://cdn.test/bad.jpg", "config_width": 900, "config_height": 900}
+                    ],
+                }
+            )
+        )
+
+    with pytest.raises(ValueError, match="Instagram image could not be downloaded"):
+        await InstagramUrlContentLoader(fetch=fetch).load(
+            "https://www.instagram.com/p/abc/",
+            max_images=1,
+            max_image_bytes=1000,
+        )
 
 
 async def test_instagram_loader_falls_back_to_generic_content_on_embed_error():

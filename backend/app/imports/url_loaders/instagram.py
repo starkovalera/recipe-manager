@@ -178,39 +178,40 @@ class InstagramUrlContentLoader:
             normalized_url, author_name, text, descriptors, video_descriptors = await _fetch_instagram_embed(
                 url, self.fetch, max_images, max_videos
             )
-            images: list[LoadedRemoteImage] = []
-            for descriptor in descriptors:
-                try:
-                    image = await _download_image(descriptor, self.fetch, max_image_bytes)
-                except Exception as error:
-                    log_error(logger, "[recipes.url.instagram] Image download failed", error=repr(error), url=descriptor.url, position=descriptor.position)
-                    image = None
-                if image:
-                    images.append(image)
-            log_info(
-                logger,
-                "[recipes.url.instagram] Loaded Instagram content",
-                url=normalized_url,
-                detectedImageCount=len(descriptors),
-                acceptedImageCount=len(images),
-                detectedVideoCount=len(video_descriptors),
-            )
-            videos = [
-                LoadedRemoteVideo(
-                    url=descriptor.url,
-                    poster_url=descriptor.poster_url,
-                    position=descriptor.position,
-                    original_name=_original_video_name_from_url(descriptor.url),
-                )
-                for descriptor in video_descriptors
-            ]
-            return LoadedUrlContent(
-                url=normalized_url,
-                author_name=author_name,
-                text=text or f"URL: {normalized_url}",
-                images=images,
-                videos=videos,
-            )
         except Exception as error:
             log_error(logger, "[recipes.url.instagram] Load fallback", error=repr(error), url=url)
             return await self.fallback.load(url, max_images=max_images, max_image_bytes=max_image_bytes)
+        images: list[LoadedRemoteImage] = []
+        for descriptor in descriptors:
+            try:
+                image = await _download_image(descriptor, self.fetch, max_image_bytes)
+            except Exception as error:
+                log_error(logger, "[recipes.url.instagram] Image download failed", error=repr(error), url=descriptor.url, position=descriptor.position)
+                raise
+            if image is None:
+                raise ValueError(f"Instagram image could not be downloaded: {descriptor.url}")
+            images.append(image)
+        log_info(
+            logger,
+            "[recipes.url.instagram] Loaded Instagram content",
+            url=normalized_url,
+            detectedImageCount=len(descriptors),
+            acceptedImageCount=len(images),
+            detectedVideoCount=len(video_descriptors),
+        )
+        videos = [
+            LoadedRemoteVideo(
+                url=descriptor.url,
+                poster_url=descriptor.poster_url,
+                position=descriptor.position,
+                original_name=_original_video_name_from_url(descriptor.url),
+            )
+            for descriptor in video_descriptors
+        ]
+        return LoadedUrlContent(
+            url=normalized_url,
+            author_name=author_name,
+            text=text or f"URL: {normalized_url}",
+            images=images,
+            videos=videos,
+        )

@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
-from app.core.errors import ApiError, ErrorCode
+from app.core.errors import ApiError, ApiErrorCode
 from app.models import Tag
 from app.schemas.tags import TagUsageOut
 from app.tags.queries import count_active_tags, count_recipes_for_tag, get_tag, list_active_tags, list_active_tags_for_duplicate_check
@@ -20,7 +20,7 @@ def _clean_tag_name(name: str) -> str:
 def _get_owner_tag(session: Session, owner_id: str, tag_id: str) -> Tag:
     tag = get_tag(session, tag_id, owner_id)
     if tag is None:
-        raise ApiError(ErrorCode.TAG_NOT_FOUND, "Tag not found.", status_code=404)
+        raise ApiError(ApiErrorCode.TAG_NOT_FOUND, "Tag not found.", status_code=404)
     return tag
 
 
@@ -40,11 +40,11 @@ def list_tags(session: Session, owner_id: str, *, limit: int, offset: int) -> tu
 
 def create_tag(session: Session, owner_id: str, name: str, description: str | None, settings: Settings) -> Tag:
     if count_active_tags(session, owner_id) >= settings.max_tags_per_user:
-        raise ApiError(ErrorCode.TAG_LIMIT_EXCEEDED, "Tag limit exceeded.", status_code=400)
+        raise ApiError(ApiErrorCode.TAG_LIMIT_EXCEEDED, "Tag limit exceeded.", status_code=400)
 
     clean_name = _clean_tag_name(name)
     if _find_active_by_normalized_name(session, owner_id, _normalize_tag_name(clean_name)) is not None:
-        raise ApiError(ErrorCode.DUPLICATE_TAG, "Tag already exists.", status_code=409)
+        raise ApiError(ApiErrorCode.DUPLICATE_TAG, "Tag already exists.", status_code=409)
 
     tag = Tag(owner_id=owner_id, name=clean_name, description=description)
     session.add(tag)
@@ -64,13 +64,13 @@ def patch_tag(
 ) -> Tag:
     tag = _get_owner_tag(session, owner_id, tag_id)
     if tag.deleted_at is not None:
-        raise ApiError(ErrorCode.TAG_NOT_FOUND, "Tag not found.", status_code=404)
+        raise ApiError(ApiErrorCode.TAG_NOT_FOUND, "Tag not found.", status_code=404)
 
     if name is not None:
         clean_name = _clean_tag_name(name)
         duplicate = _find_active_by_normalized_name(session, owner_id, _normalize_tag_name(clean_name), exclude_tag_id=tag.id)
         if duplicate is not None:
-            raise ApiError(ErrorCode.DUPLICATE_TAG, "Tag already exists.", status_code=409)
+            raise ApiError(ApiErrorCode.DUPLICATE_TAG, "Tag already exists.", status_code=409)
         tag.name = clean_name
     if description_provided:
         tag.description = description

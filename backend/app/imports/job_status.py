@@ -1,8 +1,7 @@
 from datetime import datetime, timezone
 from typing import Protocol
 
-from app.core.errors import ErrorCode
-from app.models import ImportJob, ImportJobStatus
+from app.models import ImportJob, ImportJobErrorCode, ImportJobStatus
 
 
 class StorageCleaner(Protocol):
@@ -18,11 +17,14 @@ def fail_import_job(
     job: ImportJob,
     storage: StorageCleaner,
     saved_storage_keys: list[str],
-    error_code: ErrorCode,
-    error_message: str,
+    error_code: ImportJobErrorCode,
+    error_message: str | None,
+    *,
+    cleanup_storage: bool = True,
 ) -> None:
-    cleanup_storage_keys(storage, saved_storage_keys)
+    if cleanup_storage:
+        cleanup_storage_keys(storage, saved_storage_keys)
     job.status = ImportJobStatus.FAILED
-    job.error_code = error_code.value
+    job.error_code = error_code
     job.error_message = error_message
     job.finished_at = datetime.now(timezone.utc)

@@ -9,7 +9,7 @@ from app.core.security import client_id_from_header
 from app.imports.constants import IMPORT_LOG_COMPONENT, IMPORT_LOG_PREFIX
 from app.imports.jobs import create_import_job, get_import_job
 from app.imports.tasks import import_recipe_task
-from app.models import ImportJob
+from app.models import ImportJob, ImportJobStatus
 from app.schemas.imports import ImportJobOut
 
 router = APIRouter(prefix="/imports", tags=["imports"])
@@ -43,7 +43,7 @@ def create_import(
         idempotency_key=idempotency_key,
     )
     job = result.job
-    if result.was_created:
+    if result.was_created and job.status == ImportJobStatus.QUEUED:
         enqueue_import_job(job.id)
         bind_logger(
             logger,
@@ -52,7 +52,7 @@ def create_import(
             importJobId=job.id,
             clientId=client_id_from_header(x_client_id),
         ).info(f"{IMPORT_LOG_PREFIX} Import job enqueued")
-    else:
+    elif not result.was_created:
         response.status_code = status.HTTP_200_OK
     return job
 

@@ -3,7 +3,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.core.errors import ApiError, ErrorCode
+from app.core.errors import ApiError, ApiErrorCode
 from app.models import Notification
 from app.notifications.queries import get_notification, mark_unread_notifications_read_through
 from app.schemas.notifications import NotificationsMarkAllReadOut
@@ -36,7 +36,7 @@ def create_notification(
 def set_notification_status(session: Session, owner_id: str, notification_id: str, status: str) -> Notification:
     notification = get_notification(session, notification_id, owner_id)
     if notification is None:
-        raise ApiError(ErrorCode.NOTIFICATION_NOT_FOUND, "Notification not found.", status_code=404)
+        raise ApiError(ApiErrorCode.NOTIFICATION_NOT_FOUND, "Notification not found.", status_code=404)
     notification.status = status
     notification.read_at = datetime.now(timezone.utc) if status == "read" else None
     session.commit()
@@ -51,7 +51,7 @@ def mark_notifications_read_through(
 ) -> NotificationsMarkAllReadOut:
     target = get_notification(session, last_notification_id, owner_id)
     if target is None:
-        raise ApiError(ErrorCode.NOTIFICATION_NOT_FOUND, "Notification not found.", status_code=404)
+        raise ApiError(ApiErrorCode.NOTIFICATION_NOT_FOUND, "Notification not found.", status_code=404)
 
     read_at = datetime.now(timezone.utc)
     updated_count = mark_unread_notifications_read_through(session, owner_id, target.created_at, read_at)

@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.core.errors import ApiError, ErrorCode, install_error_handlers
+from app.core.errors import ApiError, ApiErrorCode, install_error_handlers
 from app.core.security import client_id_from_header
 
 
@@ -11,7 +11,7 @@ def test_api_error_response_shape():
 
     @app.get("/boom")
     def boom():
-        raise ApiError(ErrorCode.INVALID_URL, "URL is not supported.", status_code=400)
+        raise ApiError(ApiErrorCode.INVALID_URL, "URL is not supported.", status_code=400)
 
     response = TestClient(app).get("/boom")
 

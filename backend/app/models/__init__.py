@@ -53,6 +53,15 @@ class ImportJobStatus(str, enum.Enum):
     CANCELLED = "cancelled"
 
 
+class ImportJobErrorCode(str, enum.Enum):
+    # High-level persisted import failure categories. Detailed creation,
+    # processing, or extraction diagnostics are stored in ImportJob.error_message
+    # and failed JobEvent payloads, not in this field.
+    IMPORT_CREATION_FAILED = "IMPORT_CREATION_FAILED"
+    IMPORT_PROCESSING_FAILED = "IMPORT_PROCESSING_FAILED"
+    IMPORT_EXTRACTION_FAILED = "IMPORT_EXTRACTION_FAILED"
+
+
 class ImportSourceStatus(str, enum.Enum):
     # Only READY is assigned by the current import flow. The other statuses are
     # reserved for a future per-source upload/validation/processing lifecycle.
@@ -345,7 +354,7 @@ class ImportJob(TimestampMixin, Base):
     client_import_id: Mapped[str | None] = mapped_column(String)
     dedupe_key: Mapped[str | None] = mapped_column(String)
     status: Mapped[ImportJobStatus] = mapped_column(Enum(ImportJobStatus), default=ImportJobStatus.QUEUED, nullable=False)
-    error_code: Mapped[str | None] = mapped_column(String)
+    error_code: Mapped[ImportJobErrorCode | None] = mapped_column(Enum(ImportJobErrorCode))
     error_message: Mapped[str | None] = mapped_column(Text)
     created_recipe_id: Mapped[str | None] = mapped_column(ForeignKey("recipes.id", ondelete="NO ACTION"))
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

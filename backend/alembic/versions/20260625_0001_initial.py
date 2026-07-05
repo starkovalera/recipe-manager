@@ -86,7 +86,11 @@ def upgrade() -> None:
         sa.Column("client_id", sa.String(), nullable=False),
         sa.Column("client_import_id", sa.String(), nullable=True),
         sa.Column("status", sa.Enum("PENDING", "PROCESSING", "SUCCEEDED", "FAILED", name="importjobstatus"), nullable=False),
-        sa.Column("error_code", sa.String(), nullable=True),
+        sa.Column(
+            "error_code",
+            sa.Enum("IMPORT_CREATION_FAILED", "IMPORT_PROCESSING_FAILED", "IMPORT_EXTRACTION_FAILED", name="importjoberrorcode"),
+            nullable=True,
+        ),
         sa.Column("error_message", sa.Text(), nullable=True),
         sa.Column("created_recipe_id", sa.String(), nullable=True),
         sa.Column("started_at", sa.DateTime(timezone=True), nullable=True),

@@ -10,6 +10,7 @@ from app.ai.provider import RecipeExtractionProvider
 from app.ai.schemas import ExtractedRecipe, ExtractionResult, ReadySource, ready_source_id
 from app.core.config import Settings
 from app.core.logging import log_info
+from app.imports.error_codes import ImportExtractionErrorCode
 
 logger = logging.getLogger("recipes.ai.openai")
 
@@ -125,13 +126,21 @@ def _parse_recipe_json(text: str) -> ExtractionResult:
     try:
         payload = json.loads(text)
     except json.JSONDecodeError as error:
-        return ExtractionResult(not_a_recipe=True, error_code="AI_PARSE_FAILED", error_message=str(error))
+        return ExtractionResult(
+            not_a_recipe=True,
+            error_code=ImportExtractionErrorCode.AI_PARSE_FAILED.value,
+            error_message=str(error),
+        )
     if isinstance(payload, dict) and payload.get("notARecipe") is True:
         return ExtractionResult(not_a_recipe=True)
     try:
         return ExtractionResult(recipe=ExtractedRecipe.model_validate(payload))
     except ValidationError as error:
-        return ExtractionResult(not_a_recipe=True, error_code="INVALID_EXTRACTION_RESULT", error_message=str(error))
+        return ExtractionResult(
+            not_a_recipe=True,
+            error_code=ImportExtractionErrorCode.INVALID_EXTRACTION_RESULT.value,
+            error_message=str(error),
+        )
 
 
 class OpenAIRecipeExtractionProvider(RecipeExtractionProvider):
@@ -178,7 +187,11 @@ class OpenAIRecipeExtractionProvider(RecipeExtractionProvider):
                 imageSourceCount=len([source for source in sources if source.type == "IMAGE"]),
                 error=repr(error),
             )
-            return ExtractionResult(not_a_recipe=True, error_code="AI_UNAVAILABLE", error_message="AI extraction is unavailable.")
+            return ExtractionResult(
+                not_a_recipe=True,
+                error_code=ImportExtractionErrorCode.AI_UNAVAILABLE.value,
+                error_message="AI extraction is unavailable.",
+            )
 
         text = response.output_text or "{}"
         result = _parse_recipe_json(text)

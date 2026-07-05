@@ -260,7 +260,7 @@ def test_import_requires_at_least_one_source():
     response = client.post("/imports", data={"clientImportId": "empty"}, headers={"X-Client-Id": "client-1"})
 
     assert response.status_code == 400
-    assert response.json()["errorCode"] == "NOT_A_RECIPE"
+    assert response.json()["errorCode"] == "NO_IMPORT_SOURCES"
 
 
 def test_import_rejects_text_over_limit_before_job_creation():
@@ -315,6 +315,30 @@ def test_import_rejects_unsupported_file_type():
 
     assert response.status_code == 400
     assert response.json()["errorCode"] == "INVALID_FILE_TYPE"
+
+
+def test_import_upload_failure_creates_failed_job_with_creation_error():
+    client, SessionLocal = client_with_session_factory()
+
+    response = client.post(
+        "/imports",
+        data={"clientImportId": "invalid-image-upload"},
+        files=[("files", ("recipe.jpg", b"not-real-image", "image/jpeg"))],
+        headers={"X-Client-Id": "client-1"},
+    )
+
+    assert response.status_code == 202
+    assert response.json()["status"] == "failed"
+    assert response.json()["errorCode"] == "IMPORT_CREATION_FAILED"
+    assert response.json()["errorMessage"] == "RESOURCE_UPLOAD_FAILED"
+    with SessionLocal() as session:
+        job = session.get(ImportJob, response.json()["jobId"])
+        assert [event.event_type for event in job.events] == ["failed"]
+        failed_payload = job.events[0].payload
+        assert failed_payload["errorCode"] == "IMPORT_CREATION_FAILED"
+        assert failed_payload["errorMessage"] == "RESOURCE_UPLOAD_FAILED"
+        assert failed_payload["detailCode"] == "RESOURCE_UPLOAD_FAILED"
+        assert failed_payload["resourceType"] == "IMAGE"
 
 
 def test_image_attachment_import_creates_image_source():
@@ -372,6 +396,11 @@ class FakeVideoRegistry:
                 )
             ],
         )
+
+
+class FailingRegistry:
+    async def load(self, url: str, max_images: int, max_image_bytes: int) -> LoadedUrlContent:
+        raise RuntimeError("secondary source failed")
 
 
 class FakeVideoProcessor:
@@ -458,6 +487,32 @@ def test_url_video_transcript_survives_when_image_capacity_is_full():
     assert response.status_code == 200
     assert [source.type for source in provider.sources].count("IMAGE") == 10
     assert any(source.type == "TEXT" and source.text == "Video 1 transcript:\nMix batter and bake." for source in provider.sources)
+
+
+def test_url_secondary_resource_failure_fails_job_with_processing_error():
+    client, SessionLocal = client_with_session_factory()
+    set_url_content_loader_registry(FailingRegistry())
+
+    response = client.post(
+        "/imports",
+        data={"clientImportId": "url-secondary-failure", "url": "https://example.com/recipe"},
+        headers={"X-Client-Id": "client-1"},
+    )
+    response = process_import_response(client, response)
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "failed"
+    assert response.json()["errorCode"] == "IMPORT_PROCESSING_FAILED"
+    assert response.json()["errorMessage"] == "SECONDARY_RESOURCE_UPLOADING_FAILED"
+    with SessionLocal() as session:
+        job = session.get(ImportJob, response.json()["jobId"])
+        assert [event.event_type for event in job.events] == ["queued", "worker_started", "failed"]
+        failed_payload = job.events[-1].payload
+        assert failed_payload["errorCode"] == "IMPORT_PROCESSING_FAILED"
+        assert failed_payload["errorMessage"] == "SECONDARY_RESOURCE_UPLOADING_FAILED"
+        assert failed_payload["detailCode"] == "SECONDARY_RESOURCE_UPLOADING_FAILED"
+        assert failed_payload["resourceType"] == "URL"
+        assert failed_payload["url"] == "https://example.com/recipe"
 
 
 class CapturingProvider(FakeRecipeExtractionProvider):
@@ -847,8 +902,8 @@ def test_import_fails_when_ai_returns_too_many_ingredients():
 
     assert response.status_code == 200
     assert response.json()["status"] == "failed"
-    assert response.json()["errorCode"] == "RECIPE_TOO_LONG"
-    assert response.json()["errorMessage"] == "Recipe is too long."
+    assert response.json()["errorCode"] == "IMPORT_EXTRACTION_FAILED"
+    assert response.json()["errorMessage"] == "RECIPE_TOO_LONG"
 
 
 def test_import_fails_when_ai_returns_too_long_instructions():
@@ -864,8 +919,8 @@ def test_import_fails_when_ai_returns_too_long_instructions():
 
     assert response.status_code == 200
     assert response.json()["status"] == "failed"
-    assert response.json()["errorCode"] == "RECIPE_TOO_LONG"
-    assert response.json()["errorMessage"] == "Recipe is too long."
+    assert response.json()["errorCode"] == "IMPORT_EXTRACTION_FAILED"
+    assert response.json()["errorMessage"] == "RECIPE_TOO_LONG"
 
 
 def test_low_confidence_import_fails_and_cleans_uploaded_files():
@@ -882,7 +937,8 @@ def test_low_confidence_import_fails_and_cleans_uploaded_files():
 
     assert response.status_code == 200
     assert response.json()["status"] == "failed"
-    assert response.json()["errorCode"] == "NOT_A_RECIPE"
+    assert response.json()["errorCode"] == "IMPORT_EXTRACTION_FAILED"
+    assert response.json()["errorMessage"] == "NOT_A_RECIPE"
 
 
 class CoverCandidateProvider:

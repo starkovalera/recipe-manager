@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 
 from app.api.deps import CurrentAdminUserDep, SessionDep
-from app.core.errors import ApiError, ErrorCode
+from app.core.errors import ApiError, ApiErrorCode
 from app.embeddings.diagnostics import list_internal_recipe_embeddings
 from app.embeddings.queries import get_recipe_embedding_with_recipe
 from app.embeddings.service import retry_recipe_embedding
@@ -29,7 +29,7 @@ def get_internal_recipe_embeddings(session: SessionDep, _current_user: CurrentAd
 def retry_internal_recipe_embedding(recipe_id: str, session: SessionDep, _current_user: CurrentAdminUserDep) -> RecipeEmbedding:
     embedding = get_recipe_embedding_with_recipe(session, recipe_id)
     if embedding is None:
-        raise ApiError(ErrorCode.RECIPE_NOT_FOUND, "Recipe embedding not found.", status_code=404)
+        raise ApiError(ApiErrorCode.RECIPE_NOT_FOUND, "Recipe embedding not found.", status_code=404)
     return retry_recipe_embedding(session, recipe_id, embedding.recipe.owner_id)
 
 
