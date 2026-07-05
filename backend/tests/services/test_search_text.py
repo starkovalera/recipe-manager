@@ -27,13 +27,29 @@ def test_build_recipe_search_text_uses_only_approved_fields():
     assert "banana cake" in search_text
     assert "instagram" in search_text
     assert "baker" in search_text
-    assert "45" in search_text
+    assert "cooking time 45 minutes" in search_text
     assert "banana" in search_text
     assert "mix batter" in search_text
-    assert "calories" in search_text
-    assert "proteingrams" in search_text
+    assert "220 calories per serving" in search_text
+    assert "6 grams of proteins per serving" in search_text
+    assert "proteingrams" not in search_text
     assert "ripe" not in search_text
     assert "pcs" not in search_text
+
+
+def test_build_recipe_search_text_formats_lowercase_nutrition_keys():
+    recipe = Recipe(
+        title="Soup",
+        source_name=SourceName.MANUAL,
+        nutrition_estimate={"calories": 181.0, "proteingrams": 18.5, "fatgrams": 6.9, "carbsgrams": 10.5},
+    )
+
+    search_text = build_recipe_search_text(recipe)
+
+    assert "181.0 calories per serving" in search_text
+    assert "18.5 grams of proteins per serving" in search_text
+    assert "6.9 grams of fat per serving" in search_text
+    assert "10.5 grams of carbs per serving" in search_text
 
 
 def test_build_recipe_search_hash_is_stable_for_same_search_text():

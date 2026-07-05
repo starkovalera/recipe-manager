@@ -70,6 +70,14 @@ def get_recipe_detail(session: Session, recipe_id: str, owner_id: str) -> Recipe
     )
 
 
+def get_recipe_for_embedding_input_preview(session: Session, recipe_id: str) -> Recipe | None:
+    return session.scalar(
+        select(Recipe)
+        .where(Recipe.id == recipe_id)
+        .options(selectinload(Recipe.ingredients))
+    )
+
+
 def get_recipe_for_resource_mutation(session: Session, recipe_id: str, owner_id: str) -> Recipe | None:
     return session.scalar(
         select(Recipe)

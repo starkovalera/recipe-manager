@@ -16,7 +16,7 @@ from app.api.routes.search import router as search_router
 from app.api.routes.tags import router as tags_router
 from app.core.config import get_settings
 from app.core.errors import install_error_handlers
-from app.core.logging import configure_logging, log_info
+from app.core.logging import configure_logging, log_error, log_info
 from app.core.runtime import prepare_runtime
 from app.db.init import ensure_default_user, reset_database_schema, run_migrations
 from app.db.session import SessionLocal
@@ -58,8 +58,23 @@ def create_app() -> FastAPI:
 
     @app.middleware("http")
     async def log_runtime_request(request: Request, call_next):
-        response = await call_next(request)
         current_settings = get_settings()
+        try:
+            response = await call_next(request)
+        except Exception as error:
+            log_error(
+                logger,
+                "[recipes.http] Request failed",
+                pid=os.getpid(),
+                method=request.method,
+                path=request.url.path,
+                errorType=type(error).__name__,
+                error=repr(error),
+                appEnv=current_settings.app_env,
+                databaseUrl=current_settings.database_url,
+                uploadDir=str(current_settings.upload_dir),
+            )
+            raise
         log_info(
             logger,
             "[recipes.http] Request handled",

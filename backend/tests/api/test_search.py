@@ -12,6 +12,7 @@ from app.db.init import ensure_default_user
 from app.db.session import get_session
 from app.main import create_app
 from app.models import Ingredient, Recipe, RecipeEmbedding, RecipeEmbeddingStatus, SourceName, Tag, User
+from app.services.search import _cosine_distance
 
 
 class StaticEmbeddingProvider:
@@ -22,6 +23,17 @@ class StaticEmbeddingProvider:
 
     def embed(self, text: str) -> list[float]:
         return self.vector
+
+
+class VectorLike:
+    def __init__(self, values: list[float]) -> None:
+        self.values = values
+
+    def __bool__(self) -> bool:
+        raise ValueError("truth value is ambiguous")
+
+    def tolist(self) -> list[float]:
+        return self.values
 
 
 @pytest.fixture(autouse=True)
@@ -79,11 +91,11 @@ def test_semantic_search_ranks_ready_embeddings_and_is_owner_scoped(monkeypatch)
         user = ensure_default_user(session)
         other_user = User(id="other-user", email="other@example.test")
         session.add(other_user)
-        add_recipe(session, owner_id=user.id, title="Close Soup", vector=[0.9])
-        add_recipe(session, owner_id=user.id, title="Far Salad", vector=[0.1])
-        add_recipe(session, owner_id=other_user.id, title="Private Close", vector=[1.0])
+        add_recipe(session, owner_id=user.id, title="Close Soup", vector=[1.0, 0.0])
+        add_recipe(session, owner_id=user.id, title="Far Salad", vector=[0.0, 1.0])
+        add_recipe(session, owner_id=other_user.id, title="Private Close", vector=[1.0, 0.0])
         session.commit()
-    monkeypatch.setattr("app.services.search.get_embedding_provider", lambda: ("test", StaticEmbeddingProvider([1.0])))
+    monkeypatch.setattr("app.services.search.get_embedding_provider", lambda: ("test", StaticEmbeddingProvider([1.0, 0.0])))
 
     response = client.post("/search", json={"text": "warm soup", "limit": 10, "offset": 0})
 
@@ -94,6 +106,11 @@ def test_semantic_search_ranks_ready_embeddings_and_is_owner_scoped(monkeypatch)
     assert payload["limit"] == 10
     assert payload["offset"] == 0
     assert all(item["matchReasons"][0]["type"] == "semantic" for item in payload["items"])
+    assert payload["items"][0]["matchReasons"][0]["score"] == 1.0
+
+
+def test_cosine_distance_handles_vector_like_database_values():
+    assert _cosine_distance(VectorLike([1.0, 0.0]), [1.0, 0.0]) == pytest.approx(0.0)
 
 
 def test_semantic_search_applies_selected_chips_as_hard_filters(monkeypatch):
@@ -102,12 +119,12 @@ def test_semantic_search_applies_selected_chips_as_hard_filters(monkeypatch):
         user = ensure_default_user(session)
         dessert = Tag(owner_id=user.id, name="dessert")
         dinner = Tag(owner_id=user.id, name="dinner")
-        add_recipe(session, owner_id=user.id, title="Apple Cake", vector=[0.9], tags=[dessert], ingredients=["Apple"])
-        add_recipe(session, owner_id=user.id, title="Apple Soup", vector=[1.0], tags=[dinner], ingredients=["Apple"])
-        add_recipe(session, owner_id=user.id, title="Berry Cake", vector=[0.8], tags=[dessert], ingredients=["Berry"])
+        add_recipe(session, owner_id=user.id, title="Apple Cake", vector=[1.0, 0.0], tags=[dessert], ingredients=["Apple"])
+        add_recipe(session, owner_id=user.id, title="Apple Soup", vector=[1.0, 0.0], tags=[dinner], ingredients=["Apple"])
+        add_recipe(session, owner_id=user.id, title="Berry Cake", vector=[0.0, 1.0], tags=[dessert], ingredients=["Berry"])
         session.commit()
         dessert_id = dessert.id
-    monkeypatch.setattr("app.services.search.get_embedding_provider", lambda: ("test", StaticEmbeddingProvider([1.0])))
+    monkeypatch.setattr("app.services.search.get_embedding_provider", lambda: ("test", StaticEmbeddingProvider([1.0, 0.0])))
 
     response = client.post(
         "/search",
@@ -149,11 +166,11 @@ def test_semantic_search_excludes_non_ready_embeddings(monkeypatch):
     client, SessionLocal = client_with_session()
     with SessionLocal() as session:
         user = ensure_default_user(session)
-        add_recipe(session, owner_id=user.id, title="Ready Recipe", vector=[0.8], status=RecipeEmbeddingStatus.READY)
-        add_recipe(session, owner_id=user.id, title="Skipped Recipe", vector=[1.0], status=RecipeEmbeddingStatus.SKIPPED_DUE_TO_FLAGS)
+        add_recipe(session, owner_id=user.id, title="Ready Recipe", vector=[1.0, 0.0], status=RecipeEmbeddingStatus.READY)
+        add_recipe(session, owner_id=user.id, title="Skipped Recipe", vector=[1.0, 0.0], status=RecipeEmbeddingStatus.SKIPPED_DUE_TO_FLAGS)
         add_recipe(session, owner_id=user.id, title="No Embedding Recipe", vector=None)
         session.commit()
-    monkeypatch.setattr("app.services.search.get_embedding_provider", lambda: ("test", StaticEmbeddingProvider([1.0])))
+    monkeypatch.setattr("app.services.search.get_embedding_provider", lambda: ("test", StaticEmbeddingProvider([1.0, 0.0])))
 
     response = client.post("/search", json={"text": "recipe", "limit": 10, "offset": 0})
 
@@ -165,10 +182,10 @@ def test_search_uses_limit_plus_one_for_has_more(monkeypatch):
     client, SessionLocal = client_with_session()
     with SessionLocal() as session:
         user = ensure_default_user(session)
-        add_recipe(session, owner_id=user.id, title="One", vector=[0.9])
-        add_recipe(session, owner_id=user.id, title="Two", vector=[0.8])
+        add_recipe(session, owner_id=user.id, title="One", vector=[1.0, 0.0])
+        add_recipe(session, owner_id=user.id, title="Two", vector=[0.0, 1.0])
         session.commit()
-    monkeypatch.setattr("app.services.search.get_embedding_provider", lambda: ("test", StaticEmbeddingProvider([1.0])))
+    monkeypatch.setattr("app.services.search.get_embedding_provider", lambda: ("test", StaticEmbeddingProvider([1.0, 0.0])))
 
     response = client.post("/search", json={"text": "recipe", "limit": 1, "offset": 0})
 

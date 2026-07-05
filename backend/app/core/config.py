@@ -56,6 +56,7 @@ class Settings(BaseSettings):
     openai_video_transcription_model: str = "gpt-4o-mini-transcribe"
     embedding_provider: Literal["auto", "fake", "openai"] = "auto"
     openai_embedding_model: str = "text-embedding-3-small"
+    embedding_distance_metric: Literal["cosine", "l2"] = "cosine"
     enable_cover_candidate_guard: bool = False
     max_cover_fallback_candidates: int = 0
     openai_cover_validation_model: str = "gpt-4.1-mini"

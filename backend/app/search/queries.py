@@ -6,6 +6,8 @@ from app.models import Recipe, RecipeEmbedding, RecipeEmbeddingStatus, Tag
 from app.recipes.filters import RecipeListFilters
 from app.recipes.queries import apply_recipe_list_filters
 
+EmbeddingDistanceMetric = str
+
 
 def list_active_tag_suggestion_rows(session: Session, owner_id: str) -> list[Tag]:
     return session.scalars(
@@ -27,7 +29,7 @@ def base_search_query(owner_id: str, filters: RecipeListFilters) -> Select[tuple
     query = (
         select(Recipe)
         .where(Recipe.owner_id == owner_id)
-        .options(selectinload(Recipe.images), selectinload(Recipe.review_flags))
+        .options(selectinload(Recipe.images), selectinload(Recipe.ingredients), selectinload(Recipe.review_flags))
     )
     return apply_recipe_list_filters(query, filters)
 
@@ -49,12 +51,14 @@ def list_semantic_recipe_candidates(
     owner_id: str,
     *,
     filters: RecipeListFilters,
+    embedding_model: str,
 ) -> list[Recipe]:
     query = (
         base_search_query(owner_id, filters)
         .join(RecipeEmbedding, RecipeEmbedding.recipe_id == Recipe.id)
         .where(
             RecipeEmbedding.status == RecipeEmbeddingStatus.READY.value,
+            RecipeEmbedding.model == embedding_model,
             RecipeEmbedding.embedding.is_not(None),
         )
         .options(selectinload(Recipe.embedding))
@@ -68,15 +72,21 @@ def list_semantic_recipes_by_pgvector(
     *,
     filters: RecipeListFilters,
     query_embedding: list[float],
+    embedding_model: str,
+    distance_metric: EmbeddingDistanceMetric,
     limit: int,
     offset: int,
 ) -> list[Recipe]:
-    distance = RecipeEmbedding.embedding.cosine_distance(query_embedding)
+    if distance_metric == "l2":
+        distance = RecipeEmbedding.embedding.l2_distance(query_embedding)
+    else:
+        distance = RecipeEmbedding.embedding.cosine_distance(query_embedding)
     query = (
         base_search_query(owner_id, filters)
         .join(RecipeEmbedding, RecipeEmbedding.recipe_id == Recipe.id)
         .where(
             RecipeEmbedding.status == RecipeEmbeddingStatus.READY.value,
+            RecipeEmbedding.model == embedding_model,
             RecipeEmbedding.embedding.is_not(None),
         )
         .options(selectinload(Recipe.embedding))

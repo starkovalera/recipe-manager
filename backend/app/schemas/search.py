@@ -6,6 +6,7 @@ from app.schemas.base import CamelModel
 from app.schemas.recipes import RecipeImageOut
 
 SearchSuggestionType = Literal["tag", "ingredient_query", "source_name", "author_name", "title"]
+MatchReasonType = Literal["semantic", "filter", "tag", "ingredient_query", "source_name", "author_name", "title"]
 
 
 class SearchSuggestionOut(CamelModel):
@@ -27,6 +28,7 @@ class SearchChipIn(CamelModel):
     id: str | None = None
     recipe_id: str | None = None
     value: str | None = None
+    label: str | None = None
 
 
 class SearchRequestIn(CamelModel):
@@ -39,7 +41,7 @@ class SearchRequestIn(CamelModel):
 
 
 class MatchReasonOut(CamelModel):
-    type: Literal["semantic", "filter"]
+    type: MatchReasonType
     label: str
     score: float | None = None
 
@@ -58,3 +60,46 @@ class SearchResponseOut(CamelModel):
     limit: int
     offset: int
     has_more: bool
+
+
+class SearchExplainFiltersOut(CamelModel):
+    tag_id: str | None = None
+    ingredient_queries: list[str]
+    source_name: str | None = None
+    author_name: str | None = None
+    title_recipe_id: str | None = None
+
+
+class SearchExplainDebugOut(CamelModel):
+    rank: int | None = None
+    distance: float | None = None
+    similarity: float | None = None
+    embedding_status: str | None = None
+    embedding_model: str | None = None
+    input_hash: str | None = None
+    embedding_input_preview: str | None = None
+
+
+class SearchExplainResultOut(SearchResultOut):
+    debug: SearchExplainDebugOut
+
+
+class SearchExplainResponseOut(CamelModel):
+    text_present: bool
+    filters: SearchExplainFiltersOut
+    provider: str | None = None
+    model: str | None = None
+    distance_metric: str
+    candidate_count: int
+    returned_count: int
+    limit: int
+    offset: int
+    has_more: bool
+    snapshot_persisted: bool = False
+    items: list[SearchExplainResultOut]
+
+
+class EmbeddingInputPreviewOut(CamelModel):
+    recipe_id: str
+    input: str
+    input_hash: str

@@ -9,6 +9,7 @@ from app.api.deps import get_current_user
 from app.db.base import Base
 from app.db.init import ensure_default_user
 from app.db.session import get_session
+from app.embeddings.input import build_recipe_embedding_hash, build_recipe_embedding_input
 from app.imports.events import record_job_event
 from app.main import create_app
 from app.models import (
@@ -16,13 +17,25 @@ from app.models import (
     ImportJobSource,
     ImportJobStatus,
     ImportSourceStatus,
+    Ingredient,
     Recipe,
     RecipeEmbedding,
     RecipeEmbeddingEvent,
     RecipeEmbeddingStatus,
     SourceType,
+    Tag,
     User,
 )
+
+
+class StaticEmbeddingProvider:
+    model = "test-embedding"
+
+    def __init__(self, vector: list[float]) -> None:
+        self.vector = vector
+
+    def embed(self, text: str) -> list[float]:
+        return self.vector
 
 
 def client_with_session():
@@ -50,6 +63,24 @@ def test_internal_routes_require_admin_user():
 
     assert response.status_code == 403
     assert response.json() == {"errorCode": "FORBIDDEN", "message": "Admin access is required."}
+
+
+def test_internal_search_explain_requires_admin_user():
+    client, _ = client_with_session()
+    client.app.dependency_overrides[get_current_user] = lambda: User(id="regular-user", email="regular@example.test")
+
+    response = client.post("/internal/search/explain", json={"text": "soup"})
+
+    assert response.status_code == 403
+
+
+def test_internal_embedding_input_preview_requires_admin_user():
+    client, _ = client_with_session()
+    client.app.dependency_overrides[get_current_user] = lambda: User(id="regular-user", email="regular@example.test")
+
+    response = client.get("/internal/recipes/recipe-1/embedding-input")
+
+    assert response.status_code == 403
 
 
 def test_internal_import_jobs_returns_jobs_sources_events_and_status_history():
@@ -158,3 +189,78 @@ def test_internal_embedding_retry_uses_existing_embedding_owner(monkeypatch):
         embedding = session.get(RecipeEmbedding, recipe_id)
         assert embedding is not None
         assert [event.event_type for event in embedding.events] == ["retry_requested", "scheduled", "enqueued"]
+
+
+def test_internal_search_explain_applies_filters_and_ready_embeddings(monkeypatch):
+    client, SessionLocal = client_with_session()
+    with SessionLocal() as session:
+        user = ensure_default_user(session)
+        dessert = Tag(owner_id=user.id, name="dessert")
+        session.add(dessert)
+        cake = Recipe(owner_id=user.id, title="Apple Cake", instructions=["Bake"], tags=[dessert])
+        cake.ingredients.append(Ingredient(name="Apple", search_name="apple", position=0))
+        cake.embedding = RecipeEmbedding(model="test-embedding", status=RecipeEmbeddingStatus.READY.value, embedding=[1.0, 0.0], input_hash="hash-cake")
+        soup = Recipe(owner_id=user.id, title="Apple Soup", instructions=["Boil"], tags=[dessert])
+        soup.ingredients.append(Ingredient(name="Apple", search_name="apple", position=0))
+        soup.embedding = RecipeEmbedding(model="test-embedding", status=RecipeEmbeddingStatus.SKIPPED_DUE_TO_FLAGS.value, embedding=[1.0, 0.0], input_hash="hash-soup")
+        other = Recipe(owner_id=user.id, title="Berry Cake", instructions=["Bake"], tags=[dessert])
+        other.ingredients.append(Ingredient(name="Berry", search_name="berry", position=0))
+        other.embedding = RecipeEmbedding(model="test-embedding", status=RecipeEmbeddingStatus.READY.value, embedding=[0.0, 1.0], input_hash="hash-berry")
+        session.add_all([cake, soup, other])
+        session.commit()
+        dessert_id = dessert.id
+    monkeypatch.setattr("app.services.search.get_embedding_provider", lambda: ("test", StaticEmbeddingProvider([1.0, 0.0])))
+
+    response = client.post(
+        "/internal/search/explain",
+        json={
+            "text": "apple",
+            "selected": [
+                {"type": "tag", "id": dessert_id},
+                {"type": "ingredient_query", "value": "apple"},
+            ],
+            "limit": 10,
+            "offset": 0,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["provider"] == "test"
+    assert payload["model"] == "test-embedding"
+    assert payload["candidateCount"] == 1
+    assert payload["returnedCount"] == 1
+    assert payload["filters"]["tagId"] == dessert_id
+    assert payload["filters"]["ingredientQueries"] == ["apple"]
+    assert [item["title"] for item in payload["items"]] == ["Apple Cake"]
+    assert payload["items"][0]["debug"]["rank"] == 1
+    assert payload["items"][0]["debug"]["distance"] == 0.0
+    assert payload["items"][0]["debug"]["similarity"] == 1.0
+    assert payload["items"][0]["debug"]["embeddingInputPreview"] == "apple cake apple bake"
+    assert payload["items"][0]["matchReasons"] == [
+        {"type": "ingredient_query", "label": "apple", "score": None},
+        {"type": "semantic", "label": "Semantic match", "score": 1.0},
+    ]
+    assert payload["snapshotPersisted"] is False
+
+
+def test_internal_embedding_input_preview_returns_current_input_and_hash():
+    client, SessionLocal = client_with_session()
+    with SessionLocal() as session:
+        user = ensure_default_user(session)
+        recipe = Recipe(owner_id=user.id, title="Soup", instructions=["Heat water"], cook_time_minutes=10)
+        recipe.ingredients.append(Ingredient(name="Water", search_name="water", position=0))
+        session.add(recipe)
+        session.commit()
+        recipe_id = recipe.id
+        expected_input = build_recipe_embedding_input(recipe)
+        expected_hash = build_recipe_embedding_hash(recipe)
+
+    response = client.get(f"/internal/recipes/{recipe_id}/embedding-input")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "recipeId": recipe_id,
+        "input": expected_input,
+        "inputHash": expected_hash,
+    }
