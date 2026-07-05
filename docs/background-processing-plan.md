@@ -137,7 +137,17 @@ This checklist applies to every phase. Any phase that touches import, resources,
 - `GET /internal/recipes/{recipeId}/embedding-input` returns the same current embedding input text and input hash produced by the embedding input builder.
 - URL source status aggregation is preserved.
 - Final and primary resource status mapping is preserved.
-- `ImportJob.error_code` is always one of `app.models.ImportJobErrorCode.value`, never an arbitrary provider/internal string; detailed import failure codes are stored in `ImportJob.error_message` and failed job-event payloads when available.
+- Public API errors use `ApiErrorCode`; import-job persisted failure categories use `ImportJobErrorCode`. These enums are separate and must not be mixed.
+- `ImportJob.error_code` is always one of `ImportJobErrorCode.value`: `IMPORT_CREATION_FAILED`, `IMPORT_PROCESSING_FAILED`, or `IMPORT_EXTRACTION_FAILED`.
+- Detailed import failure reasons are stored in `ImportJob.error_message` and failed `JobEvent.payload.detailCode` when available; they are not stored in `ImportJob.error_code`.
+- Empty import requests fail preflight validation with API error `NO_IMPORT_SOURCES`; no `ImportJob` is created.
+- After preflight validation succeeds, `ImportJob` is created before primary resource upload work, so creation-stage failures can be persisted as failed jobs with events and notifications.
+- Primary upload/resource creation failures fail the job with `IMPORT_CREATION_FAILED`, detail `RESOURCE_UPLOAD_FAILED`, create failed event/notification, and clean up uploaded files/resources.
+- Secondary URL/media/video resource loading failures fail the job with `IMPORT_PROCESSING_FAILED`, detail `SECONDARY_RESOURCE_UPLOADING_FAILED`, create failed event/notification, and do not clean up already persisted job resources.
+- Extraction-stage failures fail the job with `IMPORT_EXTRACTION_FAILED`, store extraction detail code in `error_message`, create failed event/notification, and clean up storage created for the import.
+- Extraction detail codes are `AI_PARSE_FAILED`, `INVALID_EXTRACTION_RESULT`, `NOT_A_RECIPE`, `AI_UNAVAILABLE`, and `RECIPE_TOO_LONG`.
+- `MIXED_SOURCE_PLATFORMS` is diagnostic log text only; it is not an API error code and not an import-job error code.
+- Import failed `JobEvent.payload` includes the high-level `errorCode`, optional detailed `errorMessage`/`detailCode`, stage, and diagnostic payload fields useful for debugging.
 - Review flag creation rules are preserved.
 - Review flag management behavior is preserved.
 - `source_name` derivation from non-ignored primary resources is preserved.
