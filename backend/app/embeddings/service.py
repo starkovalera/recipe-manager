@@ -4,7 +4,7 @@ from time import perf_counter
 
 from sqlalchemy.orm import Session, object_session
 
-from app.core.errors import ApiError, ApiErrorCode
+from app.core.errors import RecipeNotFoundError
 from app.core.logging import bind_logger
 from app.embeddings.constants import EMBEDDING_LOG_COMPONENT, EMBEDDING_LOG_PREFIX
 from app.embeddings.events import EmbeddingEventType, add_embedding_event
@@ -120,7 +120,7 @@ def skip_recipe_embedding_due_to_flags(session: Session, recipe_id: str) -> Reci
 def retry_recipe_embedding(session: Session, recipe_id: str, owner_id: str) -> RecipeEmbedding:
     recipe = get_owner_recipe_for_embedding_retry(session, recipe_id, owner_id)
     if recipe is None:
-        raise ApiError(ApiErrorCode.RECIPE_NOT_FOUND, "Recipe not found.", status_code=404)
+        raise RecipeNotFoundError()
     _, provider = get_embedding_provider()
     embedding = get_or_create_recipe_embedding(session, recipe.id, model=provider.model)
     previous_status = embedding.status

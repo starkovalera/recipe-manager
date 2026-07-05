@@ -8,7 +8,17 @@ from sqlalchemy.orm import Session
 
 from app.ai.schemas import ReadySource
 from app.core.config import get_settings
-from app.core.errors import ApiError, ApiErrorCode
+from app.core.errors import (
+    ActiveImportExistsError,
+    ApiError,
+    FileTooLargeError,
+    ImportNotFoundError,
+    InvalidFileTypeError,
+    NoImportSourcesError,
+    RecipeTooLongError,
+    TextTooLongError,
+    TooManyFilesError,
+)
 from app.core.logging import BoundLogger, bind_logger
 from app.embeddings.service import enqueue_recipe_embedding_with_event, prepare_recipe_embedding
 from app.imports.constants import IMPORT_LOG_COMPONENT, IMPORT_LOG_PREFIX
@@ -93,25 +103,25 @@ def _validate_import_request(text: str | None, url: str | None, files: list[Uplo
     normalized_text = text.strip() if text else None
     normalized_url = url.strip() if url else None
     if normalized_text and len(normalized_text) > settings.max_import_text_chars:
-        raise ApiError(ApiErrorCode.TEXT_TOO_LONG, f"Text input supports up to {settings.max_import_text_chars} characters.")
+        raise TextTooLongError(max_length=settings.max_import_text_chars)
     if len(files) > settings.max_import_images:
-        raise ApiError(ApiErrorCode.TOO_MANY_FILES, f"Upload up to {settings.max_import_images} images.")
+        raise TooManyFilesError(max_files=settings.max_import_images)
     for upload in files:
         if upload.content_type not in SUPPORTED_UPLOAD_TYPES:
-            raise ApiError(ApiErrorCode.INVALID_FILE_TYPE, "Upload JPEG, PNG, or WebP images.")
+            raise InvalidFileTypeError(content_type=upload.content_type)
     if not normalized_text and not normalized_url and not files:
-        raise ApiError(ApiErrorCode.NO_IMPORT_SOURCES, "Add a recipe URL, upload at least one recipe image, or add recipe text.")
+        raise NoImportSourcesError()
     return normalized_text, normalized_url
 
 
 def _create_upload_source(upload: UploadFile, position: int, storage: LocalStorageService) -> ImportJobSource:
     content = upload.file.read()
     if len(content) > get_settings().max_upload_bytes:
-        raise ApiError(ApiErrorCode.FILE_TOO_LARGE, "Uploaded image is too large.")
+        raise FileTooLargeError(max_size_bytes=get_settings().max_upload_bytes)
     try:
         validated = validate_image_upload(content, upload.content_type or "", upload.filename or "upload")
     except ValueError as error:
-        raise ApiError(ApiErrorCode.INVALID_FILE_TYPE, str(error)) from error
+        raise InvalidFileTypeError(message=str(error), content_type=upload.content_type, filename=upload.filename) from error
     saved = storage.save(validated.content, validated.original_name, validated.mime_type)
     return ImportJobSource(
         type=SourceType.IMAGE,
@@ -143,7 +153,7 @@ def create_import_job(
     if existing is not None:
         return ImportJobCreationResult(job=existing, was_created=False)
     if count_import_jobs_by_statuses(session, owner_id, ACTIVE_IMPORT_STATUSES) >= get_settings().max_parallel_imports_per_client:
-        raise ApiError(ApiErrorCode.ACTIVE_IMPORT_EXISTS, "Too many active imports for this user.")
+        raise ActiveImportExistsError(max_active_imports=get_settings().max_parallel_imports_per_client)
 
     job = ImportJob(
         owner_id=owner_id,
@@ -423,7 +433,7 @@ def process_import_job(session: Session, job_id: str) -> None:
     try:
         recipe_result, status_quality = normalize_recipe_result(job, recipe_result, ready_sources)
     except ApiError as error:
-        if error.error_code == ApiErrorCode.RECIPE_TOO_LONG:
+        if isinstance(error, RecipeTooLongError):
             _fail_extraction_and_commit(
                 session,
                 job,
@@ -509,5 +519,5 @@ def process_import_job(session: Session, job_id: str) -> None:
 def get_import_job(session: Session, job_id: str, owner_id: str) -> ImportJob:
     job = query_import_job(session, job_id, owner_id)
     if job is None:
-        raise ApiError(ApiErrorCode.IMPORT_NOT_FOUND, "Import job not found.", status_code=404)
+        raise ImportNotFoundError()
     return job

@@ -2,7 +2,17 @@ from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
-from app.core.errors import ApiError, ApiErrorCode
+from app.core.errors import (
+    CoverImageNotFoundError,
+    CurrentCoverResourceDeleteError,
+    IngredientNotFoundError,
+    InvalidIngredientError,
+    InvalidTagError,
+    RecipeNotFoundError,
+    RecipeResourceNotFoundError,
+    ReviewFlagNotFoundError,
+    UnsupportedSourceStatusError,
+)
 from app.embeddings.service import enqueue_recipe_embedding_with_event, prepare_recipe_embedding
 from app.models import (
     Ingredient,
@@ -56,7 +66,7 @@ def list_recipes(session: Session, owner_id: str, *, filters: RecipeListFilters,
 def get_recipe_detail(session: Session, recipe_id: str, owner_id: str) -> Recipe:
     recipe = query_recipe_detail(session, recipe_id, owner_id)
     if recipe is None:
-        raise ApiError(ApiErrorCode.RECIPE_NOT_FOUND, "Recipe not found.", status_code=404)
+        raise RecipeNotFoundError()
     return recipe
 
 
@@ -98,11 +108,11 @@ def _replace_recipe_ingredients(recipe: Recipe, patch: RecipePatchIn) -> None:
     seen_ids: set[str] = set()
     for index, ingredient_in in enumerate(patch.ingredients):
         if not ingredient_in.name.strip():
-            raise ApiError(ApiErrorCode.INVALID_INGREDIENT, "Ingredient name is required.")
+            raise InvalidIngredientError()
         if ingredient_in.id is not None:
             ingredient = existing_by_id.get(ingredient_in.id)
             if ingredient is None or ingredient.id in seen_ids:
-                raise ApiError(ApiErrorCode.RECIPE_NOT_FOUND, "Ingredient not found.", status_code=404)
+                raise IngredientNotFoundError(ingredient_id=ingredient_in.id)
             seen_ids.add(ingredient.id)
         else:
             ingredient = Ingredient()
@@ -125,7 +135,7 @@ def _apply_recipe_tags(session: Session, recipe: Recipe, patch: RecipePatchIn) -
     unique_tag_ids = list(dict.fromkeys(patch.tag_ids))
     tags = list_active_tags_by_ids(session, recipe.owner_id, unique_tag_ids)
     if len(tags) != len(unique_tag_ids):
-        raise ApiError(ApiErrorCode.INVALID_TAG, "Some tags are invalid.")
+        raise InvalidTagError(tag_ids=unique_tag_ids)
     by_id = {tag.id: tag for tag in tags}
     recipe.tags = [by_id[tag_id] for tag_id in unique_tag_ids]
 
@@ -140,14 +150,14 @@ def _apply_cover_selection(session: Session, recipe: Recipe, patch: RecipePatchI
     if patch.cover_selection.image_id:
         image = get_recipe_image(session, patch.cover_selection.image_id, recipe.id)
         if image is None:
-            raise ApiError(ApiErrorCode.RECIPE_NOT_FOUND, "Cover image not found.", status_code=404)
+            raise CoverImageNotFoundError(image_id=patch.cover_selection.image_id)
         recipe.cover_image_id = image.id
 
 
 def patch_recipe(session: Session, recipe_id: str, owner_id: str, patch: RecipePatchIn) -> Recipe:
     recipe = query_recipe(session, recipe_id, owner_id)
     if recipe is None:
-        raise ApiError(ApiErrorCode.RECIPE_NOT_FOUND, "Recipe not found.", status_code=404)
+        raise RecipeNotFoundError()
 
     _validate_recipe_patch(recipe, patch)
     _apply_recipe_scalar_patch(recipe, patch)
@@ -167,7 +177,7 @@ def patch_recipe(session: Session, recipe_id: str, owner_id: str, patch: RecipeP
 def delete_recipe(session: Session, recipe_id: str, owner_id: str) -> None:
     recipe = query_recipe(session, recipe_id, owner_id)
     if recipe is None:
-        raise ApiError(ApiErrorCode.RECIPE_NOT_FOUND, "Recipe not found.", status_code=404)
+        raise RecipeNotFoundError()
     session.delete(recipe)
     session.commit()
 
@@ -175,7 +185,7 @@ def delete_recipe(session: Session, recipe_id: str, owner_id: str) -> None:
 def set_review_flag_status(session: Session, recipe_id: str, owner_id: str, flag_id: str, status: str) -> RecipeReviewFlag:
     flag = get_recipe_review_flag(session, flag_id, recipe_id, owner_id)
     if flag is None:
-        raise ApiError(ApiErrorCode.RECIPE_NOT_FOUND, "Review flag not found.", status_code=404)
+        raise ReviewFlagNotFoundError(flag_id=flag_id)
     if status == "resolved":
         flag.status = RecipeReviewFlagStatus.RESOLVED
         flag.resolved_at = datetime.now(timezone.utc)
@@ -194,7 +204,7 @@ def set_review_flag_status(session: Session, recipe_id: str, owner_id: str, flag
 def _load_recipe_for_resource_mutation(session: Session, recipe_id: str, owner_id: str) -> Recipe:
     recipe = query_recipe_for_resource_mutation(session, recipe_id, owner_id)
     if recipe is None:
-        raise ApiError(ApiErrorCode.RECIPE_NOT_FOUND, "Recipe not found.", status_code=404)
+        raise RecipeNotFoundError()
     return recipe
 
 
@@ -206,20 +216,20 @@ def patch_recipe_resource_status(session: Session, recipe_id: str, owner_id: str
     recipe = _load_recipe_for_resource_mutation(session, recipe_id, owner_id)
     resource = next((item for item in recipe.resources if item.id == resource_id and item.owner_id == owner_id), None)
     if resource is None:
-        raise ApiError(ApiErrorCode.RECIPE_NOT_FOUND, "Recipe resource not found.", status_code=404)
+        raise RecipeResourceNotFoundError(resource_id=resource_id)
 
     if status == "used":
         resource.status = RecipeResourceStatus.USED
     elif status == "deleted":
         if _is_current_cover_resource(recipe, resource):
-            raise ApiError(ApiErrorCode.RECIPE_NOT_FOUND, "Current cover resource cannot be deleted.", status_code=409)
+            raise CurrentCoverResourceDeleteError(resource_id=resource.id)
         resource.status = RecipeResourceStatus.DELETED
         if resource.type == SourceType.URL:
             for child in resource.children:
                 if not _is_current_cover_resource(recipe, child):
                     child.status = RecipeResourceStatus.DELETED
     else:
-        raise ApiError(ApiErrorCode.RECIPE_NOT_FOUND, "Unsupported source status.", status_code=400)
+        raise UnsupportedSourceStatusError(status=status)
 
     session.commit()
     return get_recipe_detail(session, recipe_id, owner_id)

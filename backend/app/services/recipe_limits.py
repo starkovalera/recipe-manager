@@ -2,7 +2,7 @@ from collections.abc import Sequence
 from typing import Protocol
 
 from app.core.config import get_settings
-from app.core.errors import ApiError, ApiErrorCode
+from app.core.errors import NoteTooLongError, RecipeTooLongError
 
 
 class IngredientLike(Protocol):
@@ -16,11 +16,11 @@ def instructions_text_length(instructions: Sequence[str]) -> int:
 def validate_recipe_size(ingredients: Sequence[IngredientLike], instructions: Sequence[str]) -> None:
     settings = get_settings()
     if len([ingredient for ingredient in ingredients if ingredient.name.strip()]) > settings.max_recipe_ingredients:
-        raise ApiError(ApiErrorCode.RECIPE_TOO_LONG, "Recipe is too long.")
+        raise RecipeTooLongError(max_ingredients=settings.max_recipe_ingredients)
     if instructions_text_length(instructions) > settings.max_recipe_instruction_chars:
-        raise ApiError(ApiErrorCode.RECIPE_TOO_LONG, "Recipe is too long.")
+        raise RecipeTooLongError(max_instruction_chars=settings.max_recipe_instruction_chars)
 
 
 def validate_recipe_note(note: str | None) -> None:
     if note is not None and len(note.strip()) > get_settings().max_recipe_note_chars:
-        raise ApiError(ApiErrorCode.NOTE_TOO_LONG, "Recipe note is too long.")
+        raise NoteTooLongError(max_length=get_settings().max_recipe_note_chars)

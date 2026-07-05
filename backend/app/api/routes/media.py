@@ -2,7 +2,7 @@ from fastapi import APIRouter
 from fastapi.responses import FileResponse
 
 from app.core.config import get_settings
-from app.core.errors import ApiError, ApiErrorCode
+from app.core.errors import StorageNotFoundError
 from app.storage.local import LocalStorageService
 
 router = APIRouter(prefix="/media", tags=["media"])
@@ -14,7 +14,7 @@ def get_media(storage_key: str) -> FileResponse:
     try:
         path = storage.path_for_response(storage_key)
     except ValueError as error:
-        raise ApiError(ApiErrorCode.STORAGE_NOT_FOUND, "Media file not found.", status_code=404) from error
+        raise StorageNotFoundError() from error
     if not path.exists() or not path.is_file():
-        raise ApiError(ApiErrorCode.STORAGE_NOT_FOUND, "Media file not found.", status_code=404)
+        raise StorageNotFoundError()
     return FileResponse(path)
