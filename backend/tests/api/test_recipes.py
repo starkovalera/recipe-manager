@@ -402,7 +402,7 @@ def test_patch_recipe_rejects_too_many_ingredients():
     )
 
     assert response.status_code == 400
-    assert response.json()["errorCode"] == "RECIPE_TOO_LONG"
+    assert response.json()["errorCode"] == "TEXT_TOO_LONG"
 
 
 def test_patch_recipe_rejects_empty_ingredient_name():
@@ -422,7 +422,7 @@ def test_patch_recipe_rejects_too_long_instructions():
     response = client.patch(f"/recipes/{recipe_id}", json={"instructions": ["x" * 1001]})
 
     assert response.status_code == 400
-    assert response.json()["errorCode"] == "RECIPE_TOO_LONG"
+    assert response.json()["errorCode"] == "TEXT_TOO_LONG"
 
 
 def test_patch_recipe_updates_full_editable_fields_and_cover():

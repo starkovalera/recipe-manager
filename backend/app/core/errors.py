@@ -9,7 +9,6 @@ class ApiErrorCode(str, Enum):
     INVALID_URL = "INVALID_URL"
     TEXT_TOO_LONG = "TEXT_TOO_LONG"
     NOTE_TOO_LONG = "NOTE_TOO_LONG"
-    RECIPE_TOO_LONG = "RECIPE_TOO_LONG"
     NO_IMPORT_SOURCES = "NO_IMPORT_SOURCES"
     TOO_MANY_FILES = "TOO_MANY_FILES"
     INVALID_FILE_TYPE = "INVALID_FILE_TYPE"
@@ -99,7 +98,7 @@ class NoteTooLongError(ApiValidationError):
 
 
 class RecipeTooLongError(ApiValidationError):
-    error_code = ApiErrorCode.RECIPE_TOO_LONG
+    error_code = ApiErrorCode.TEXT_TOO_LONG
     message = "Recipe is too long."
 
 
