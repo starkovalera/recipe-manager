@@ -3,11 +3,13 @@ import { useState } from "react";
 
 import { queryClient } from "./queryClient";
 import { listNotifications } from "../api/client";
+import { isCurrentUserAdmin } from "../auth/admin";
 import { CollectionDetailPage } from "../pages/CollectionDetailPage";
 import { CollectionsPage } from "../pages/CollectionsPage";
 import { ImportPage } from "../pages/ImportPage";
 import { InternalEmbeddingsPage } from "../pages/InternalEmbeddingsPage";
 import { InternalImportJobsPage } from "../pages/InternalImportJobsPage";
+import { InternalSearchDebugPage } from "../pages/InternalSearchDebugPage";
 import { NotificationsPage } from "../pages/NotificationsPage";
 import { RecipeDetailPage } from "../pages/RecipeDetailPage";
 import { RecipeListPage } from "../pages/RecipeListPage";
@@ -22,6 +24,7 @@ type Page =
   | { name: "notifications" }
   | { name: "internal-import-jobs" }
   | { name: "internal-embeddings" }
+  | { name: "internal-search-debug" }
   | { name: "tags" };
 
 function AppContent() {
@@ -34,6 +37,7 @@ function AppContent() {
   });
   const notifications = notificationsQuery.data?.items ?? [];
   const latestUnreadNotification = notifications.find((notification) => notification.status === "unread");
+  const isAdmin = isCurrentUserAdmin();
 
   return (
     <main className="app-shell">
@@ -75,20 +79,31 @@ function AppContent() {
             >
               Tags
             </button>
-            <button
-              type="button"
-              className={activeSection === "internal-import-jobs" ? "is-active" : undefined}
-              onClick={() => setPage({ name: "internal-import-jobs" })}
-            >
-              Import jobs
-            </button>
-            <button
-              type="button"
-              className={activeSection === "internal-embeddings" ? "is-active" : undefined}
-              onClick={() => setPage({ name: "internal-embeddings" })}
-            >
-              Embeddings
-            </button>
+            {isAdmin ? (
+              <>
+                <button
+                  type="button"
+                  className={activeSection === "internal-import-jobs" ? "is-active" : undefined}
+                  onClick={() => setPage({ name: "internal-import-jobs" })}
+                >
+                  Import jobs
+                </button>
+                <button
+                  type="button"
+                  className={activeSection === "internal-embeddings" ? "is-active" : undefined}
+                  onClick={() => setPage({ name: "internal-embeddings" })}
+                >
+                  Embeddings
+                </button>
+                <button
+                  type="button"
+                  className={activeSection === "internal-search-debug" ? "is-active" : undefined}
+                  onClick={() => setPage({ name: "internal-search-debug" })}
+                >
+                  Search Debug
+                </button>
+              </>
+            ) : null}
         </nav>
       </header>
       {latestUnreadNotification ? (
@@ -115,8 +130,9 @@ function AppContent() {
           <NotificationsPage notifications={notifications} onOpenRecipe={(recipeId) => setPage({ name: "recipe", recipeId })} />
         ) : null}
         {page.name === "tags" ? <TagsPage /> : null}
-        {page.name === "internal-import-jobs" ? <InternalImportJobsPage /> : null}
-        {page.name === "internal-embeddings" ? <InternalEmbeddingsPage /> : null}
+        {page.name === "internal-import-jobs" && isAdmin ? <InternalImportJobsPage /> : null}
+        {page.name === "internal-embeddings" && isAdmin ? <InternalEmbeddingsPage /> : null}
+        {page.name === "internal-search-debug" && isAdmin ? <InternalSearchDebugPage onOpenRecipe={(recipeId) => setPage({ name: "recipe", recipeId })} /> : null}
       </div>
     </main>
   );

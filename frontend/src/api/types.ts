@@ -74,11 +74,49 @@ export type SearchRequest = {
 
 export type SearchResponse = {
   items: Array<RecipeList["items"][number] & {
-    matchReasons: Array<{ type: "semantic" | "filter"; label: string; score?: number | null }>;
+    matchReasons: Array<{ type: string; label: string; score?: number | null }>;
   }>;
   limit: number;
   offset: number;
   hasMore: boolean;
+};
+
+export type SearchExplainResponse = {
+  textPresent: boolean;
+  filters: {
+    tagId?: string | null;
+    ingredientQueries: string[];
+    sourceName?: string | null;
+    authorName?: string | null;
+    titleRecipeId?: string | null;
+  };
+  provider?: string | null;
+  model?: string | null;
+  distanceMetric: string;
+  candidateCount: number;
+  returnedCount: number;
+  limit: number;
+  offset: number;
+  hasMore: boolean;
+  snapshotPersisted: boolean;
+  items: Array<RecipeList["items"][number] & {
+    matchReasons: Array<{ type: string; label: string; score?: number | null }>;
+    debug: {
+      rank?: number | null;
+      distance?: number | null;
+      similarity?: number | null;
+      embeddingStatus?: string | null;
+      embeddingModel?: string | null;
+      inputHash?: string | null;
+      embeddingInputPreview?: string | null;
+    };
+  }>;
+};
+
+export type EmbeddingInputPreview = {
+  recipeId: string;
+  input: string;
+  inputHash: string;
 };
 
 export type InternalImportJobList = {

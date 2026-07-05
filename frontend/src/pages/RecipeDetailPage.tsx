@@ -5,6 +5,7 @@ import defaultRecipeImage from "../assets/default-recipe.svg";
 import {
   addRecipeToCollection,
   deleteRecipe,
+  getInternalEmbeddingInputPreview,
   getRecipe,
   listCollections,
   listTags,
@@ -15,6 +16,7 @@ import {
   removeRecipeFromCollection,
 } from "../api/client";
 import type { RecipeDetail, RecipeImage, RecipeResource, ReviewFlag, Tag } from "../api/types";
+import { isCurrentUserAdmin } from "../auth/admin";
 
 type CoverChoice = { kind: "DEFAULT" | "IMAGE"; imageId?: string | null };
 type EditableIngredient = { id?: string; name: string; quantity: string; unit: string; note: string };
@@ -104,7 +106,13 @@ function validateEditableRecipe(ingredients: EditableIngredient[], instructions:
 
 export function RecipeDetailPage({ recipeId, onDeleted }: { recipeId: string; onDeleted: () => void }) {
   const queryClient = useQueryClient();
+  const isAdmin = isCurrentUserAdmin();
   const query = useQuery({ queryKey: ["recipe", recipeId], queryFn: () => getRecipe(recipeId) });
+  const embeddingInputQuery = useQuery({
+    queryKey: ["internal-embedding-input", recipeId],
+    queryFn: () => getInternalEmbeddingInputPreview(recipeId),
+    enabled: isAdmin,
+  });
   const collectionsQuery = useQuery({ queryKey: ["collections"], queryFn: () => listCollections() });
   const tagsQuery = useQuery({ queryKey: ["tags", { limit: 100, offset: 0 }], queryFn: () => listTags({ limit: 100, offset: 0 }) });
   const recipe = query.data;
@@ -595,6 +603,20 @@ export function RecipeDetailPage({ recipeId, onDeleted }: { recipeId: string; on
               ))}
             </ul>
           </section>
+
+          {isAdmin ? (
+            <section className="debug-card">
+              <h3>Embedding input preview</h3>
+              {embeddingInputQuery.isLoading ? <p>Loading embedding input...</p> : null}
+              {embeddingInputQuery.error ? <p role="alert">{embeddingInputQuery.error.message}</p> : null}
+              {embeddingInputQuery.data ? (
+                <>
+                  <p>Hash {embeddingInputQuery.data.inputHash}</p>
+                  <pre>{embeddingInputQuery.data.input}</pre>
+                </>
+              ) : null}
+            </section>
+          ) : null}
 
           <section className="danger-zone">
             <h3>Delete recipe</h3>

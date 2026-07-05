@@ -186,6 +186,11 @@ describe("App", () => {
         debugSources: [],
         reviewFlags: [],
       },
+      "GET /internal/recipes/recipe-1/embedding-input": {
+        recipeId: "recipe-1",
+        input: "soup cook",
+        inputHash: "hash-soup",
+      },
     });
 
     render(<App />);
@@ -281,6 +286,86 @@ describe("App", () => {
     ));
   });
 
+  it("shows internal search debug explanation and embedding input preview", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const path = new URL(url).pathname;
+      const method = init?.method ?? "GET";
+      const payloads: Record<string, unknown> = {
+        "GET /recipes": { items: [] },
+        "GET /notifications": { items: [] },
+        "POST /internal/search/explain": {
+          textPresent: true,
+          filters: { tagId: null, ingredientQueries: ["apple"], sourceName: null, authorName: null, titleRecipeId: null },
+          provider: "test",
+          model: "test-embedding",
+          distanceMetric: "cosine",
+          candidateCount: 1,
+          returnedCount: 1,
+          limit: 20,
+          offset: 0,
+          hasMore: false,
+          snapshotPersisted: false,
+          items: [
+            {
+              id: "recipe-1",
+              title: "Apple Cake",
+              coverImage: null,
+              hasOpenReviewFlags: false,
+              matchReasons: [
+                { type: "ingredient_query", label: "apple", score: null },
+                { type: "semantic", label: "Semantic match", score: 0.9 },
+              ],
+              debug: {
+                rank: 1,
+                distance: 0.1,
+                similarity: 0.9,
+                embeddingStatus: "ready",
+                embeddingModel: "test-embedding",
+                inputHash: "abcdef1234567890",
+                embeddingInputPreview: "apple cake apple bake",
+              },
+            },
+          ],
+        },
+        "GET /internal/recipes/recipe-1/embedding-input": {
+          recipeId: "recipe-1",
+          input: "apple cake apple bake",
+          inputHash: "abcdef1234567890",
+        },
+      };
+      const payload = payloads[`${method} ${path}`] ?? payloads[`GET ${path}`];
+      return {
+        ok: true,
+        status: 200,
+        text: async () => (payload === undefined ? "{}" : JSON.stringify(payload)),
+      };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Search Debug" }));
+
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Search Debug" })).toBeTruthy());
+    fireEvent.change(screen.getByLabelText("Search text"), { target: { value: "apple cake" } });
+    fireEvent.change(screen.getByLabelText("Selected chips JSON"), { target: { value: '[{"type":"ingredient_query","value":"apple"}]' } });
+    fireEvent.click(screen.getByRole("button", { name: "Explain search" }));
+
+    await waitFor(() => expect(screen.getByText("Apple Cake")).toBeTruthy());
+    expect(screen.getByText(/query provider test - query model test-embedding/)).toBeTruthy();
+    expect(screen.getByText("cosine")).toBeTruthy();
+    expect(screen.getByText("recipe-1")).toBeTruthy();
+    expect(screen.getByText("ready")).toBeTruthy();
+    expect(screen.getByText("apple cake apple bake")).toBeTruthy();
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/internal/search/explain"),
+      expect.objectContaining({
+        method: "POST",
+        body: expect.stringContaining('"ingredient_query"'),
+      }),
+    ));
+  });
+
   it("shows notification history, marks notifications read, and opens successful recipe imports", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
@@ -319,6 +404,11 @@ describe("App", () => {
           debugResources: [],
           debugSources: [],
           reviewFlags: [],
+        },
+        "GET /internal/recipes/recipe-1/embedding-input": {
+          recipeId: "recipe-1",
+          input: "soup cook",
+          inputHash: "hash-soup",
         },
         "GET /collections": { items: [] },
       };

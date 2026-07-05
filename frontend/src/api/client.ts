@@ -2,6 +2,7 @@ import { getClientId } from "./clientId";
 import type {
   CollectionDetail,
   CollectionList,
+  EmbeddingInputPreview,
   ImportJob,
   InternalImportJobList,
   InternalRecipeEmbeddingList,
@@ -13,6 +14,7 @@ import type {
   RecipeListParams,
   RecipePatch,
   SearchRequest,
+  SearchExplainResponse,
   SearchResponse,
   SearchSuggestionList,
   Tag,
@@ -127,6 +129,18 @@ export async function searchRecipes(input: SearchRequest): Promise<SearchRespons
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
   });
+}
+
+export async function explainInternalSearch(input: SearchRequest): Promise<SearchExplainResponse> {
+  return request<SearchExplainResponse>("/internal/search/explain", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
+export async function getInternalEmbeddingInputPreview(recipeId: string): Promise<EmbeddingInputPreview> {
+  return request<EmbeddingInputPreview>(`/internal/recipes/${recipeId}/embedding-input`);
 }
 
 export async function getRecipe(recipeId: string): Promise<RecipeDetail> {

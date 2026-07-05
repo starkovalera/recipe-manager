@@ -100,6 +100,9 @@ describe("RecipeDetailPage", () => {
           }),
         };
       }
+      if (url.includes("/internal/recipes/recipe-1/embedding-input")) {
+        return { ok: true, json: async () => ({ recipeId: "recipe-1", input: "soup tomato cook", inputHash: "hash-soup" }) };
+      }
       if (url.includes("/recipes/recipe-1")) {
         return { ok: true, json: async () => detail };
       }

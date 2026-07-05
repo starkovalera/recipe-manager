@@ -777,6 +777,36 @@ form button[type="submit"]:hover,
   color: var(--accent-ink);
 }
 
+.search-candidate-card {
+  display: grid;
+  gap: 14px;
+}
+
+.search-candidate-card__header {
+  align-items: flex-start;
+}
+
+.search-candidate-card__title {
+  min-width: 0;
+}
+
+.search-candidate-card__title h4 {
+  margin: 0;
+}
+
+.search-candidate-card__header .actions-row {
+  flex-shrink: 0;
+}
+
+.search-candidate-card__body {
+  display: grid;
+  gap: 14px;
+}
+
+.search-candidate-card__body h5 {
+  margin: 6px 0 -4px;
+}
+
 .debug-card li {
   overflow-wrap: anywhere;
 }
