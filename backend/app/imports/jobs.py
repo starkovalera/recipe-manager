@@ -15,7 +15,6 @@ from app.core.errors import (
     ImportNotFoundError,
     InvalidFileTypeError,
     NoImportSourcesError,
-    RecipeTooLongError,
     TextTooLongError,
     TooManyFilesError,
 )
@@ -432,17 +431,10 @@ def process_import_job(session: Session, job_id: str) -> None:
     recipe_result = result.recipe
     try:
         recipe_result, status_quality = normalize_recipe_result(job, recipe_result, ready_sources)
+    except ImportExtractionError as error:
+        _fail_extraction_and_commit(session, job, storage, saved_storage_keys, error, log)
+        return
     except ApiError as error:
-        if isinstance(error, RecipeTooLongError):
-            _fail_extraction_and_commit(
-                session,
-                job,
-                storage,
-                saved_storage_keys,
-                ImportExtractionError(ImportExtractionErrorCode.RECIPE_TOO_LONG, diagnostic_message=error.message),
-                log,
-            )
-            return
         _fail_processing_and_commit(session, job, storage, saved_storage_keys, error, log)
         return
     if recipe_result.quality.confidence <= get_settings().import_min_confidence:

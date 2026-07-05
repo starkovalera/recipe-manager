@@ -4,6 +4,7 @@ from app.ai.schemas import ExtractedRecipe, ReadySource
 from app.core.config import get_settings
 from app.core.logging import bind_logger
 from app.imports.constants import IMPORT_LOG_COMPONENT, IMPORT_LOG_PREFIX
+from app.imports.error_codes import ImportExtractionError, ImportExtractionErrorCode
 from app.imports.source_platform import derive_source_name
 from app.imports.sources import (
     normalize_quality_source_refs,
@@ -26,14 +27,20 @@ from app.models import (
     SourceType,
     Tag,
 )
-from app.services.recipe_limits import validate_recipe_size
+from app.services.recipe_limits import find_recipe_size_violation
 from app.services.search_text import build_ingredient_search_name
 
 logger = logging.getLogger(IMPORT_LOG_COMPONENT)
 
 
 def normalize_recipe_result(job: ImportJob, recipe_result: ExtractedRecipe, ready_sources: list[ReadySource]):
-    validate_recipe_size(recipe_result.ingredients, recipe_result.instructions)
+    size_violation = find_recipe_size_violation(recipe_result.ingredients, recipe_result.instructions)
+    if size_violation is not None:
+        raise ImportExtractionError(
+            ImportExtractionErrorCode.RECIPE_TOO_LONG,
+            diagnostic_message=size_violation.reason,
+            payload={"reason": size_violation.reason, "actual": size_violation.actual, "limit": size_violation.limit},
+        )
     is_single_url_import = len(job.sources) == 1 and job.sources[0].type == SourceType.URL
     status_quality = normalize_quality_source_refs(recipe_result.quality, ready_sources)
     recipe_quality = normalize_single_url_quality(status_quality, is_single_url_import)

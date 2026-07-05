@@ -97,11 +97,6 @@ class NoteTooLongError(ApiValidationError):
     message = "Recipe note is too long."
 
 
-class RecipeTooLongError(ApiValidationError):
-    error_code = ApiErrorCode.TEXT_TOO_LONG
-    message = "Recipe is too long."
-
-
 class NoImportSourcesError(ApiValidationError):
     error_code = ApiErrorCode.NO_IMPORT_SOURCES
     message = "Add a recipe URL, upload at least one recipe image, or add recipe text."
