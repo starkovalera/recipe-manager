@@ -132,7 +132,7 @@ This checklist applies to every phase. Any phase that touches import, resources,
 - Recipe and collection list endpoints are owner-scoped and paginated. Public list responses include `items`, `total`, `limit`, and `offset`. Lower-level query functions may return full owner-scoped lists when `limit` and `offset` are omitted.
 - Selected search chips are hard filters. Free text is reserved for vector search. `ingredient_name` has been replaced with `ingredient_query` in autocomplete, API parameters, and frontend types. Autocomplete always returns an `ingredient_query` suggestion first for a non-empty `q`, for example `Ingredient - cottage`. Concrete ingredient suggestions are no longer returned, to avoid encouraging overly exact ingredient choices. `/recipes` accepts repeatable `ingredientQuery=<text>` query parameters. Each `ingredientQuery` value filters recipes through `contains` matching against `Ingredient.search_name`, and multiple `ingredientQuery` values are combined with AND semantics.
 - `POST /search` uses selected chips as hard filters and free text as semantic/vector search. With free text present, the backend computes the query embedding using the current embedding provider/model, considers only current-owner recipes with `RecipeEmbedding.status = ready`, non-null embeddings, and `RecipeEmbedding.model == current query embedding model`, applies chip filters before vector ranking, and sorts by configured vector distance ascending with `Recipe.id` as a stable tie-breaker. The default and preferred metric is pgvector cosine distance (`<=>`); `EMBEDDING_DISTANCE_METRIC` defaults to `cosine` and currently supports `cosine` and `l2`. Debug similarity for cosine is `1 - distance`.
-- Internal search debugging surfaces are admin-only. Until real Phase 5 auth/permissions exist, temporary frontend admin visibility is only a UI guard; backend `/internal` admin dependencies remain authoritative.
+- Internal search debugging surfaces are admin-only. Until real Phase 6 auth/permissions exist, temporary frontend admin visibility is only a UI guard; backend `/internal` admin dependencies remain authoritative.
 - `POST /internal/search/explain` uses the public `SearchRequest` shape, applies selected chips as hard filters, uses only ready same-model embeddings for semantic candidates, and does not persist search debug snapshots. It returns effective filters, provider, query embedding model, distance metric, candidate count, returned count, pagination fields, `snapshot_persisted=false`, and ranked items with recipe id/title, rank, distance, similarity, embedding status, embedding model, input hash, embedding input preview, and match reasons. Semantic match reasons include a similarity `score`; selected chips are returned as individual match reasons.
 - `GET /internal/recipes/{recipeId}/embedding-input` returns the same current embedding input text and input hash produced by the embedding input builder.
 - URL source status aggregation is preserved.
@@ -419,7 +419,7 @@ The first frontend version uses polling. SSE is a later scaling/UX enhancement.
 
 Notification API endpoints are implemented in Phase 1d. Phase 1b only creates the persisted model and backend service that import processing can call; Phase 1c only moves import execution into the worker.
 
-Basic internal import job diagnostics may be implemented before Phase 3 to support local debugging of the queue cutover. Until Phase 5, these views are treated as local/admin-only tooling by convention, not by real authorization.
+Basic internal import job diagnostics may be implemented before Phase 4 to support local debugging of the queue cutover. Until Phase 6, these views are treated as local/admin-only tooling by convention, not by real authorization.
 
 #### Observability
 
@@ -1863,7 +1863,7 @@ All search debug, search explain, and embedding input preview functionality is a
 
 Until real auth/roles are implemented, use the explicit temporary internal admin guard introduced for `/internal/*`. Do not expose debug endpoints publicly, and do not show debug UI to normal users.
 
-When Phase 5 introduces real authorization, replace the temporary guard with role/permission checks for these surfaces too.
+When Phase 6 introduces real authorization, replace the temporary guard with role/permission checks for these surfaces too.
 
 #### Backend API
 
@@ -1941,7 +1941,79 @@ frontend Search Debug page calls internal explain endpoint
 recipe detail hides embedding preview for non-admin state once user context exists
 ```
 
-## Phase 3: UI and Diagnostics
+## Phase 3: Import Pipeline Details
+
+Goal: tighten import pipeline correctness, diagnostics, and failure semantics before broader UI/diagnostics work.
+
+Status: in progress.
+
+```mermaid
+flowchart TD
+  request["Import request"] --> creation["Import job creation"]
+  creation --> primaryResources["Primary source persistence"]
+  primaryResources --> processing["Background processing"]
+  processing --> secondaryResources["URL / media / video resource loading"]
+  secondaryResources --> extraction["AI extraction"]
+  extraction --> materialization["Recipe materialization"]
+  materialization --> flags["Review flags and source statuses"]
+  flags --> diagnostics["Events, notifications, logs, admin diagnostics"]
+```
+
+### Already Covered in This Phase
+
+- Introduced separated API and import-job error taxonomies:
+  - `ApiErrorCode` for public API errors;
+  - `ImportJobErrorCode` for persisted high-level job failure categories;
+  - creation, processing, and extraction detail codes for `ImportJob.error_message` and failed event payloads.
+- Changed empty import preflight failure from API `NOT_A_RECIPE` to `NO_IMPORT_SOURCES`; no job is created for this validation failure.
+- Preserved immediate job creation after successful preflight validation, so creation-stage failures can be represented as failed `ImportJob` rows with events and notifications.
+- Added creation failure handling for upload/resource failures:
+  - high-level `IMPORT_CREATION_FAILED`;
+  - detail `RESOURCE_UPLOAD_FAILED`;
+  - cleanup of uploaded files/resources.
+- Added processing failure handling for secondary URL/media/video failures:
+  - high-level `IMPORT_PROCESSING_FAILED`;
+  - detail `SECONDARY_RESOURCE_UPLOADING_FAILED`;
+  - no cleanup of already persisted job resources.
+- Added extraction failure handling:
+  - high-level `IMPORT_EXTRACTION_FAILED`;
+  - detail codes including `AI_PARSE_FAILED`, `INVALID_EXTRACTION_RESULT`, `NOT_A_RECIPE`, `AI_UNAVAILABLE`, and `RECIPE_TOO_LONG`;
+  - storage cleanup for extraction failures.
+- Kept `MIXED_SOURCE_PLATFORMS` as a log string only, not a persisted or API error code.
+- Added/updated migration and tests for `ImportJob.error_code` enum persistence.
+- Added regression tests for creation failure, processing failure, extraction failure, and API preflight error behavior.
+- Preserved existing source/resource invariants:
+  - attachments first;
+  - URL images only within remaining capacity;
+  - URL text/images/video poster/transcript handling;
+  - final sources sent to AI;
+  - source status mapping;
+  - review flag rules;
+  - cover candidate generation and persistence.
+- Added and refined internal diagnostics already needed during import/search work:
+  - import jobs/job events page;
+  - embedding status/events view;
+  - search debug/explain endpoint and page;
+  - embedding input preview for admin users.
+
+### Remaining Work / Follow-Up Candidates
+
+- Review whether `backend/app/imports/jobs.py` should be split further after the error-system migration settles.
+- Review user-facing failure messages for the new high-level/detail error split.
+- Decide whether creation-stage failed jobs should return HTTP 202 with failed job payload, or whether the import API should surface this differently while preserving job history.
+- Decide whether platform loaders should expose more granular secondary failure payload fields for images, video poster, and transcription.
+- Keep broader notification UX, import history UI, and visual design work in the following phases.
+
+### Checkpoints
+
+After each import-pipeline-detail change:
+
+- Run import-focused tests and full backend tests when shared error/resource behavior changes.
+- Re-check the import invariants list.
+- Propose invariant updates when a business rule changes.
+- Propose future-todo updates for temporary compatibility or known cleanup work.
+
+## Phase 4: UI and Diagnostics
 
 Goal: make background processing visible and debuggable without exposing internal complexity to normal users.
 
@@ -1960,9 +2032,9 @@ flowchart TD
 - Add job event audit table if not already added.
 - Show retry attempts and final normalized error.
 - Add admin/debug view for jobs and events.
-- Hide the basic internal diagnostics page behind real roles in Phase 5.
+- Hide the basic internal diagnostics page behind real roles in Phase 6.
 - Improve user-facing error messages.
-- Keep functional UI changes scoped here; broader visual redesign belongs to Phase 6.
+- Keep functional UI changes scoped here; broader visual redesign belongs to Phase 7.
 
 ### Blocks and Nuances
 
@@ -1981,7 +2053,7 @@ Debug/admin views can expose:
 - event timeline;
 - source loader failures.
 
-## Phase 4: Scaling and Production Hardening
+## Phase 5: Scaling and Production Hardening
 
 Goal: keep the architecture ready for higher load without complicating the first implementation.
 
@@ -2030,7 +2102,7 @@ Metrics to add later:
 
 Polling should remain the first notification transport. SSE is useful later but should not be required for correctness.
 
-## Phase 5: Authorization and Multi-User Access
+## Phase 6: Authorization and Multi-User Access
 
 Goal: replace the current local default/admin user assumption with real authentication and authorization before the product design pass and mobile work.
 
@@ -2115,7 +2187,7 @@ Workers should never depend on request sessions or frontend identity tokens. The
 
 This phase should happen before the dedicated UI/UX phase so web and mobile design can account for real login, session, account, and user-state flows.
 
-## Phase 6: Web UI/UX and Mobile FE Design
+## Phase 7: Web UI/UX and Mobile FE Design
 
 Goal: do a dedicated product/design phase before mobile implementation. This phase is intentionally a placeholder for future requirements clarification and research; implementation details are not defined yet.
 
@@ -2152,7 +2224,7 @@ This phase should not start from implementation. It needs requirements clarifica
 
 The mobile design here is a frontend design draft, not the mobile app build. It exists so the web design does not paint us into a corner before Expo/PWA work starts.
 
-## Phase 7: Mobile Path
+## Phase 8: Mobile Path
 
 Goal: prepare mobile implementation without creating a second backend.
 
@@ -2221,4 +2293,4 @@ Phase 2 starts with requirements for hybrid search ranking. The likely shape is 
 
 ### Open: RabbitMQ and SSE Timing
 
-Phase 4 starts with a checkpoint to decide whether RabbitMQ and SSE are actually needed at that stage.
+Phase 5 starts with a checkpoint to decide whether RabbitMQ and SSE are actually needed at that stage.
