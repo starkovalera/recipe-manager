@@ -137,6 +137,7 @@ This checklist applies to every phase. Any phase that touches import, resources,
 - `GET /internal/recipes/{recipeId}/embedding-input` returns the same current embedding input text and input hash produced by the embedding input builder.
 - URL source status aggregation is preserved.
 - Final and primary resource status mapping is preserved.
+- `ImportJob.error_code` is always one of `app.core.errors.ErrorCode.value`, never an arbitrary provider/internal string.
 - Review flag creation rules are preserved.
 - Review flag management behavior is preserved.
 - `source_name` derivation from non-ignored primary resources is preserved.

@@ -54,6 +54,8 @@ class ImportJobStatus(str, enum.Enum):
 
 
 class ImportSourceStatus(str, enum.Enum):
+    # Only READY is assigned by the current import flow. The other statuses are
+    # reserved for a future per-source upload/validation/processing lifecycle.
     PENDING = "pending"
     UPLOADING = "uploading"
     VALIDATING = "validating"
@@ -64,7 +66,6 @@ class ImportSourceStatus(str, enum.Enum):
 class RecipeResourceStatus(str, enum.Enum):
     USED = "used"
     IGNORED = "ignored"
-    CONFLICTING = "conflicting"
     UNKNOWN = "unknown"
     DELETED = "deleted"
 
@@ -373,6 +374,9 @@ class ImportJobSource(TimestampMixin, Base):
     mime_type: Mapped[str | None] = mapped_column(String)
     size_bytes: Mapped[int | None] = mapped_column(Integer)
     text: Mapped[str | None] = mapped_column(Text)
+    # Reserved for a future per-source failure lifecycle. The current import
+    # flow does not assign source-level error codes/messages; failures are
+    # stored on ImportJob.
     error_code: Mapped[str | None] = mapped_column(String)
     error_message: Mapped[str | None] = mapped_column(Text)
     position: Mapped[int] = mapped_column(Integer, nullable=False)

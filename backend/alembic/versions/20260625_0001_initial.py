@@ -131,7 +131,7 @@ def upgrade() -> None:
         sa.Column("image_id", sa.String(), nullable=True),
         sa.Column("text", sa.Text(), nullable=True),
         sa.Column("position", sa.Integer(), nullable=True),
-        sa.Column("status", sa.Enum("USED", "IGNORED", "CONFLICTING", "UNKNOWN", "DELETED", name="reciperesourcestatus"), nullable=False),
+        sa.Column("status", sa.Enum("USED", "IGNORED", "UNKNOWN", "DELETED", name="reciperesourcestatus"), nullable=False),
         sa.Column("assessment_reason", sa.Text(), nullable=True),
         sa.Column("assessment_confidence", sa.Float(), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("(CURRENT_TIMESTAMP)"), nullable=False),
