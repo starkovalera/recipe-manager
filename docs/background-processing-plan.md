@@ -125,12 +125,16 @@ This checklist applies to every phase. Any phase that touches import, resources,
 - Recipe tags are selected by active current-owner tag IDs only. Recipe edit does not create tags. Deleted, foreign, or unknown tag IDs are rejected.
 - AI-returned recipe tags are matched only against active current-owner tags by normalized name. Duplicate AI tags are dropped before persistence, and invalid AI tags are logged and ignored.
 - Recipe ingredients are edited and saved as structured rows. The only required ingredient field is `name`; `quantity`, `unit`, and `note` are optional. Frontend ingredient edits remain local until the whole recipe form is saved. `Ingredient.search_name` is an internal normalized/casefolded derivative of `Ingredient.name`, is not exposed through API responses, and is recalculated during import and manual recipe edits. Recipe PATCH updates existing ingredients by `id`, creates new ingredients without `id`, deletes existing ingredients omitted from the payload, and rejects empty ingredient names.
-- `Recipe.search_text` and `Recipe.search_text_hash` are internal derived fields, not API response fields. They are built only from `title`, `source_name`, `author_name`, `ingredients.search_name`, `instructions`, `nutrition_estimate`, and `cook_time_minutes`, and are rebuilt after successful import and relevant manual recipe edits.
+- `Recipe.search_text` and `Recipe.search_text_hash` are internal derived fields, not API response fields. They are built only from `title`, `source_name`, `author_name`, `ingredients.search_name`, `instructions`, `nutrition_estimate`, and `cook_time_minutes`, and are rebuilt after successful import and relevant manual recipe edits. Nutrition data is formatted as readable semantic text, for example `181.0 calories per serving`, `18.5 grams of proteins per serving`, `6.9 grams of fat per serving`, and `10.5 grams of carbs per serving`. Cooking time is formatted as readable semantic text, for example `Cooking time 20 minutes.`, not as a bare number.
 - `RecipeEmbedding` is optional technical search-index state: `Recipe 1 -- 0..1 RecipeEmbedding`. `recipe_embeddings.recipe_id` is both primary key and foreign key to `recipes.id` with cascade delete. Application code creates or updates the row only when the embedding subsystem needs to record state.
-- `RecipeEmbedding.input_hash` is independent from `Recipe.search_text_hash`. Embedding input is built only from `title`, `ingredients.search_name`, `instructions`, `nutrition_estimate`, and `cook_time_minutes`. Recipes with open review flags are marked `skipped_due_to_flags` and are not enqueued for embedding until the last open flag is resolved. Embedding tasks do not create user-facing notifications.
+- `RecipeEmbedding.input_hash` is independent from `Recipe.search_text_hash`. Embedding input is built only from `title`, `ingredients.search_name`, `instructions`, `nutrition_estimate`, and `cook_time_minutes`. Nutrition data and cooking time use the same readable semantic formatting described for `Recipe.search_text`. Recipes with open review flags are marked `skipped_due_to_flags` and are not enqueued for embedding until the last open flag is resolved. Embedding tasks do not create user-facing notifications.
 - `RecipeEmbeddingEvent` is append-only internal audit/debug history for `RecipeEmbedding`. It is not user-facing notification data and current embedding status is never computed from events. `RecipeEmbeddingEvent.recipe_id` points to `recipe_embeddings.recipe_id` and cascades through `RecipeEmbedding`.
 - Recipe and collection list endpoints are owner-scoped and paginated. Public list responses include `items`, `total`, `limit`, and `offset`. Lower-level query functions may return full owner-scoped lists when `limit` and `offset` are omitted.
 - Selected search chips are hard filters. Free text is reserved for vector search. `ingredient_name` has been replaced with `ingredient_query` in autocomplete, API parameters, and frontend types. Autocomplete always returns an `ingredient_query` suggestion first for a non-empty `q`, for example `Ingredient - cottage`. Concrete ingredient suggestions are no longer returned, to avoid encouraging overly exact ingredient choices. `/recipes` accepts repeatable `ingredientQuery=<text>` query parameters. Each `ingredientQuery` value filters recipes through `contains` matching against `Ingredient.search_name`, and multiple `ingredientQuery` values are combined with AND semantics.
+- `POST /search` uses selected chips as hard filters and free text as semantic/vector search. With free text present, the backend computes the query embedding using the current embedding provider/model, considers only current-owner recipes with `RecipeEmbedding.status = ready`, non-null embeddings, and `RecipeEmbedding.model == current query embedding model`, applies chip filters before vector ranking, and sorts by configured vector distance ascending with `Recipe.id` as a stable tie-breaker. The default and preferred metric is pgvector cosine distance (`<=>`); `EMBEDDING_DISTANCE_METRIC` defaults to `cosine` and currently supports `cosine` and `l2`. Debug similarity for cosine is `1 - distance`.
+- Internal search debugging surfaces are admin-only. Until real Phase 5 auth/permissions exist, temporary frontend admin visibility is only a UI guard; backend `/internal` admin dependencies remain authoritative.
+- `POST /internal/search/explain` uses the public `SearchRequest` shape, applies selected chips as hard filters, uses only ready same-model embeddings for semantic candidates, and does not persist search debug snapshots. It returns effective filters, provider, query embedding model, distance metric, candidate count, returned count, pagination fields, `snapshot_persisted=false`, and ranked items with recipe id/title, rank, distance, similarity, embedding status, embedding model, input hash, embedding input preview, and match reasons. Semantic match reasons include a similarity `score`; selected chips are returned as individual match reasons.
+- `GET /internal/recipes/{recipeId}/embedding-input` returns the same current embedding input text and input hash produced by the embedding input builder.
 - URL source status aggregation is preserved.
 - Final and primary resource status mapping is preserved.
 - Review flag creation rules are preserved.
@@ -1832,6 +1836,110 @@ Free text or selected chips present:
   POST /search
 ```
 
+### Iteration 12: Admin Search Debugging Tools
+
+Status: implemented, pending review.
+
+Goal: add admin-only tools for explaining semantic search behavior and previewing the exact embedding input used for a recipe.
+
+#### Scope
+
+```text
+Add minimal structured logs for semantic search.
+Add internal/admin Search Debug page.
+Add Search Explain endpoint.
+Add embedding input preview.
+Show embedding input preview:
+  1. on admin Search Debug page;
+  2. on recipe detail page, only for admin users.
+Do not persist search debug snapshots in DB.
+Do not reimplement RecipeEmbedding or RecipeEmbeddingEvent.
+```
+
+#### Admin Visibility and Guard
+
+All search debug, search explain, and embedding input preview functionality is admin-only.
+
+Until real auth/roles are implemented, use the explicit temporary internal admin guard introduced for `/internal/*`. Do not expose debug endpoints publicly, and do not show debug UI to normal users.
+
+When Phase 5 introduces real authorization, replace the temporary guard with role/permission checks for these surfaces too.
+
+#### Backend API
+
+Add internal endpoints under the protected `/internal` router:
+
+```text
+POST /internal/search/explain
+  accepts the same search text and selected chips shape as POST /search
+  returns query interpretation, active hard filters, embedding provider/model, candidate/result counts, and ranked matches with debug scores/distances when available
+  does not persist snapshots
+
+GET /internal/recipes/{recipe_id}/embedding-input
+  returns the current embedding input text and hash for one recipe
+  owner/admin access is enforced by the internal admin guard for now
+```
+
+Keep response data diagnostic, not user-facing. The normal `POST /search` response contract must remain unchanged.
+
+#### Semantic Search Logs
+
+Add concise structured backend logs for semantic search:
+
+```text
+component=recipes.search
+ownerId
+textPresent
+selectedChipCount
+limit
+offset
+provider
+model
+candidateCount when available
+returnedCount
+durationMs
+```
+
+Do not log full recipe text, full embedding vectors, or full user query if it may contain private data. If query logging is needed for local debugging, keep it behind an explicit debug setting.
+
+#### Frontend UI
+
+Add an internal/admin `Search Debug` page:
+
+```text
+visible only to admin users
+allows entering free text and selected chips
+calls POST /internal/search/explain
+shows effective filters
+shows result ordering and diagnostic match data
+allows opening a recipe detail page
+shows embedding input preview for selected/result recipes
+```
+
+On recipe detail:
+
+```text
+show embedding input preview only for admin users
+use GET /internal/recipes/{recipe_id}/embedding-input
+do not show this block to normal users
+```
+
+Because real frontend auth state is not available yet, admin-only frontend visibility can use the same explicit temporary local/admin convention as other internal pages. Backend protection remains authoritative.
+
+#### Tests
+
+Add/update tests:
+
+```text
+internal search explain requires admin guard
+internal embedding input preview requires admin guard
+search explain returns no persisted debug snapshot rows
+search explain applies selected chips as hard filters
+search explain uses only ready embeddings for semantic ranking
+embedding input preview returns the same text/hash built by the embedding input builder
+frontend Search Debug page calls internal explain endpoint
+recipe detail hides embedding preview for non-admin state once user context exists
+```
+
 ## Phase 3: UI and Diagnostics
 
 Goal: make background processing visible and debuggable without exposing internal complexity to normal users.
@@ -1968,8 +2076,12 @@ flowchart TD
   - backend `GET /internal/import-jobs`;
   - backend `GET /internal/embeddings`;
   - backend `POST /internal/embeddings/{recipe_id}/retry`;
+  - backend `POST /internal/search/explain`;
+  - backend `GET /internal/recipes/{recipe_id}/embedding-input`;
   - web `Import jobs / Job events` page;
   - web `Recipe embeddings` page;
+  - web `Search Debug` page;
+  - recipe detail admin-only embedding input preview block;
   - future user management, user settings, admin settings, and worker diagnostics pages.
 - Replace `get_current_user` default local-user behavior with authenticated user resolution.
 - Keep a clean dependency boundary so mobile can use the same backend APIs.
@@ -1984,6 +2096,8 @@ flowchart TD
 - Hide internal/admin pages from normal users once real roles are introduced:
   - import jobs / job events;
   - recipe embeddings;
+  - search debug;
+  - recipe detail embedding input preview;
   - user management;
   - user settings and admin settings where applicable;
   - debug/audit views;

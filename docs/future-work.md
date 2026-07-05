@@ -26,3 +26,18 @@ After each completed phase or subphase, review the finished work and propose can
 
 - Adapt frontend flows more fully to paginated recipe and collection responses where any remaining list usage still assumes full result sets.
 - Add sorting and filters for collections on backend and frontend.
+
+## Улучшение серча
+
+- Улучшить autocomplete для структурных концептов: если пользователь вводит текст, похожий на существующий tag (`низкокалорийное`, `быстрое`, `высокобелковое`, `без сахара`), явно предлагать выбрать tag chip. Пока не конвертировать free text в tag filter неявно.
+- На Search Debug странице показывать, как был обработан запрос: только structured filters, semantic-only text или mixed chips + semantic text. Для semantic-only запросов показывать пояснение, что числовые/структурные фильтры не применялись.
+- Добавить deterministic derived semantic labels в embedding input на основе структурных полей, не записывая их в `recipe_tags`: например `быстрое`/`quick` по `cook_time_minutes`, `низкокалорийное` по calories, `высокобелковое` по protein grams. Не генерировать эти labels через AI во время поиска.
+- Ввести версию embedding input rules, например `EMBEDDING_INPUT_VERSION = "v2"`, и учитывать ее в input hash или input text. При изменении правил derived labels пересчитывать embeddings.
+- При добавлении derived labels обновить правила invalidation/recompute: title, `ingredients.search_name`, instructions, `nutrition_estimate`, `cook_time_minutes`, версия правил derived labels.
+- Позже рассмотреть строгие numeric filters: `maxCookTimeMinutes`, `maxCalories`, `minProteinGrams`, `maxCarbsGrams`. Не реализовывать до решения UX.
+- До AI query parser добавить lightweight query concept suggestions: например `быстро` -> tag `быстрое` или будущий фильтр `до 20 минут`; `низкокалорийное` -> tag или будущий calorie filter.
+- Не менять vector metric как попытку улучшить качество без evidence. Текущая предпочтительная метрика: pgvector cosine distance (`<=>`), сортировка по distance ascending, debug similarity = `1 - distance`.
+- Перед настройкой ranking собрать небольшой ручной evaluation set с query, expected good recipe ids и expected bad recipe ids.
+- Query expansion и hybrid ranking boosts оставить на более поздний этап после Search Debug, embedding input preview, derived labels и evaluation set.
+- Возможный будущий hybrid score: semantic similarity + title match boost + ingredient query boost + tag match boost + derived property boost + recency/favorite boost. Не добавлять до понимания базового semantic behavior.
+- Add pagination controls to Search Debug; currently it uses `limit=20`, `offset=0`.

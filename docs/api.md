@@ -128,6 +128,15 @@ Current implemented API surface.
   - Requests manual embedding retry for an existing `RecipeEmbedding` row.
   - Writes `retry_requested`, `scheduled`, and, if queueing succeeds, `enqueued` embedding events.
   - Real admin-only authorization is deferred to Phase 5.
+- `POST /internal/search/explain`
+  - Admin-only diagnostics endpoint for semantic search debugging.
+  - Accepts the same body shape as `POST /search`.
+  - Returns effective filters, provider/model, candidate/result counts, ranked results, and debug distance/hash data where available.
+  - Does not persist search debug snapshots.
+- `GET /internal/recipes/{recipeId}/embedding-input`
+  - Admin-only diagnostics endpoint.
+  - Returns the current embedding input text and hash for one recipe.
+  - Uses the same embedding input builder that embedding jobs use.
 
 ## Current Deferrals
 
