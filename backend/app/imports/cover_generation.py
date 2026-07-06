@@ -6,7 +6,7 @@ import anyio
 from app.ai.schemas import ExtractedRecipe
 from app.core.config import get_settings
 from app.core.logging import bind_logger
-from app.imports.constants import IMPORT_LOG_COMPONENT, IMPORT_LOG_PREFIX
+from app.imports.constants import IMPORT_LOG_COMPONENT
 from app.imports.cover_guard import CoverCandidate as ImportCoverCandidate, CoverGuardInput, choose_cover_candidate
 from app.media.images import create_cover_image
 from app.models import (
@@ -106,5 +106,5 @@ def generate_cover_image(
         importJobId=job.id,
         sourceRef=chosen.sourceRef,
         storageKey=cover_file.storage_key,
-    ).info(f"{IMPORT_LOG_PREFIX} Cover image generated")
+    ).info(f"{IMPORT_LOG_COMPONENT} Cover image generated")
     return cover_image

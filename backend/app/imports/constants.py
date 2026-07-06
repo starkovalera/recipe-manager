@@ -1,5 +1,13 @@
-IMPORT_LOG_COMPONENT = "recipes.import"
-IMPORT_LOG_PREFIX = f"[{IMPORT_LOG_COMPONENT}]"
+from app.models import ImportJobStatus
 
-IMPORT_VIDEO_LOG_COMPONENT = f"{IMPORT_LOG_COMPONENT}.video"
-IMPORT_VIDEO_LOG_PREFIX = f"[{IMPORT_VIDEO_LOG_COMPONENT}]"
+IMPORT_LOG_COMPONENT = "recipes.import"
+IMPORT_VIDEO_LOG_COMPONENT = "recipes.import.video"
+
+SUPPORTED_UPLOAD_TYPES = {"image/jpeg", "image/png", "image/webp"}
+ACTIVE_IMPORT_STATUSES = {ImportJobStatus.QUEUED, ImportJobStatus.RUNNING}
+TERMINAL_IMPORT_STATUSES = {
+    ImportJobStatus.SUCCEEDED,
+    ImportJobStatus.SUCCEEDED_WITH_FLAGS,
+    ImportJobStatus.FAILED,
+    ImportJobStatus.CANCELLED,
+}

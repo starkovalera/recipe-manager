@@ -6,7 +6,7 @@ from fastapi import APIRouter, File, Form, Header, Response, UploadFile, status
 from app.api.deps import CurrentUserDep, SessionDep
 from app.core.logging import bind_logger
 from app.core.security import client_id_from_header
-from app.imports.constants import IMPORT_LOG_COMPONENT, IMPORT_LOG_PREFIX
+from app.imports.constants import IMPORT_LOG_COMPONENT
 from app.imports.jobs import create_import_job, get_import_job
 from app.imports.tasks import import_recipe_task
 from app.models import ImportJob, ImportJobStatus
@@ -51,7 +51,7 @@ def create_import(
             ownerId=current_user.id,
             importJobId=job.id,
             clientId=client_id_from_header(x_client_id),
-        ).info(f"{IMPORT_LOG_PREFIX} Import job enqueued")
+        ).info(f"{IMPORT_LOG_COMPONENT} Import job enqueued")
     elif not result.was_created:
         response.status_code = status.HTTP_200_OK
     return job

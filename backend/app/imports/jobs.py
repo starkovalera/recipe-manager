@@ -20,7 +20,12 @@ from app.core.errors import (
 )
 from app.core.logging import BoundLogger, bind_logger
 from app.embeddings.service import enqueue_recipe_embedding_with_event, prepare_recipe_embedding
-from app.imports.constants import IMPORT_LOG_COMPONENT, IMPORT_LOG_PREFIX
+from app.imports.constants import (
+    ACTIVE_IMPORT_STATUSES,
+    IMPORT_LOG_COMPONENT,
+    SUPPORTED_UPLOAD_TYPES,
+    TERMINAL_IMPORT_STATUSES,
+)
 from app.imports.cover_generation import CoverGenerationContext, generate_cover_image
 from app.imports.error_codes import (
     ImportCreationError,
@@ -64,16 +69,6 @@ from app.storage.local import LocalStorageService
 from app.tags.queries import list_active_tags
 
 logger = logging.getLogger(IMPORT_LOG_COMPONENT)
-
-
-SUPPORTED_UPLOAD_TYPES = {"image/jpeg", "image/png", "image/webp"}
-ACTIVE_IMPORT_STATUSES = {ImportJobStatus.QUEUED, ImportJobStatus.RUNNING}
-TERMINAL_IMPORT_STATUSES = {
-    ImportJobStatus.SUCCEEDED,
-    ImportJobStatus.SUCCEEDED_WITH_FLAGS,
-    ImportJobStatus.FAILED,
-    ImportJobStatus.CANCELLED,
-}
 
 
 @dataclass
@@ -227,7 +222,7 @@ def create_import_job(
         hasText=normalized_text is not None,
         hasUrl=normalized_url is not None,
         attachmentCount=len(files),
-    ).info(f"{IMPORT_LOG_PREFIX} Import job created")
+    ).info(f"{IMPORT_LOG_COMPONENT} Import job created")
     return ImportJobCreationResult(job=job, was_created=True)
 
 
@@ -236,7 +231,7 @@ def _start_import_job(session: Session, job: ImportJob, log: BoundLogger) -> Non
     job.started_at = datetime.now(timezone.utc)
     record_job_event(job, "worker_started", {"status": job.status.value})
     session.commit()
-    log.info(f"{IMPORT_LOG_PREFIX} Import job processing started")
+    log.info(f"{IMPORT_LOG_COMPONENT} Import job processing started")
 
 
 def _build_import_processing_context(
@@ -292,7 +287,7 @@ def _fail_import_and_commit(
     session.commit()
     bound_log = log or bind_logger(logger, component=IMPORT_LOG_COMPONENT, ownerId=job.owner_id, importJobId=job.id)
     bound_log.info(
-        f"{IMPORT_LOG_PREFIX} Import job failed",
+        f"{IMPORT_LOG_COMPONENT} Import job failed",
         errorCode=job.error_code.value if job.error_code else None,
         errorMessage=job.error_message,
         **log_fields,
@@ -306,7 +301,7 @@ def _extract_recipe_with_ai(job: ImportJob, ready_sources: list[ReadySource], ai
     async def extract_recipe():
         return await provider.extract(ready_sources, language=ai_language, tags=ai_tags)
 
-    log.info(f"{IMPORT_LOG_PREFIX} AI provider selected", provider=provider_name)
+    log.info(f"{IMPORT_LOG_COMPONENT} AI provider selected", provider=provider_name)
     record_job_event(job, "ai_called", {"provider": provider_name, "sourceCount": len(ready_sources)})
     try:
         result = anyio.run(extract_recipe)
@@ -317,7 +312,7 @@ def _extract_recipe_with_ai(job: ImportJob, ready_sources: list[ReadySource], ai
         ) from error
     record_job_event(job, "ai_succeeded", {"notARecipe": result.not_a_recipe})
     log.info(
-        f"{IMPORT_LOG_PREFIX} Import step timing",
+        f"{IMPORT_LOG_COMPONENT} Import step timing",
         step="ai_extraction",
         durationMs=int((datetime.now(timezone.utc) - started_at).total_seconds() * 1000),
     )
@@ -406,7 +401,7 @@ def process_import_job(session: Session, job_id: str) -> None:
     try:
         context = _build_import_processing_context(session, job, storage, saved_storage_keys)
     except Exception as error:
-        log.error(f"{IMPORT_LOG_PREFIX} Import processing failed", error=repr(error))
+        log.error(f"{IMPORT_LOG_COMPONENT} Import processing failed", error=repr(error))
         _fail_processing_and_commit(session, job, storage, saved_storage_keys, error, log)
         return
     recipe = context.recipe
@@ -419,7 +414,7 @@ def process_import_job(session: Session, job_id: str) -> None:
         result = _extract_recipe_with_ai(job, ready_sources, context.ai_language, context.ai_tags, log)
     except ImportExtractionError as error:
         log.error(
-            f"{IMPORT_LOG_PREFIX} AI extraction provider threw",
+            f"{IMPORT_LOG_COMPONENT} AI extraction provider threw",
             error=error.diagnostic_message,
         )
         _fail_extraction_and_commit(session, job, storage, saved_storage_keys, error, log)
@@ -453,7 +448,7 @@ def process_import_job(session: Session, job_id: str) -> None:
         return
     try:
         log.info(
-            f"{IMPORT_LOG_PREFIX} AI extraction quality",
+            f"{IMPORT_LOG_COMPONENT} AI extraction quality",
             confidence=recipe_result.quality.confidence,
             hasConflicts=recipe_result.quality.hasConflicts,
             hasIgnored=recipe_result.quality.hasIgnored,
@@ -503,7 +498,7 @@ def process_import_job(session: Session, job_id: str) -> None:
             _fail_processing_and_commit(session, job, storage, saved_storage_keys, error, log)
         return
     log.info(
-        f"{IMPORT_LOG_PREFIX} Import job succeeded",
+        f"{IMPORT_LOG_COMPONENT} Import job succeeded",
         recipeId=recipe.id,
     )
 

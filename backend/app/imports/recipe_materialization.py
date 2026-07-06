@@ -3,7 +3,7 @@ import logging
 from app.ai.schemas import ExtractedRecipe, ReadySource
 from app.core.config import get_settings
 from app.core.logging import bind_logger
-from app.imports.constants import IMPORT_LOG_COMPONENT, IMPORT_LOG_PREFIX
+from app.imports.constants import IMPORT_LOG_COMPONENT
 from app.imports.error_codes import ImportExtractionError, ImportExtractionErrorCode
 from app.imports.source_platform import derive_source_name
 from app.imports.sources import (
@@ -152,7 +152,7 @@ def create_review_flag_if_needed(job: ImportJob, recipe: Recipe, recipe_result: 
         confidence=recipe_result.quality.confidence,
         hasConflicts=recipe_result.quality.hasConflicts,
         hasIgnored=recipe_result.quality.hasIgnored,
-    ).info(f"{IMPORT_LOG_PREFIX} Recipe review flag created")
+    ).info(f"{IMPORT_LOG_COMPONENT} Recipe review flag created")
     return True
 
 
@@ -190,4 +190,4 @@ def _attach_ai_tags(recipe: Recipe, active_tags: list[Tag], ai_tags: list[str], 
         validTags=[tag.name for tag in matched_tags],
         invalidCount=len(ignored_tags),
         invalidTags=ignored_tags,
-    ).info(f"{IMPORT_LOG_PREFIX} AI tags processed")
+    ).info(f"{IMPORT_LOG_COMPONENT} AI tags processed")

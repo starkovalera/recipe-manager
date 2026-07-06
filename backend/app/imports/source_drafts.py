@@ -6,7 +6,7 @@ from typing import Protocol
 import anyio
 
 from app.core.logging import bind_logger, log_error
-from app.imports.constants import IMPORT_LOG_COMPONENT, IMPORT_LOG_PREFIX
+from app.imports.constants import IMPORT_LOG_COMPONENT
 from app.imports.error_codes import ImportProcessingError, ImportProcessingErrorCode
 from app.imports.recipe_builder import SourceDraft
 from app.imports.url_loaders.types import LoadedUrlContent
@@ -113,7 +113,7 @@ def _append_url_source_drafts(
         importJobId=context.job.id,
         acceptedAttachmentCount=image_count,
         remainingRemoteImageCount=remaining_images,
-    ).info(f"{IMPORT_LOG_PREFIX} Import image capacity")
+    ).info(f"{IMPORT_LOG_COMPONENT} Import image capacity")
     try:
         loaded_url = anyio.run(
             context.url_content_loader.load,
@@ -192,7 +192,7 @@ def _append_url_video_source_drafts(
     except Exception as error:
         log_error(
             context.logger,
-            f"{IMPORT_LOG_PREFIX} Video first-pass processing failed",
+            f"{IMPORT_LOG_COMPONENT} Video first-pass processing failed",
             component=IMPORT_LOG_COMPONENT,
             ownerId=context.job.owner_id,
             importJobId=context.job.id,
@@ -215,7 +215,7 @@ def _append_url_video_source_drafts(
         hasTranscript=bool(trimmed_transcript),
         transcriptCharCount=len(trimmed_transcript),
         durationMs=int((datetime.now(timezone.utc) - started_at).total_seconds() * 1000),
-    ).info(f"{IMPORT_LOG_PREFIX} Video first-pass processed")
+    ).info(f"{IMPORT_LOG_COMPONENT} Video first-pass processed")
     if trimmed_transcript:
         source_drafts.append(
             SourceDraft(
