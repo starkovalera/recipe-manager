@@ -3,45 +3,27 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 
 import anyio
-from fastapi import UploadFile
 from sqlalchemy.orm import Session
 
 from app.ai.schemas import ReadySource
 from app.core.config import get_settings
-from app.core.errors import (
-    ActiveImportExistsError,
-    ApiError,
-    FileTooLargeError,
-    ImportNotFoundError,
-    InvalidFileTypeError,
-    NoImportSourcesError,
-    TextTooLongError,
-    TooManyFilesError,
-)
+from app.core.errors import ApiError, ImportNotFoundError
 from app.core.logging import BoundLogger, bind_logger
 from app.embeddings.service import enqueue_recipe_embedding_with_event, prepare_recipe_embedding
 from app.imports.constants import (
-    ACTIVE_IMPORT_STATUSES,
     IMPORT_LOG_COMPONENT,
-    SUPPORTED_UPLOAD_TYPES,
     TERMINAL_IMPORT_STATUSES,
 )
 from app.imports.cover_generation import CoverGenerationContext, generate_cover_image
 from app.imports.error_codes import (
-    ImportCreationError,
-    ImportCreationErrorCode,
     ImportExtractionError,
     ImportExtractionErrorCode,
     ImportProcessingError,
 )
 from app.imports.events import record_job_event
 from app.imports.job_status import fail_import_job
-from app.imports.lifecycle import handle_import_failed, handle_import_started, handle_recipe_created
-from app.imports.queries import (
-    count_import_jobs_by_statuses,
-    get_import_job as query_import_job,
-    get_import_job_by_dedupe_key,
-)
+from app.imports.lifecycle import handle_import_failed, handle_recipe_created
+from app.imports.queries import get_import_job as query_import_job
 from app.imports.recipe_builder import build_ready_sources, build_recipe_from_drafts
 from app.imports.recipe_materialization import (
     apply_extracted_recipe,
@@ -52,16 +34,12 @@ from app.imports.recipe_materialization import (
 )
 from app.imports.runtime import get_recipe_extraction_provider, get_url_content_loader_registry, get_video_processor
 from app.imports.source_drafts import build_source_drafts_for_job
-from app.media.images import validate_image_upload
 from app.models import (
     ImportJob,
     ImportJobErrorCode,
-    ImportJobSource,
     ImportJobStatus,
-    ImportSourceStatus,
     Recipe,
     RecipeResource,
-    SourceType,
     Tag,
 )
 from app.services.search_text import refresh_recipe_search_text
@@ -69,12 +47,6 @@ from app.storage.local import LocalStorageService
 from app.tags.queries import list_active_tags
 
 logger = logging.getLogger(IMPORT_LOG_COMPONENT)
-
-
-@dataclass
-class ImportJobCreationResult:
-    job: ImportJob
-    was_created: bool
 
 
 @dataclass
@@ -90,140 +62,6 @@ class ImportProcessingContext:
     active_tags: list[Tag]
     ai_language: str
     ai_tags: str
-
-
-def _validate_import_request(text: str | None, url: str | None, files: list[UploadFile]) -> tuple[str | None, str | None]:
-    settings = get_settings()
-    normalized_text = text.strip() if text else None
-    normalized_url = url.strip() if url else None
-    if normalized_text and len(normalized_text) > settings.max_import_text_chars:
-        raise TextTooLongError(max_length=settings.max_import_text_chars)
-    if len(files) > settings.max_import_images:
-        raise TooManyFilesError(max_files=settings.max_import_images)
-    for upload in files:
-        if upload.content_type not in SUPPORTED_UPLOAD_TYPES:
-            raise InvalidFileTypeError(content_type=upload.content_type)
-    if not normalized_text and not normalized_url and not files:
-        raise NoImportSourcesError()
-    return normalized_text, normalized_url
-
-
-def _create_upload_source(upload: UploadFile, position: int, storage: LocalStorageService) -> ImportJobSource:
-    content = upload.file.read()
-    if len(content) > get_settings().max_upload_bytes:
-        raise FileTooLargeError(max_size_bytes=get_settings().max_upload_bytes)
-    try:
-        validated = validate_image_upload(content, upload.content_type or "", upload.filename or "upload")
-    except ValueError as error:
-        raise InvalidFileTypeError(message=str(error), content_type=upload.content_type, filename=upload.filename) from error
-    saved = storage.save(validated.content, validated.original_name, validated.mime_type)
-    return ImportJobSource(
-        type=SourceType.IMAGE,
-        status=ImportSourceStatus.READY,
-        image_storage_key=saved.storage_key,
-        original_name=saved.original_name,
-        mime_type=saved.mime_type,
-        size_bytes=saved.size_bytes,
-        position=position,
-    )
-
-
-def create_import_job(
-    session: Session,
-    owner_id: str,
-    client_id: str,
-    client_import_id: str,
-    text: str | None,
-    url: str | None,
-    files: list[UploadFile] | None = None,
-    idempotency_key: str | None = None,
-) -> ImportJobCreationResult:
-    files = files or []
-    normalized_text, normalized_url = _validate_import_request(text, url, files)
-    normalized_idempotency_key = idempotency_key.strip()[:128] if idempotency_key else ""
-    dedupe_key = normalized_idempotency_key or client_import_id
-
-    existing = get_import_job_by_dedupe_key(session, owner_id, dedupe_key)
-    if existing is not None:
-        return ImportJobCreationResult(job=existing, was_created=False)
-    if count_import_jobs_by_statuses(session, owner_id, ACTIVE_IMPORT_STATUSES) >= get_settings().max_parallel_imports_per_client:
-        raise ActiveImportExistsError(max_active_imports=get_settings().max_parallel_imports_per_client)
-
-    job = ImportJob(
-        owner_id=owner_id,
-        client_id=client_id,
-        client_import_id=client_import_id,
-        dedupe_key=dedupe_key,
-        status=ImportJobStatus.QUEUED,
-    )
-    position = 0
-    storage = LocalStorageService(get_settings().upload_dir)
-    session.add(job)
-    session.flush()
-    saved_storage_keys: list[str] = []
-    try:
-        for upload in files:
-            try:
-                source = _create_upload_source(upload, position, storage)
-            except Exception as error:
-                raise ImportCreationError(
-                    ImportCreationErrorCode.RESOURCE_UPLOAD_FAILED,
-                    diagnostic_message=repr(error),
-                    payload={
-                        "resourcePosition": position,
-                        "resourceType": SourceType.IMAGE.value,
-                        "originalName": upload.filename,
-                        "contentType": upload.content_type,
-                    },
-                ) from error
-            job.sources.append(source)
-            if source.image_storage_key:
-                saved_storage_keys.append(source.image_storage_key)
-            position += 1
-        if normalized_text:
-            job.sources.append(ImportJobSource(type=SourceType.TEXT, status=ImportSourceStatus.READY, text=normalized_text, position=position))
-            position += 1
-        if normalized_url:
-            job.sources.append(ImportJobSource(type=SourceType.URL, status=ImportSourceStatus.READY, url=normalized_url, position=position))
-        handle_import_started(session, job, client_import_id=client_import_id, dedupe_key=dedupe_key)
-        session.commit()
-    except ImportCreationError as error:
-        _fail_import_and_commit(
-            session,
-            job,
-            storage,
-            saved_storage_keys,
-            ImportJobErrorCode.IMPORT_CREATION_FAILED,
-            error.detail_code.value if error.detail_code else None,
-            detail_payload={"stage": "creation", "detailCode": error.detail_code.value if error.detail_code else None, **error.payload},
-            diagnosticMessage=error.diagnostic_message,
-        )
-    except Exception as error:
-        _fail_import_and_commit(
-            session,
-            job,
-            storage,
-            saved_storage_keys,
-            ImportJobErrorCode.IMPORT_CREATION_FAILED,
-            None,
-            detail_payload={"stage": "creation"},
-            diagnosticMessage=repr(error),
-        )
-    session.refresh(job)
-    bind_logger(
-        logger,
-        component=IMPORT_LOG_COMPONENT,
-        ownerId=owner_id,
-        importJobId=job.id,
-        clientId=client_id,
-        clientImportId=client_import_id,
-        dedupeKey=dedupe_key,
-        sourceCount=len(job.sources),
-        hasText=normalized_text is not None,
-        hasUrl=normalized_url is not None,
-        attachmentCount=len(files),
-    ).info(f"{IMPORT_LOG_COMPONENT} Import job created")
-    return ImportJobCreationResult(job=job, was_created=True)
 
 
 def _start_import_job(session: Session, job: ImportJob, log: BoundLogger) -> None:
@@ -285,11 +123,11 @@ def _fail_import_and_commit(
     fail_import_job(job, storage, saved_storage_keys, error_code, message, cleanup_storage=cleanup_storage)
     handle_import_failed(session, job, payload=detail_payload)
     session.commit()
-    bound_log = log or bind_logger(logger, component=IMPORT_LOG_COMPONENT, ownerId=job.owner_id, importJobId=job.id)
+    bound_log = log or bind_logger(logger, component=IMPORT_LOG_COMPONENT, owner_id=job.owner_id, import_job_id=job.id)
     bound_log.info(
         f"{IMPORT_LOG_COMPONENT} Import job failed",
-        errorCode=job.error_code.value if job.error_code else None,
-        errorMessage=job.error_message,
+        error_code=job.error_code.value if job.error_code else None,
+        error_message=job.error_message,
         **log_fields,
     )
 
@@ -314,7 +152,7 @@ def _extract_recipe_with_ai(job: ImportJob, ready_sources: list[ReadySource], ai
     log.info(
         f"{IMPORT_LOG_COMPONENT} Import step timing",
         step="ai_extraction",
-        durationMs=int((datetime.now(timezone.utc) - started_at).total_seconds() * 1000),
+        duration_ms=int((datetime.now(timezone.utc) - started_at).total_seconds() * 1000),
     )
     return result
 
@@ -390,11 +228,19 @@ def _fail_processing_and_commit(
 
 
 def process_import_job(session: Session, job_id: str) -> None:
-    job = session.get(ImportJob, job_id)
+    job: ImportJob | None = session.get(ImportJob, job_id)
     if job is None or job.status in TERMINAL_IMPORT_STATUSES:
+        logger.info(f"{IMPORT_LOG_COMPONENT} Import job id={job_id} is not found or can't be started.")
         return
-    log = bind_logger(logger, component=IMPORT_LOG_COMPONENT, ownerId=job.owner_id, importJobId=job.id)
-    _start_import_job(session, job, log)
+
+    log = bind_logger(logger, component=IMPORT_LOG_COMPONENT, job=job.to_dict())
+
+    # _start_import_job(session, job, log)
+    job.status = ImportJobStatus.RUNNING
+    job.started_at = datetime.now(timezone.utc)
+    record_job_event(job, "worker_started", {"status": job.status.value})  # EVENT
+    session.commit()
+    log.info(f"{IMPORT_LOG_COMPONENT} Import job processing started")
 
     storage = LocalStorageService(get_settings().upload_dir)
     saved_storage_keys = [source.image_storage_key for source in job.sources if source.image_storage_key]
@@ -409,7 +255,13 @@ def process_import_job(session: Session, job_id: str) -> None:
     final_resources = context.final_resources
     ai_id_by_resource = context.ai_id_by_resource
     ready_sources = context.ready_sources
-    log = bind_logger(logger, component=IMPORT_LOG_COMPONENT, ownerId=job.owner_id, importJobId=job.id, sourceCount=len(ready_sources))
+    log = bind_logger(
+        logger,
+        component=IMPORT_LOG_COMPONENT,
+        owner_id=job.owner_id,
+        import_job_id=job.id,
+        source_count=len(ready_sources),
+    )
     try:
         result = _extract_recipe_with_ai(job, ready_sources, context.ai_language, context.ai_tags, log)
     except ImportExtractionError as error:
@@ -450,10 +302,10 @@ def process_import_job(session: Session, job_id: str) -> None:
         log.info(
             f"{IMPORT_LOG_COMPONENT} AI extraction quality",
             confidence=recipe_result.quality.confidence,
-            hasConflicts=recipe_result.quality.hasConflicts,
-            hasIgnored=recipe_result.quality.hasIgnored,
-            primarySourceRefs=recipe_result.quality.primarySourceRefs,
-            ignoredSourceRefs=recipe_result.quality.ignoredSourceRefs,
+            has_conflicts=recipe_result.quality.hasConflicts,
+            has_ignored=recipe_result.quality.hasIgnored,
+            primary_source_refs=recipe_result.quality.primarySourceRefs,
+            ignored_source_refs=recipe_result.quality.ignoredSourceRefs,
         )
         apply_extracted_recipe(
             recipe,
@@ -499,7 +351,7 @@ def process_import_job(session: Session, job_id: str) -> None:
         return
     log.info(
         f"{IMPORT_LOG_COMPONENT} Import job succeeded",
-        recipeId=recipe.id,
+        recipe_id=recipe.id,
     )
 
 

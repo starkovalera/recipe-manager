@@ -195,9 +195,9 @@ class InstagramUrlContentLoader:
             logger,
             "[recipes.url.instagram] Loaded Instagram content",
             url=normalized_url,
-            detectedImageCount=len(descriptors),
-            acceptedImageCount=len(images),
-            detectedVideoCount=len(video_descriptors),
+            detected_image_count=len(descriptors),
+            accepted_image_count=len(images),
+            detected_video_count=len(video_descriptors),
         )
         videos = [
             LoadedRemoteVideo(

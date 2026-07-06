@@ -48,9 +48,9 @@ def create_import(
         bind_logger(
             logger,
             component=IMPORT_LOG_COMPONENT,
-            ownerId=current_user.id,
-            importJobId=job.id,
-            clientId=client_id_from_header(x_client_id),
+            owner_id=current_user.id,
+            import_job_id=job.id,
+            client_id=client_id_from_header(x_client_id),
         ).info(f"{IMPORT_LOG_COMPONENT} Import job enqueued")
     elif not result.was_created:
         response.status_code = status.HTTP_200_OK

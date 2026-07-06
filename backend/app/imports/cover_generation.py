@@ -102,9 +102,9 @@ def generate_cover_image(
     bind_logger(
         logger,
         component=IMPORT_LOG_COMPONENT,
-        ownerId=job.owner_id,
-        importJobId=job.id,
-        sourceRef=chosen.sourceRef,
-        storageKey=cover_file.storage_key,
+        owner_id=job.owner_id,
+        import_job_id=job.id,
+        source_ref=chosen.sourceRef,
+        storage_key=cover_file.storage_key,
     ).info(f"{IMPORT_LOG_COMPONENT} Cover image generated")
     return cover_image

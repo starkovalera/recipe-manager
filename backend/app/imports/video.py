@@ -79,7 +79,7 @@ class VideoProcessor:
             try:
                 poster = await self._download_poster(video, max_image_bytes)
             except Exception as error:
-                bind_logger(logger, component=IMPORT_VIDEO_LOG_COMPONENT, videoUrl=video.url).error(
+                bind_logger(logger, component=IMPORT_VIDEO_LOG_COMPONENT, video_url=video.url).error(
                     f"{IMPORT_VIDEO_LOG_COMPONENT} Video poster download failed",
                     error=repr(error),
                 )
@@ -90,7 +90,7 @@ class VideoProcessor:
             try:
                 transcript = await self._transcribe(video, max_video_bytes)
             except Exception as error:
-                bind_logger(logger, component=IMPORT_VIDEO_LOG_COMPONENT, videoUrl=video.url).error(
+                bind_logger(logger, component=IMPORT_VIDEO_LOG_COMPONENT, video_url=video.url).error(
                     f"{IMPORT_VIDEO_LOG_COMPONENT} Video transcription failed",
                     error=repr(error),
                 )

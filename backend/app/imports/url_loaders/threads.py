@@ -348,10 +348,10 @@ class ThreadsUrlContentLoader:
             logger,
             "[recipes.url.threads] Loaded Threads content",
             url=normalized_url,
-            detectedImageCount=len(descriptors),
-            acceptedImageCount=len(images),
-            detectedVideoCount=len(video_descriptors),
-            postCount=len(posts),
+            detected_image_count=len(descriptors),
+            accepted_image_count=len(images),
+            detected_video_count=len(video_descriptors),
+            post_count=len(posts),
         )
         return LoadedUrlContent(
             url=normalized_url,

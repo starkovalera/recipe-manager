@@ -109,10 +109,10 @@ def _append_url_source_drafts(
     bind_logger(
         context.logger,
         component=IMPORT_LOG_COMPONENT,
-        ownerId=context.job.owner_id,
-        importJobId=context.job.id,
-        acceptedAttachmentCount=image_count,
-        remainingRemoteImageCount=remaining_images,
+        owner_id=context.job.owner_id,
+        import_job_id=context.job.id,
+        accepted_attachment_count=image_count,
+        remaining_remote_image_count=remaining_images,
     ).info(f"{IMPORT_LOG_COMPONENT} Import image capacity")
     try:
         loaded_url = anyio.run(
@@ -194,9 +194,9 @@ def _append_url_video_source_drafts(
             context.logger,
             f"{IMPORT_LOG_COMPONENT} Video first-pass processing failed",
             component=IMPORT_LOG_COMPONENT,
-            ownerId=context.job.owner_id,
-            importJobId=context.job.id,
-            videoCount=len(loaded_videos),
+            owner_id=context.job.owner_id,
+            import_job_id=context.job.id,
+            video_count=len(loaded_videos),
             error=repr(error),
         )
         raise ImportProcessingError(
@@ -208,13 +208,13 @@ def _append_url_video_source_drafts(
     bind_logger(
         context.logger,
         component=IMPORT_LOG_COMPONENT,
-        ownerId=context.job.owner_id,
-        importJobId=context.job.id,
-        videoCount=len(loaded_videos),
-        posterImageCount=len(first_pass_video_sources.poster_images),
-        hasTranscript=bool(trimmed_transcript),
-        transcriptCharCount=len(trimmed_transcript),
-        durationMs=int((datetime.now(timezone.utc) - started_at).total_seconds() * 1000),
+        owner_id=context.job.owner_id,
+        import_job_id=context.job.id,
+        video_count=len(loaded_videos),
+        poster_image_count=len(first_pass_video_sources.poster_images),
+        has_transcript=bool(trimmed_transcript),
+        transcript_char_count=len(trimmed_transcript),
+        duration_ms=int((datetime.now(timezone.utc) - started_at).total_seconds() * 1000),
     ).info(f"{IMPORT_LOG_COMPONENT} Video first-pass processed")
     if trimmed_transcript:
         source_drafts.append(

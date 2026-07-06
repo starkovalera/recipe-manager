@@ -16,14 +16,6 @@ class ValidatedImage:
     original_name: str
 
 
-def validate_image_upload(content: bytes, mime_type: str, original_name: str) -> ValidatedImage:
-    if mime_type not in SUPPORTED_IMAGE_TYPES:
-        raise ValueError(f"Unsupported image type: {mime_type}")
-    with Image.open(BytesIO(content)) as image:
-        image.verify()
-    return ValidatedImage(content=content, mime_type=mime_type, original_name=original_name)
-
-
 def image_to_data_url(content: bytes, mime_type: str) -> str:
     encoded = base64.b64encode(content).decode("ascii")
     return f"data:{mime_type};base64,{encoded}"

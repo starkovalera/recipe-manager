@@ -365,6 +365,23 @@ class ImportJob(TimestampMixin, Base):
     sources: Mapped[list[ImportJobSource]] = relationship(back_populates="import_job", cascade="all, delete-orphan")
     events: Mapped[list[JobEvent]] = relationship(back_populates="import_job", cascade="all, delete-orphan")
 
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "owner_id": self.owner_id,
+            "client_id": self.client_id,
+            "client_import_id": self.client_import_id,
+            "dedupe_key": self.dedupe_key,
+            "status": self.status.value,
+            "error_code": self.error_code.value if self.error_code else None,
+            "error_message": self.error_message,
+            "created_recipe_id": self.created_recipe_id,
+            "started_at": self.started_at.isoformat() if self.started_at else None,
+            "finished_at": self.finished_at.isoformat() if self.finished_at else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
 
 class ImportJobSource(TimestampMixin, Base):
     __tablename__ = "import_job_sources"

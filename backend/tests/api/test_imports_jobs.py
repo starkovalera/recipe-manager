@@ -317,7 +317,7 @@ def test_import_rejects_unsupported_file_type():
     assert response.json()["errorCode"] == "INVALID_FILE_TYPE"
 
 
-def test_import_upload_failure_creates_failed_job_with_creation_error():
+def test_import_rejects_invalid_image_payload_before_job_creation():
     client, SessionLocal = client_with_session_factory()
 
     response = client.post(
@@ -327,18 +327,10 @@ def test_import_upload_failure_creates_failed_job_with_creation_error():
         headers={"X-Client-Id": "client-1"},
     )
 
-    assert response.status_code == 202
-    assert response.json()["status"] == "failed"
-    assert response.json()["errorCode"] == "IMPORT_CREATION_FAILED"
-    assert response.json()["errorMessage"] == "RESOURCE_UPLOAD_FAILED"
+    assert response.status_code == 400
+    assert response.json()["errorCode"] == "INVALID_FILE_TYPE"
     with SessionLocal() as session:
-        job = session.get(ImportJob, response.json()["jobId"])
-        assert [event.event_type for event in job.events] == ["failed"]
-        failed_payload = job.events[0].payload
-        assert failed_payload["errorCode"] == "IMPORT_CREATION_FAILED"
-        assert failed_payload["errorMessage"] == "RESOURCE_UPLOAD_FAILED"
-        assert failed_payload["detailCode"] == "RESOURCE_UPLOAD_FAILED"
-        assert failed_payload["resourceType"] == "IMAGE"
+        assert session.query(ImportJob).count() == 0
 
 
 def test_image_attachment_import_creates_image_source():
@@ -562,12 +554,12 @@ def test_import_passes_user_language_and_active_tags_to_ai_and_attaches_known_ta
     joined_logs = "\n".join(record.getMessage() for record in caplog.records)
     assert "AI tags processed" in joined_logs
     assert '"component": "recipes.import"' in joined_logs
-    assert '"returnedCount": 5' in joined_logs
-    assert '"duplicateCount": 2' in joined_logs
-    assert '"validCount": 2' in joined_logs
-    assert '"validTags": ["десерт", "аэрогриль"]' in joined_logs
-    assert '"invalidCount": 1' in joined_logs
-    assert '"invalidTags": ["unknown-tag"]' in joined_logs
+    assert '"returned_count": 5' in joined_logs
+    assert '"duplicate_count": 2' in joined_logs
+    assert '"valid_count": 2' in joined_logs
+    assert '"valid_tags": ["десерт", "аэрогриль"]' in joined_logs
+    assert '"invalid_count": 1' in joined_logs
+    assert '"invalid_tags": ["unknown-tag"]' in joined_logs
 
 
 def test_ai_receives_short_request_source_ids_without_persisting_source_refs():
