@@ -29,7 +29,7 @@ def upgrade() -> None:
         ERROR_CODE_ENUM.create(bind, checkfirst=True)
         op.execute(
             "UPDATE import_jobs SET error_code = 'IMPORT_EXTRACTION_FAILED' "
-            "WHERE error_code IN ('AI_UNAVAILABLE', 'NOT_A_RECIPE', 'RECIPE_TOO_LONG', 'INVALID_EXTRACTION_RESULT')"
+            "WHERE error_code::text IN ('AI_UNAVAILABLE', 'NOT_A_RECIPE', 'RECIPE_TOO_LONG', 'INVALID_EXTRACTION_RESULT')"
         )
         op.alter_column(
             "import_jobs",

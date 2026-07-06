@@ -21,7 +21,7 @@ NEW_VALUES = ("USED", "IGNORED", "UNKNOWN", "DELETED")
 
 
 def _replace_postgres_enum(values: tuple[str, ...]) -> None:
-    op.execute("UPDATE recipe_resources SET status = 'UNKNOWN' WHERE status = 'CONFLICTING'")
+    op.execute("UPDATE recipe_resources SET status = 'UNKNOWN' WHERE status::text = 'CONFLICTING'")
     op.execute(f"ALTER TYPE {OLD_ENUM} RENAME TO {OLD_ENUM}_old")
     op.execute(f"CREATE TYPE {NEW_ENUM} AS ENUM ({', '.join(repr(value) for value in values)})")
     op.execute(
