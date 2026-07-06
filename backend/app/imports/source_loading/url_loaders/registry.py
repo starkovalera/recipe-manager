@@ -1,4 +1,4 @@
-from app.imports.url_loaders.types import UrlContentLoader
+from app.imports.source_loading.url_loaders.types import UrlContentLoader
 
 
 class UrlContentLoaderRegistry:

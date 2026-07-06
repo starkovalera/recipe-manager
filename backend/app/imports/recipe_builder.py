@@ -1,9 +1,9 @@
 from dataclasses import dataclass
-from typing import Protocol
 
 from app.ai.schemas import ReadySource
 from app.media.images import image_to_data_url
 from app.models import Recipe, RecipeImage, RecipeResource, RecipeResourceOrigin, RecipeResourceRole, RecipeResourceStatus, SourceType
+from app.storage.base import StorageService
 
 
 @dataclass
@@ -33,10 +33,6 @@ class BuiltRecipeSources:
         yield self.recipe_resources
         yield self.final_resources
         yield self.ai_id_by_resource
-
-
-class StorageReader(Protocol):
-    def read(self, storage_key: str) -> bytes: ...
 
 
 def build_recipe_from_raw_sources(owner_id: str, raw_sources: list[RawSource]) -> BuiltRecipeSources:
@@ -85,7 +81,7 @@ def build_recipe_from_raw_sources(owner_id: str, raw_sources: list[RawSource]) -
 def build_ready_sources(
     final_resources: list[RecipeResource],
     ai_id_by_resource: dict[RecipeResource, str],
-    storage: StorageReader,
+    storage: StorageService,
 ) -> list[ReadySource]:
     return [
         ReadySource(

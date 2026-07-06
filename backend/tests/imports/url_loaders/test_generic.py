@@ -1,4 +1,4 @@
-from app.imports.url_loaders.generic import GenericUrlContentLoader
+from app.imports.source_loading.url_loaders import GenericUrlContentLoader
 
 
 class FakeResponse:

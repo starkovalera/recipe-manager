@@ -1,10 +1,10 @@
 import uuid
 from pathlib import Path
 
-from app.storage.base import StoredFile
+from app.storage.base import StorageService, StoredFile
 
 
-class LocalStorageService:
+class LocalStorageService(StorageService):
     def __init__(self, root: Path):
         self.root = root.resolve()
         self.root.mkdir(parents=True, exist_ok=True)

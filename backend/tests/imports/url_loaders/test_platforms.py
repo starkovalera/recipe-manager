@@ -2,8 +2,8 @@ import json
 
 import pytest
 
-from app.imports.url_loaders.instagram import InstagramUrlContentLoader
-from app.imports.url_loaders.threads import ThreadsUrlContentLoader
+from app.imports.source_loading.url_loaders import InstagramUrlContentLoader
+from app.imports.source_loading.url_loaders.threads import ThreadsUrlContentLoader
 
 
 class FakeResponse:

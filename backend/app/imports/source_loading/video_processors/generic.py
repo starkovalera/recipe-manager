@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
 from io import BytesIO
 
 from openai import OpenAI
@@ -9,17 +8,12 @@ from openai import OpenAI
 from app.core.config import Settings, get_settings
 from app.core.logging import bind_logger
 from app.imports.constants import IMPORT_VIDEO_LOG_COMPONENT
-from app.imports.url_loaders.generic import httpx_fetch
-from app.imports.url_loaders.types import Fetch, LoadedRemoteImage, LoadedRemoteVideo
+from app.imports.source_loading.url_loaders.generic import httpx_fetch
+from app.imports.source_loading.url_loaders.types import Fetch, LoadedRemoteImage, LoadedRemoteVideo
+from app.imports.source_loading.video_processors.types import FirstPassVideoSources
 
 logger = logging.getLogger(IMPORT_VIDEO_LOG_COMPONENT)
 SUPPORTED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
-
-
-@dataclass(frozen=True)
-class FirstPassVideoSources:
-    poster_images: list[LoadedRemoteImage] = field(default_factory=list)
-    transcript_text: str | None = None
 
 
 class VideoProcessor:

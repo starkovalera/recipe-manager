@@ -6,8 +6,8 @@ from html import unescape
 from urllib.parse import urlparse
 
 from app.core.logging import log_error, log_info
-from app.imports.url_loaders.generic import httpx_fetch
-from app.imports.url_loaders.types import Fetch, LoadedRemoteImage, LoadedRemoteVideo, LoadedUrlContent
+from app.imports.source_loading.url_loaders.generic import httpx_fetch
+from app.imports.source_loading.url_loaders.types import Fetch, LoadedRemoteImage, LoadedRemoteVideo, LoadedUrlContent
 
 logger = logging.getLogger("recipes.url.threads")
 SUPPORTED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}

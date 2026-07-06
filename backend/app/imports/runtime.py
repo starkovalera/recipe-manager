@@ -1,21 +1,16 @@
-from typing import Protocol
-
 from app.ai.factory import create_recipe_extraction_provider
 from app.ai.provider import RecipeExtractionProvider
 from app.core.config import get_settings
-from app.imports.url_loaders.generic import GenericUrlContentLoader
-from app.imports.url_loaders.instagram import InstagramUrlContentLoader
-from app.imports.url_loaders.registry import UrlContentLoaderRegistry
-from app.imports.url_loaders.threads import ThreadsUrlContentLoader
-from app.imports.url_loaders.types import LoadedUrlContent
-from app.imports.video import VideoProcessor
+from app.imports.source_loading.types import UrlContentService
+from app.imports.source_loading.url_loaders.generic import GenericUrlContentLoader
+from app.imports.source_loading.url_loaders.instagram import InstagramUrlContentLoader
+from app.imports.source_loading.url_loaders.registry import UrlContentLoaderRegistry
+from app.imports.source_loading.url_loaders.threads import ThreadsUrlContentLoader
+from app.imports.source_loading.url_loaders.types import LoadedUrlContent
+from app.imports.source_loading.video_processors.generic import VideoProcessor
 
 
-class UrlContentRegistry(Protocol):
-    async def load(self, url: str, max_images: int, max_image_bytes: int) -> LoadedUrlContent: ...
-
-
-class DefaultUrlContentRegistry:
+class DefaultUrlContentService:
     def __init__(self):
         self.registry = UrlContentLoaderRegistry(
             [InstagramUrlContentLoader(), ThreadsUrlContentLoader(), GenericUrlContentLoader()]
@@ -30,13 +25,13 @@ class DefaultUrlContentRegistry:
         )
 
 
-_url_content_loader_registry_override: UrlContentRegistry | None = None
+_url_content_service_override: UrlContentService | None = None
 _recipe_extraction_provider_override: RecipeExtractionProvider | None = None
 _video_processor_override = None
 
 
-def get_url_content_loader_registry() -> UrlContentRegistry:
-    return _url_content_loader_registry_override or DefaultUrlContentRegistry()
+def get_url_content_service() -> UrlContentService:
+    return _url_content_service_override or DefaultUrlContentService()
 
 
 def get_recipe_extraction_provider() -> tuple[str, RecipeExtractionProvider]:

@@ -19,14 +19,14 @@ from app.db.session import get_session
 from app.imports.jobs import (
     process_import_job,
 )
-from app.imports.url_loaders.types import LoadedRemoteImage, LoadedRemoteVideo, LoadedUrlContent
+from app.imports.source_loading.url_loaders.types import LoadedRemoteImage, LoadedRemoteVideo, LoadedUrlContent
 from app.main import create_app
 from app.models import ImportJob, ImportJobStatus, Ingredient, Notification, Recipe
 from tests.imports.runtime_overrides import (
-    reset_url_content_loader_registry,
+    reset_url_content_service,
     reset_video_processor,
     set_recipe_extraction_provider,
-    set_url_content_loader_registry,
+    set_url_content_service,
     set_video_processor,
 )
 
@@ -40,12 +40,12 @@ def reset_import_dependencies(monkeypatch):
     monkeypatch.setenv("MAX_PARALLEL_IMPORTS_PER_CLIENT", "3")
     get_settings.cache_clear()
     set_recipe_extraction_provider(FakeRecipeExtractionProvider())
-    reset_url_content_loader_registry()
+    reset_url_content_service()
     monkeypatch.setattr(import_routes, "enqueue_import_job", lambda import_job_id: None, raising=False)
     monkeypatch.setattr("app.embeddings.service.enqueue_recipe_embedding", lambda recipe_id: None)
     yield
     set_recipe_extraction_provider(FakeRecipeExtractionProvider())
-    reset_url_content_loader_registry()
+    reset_url_content_service()
     reset_video_processor()
     get_settings.cache_clear()
 
@@ -414,7 +414,7 @@ class FakeVideoProcessor:
 def test_url_images_use_remaining_capacity_after_attachments():
     client = client_with_session()
     registry = FakeRegistry()
-    set_url_content_loader_registry(registry)
+    set_url_content_service(registry)
 
     response = client.post(
         "/imports",
@@ -440,7 +440,7 @@ def test_url_images_use_remaining_capacity_after_attachments():
 def test_url_video_poster_and_transcript_are_passed_to_ai_sources():
     client = client_with_session()
     provider = CapturingProvider()
-    set_url_content_loader_registry(FakeVideoRegistry())
+    set_url_content_service(FakeVideoRegistry())
     set_video_processor(FakeVideoProcessor())
     set_recipe_extraction_provider(provider)
 
@@ -463,7 +463,7 @@ def test_url_video_poster_and_transcript_are_passed_to_ai_sources():
 def test_url_video_transcript_survives_when_image_capacity_is_full():
     client = client_with_session()
     provider = CapturingProvider()
-    set_url_content_loader_registry(FakeVideoRegistry())
+    set_url_content_service(FakeVideoRegistry())
     set_video_processor(FakeVideoProcessor())
     set_recipe_extraction_provider(provider)
     files = [("files", (f"recipe-{index}.jpg", image_bytes(), "image/jpeg")) for index in range(10)]
@@ -483,7 +483,7 @@ def test_url_video_transcript_survives_when_image_capacity_is_full():
 
 def test_url_secondary_resource_failure_fails_job_with_processing_error():
     client, SessionLocal = client_with_session_factory()
-    set_url_content_loader_registry(FailingRegistry())
+    set_url_content_service(FailingRegistry())
 
     response = client.post(
         "/imports",
@@ -586,7 +586,7 @@ def test_url_author_name_is_passed_to_ai_sources():
     client = client_with_session()
     registry = FakeRegistry()
     provider = CapturingProvider()
-    set_url_content_loader_registry(registry)
+    set_url_content_service(registry)
     set_recipe_extraction_provider(provider)
 
     response = client.post(
@@ -606,7 +606,7 @@ def test_url_author_name_is_passed_to_ai_sources():
 
 def test_threads_url_import_sets_recipe_source_name():
     client = client_with_session()
-    set_url_content_loader_registry(FakeRegistry())
+    set_url_content_service(FakeRegistry())
 
     response = client.post(
         "/imports",
@@ -623,7 +623,7 @@ def test_threads_url_import_sets_recipe_source_name():
 
 def test_instagram_url_import_sets_recipe_source_name():
     client = client_with_session()
-    set_url_content_loader_registry(FakeRegistry())
+    set_url_content_service(FakeRegistry())
 
     response = client.post(
         "/imports",
@@ -660,7 +660,7 @@ class ManualPrimaryUrlIgnoredProvider:
 
 def test_source_name_uses_unignored_primary_sources_after_ai_assessment():
     client = client_with_session()
-    set_url_content_loader_registry(FakeRegistry())
+    set_url_content_service(FakeRegistry())
     set_recipe_extraction_provider(ManualPrimaryUrlIgnoredProvider())
 
     response = client.post(
@@ -697,7 +697,7 @@ class AllSourcesIgnoredProvider:
 
 def test_source_name_falls_back_to_other_when_only_url_primary_is_ignored():
     client = client_with_session()
-    set_url_content_loader_registry(FakeRegistry())
+    set_url_content_service(FakeRegistry())
     set_recipe_extraction_provider(AllSourcesIgnoredProvider())
 
     response = client.post(
@@ -718,7 +718,7 @@ def test_mixed_sources_match_reference_ai_source_order_and_refs():
     client = client_with_session()
     registry = FakeRegistry()
     provider = CapturingProvider()
-    set_url_content_loader_registry(registry)
+    set_url_content_service(registry)
     set_recipe_extraction_provider(provider)
 
     response = client.post(
@@ -835,7 +835,7 @@ class SourceIdPrefixedAssessmentProvider:
 
 def test_ai_quality_refs_set_recipe_source_statuses_after_normalization():
     client = client_with_session()
-    set_url_content_loader_registry(FakeRegistry())
+    set_url_content_service(FakeRegistry())
     set_recipe_extraction_provider(SourceAssessmentProvider())
 
     response = client.post(
@@ -862,7 +862,7 @@ def test_ai_quality_refs_set_recipe_source_statuses_after_normalization():
 
 def test_ai_quality_refs_with_source_id_prefix_set_recipe_source_statuses():
     client = client_with_session()
-    set_url_content_loader_registry(FakeRegistry())
+    set_url_content_service(FakeRegistry())
     set_recipe_extraction_provider(SourceIdPrefixedAssessmentProvider())
 
     response = client.post(
@@ -1055,7 +1055,7 @@ class PrimaryIgnoredProvider:
 
 def test_child_ignored_does_not_create_warning_when_primary_url_is_used():
     client = client_with_session()
-    set_url_content_loader_registry(FakeRegistry())
+    set_url_content_service(FakeRegistry())
     set_recipe_extraction_provider(ChildIgnoredWithoutPrimaryIgnoredProvider())
 
     response = client.post(
@@ -1074,7 +1074,7 @@ def test_child_ignored_does_not_create_warning_when_primary_url_is_used():
 
 def test_ignored_primary_url_creates_warning_flag():
     client = client_with_session()
-    set_url_content_loader_registry(FakeRegistry())
+    set_url_content_service(FakeRegistry())
     set_recipe_extraction_provider(PrimaryIgnoredProvider())
 
     response = client.post(

@@ -4,7 +4,7 @@ from urllib.parse import urljoin
 
 import httpx
 
-from app.imports.url_loaders.types import Fetch, FetchResponse, LoadedRemoteImage, LoadedUrlContent
+from app.imports.source_loading.url_loaders.types import Fetch, FetchResponse, LoadedRemoteImage, LoadedUrlContent
 
 
 async def httpx_fetch(url: str, max_bytes: int) -> FetchResponse:

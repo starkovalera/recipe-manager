@@ -3,8 +3,8 @@ import re
 from html import unescape
 from urllib.parse import urlparse
 
-from app.imports.url_loaders.generic import httpx_fetch
-from app.imports.url_loaders.types import Fetch, LoadedRemoteImage, LoadedUrlContent
+from app.imports.source_loading.url_loaders.generic import httpx_fetch
+from app.imports.source_loading.url_loaders.types import Fetch, LoadedRemoteImage, LoadedUrlContent
 
 FIXTURE_SCRIPT_ID = "recipe-manager-fixture"
 

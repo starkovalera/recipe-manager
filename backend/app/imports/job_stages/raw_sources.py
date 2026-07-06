@@ -1,33 +1,35 @@
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Protocol
 
 import anyio
 
 from app.core.logging import bind_logger, log_error
+from app.imports.config import ImportConfig
 from app.imports.constants import IMPORT_LOG_COMPONENT
 from app.imports.error_codes import ImportProcessingError, ImportProcessingErrorCode
-from app.imports.recipe_builder import RawSource
-from app.imports.url_loaders.types import LoadedUrlContent
-from app.imports.video import FirstPassVideoSources
+from app.imports.source_loading.types import UrlContentService
+from app.imports.source_loading.url_loaders.types import LoadedUrlContent
+from app.imports.source_loading.video_processors.types import FirstPassVideoSources, VideoSourceProcessor
 from app.models import ImportJob, ImportJobSource, RecipeResourceOrigin, SourceType
 from app.storage.local import LocalStorageService
 
-
-class ImportSettings(Protocol):
-    max_import_images: int
-    max_import_videos: int
-    max_upload_bytes: int
-    max_video_bytes: int
+logger = logging.getLogger(IMPORT_LOG_COMPONENT)
 
 
-class UrlContentLoader(Protocol):
-    async def load(self, url: str, max_images: int, max_image_bytes: int) -> LoadedUrlContent: ...
-
-
-class VideoSourceProcessor(Protocol):
-    async def prepare_first_pass_video_sources(self, *, videos, max_image_bytes: int, max_video_bytes: int): ...
+@dataclass
+class RawSource:
+    type: SourceType
+    source: RecipeResourceOrigin
+    position: int
+    parent_key: str | None = None
+    key: str | None = None
+    url: str | None = None
+    text: str | None = None
+    image_storage_key: str | None = None
+    original_name: str | None = None
+    mime_type: str | None = None
+    image_bytes: bytes | None = None
 
 
 @dataclass
@@ -35,20 +37,18 @@ class RawSourceBuildContext:
     job: ImportJob
     storage: LocalStorageService
     saved_storage_keys: list[str]
-    url_content_loader: UrlContentLoader
+    url_content_loader: UrlContentService
     video_processor: VideoSourceProcessor
-    settings: ImportSettings
-    logger: logging.Logger
+    config: ImportConfig
 
 
-def build_raw_sources_for_job(
+def build_raw_sources(
     job: ImportJob,
     storage: LocalStorageService,
     saved_storage_keys: list[str],
-    url_content_loader: UrlContentLoader,
+    url_content_loader: UrlContentService,
     video_processor: VideoSourceProcessor,
-    settings: ImportSettings,
-    logger: logging.Logger,
+    import_config: ImportConfig,
 ) -> tuple[list[RawSource], str | None]:
     context = RawSourceBuildContext(
         job=job,
@@ -56,32 +56,31 @@ def build_raw_sources_for_job(
         saved_storage_keys=saved_storage_keys,
         url_content_loader=url_content_loader,
         video_processor=video_processor,
-        settings=settings,
-        logger=logger,
+        config=import_config,
     )
-    raw_sources: list[RawSource] = []
     imported_author_name: str | None = None
-    for source in sorted(job.sources, key=lambda item: item.position):
-        if source.type == SourceType.TEXT and source.text:
+    raw_sources: list[RawSource] = []
+    for job_source in sorted(job.sources, key=lambda item: item.position):
+        if job_source.type == SourceType.TEXT and job_source.text:
             raw_sources.append(
-                RawSource(type=SourceType.TEXT, source=RecipeResourceOrigin.MANUAL, text=source.text, position=len(raw_sources))
+                RawSource(type=SourceType.TEXT, source=RecipeResourceOrigin.MANUAL, text=job_source.text, position=len(raw_sources))
             )
-        elif source.type == SourceType.IMAGE and source.image_storage_key and source.mime_type:
+        elif job_source.type == SourceType.IMAGE and job_source.image_storage_key and job_source.mime_type:
             raw_sources.append(
                 RawSource(
                     type=SourceType.IMAGE,
                     source=RecipeResourceOrigin.MANUAL,
-                    image_storage_key=source.image_storage_key,
-                    image_bytes=context.storage.read(source.image_storage_key),
-                    mime_type=source.mime_type,
-                    original_name=source.original_name or "upload",
+                    image_storage_key=job_source.image_storage_key,
+                    image_bytes=storage.read(job_source.image_storage_key),
+                    mime_type=job_source.mime_type,
+                    original_name=job_source.original_name or "upload",
                     position=len(raw_sources),
                 )
             )
-        elif source.type == SourceType.URL and source.url:
+        elif job_source.type == SourceType.URL and job_source.url:
             url_author_name = _append_url_raw_sources(
                 context,
-                source,
+                job_source,
                 raw_sources,
             )
             if url_author_name and imported_author_name is None:
@@ -91,41 +90,40 @@ def build_raw_sources_for_job(
 
 def _append_url_raw_sources(
     context: RawSourceBuildContext,
-    source: ImportJobSource,
+    job_source: ImportJobSource,
     raw_sources: list[RawSource],
 ) -> str | None:
-    parent_key = f"url:{source.position}"
+    parent_key = f"url:{job_source.position}"
     raw_sources.append(
         RawSource(
             type=SourceType.URL,
             source=RecipeResourceOrigin.MANUAL,
-            url=source.url,
+            url=job_source.url,
             key=parent_key,
             position=len(raw_sources),
         )
     )
     image_count = len([raw_source for raw_source in raw_sources if raw_source.type == SourceType.IMAGE])
-    remaining_images = max(0, context.settings.max_import_images - image_count)
+    remaining_images = max(0, context.config.max_import_images - image_count)
     bind_logger(
-        context.logger,
+        logger,
         component=IMPORT_LOG_COMPONENT,
-        owner_id=context.job.owner_id,
-        import_job_id=context.job.id,
+        job=job_source.import_job.to_dict(),
         accepted_attachment_count=image_count,
         remaining_remote_image_count=remaining_images,
     ).info(f"{IMPORT_LOG_COMPONENT} Import image capacity")
     try:
         loaded_url = anyio.run(
             context.url_content_loader.load,
-            source.url,
+            job_source.url,
             remaining_images,
-            context.settings.max_upload_bytes,
+            context.config.max_upload_bytes,
         )
     except Exception as error:
         raise ImportProcessingError(
             ImportProcessingErrorCode.SECONDARY_RESOURCE_UPLOADING_FAILED,
             diagnostic_message=repr(error),
-            payload={"resourceType": SourceType.URL.value, "url": source.url},
+            payload={"resourceType": SourceType.URL.value, "url": job_source.url},
         ) from error
     raw_sources[-1].url = loaded_url.url
     raw_sources.append(
@@ -146,7 +144,7 @@ def _append_url_raw_sources(
                 diagnostic_message=repr(error),
                 payload={
                     "resourceType": SourceType.IMAGE.value,
-                    "url": source.url,
+                    "url": job_source.url,
                     "originalName": remote_image.original_name,
                     "mimeType": remote_image.mime_type,
                 },
@@ -174,7 +172,7 @@ def _append_url_video_raw_sources(
     parent_key: str,
     raw_sources: list[RawSource],
 ) -> None:
-    loaded_videos = loaded_url.videos[: context.settings.max_import_videos]
+    loaded_videos = loaded_url.videos[: context.config.max_import_videos]
     if not loaded_videos:
         return
 
@@ -185,17 +183,16 @@ def _append_url_video_raw_sources(
                 _prepare_first_pass_video_sources,
                 context.video_processor,
                 loaded_videos,
-                context.settings.max_upload_bytes,
-                context.settings.max_video_bytes,
+                context.config.max_upload_bytes,
+                context.config.max_video_bytes,
             )
         )
     except Exception as error:
         log_error(
-            context.logger,
+            logger,
             f"{IMPORT_LOG_COMPONENT} Video first-pass processing failed",
             component=IMPORT_LOG_COMPONENT,
-            owner_id=context.job.owner_id,
-            import_job_id=context.job.id,
+            job=context.job.to_dict(),
             video_count=len(loaded_videos),
             error=repr(error),
         )
@@ -206,10 +203,9 @@ def _append_url_video_raw_sources(
         ) from error
     trimmed_transcript = (first_pass_video_sources.transcript_text or "").strip()
     bind_logger(
-        context.logger,
+        logger,
         component=IMPORT_LOG_COMPONENT,
-        owner_id=context.job.owner_id,
-        import_job_id=context.job.id,
+        job=context.job.to_dict(),
         video_count=len(loaded_videos),
         poster_image_count=len(first_pass_video_sources.poster_images),
         has_transcript=bool(trimmed_transcript),
@@ -228,7 +224,7 @@ def _append_url_video_raw_sources(
     )
     for poster in first_pass_video_sources.poster_images:
         image_count = len([raw_source for raw_source in raw_sources if raw_source.type == SourceType.IMAGE])
-        if image_count >= context.settings.max_import_images:
+        if image_count >= context.config.max_import_images:
             break
         try:
             saved = context.storage.save(poster.bytes, poster.original_name, poster.mime_type)

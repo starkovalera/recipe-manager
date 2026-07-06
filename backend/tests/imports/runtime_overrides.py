@@ -1,14 +1,14 @@
 from app.ai.provider import RecipeExtractionProvider
 from app.imports import runtime
-from app.imports.runtime import UrlContentRegistry
+from app.imports.source_loading.types import UrlContentService
 
 
-def set_url_content_loader_registry(registry: UrlContentRegistry) -> None:
-    runtime._url_content_loader_registry_override = registry
+def set_url_content_service(service: UrlContentService) -> None:
+    runtime._url_content_service_override = service
 
 
-def reset_url_content_loader_registry() -> None:
-    runtime._url_content_loader_registry_override = None
+def reset_url_content_service() -> None:
+    runtime._url_content_service_override = None
 
 
 def set_recipe_extraction_provider(provider: RecipeExtractionProvider) -> None:

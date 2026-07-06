@@ -1,5 +1,5 @@
-from app.imports.url_loaders.generic import GenericUrlContentLoader
-from app.imports.url_loaders.registry import UrlContentLoaderRegistry
+from app.imports.source_loading.url_loaders import GenericUrlContentLoader
+from app.imports.source_loading.url_loaders.registry import UrlContentLoaderRegistry
 
 
 def test_registry_uses_generic_fallback():

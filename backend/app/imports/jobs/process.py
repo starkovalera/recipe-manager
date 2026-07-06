@@ -10,6 +10,7 @@ from app.core.config import get_settings
 from app.core.errors import ApiError, ImportNotFoundError
 from app.core.logging import BoundLogger, bind_logger
 from app.embeddings.service import enqueue_recipe_embedding_with_event, prepare_recipe_embedding
+from app.imports.config import ImportConfig
 from app.imports.constants import (
     IMPORT_LOG_COMPONENT,
     TERMINAL_IMPORT_STATUSES,
@@ -21,10 +22,10 @@ from app.imports.error_codes import (
     ImportProcessingError,
 )
 from app.imports.events import record_job_event
+from app.imports.job_stages.raw_sources import build_raw_sources
 from app.imports.job_status import fail_import_job
 from app.imports.lifecycle import handle_import_failed, handle_recipe_created
 from app.imports.queries import get_import_job as query_import_job
-from app.imports.raw_sources import build_raw_sources_for_job
 from app.imports.recipe_builder import build_ready_sources, build_recipe_from_raw_sources
 from app.imports.recipe_materialization import (
     apply_extracted_recipe,
@@ -33,7 +34,7 @@ from app.imports.recipe_materialization import (
     derive_source_name_from_primary_resources,
     normalize_recipe_result,
 )
-from app.imports.runtime import get_recipe_extraction_provider, get_url_content_loader_registry, get_video_processor
+from app.imports.runtime import get_recipe_extraction_provider, get_url_content_service, get_video_processor
 from app.models import (
     ImportJob,
     ImportJobErrorCode,
@@ -78,14 +79,14 @@ def _build_import_processing_context(
     storage: LocalStorageService,
     saved_storage_keys: list[str],
 ) -> ImportProcessingContext:
-    raw_sources, imported_author_name = build_raw_sources_for_job(
+    import_config = ImportConfig.from_settings(get_settings())
+    raw_sources, imported_author_name = build_raw_sources(
         job,
         storage,
         saved_storage_keys,
-        get_url_content_loader_registry(),
+        get_url_content_service(),
         get_video_processor(),
-        get_settings(),
-        logger,
+        import_config
     )
     record_job_event(job, "source_downloaded", {"sourceCount": len(raw_sources)})
 
