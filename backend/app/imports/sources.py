@@ -5,7 +5,7 @@ from app.ai.schemas import ExtractionQuality, ReadySource, ready_source_id
 
 @dataclass(frozen=True)
 class ImportCapacity:
-    # Runtime capacity is currently computed inline from SourceDraft state
+    # Runtime capacity is currently computed inline from RawSource state
     # because URL images and video poster images consume the same remaining
     # image budget. This value object is kept as an executable invariant for
     # the attachments-first rule.

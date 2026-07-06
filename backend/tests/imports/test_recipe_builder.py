@@ -1,4 +1,4 @@
-from app.imports.recipe_builder import SourceDraft, build_ready_sources, build_recipe_from_drafts
+from app.imports.recipe_builder import RawSource, build_ready_sources, build_recipe_from_raw_sources
 from app.models import RecipeResourceOrigin, SourceType
 
 
@@ -10,12 +10,12 @@ class MemoryStorage:
         return self.files[storage_key]
 
 
-def test_build_recipe_from_drafts_preserves_url_parent_child_tree():
-    recipe, resources, final_resources, ai_id_by_resource = build_recipe_from_drafts(
+def test_build_recipe_from_raw_sources_preserves_url_parent_child_tree():
+    recipe, resources, final_resources, ai_id_by_resource = build_recipe_from_raw_sources(
         owner_id="user-1",
-        source_drafts=[
-            SourceDraft(type=SourceType.URL, source=RecipeResourceOrigin.MANUAL, key="url:0", url="https://example.com", position=0),
-            SourceDraft(
+        raw_sources=[
+            RawSource(type=SourceType.URL, source=RecipeResourceOrigin.MANUAL, key="url:0", url="https://example.com", position=0),
+            RawSource(
                 type=SourceType.TEXT,
                 source=RecipeResourceOrigin.URL,
                 parent_key="url:0",
@@ -33,10 +33,10 @@ def test_build_recipe_from_drafts_preserves_url_parent_child_tree():
 
 
 def test_build_ready_sources_sends_final_sources_only_with_short_ai_ids():
-    recipe, _resources, final_resources, ai_id_by_resource = build_recipe_from_drafts(
+    recipe, _resources, final_resources, ai_id_by_resource = build_recipe_from_raw_sources(
         owner_id="user-1",
-        source_drafts=[
-            SourceDraft(
+        raw_sources=[
+            RawSource(
                 type=SourceType.IMAGE,
                 source=RecipeResourceOrigin.MANUAL,
                 image_storage_key="images/source.jpg",
@@ -45,7 +45,7 @@ def test_build_ready_sources_sends_final_sources_only_with_short_ai_ids():
                 original_name="source.jpg",
                 position=0,
             ),
-            SourceDraft(type=SourceType.TEXT, source=RecipeResourceOrigin.MANUAL, text="Manual text", position=1),
+            RawSource(type=SourceType.TEXT, source=RecipeResourceOrigin.MANUAL, text="Manual text", position=1),
         ],
     )
 

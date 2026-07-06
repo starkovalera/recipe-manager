@@ -24,7 +24,8 @@ from app.imports.events import record_job_event
 from app.imports.job_status import fail_import_job
 from app.imports.lifecycle import handle_import_failed, handle_recipe_created
 from app.imports.queries import get_import_job as query_import_job
-from app.imports.recipe_builder import build_ready_sources, build_recipe_from_drafts
+from app.imports.raw_sources import build_raw_sources_for_job
+from app.imports.recipe_builder import build_ready_sources, build_recipe_from_raw_sources
 from app.imports.recipe_materialization import (
     apply_extracted_recipe,
     apply_source_statuses,
@@ -33,7 +34,6 @@ from app.imports.recipe_materialization import (
     normalize_recipe_result,
 )
 from app.imports.runtime import get_recipe_extraction_provider, get_url_content_loader_registry, get_video_processor
-from app.imports.source_drafts import build_source_drafts_for_job
 from app.models import (
     ImportJob,
     ImportJobErrorCode,
@@ -78,7 +78,7 @@ def _build_import_processing_context(
     storage: LocalStorageService,
     saved_storage_keys: list[str],
 ) -> ImportProcessingContext:
-    source_drafts, imported_author_name = build_source_drafts_for_job(
+    raw_sources, imported_author_name = build_raw_sources_for_job(
         job,
         storage,
         saved_storage_keys,
@@ -87,9 +87,9 @@ def _build_import_processing_context(
         get_settings(),
         logger,
     )
-    record_job_event(job, "source_downloaded", {"sourceCount": len(source_drafts)})
+    record_job_event(job, "source_downloaded", {"sourceCount": len(raw_sources)})
 
-    built_sources = build_recipe_from_drafts(job.owner_id, source_drafts)
+    built_sources = build_recipe_from_raw_sources(job.owner_id, raw_sources)
     active_tags = list_active_tags(session, job.owner_id)
     ai_language = job.owner.settings.recipe_language if job.owner and job.owner.settings else get_settings().recipe_language
     ai_tags = ", ".join(tag.name for tag in active_tags)

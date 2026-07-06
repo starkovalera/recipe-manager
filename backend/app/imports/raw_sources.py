@@ -8,7 +8,7 @@ import anyio
 from app.core.logging import bind_logger, log_error
 from app.imports.constants import IMPORT_LOG_COMPONENT
 from app.imports.error_codes import ImportProcessingError, ImportProcessingErrorCode
-from app.imports.recipe_builder import SourceDraft
+from app.imports.recipe_builder import RawSource
 from app.imports.url_loaders.types import LoadedUrlContent
 from app.imports.video import FirstPassVideoSources
 from app.models import ImportJob, ImportJobSource, RecipeResourceOrigin, SourceType
@@ -31,7 +31,7 @@ class VideoSourceProcessor(Protocol):
 
 
 @dataclass
-class SourceDraftBuildContext:
+class RawSourceBuildContext:
     job: ImportJob
     storage: LocalStorageService
     saved_storage_keys: list[str]
@@ -41,7 +41,7 @@ class SourceDraftBuildContext:
     logger: logging.Logger
 
 
-def build_source_drafts_for_job(
+def build_raw_sources_for_job(
     job: ImportJob,
     storage: LocalStorageService,
     saved_storage_keys: list[str],
@@ -49,8 +49,8 @@ def build_source_drafts_for_job(
     video_processor: VideoSourceProcessor,
     settings: ImportSettings,
     logger: logging.Logger,
-) -> tuple[list[SourceDraft], str | None]:
-    context = SourceDraftBuildContext(
+) -> tuple[list[RawSource], str | None]:
+    context = RawSourceBuildContext(
         job=job,
         storage=storage,
         saved_storage_keys=saved_storage_keys,
@@ -59,52 +59,52 @@ def build_source_drafts_for_job(
         settings=settings,
         logger=logger,
     )
-    source_drafts: list[SourceDraft] = []
+    raw_sources: list[RawSource] = []
     imported_author_name: str | None = None
     for source in sorted(job.sources, key=lambda item: item.position):
         if source.type == SourceType.TEXT and source.text:
-            source_drafts.append(
-                SourceDraft(type=SourceType.TEXT, source=RecipeResourceOrigin.MANUAL, text=source.text, position=len(source_drafts))
+            raw_sources.append(
+                RawSource(type=SourceType.TEXT, source=RecipeResourceOrigin.MANUAL, text=source.text, position=len(raw_sources))
             )
         elif source.type == SourceType.IMAGE and source.image_storage_key and source.mime_type:
-            source_drafts.append(
-                SourceDraft(
+            raw_sources.append(
+                RawSource(
                     type=SourceType.IMAGE,
                     source=RecipeResourceOrigin.MANUAL,
                     image_storage_key=source.image_storage_key,
                     image_bytes=context.storage.read(source.image_storage_key),
                     mime_type=source.mime_type,
                     original_name=source.original_name or "upload",
-                    position=len(source_drafts),
+                    position=len(raw_sources),
                 )
             )
         elif source.type == SourceType.URL and source.url:
-            url_author_name = _append_url_source_drafts(
+            url_author_name = _append_url_raw_sources(
                 context,
                 source,
-                source_drafts,
+                raw_sources,
             )
             if url_author_name and imported_author_name is None:
                 imported_author_name = url_author_name
-    return source_drafts, imported_author_name
+    return raw_sources, imported_author_name
 
 
-def _append_url_source_drafts(
-    context: SourceDraftBuildContext,
+def _append_url_raw_sources(
+    context: RawSourceBuildContext,
     source: ImportJobSource,
-    source_drafts: list[SourceDraft],
+    raw_sources: list[RawSource],
 ) -> str | None:
     parent_key = f"url:{source.position}"
-    source_drafts.append(
-        SourceDraft(
+    raw_sources.append(
+        RawSource(
             type=SourceType.URL,
             source=RecipeResourceOrigin.MANUAL,
             url=source.url,
             key=parent_key,
-            position=len(source_drafts),
+            position=len(raw_sources),
         )
     )
-    image_count = len([draft for draft in source_drafts if draft.type == SourceType.IMAGE])
+    image_count = len([raw_source for raw_source in raw_sources if raw_source.type == SourceType.IMAGE])
     remaining_images = max(0, context.settings.max_import_images - image_count)
     bind_logger(
         context.logger,
@@ -127,14 +127,14 @@ def _append_url_source_drafts(
             diagnostic_message=repr(error),
             payload={"resourceType": SourceType.URL.value, "url": source.url},
         ) from error
-    source_drafts[-1].url = loaded_url.url
-    source_drafts.append(
-        SourceDraft(
+    raw_sources[-1].url = loaded_url.url
+    raw_sources.append(
+        RawSource(
             type=SourceType.TEXT,
             source=RecipeResourceOrigin.URL,
             parent_key=parent_key,
             text=loaded_url.text,
-            position=len(source_drafts),
+            position=len(raw_sources),
         )
     )
     for remote_image in loaded_url.images[:remaining_images]:
@@ -152,8 +152,8 @@ def _append_url_source_drafts(
                 },
             ) from error
         context.saved_storage_keys.append(saved.storage_key)
-        source_drafts.append(
-            SourceDraft(
+        raw_sources.append(
+            RawSource(
                 type=SourceType.IMAGE,
                 source=RecipeResourceOrigin.URL,
                 parent_key=parent_key,
@@ -161,18 +161,18 @@ def _append_url_source_drafts(
                 image_bytes=remote_image.bytes,
                 mime_type=remote_image.mime_type,
                 original_name=remote_image.original_name,
-                position=len(source_drafts),
+                position=len(raw_sources),
             )
         )
-    _append_url_video_source_drafts(context, loaded_url, parent_key, source_drafts)
+    _append_url_video_raw_sources(context, loaded_url, parent_key, raw_sources)
     return loaded_url.author_name
 
 
-def _append_url_video_source_drafts(
-    context: SourceDraftBuildContext,
+def _append_url_video_raw_sources(
+    context: RawSourceBuildContext,
     loaded_url: LoadedUrlContent,
     parent_key: str,
-    source_drafts: list[SourceDraft],
+    raw_sources: list[RawSource],
 ) -> None:
     loaded_videos = loaded_url.videos[: context.settings.max_import_videos]
     if not loaded_videos:
@@ -217,17 +217,17 @@ def _append_url_video_source_drafts(
         duration_ms=int((datetime.now(timezone.utc) - started_at).total_seconds() * 1000),
     ).info(f"{IMPORT_LOG_COMPONENT} Video first-pass processed")
     if trimmed_transcript:
-        source_drafts.append(
-            SourceDraft(
+        raw_sources.append(
+            RawSource(
                 type=SourceType.TEXT,
                 source=RecipeResourceOrigin.URL_VIDEO,
                 parent_key=parent_key,
                 text=trimmed_transcript,
-                position=len(source_drafts),
+                position=len(raw_sources),
             )
     )
     for poster in first_pass_video_sources.poster_images:
-        image_count = len([draft for draft in source_drafts if draft.type == SourceType.IMAGE])
+        image_count = len([raw_source for raw_source in raw_sources if raw_source.type == SourceType.IMAGE])
         if image_count >= context.settings.max_import_images:
             break
         try:
@@ -243,8 +243,8 @@ def _append_url_video_source_drafts(
                 },
             ) from error
         context.saved_storage_keys.append(saved.storage_key)
-        source_drafts.append(
-            SourceDraft(
+        raw_sources.append(
+            RawSource(
                 type=SourceType.IMAGE,
                 source=RecipeResourceOrigin.URL_VIDEO,
                 parent_key=parent_key,
@@ -252,7 +252,7 @@ def _append_url_video_source_drafts(
                 image_bytes=poster.bytes,
                 mime_type=poster.mime_type,
                 original_name=poster.original_name,
-                position=len(source_drafts),
+                position=len(raw_sources),
             )
         )
 

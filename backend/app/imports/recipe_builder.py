@@ -7,7 +7,7 @@ from app.models import Recipe, RecipeImage, RecipeResource, RecipeResourceOrigin
 
 
 @dataclass
-class SourceDraft:
+class RawSource:
     type: SourceType
     source: RecipeResourceOrigin
     position: int
@@ -39,7 +39,7 @@ class StorageReader(Protocol):
     def read(self, storage_key: str) -> bytes: ...
 
 
-def build_recipe_from_drafts(owner_id: str, source_drafts: list[SourceDraft]) -> BuiltRecipeSources:
+def build_recipe_from_raw_sources(owner_id: str, raw_sources: list[RawSource]) -> BuiltRecipeSources:
     recipe = Recipe(
         owner_id=owner_id,
         title="Import pending",
@@ -48,34 +48,34 @@ def build_recipe_from_drafts(owner_id: str, source_drafts: list[SourceDraft]) ->
     recipe_resources: list[RecipeResource] = []
     resource_by_key: dict[str, RecipeResource] = {}
 
-    for draft in source_drafts:
+    for raw_source in raw_sources:
         image: RecipeImage | None = None
-        if draft.type == SourceType.IMAGE and draft.image_storage_key and draft.mime_type and draft.original_name:
+        if raw_source.type == SourceType.IMAGE and raw_source.image_storage_key and raw_source.mime_type and raw_source.original_name:
             image = RecipeImage(
-                storage_key=draft.image_storage_key,
-                original_name=draft.original_name,
-                mime_type=draft.mime_type,
-                size_bytes=len(draft.image_bytes or b""),
-                position=draft.position,
+                storage_key=raw_source.image_storage_key,
+                original_name=raw_source.original_name,
+                mime_type=raw_source.mime_type,
+                size_bytes=len(raw_source.image_bytes or b""),
+                position=raw_source.position,
             )
             recipe.images.append(image)
 
         recipe_resource = RecipeResource(
             owner_id=owner_id,
-            type=draft.type,
-            source=draft.source,
+            type=raw_source.type,
+            source=raw_source.source,
             role=RecipeResourceRole.SOURCE,
-            parent=resource_by_key.get(draft.parent_key) if draft.parent_key else None,
-            url=draft.url,
-            text=draft.text,
+            parent=resource_by_key.get(raw_source.parent_key) if raw_source.parent_key else None,
+            url=raw_source.url,
+            text=raw_source.text,
             image=image,
-            position=draft.position,
+            position=raw_source.position,
             status=RecipeResourceStatus.UNKNOWN,
         )
         recipe.resources.append(recipe_resource)
         recipe_resources.append(recipe_resource)
-        if draft.key:
-            resource_by_key[draft.key] = recipe_resource
+        if raw_source.key:
+            resource_by_key[raw_source.key] = recipe_resource
 
     final_resources = [resource for resource in recipe_resources if resource.type != SourceType.URL]
     ai_id_by_resource = {resource: f"source_{index}" for index, resource in enumerate(final_resources, start=1)}
