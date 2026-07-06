@@ -28,6 +28,9 @@ class ExtractionQuality(BaseModel):
 class CoverCandidate(BaseModel):
     sourceRef: str = Field(min_length=1)
     confidence: float = Field(ge=0, le=1)
+    # Legacy compatibility only: OpenAI is instructed/schema-constrained to
+    # return sourceRef and confidence. Keep these as None-only fields until the
+    # old internal cover-candidate shape is removed from callers/tests.
     sourcePosition: None = None
     crop: None = None
     reason: None = None

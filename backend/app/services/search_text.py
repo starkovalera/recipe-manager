@@ -57,12 +57,16 @@ def build_recipe_search_text(recipe: Any) -> str:
     return normalize_search_text(" ".join(part for part in parts if part))
 
 
+def _hash_search_text(search_text: str) -> str:
+    return hashlib.sha256(search_text.encode("utf-8")).hexdigest()
+
+
 def build_recipe_search_hash(recipe: Any) -> str:
-    return hashlib.sha256(build_recipe_search_text(recipe).encode("utf-8")).hexdigest()
+    return _hash_search_text(build_recipe_search_text(recipe))
 
 
 def refresh_recipe_search_text(recipe: Any) -> bool:
     previous_hash = recipe.search_text_hash
     recipe.search_text = build_recipe_search_text(recipe)
-    recipe.search_text_hash = hashlib.sha256(recipe.search_text.encode("utf-8")).hexdigest()
+    recipe.search_text_hash = _hash_search_text(recipe.search_text)
     return recipe.search_text_hash != previous_hash

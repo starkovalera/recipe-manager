@@ -62,6 +62,9 @@ async def load_platform_fixture(
     )
 
 
+# Not wired into the production URL loader registry. This is a reusable base
+# for fixture-style platform loaders if we reintroduce local HTML fixtures for
+# social-platform parser tests.
 class FixturePlatformLoader:
     allowed_hosts: set[str] = set()
 

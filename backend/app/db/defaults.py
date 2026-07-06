@@ -1,5 +1,7 @@
 DEFAULT_USER_ID = "local-user"
 DEFAULT_USER_EMAIL = "local@example.test"
+# Seed invariant for the local default user. Runtime recipe language still comes
+# from Settings so env can override it before ensure_default_user persists it.
 DEFAULT_RECIPE_LANGUAGE = "ru"
 DEFAULT_TAG_NAMES = [
     "\u0430\u044d\u0440\u043e\u0433\u0440\u0438\u043b\u044c",

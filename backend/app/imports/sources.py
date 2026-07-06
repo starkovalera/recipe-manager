@@ -5,6 +5,10 @@ from app.ai.schemas import ExtractionQuality, ReadySource, ready_source_id
 
 @dataclass(frozen=True)
 class ImportCapacity:
+    # Runtime capacity is currently computed inline from SourceDraft state
+    # because URL images and video poster images consume the same remaining
+    # image budget. This value object is kept as an executable invariant for
+    # the attachments-first rule.
     accepted_attachment_count: int
     remaining_remote_image_count: int
 
@@ -82,6 +86,9 @@ def normalize_quality_source_refs(quality: ExtractionQuality, sources: list[Read
 
 
 def should_create_review_flag(quality: ExtractionQuality, warn_confidence: float) -> bool:
+    # Kept for the generic AI-quality rule and its unit tests. Production import
+    # creation uses should_create_primary_review_flag because ignored final
+    # resources must first be aggregated back to primary resources.
     return quality.hasConflicts or quality.hasIgnored or quality.confidence <= warn_confidence
 
 

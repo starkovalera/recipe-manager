@@ -23,6 +23,10 @@ class CoverGuardResult:
     reason: str | None = None
 
 
+# Guard provider seam is intentionally unused in production while
+# ENABLE_COVER_CANDIDATE_GUARD stays default-off. Keep this interface isolated
+# so the experimental guard can be removed or replaced without touching import
+# materialization.
 class CoverCandidateGuard(Protocol):
     async def validate(self, candidate: CoverCandidate) -> CoverGuardResult:
         raise NotImplementedError
