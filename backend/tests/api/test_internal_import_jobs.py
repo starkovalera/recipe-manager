@@ -13,6 +13,7 @@ from app.embeddings.input import build_recipe_embedding_hash, build_recipe_embed
 from app.imports.events import record_job_event
 from app.main import create_app
 from app.models import (
+    ImportEventType,
     ImportJob,
     ImportJobSource,
     ImportJobStatus,
@@ -103,9 +104,9 @@ def test_internal_import_jobs_returns_jobs_sources_events_and_status_history():
             )
         )
         session.add(job)
-        record_job_event(job, "queued", {"clientImportId": "import-1"})
-        record_job_event(job, "worker_started", {"status": "running"})
-        record_job_event(job, "recipe_created", {"recipeId": "recipe-1", "status": "succeeded"})
+        record_job_event(job, ImportEventType.IMPORT_CREATED, {"clientImportId": "import-1"})
+        record_job_event(job, ImportEventType.IMPORT_STARTED, {"status": "running"})
+        record_job_event(job, ImportEventType.RECIPE_CREATED, {"recipeId": "recipe-1", "status": "succeeded"})
         session.commit()
 
     response = client.get("/internal/import-jobs")
@@ -118,7 +119,11 @@ def test_internal_import_jobs_returns_jobs_sources_events_and_status_history():
     assert item["status"] == "succeeded"
     assert item["sources"][0]["type"] == "URL"
     assert item["sources"][0]["url"] == "https://example.com/post"
-    assert [event["eventType"] for event in item["events"]] == ["queued", "worker_started", "recipe_created"]
+    assert [event["eventType"] for event in item["events"]] == [
+        ImportEventType.IMPORT_CREATED.value,
+        ImportEventType.IMPORT_STARTED.value,
+        ImportEventType.RECIPE_CREATED.value,
+    ]
     assert [entry["status"] for entry in item["statusHistory"]] == ["queued", "running", "succeeded"]
 
 

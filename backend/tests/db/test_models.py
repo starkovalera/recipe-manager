@@ -7,6 +7,7 @@ from app.db.base import Base
 from app.db.defaults import DEFAULT_RECIPE_LANGUAGE, DEFAULT_TAG_NAMES, DEFAULT_USER_ID
 from app.db.init import ensure_default_user
 from app.models import (
+    ImportEventType,
     ImportJob,
     ImportJobStatus,
     Ingredient,
@@ -135,7 +136,7 @@ def test_recipe_graph_persists_core_import_entities():
         dedupe_key="import-1",
         status=ImportJobStatus.SUCCEEDED,
     )
-    job.events.append(JobEvent(event_type="queued", payload={"clientImportId": "import-1"}))
+    job.events.append(JobEvent(event_type=ImportEventType.IMPORT_CREATED, payload={"clientImportId": "import-1"}))
     recipe.import_jobs.append(job)
     user.notifications.append(
         Notification(
@@ -165,7 +166,7 @@ def test_recipe_graph_persists_core_import_entities():
     assert saved.review_flags[0].reason_code == "LOW_CONFIDENCE"
     assert saved.import_jobs[0].client_import_id == "import-1"
     assert saved.import_jobs[0].dedupe_key == "import-1"
-    assert saved.import_jobs[0].events[0].event_type == "queued"
+    assert saved.import_jobs[0].events[0].event_type == ImportEventType.IMPORT_CREATED
     assert saved.owner.notifications[0].type == "import_succeeded"
 
 

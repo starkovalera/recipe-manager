@@ -40,6 +40,7 @@ from app.imports.recipe_materialization import (
 )
 from app.imports.runtime import get_recipe_extraction_provider, get_url_content_service, get_video_processor
 from app.models import (
+    ImportEventType,
     ImportJob,
     ImportJobErrorCode,
     ImportJobStatus,
@@ -54,7 +55,7 @@ logger = logging.getLogger(IMPORT_LOG_COMPONENT)
 def _start_import_job(session: Session, job: ImportJob, log: BoundLogger) -> None:
     job.status = ImportJobStatus.RUNNING
     job.started_at = datetime.now(timezone.utc)
-    record_job_event(job, "worker_started", {"status": job.status.value})
+    record_job_event(job, ImportEventType.IMPORT_STARTED, {"status": job.status.value})
     session.commit()
     log.info(f"{IMPORT_LOG_COMPONENT} Import job processing started")
 
@@ -96,12 +97,12 @@ def _extract_recipe_with_ai(
         return await provider.extract(ready_sources, language=ai_language, tags=ai_tags)
 
     log.info(f"{IMPORT_LOG_COMPONENT} AI provider selected", provider=provider_name)
-    record_job_event(job, "ai_called", {"provider": provider_name, "sourceCount": len(ready_sources)})
+    record_job_event(job, ImportEventType.EXTRACTOR_REQUESTED, {"provider": provider_name, "sourceCount": len(ready_sources)})
     try:
         result = anyio.run(extract_recipe)
     except Exception as error:
         raise ExtractorUnavailableError(exception=repr(error)) from error
-    record_job_event(job, "ai_succeeded", {"notARecipe": result.not_a_recipe})
+    record_job_event(job, ImportEventType.EXTRACTOR_SUCCEEDED, {"notARecipe": result.not_a_recipe})
     log.info(
         f"{IMPORT_LOG_COMPONENT} Import step timing",
         step="ai_extraction",
@@ -140,7 +141,7 @@ def _fail_extraction_and_commit(
         cleanup_storage=True,
         detail_payload={
             "stage": "extraction",
-            "detailCode": error.code_value(),
+            "detail_code": error.code_value(),
             **error.extra,
         },
         **log_fields,
@@ -159,12 +160,12 @@ def _fail_processing_and_commit(
         message = error.code_value()
         detail_payload = {
             "stage": "processing",
-            "detailCode": error.code_value(),
+            "detail_code": error.code_value(),
             **error.extra,
         }
     else:
         message = None
-        detail_payload = {"stage": "processing", "diagnosticMessage": repr(error)}
+        detail_payload = {"stage": "processing", "exception": repr(error)}
     _fail_import_and_commit(
         session,
         job,
@@ -202,7 +203,7 @@ def process_import_job(session: Session, job_id: str) -> None:
             get_video_processor(),
             import_config,
         )
-        record_job_event(job, "source_downloaded", {"sourceCount": len(raw_sources)})
+        record_job_event(job, ImportEventType.RAW_SOURCES_DOWNLOADED, {"sourceCount": len(raw_sources)})
 
         recipe, recipe_resources, content_recipe_resources = build_raw_recipe(raw_sources, job.owner_id, imported_author_name)
         extraction_context = build_extraction_context(content_recipe_resources, job, session, storage)

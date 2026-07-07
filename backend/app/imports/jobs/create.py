@@ -205,7 +205,7 @@ def create_import_job(
         handle_import_failed(
             session,
             job,
-            payload={"stage": "creation", "detailCode": internal_error_code, **payload},
+            payload={"stage": "creation", "detail_code": internal_error_code, **payload},
         )
         session.commit()
         log_error(

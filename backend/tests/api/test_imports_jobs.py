@@ -21,7 +21,7 @@ from app.imports.jobs import (
 )
 from app.imports.source_loading.url_loaders.types import LoadedRemoteImage, LoadedRemoteVideo, LoadedUrlContent
 from app.main import create_app
-from app.models import ImportJob, ImportJobStatus, Ingredient, Notification, Recipe
+from app.models import ImportEventType, ImportJob, ImportJobStatus, Ingredient, Notification, Recipe
 from tests.imports.runtime_overrides import (
     reset_url_content_service,
     reset_video_processor,
@@ -178,7 +178,7 @@ def test_import_records_job_events_and_notifications():
         job = session.get(ImportJob, response.json()["jobId"])
         notifications = session.query(Notification).order_by(Notification.created_at).all()
 
-        assert [event.event_type for event in job.events] == ["queued"]
+        assert [event.event_type for event in job.events] == [ImportEventType.IMPORT_CREATED]
         assert [notification.type for notification in notifications] == ["import_started"]
 
     run_import_worker(client, response.json()["jobId"])
@@ -187,12 +187,12 @@ def test_import_records_job_events_and_notifications():
         notifications = session.query(Notification).order_by(Notification.created_at).all()
 
         assert [event.event_type for event in job.events] == [
-            "queued",
-            "worker_started",
-            "source_downloaded",
-            "ai_called",
-            "ai_succeeded",
-            "recipe_created",
+            ImportEventType.IMPORT_CREATED,
+            ImportEventType.IMPORT_STARTED,
+            ImportEventType.RAW_SOURCES_DOWNLOADED,
+            ImportEventType.EXTRACTOR_REQUESTED,
+            ImportEventType.EXTRACTOR_SUCCEEDED,
+            ImportEventType.RECIPE_CREATED,
         ]
         assert [notification.type for notification in notifications] == ["import_started", "import_succeeded"]
 
@@ -498,12 +498,16 @@ def test_url_secondary_resource_failure_fails_job_with_processing_error():
     assert response.json()["errorMessage"] == "SECONDARY_RESOURCE_UPLOADING_FAILED"
     with SessionLocal() as session:
         job = session.get(ImportJob, response.json()["jobId"])
-        assert [event.event_type for event in job.events] == ["queued", "worker_started", "failed"]
+        assert [event.event_type for event in job.events] == [
+            ImportEventType.IMPORT_CREATED,
+            ImportEventType.IMPORT_STARTED,
+            ImportEventType.IMPORT_FAILED,
+        ]
         failed_payload = job.events[-1].payload
-        assert failed_payload["errorCode"] == "IMPORT_PROCESSING_FAILED"
-        assert failed_payload["errorMessage"] == "SECONDARY_RESOURCE_UPLOADING_FAILED"
-        assert failed_payload["detailCode"] == "SECONDARY_RESOURCE_UPLOADING_FAILED"
-        assert failed_payload["resourceType"] == "URL"
+        assert failed_payload["error_code"] == "IMPORT_PROCESSING_FAILED"
+        assert failed_payload["error_message"] == "SECONDARY_RESOURCE_UPLOADING_FAILED"
+        assert failed_payload["detail_code"] == "SECONDARY_RESOURCE_UPLOADING_FAILED"
+        assert failed_payload["resource_type"] == "URL"
         assert failed_payload["url"] == "https://example.com/recipe"
 
 

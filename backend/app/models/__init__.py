@@ -62,6 +62,16 @@ class ImportJobErrorCode(str, enum.Enum):
     IMPORT_EXTRACTION_FAILED = "IMPORT_EXTRACTION_FAILED"
 
 
+class ImportEventType(str, enum.Enum):
+    IMPORT_CREATED = "IMPORT_CREATED"
+    IMPORT_STARTED = "IMPORT_STARTED"
+    RAW_SOURCES_DOWNLOADED = "RAW_SOURCES_DOWNLOADED"
+    EXTRACTOR_REQUESTED = "EXTRACTOR_REQUESTED"
+    EXTRACTOR_SUCCEEDED = "EXTRACTOR_SUCCEEDED"
+    RECIPE_CREATED = "RECIPE_CREATED"
+    IMPORT_FAILED = "IMPORT_FAILED"
+
+
 class ImportSourceStatus(str, enum.Enum):
     # Only READY is assigned by the current import flow. The other statuses are
     # reserved for a future per-source upload/validation/processing lifecycle.
@@ -415,7 +425,7 @@ class JobEvent(Base):
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
     import_job_id: Mapped[str] = mapped_column(ForeignKey("import_jobs.id", ondelete="CASCADE"), nullable=False)
-    event_type: Mapped[str] = mapped_column(String, nullable=False)
+    event_type: Mapped[ImportEventType] = mapped_column(Enum(ImportEventType), nullable=False)
     payload: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

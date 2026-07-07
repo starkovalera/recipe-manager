@@ -1,16 +1,16 @@
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, Field, computed_field
+from pydantic import BaseModel, Field, computed_field, field_serializer
 
-from app.models import ImportJobSource, JobEvent, Recipe, RecipeEmbeddingEvent
+from app.models import ImportEventType, ImportJobSource, JobEvent, Recipe, RecipeEmbeddingEvent
 from app.schemas.base import CamelModel
 
 EVENT_STATUS_MAP = {
-    "queued": "queued",
-    "worker_started": "running",
-    "recipe_created": None,
-    "failed": "failed",
+    ImportEventType.IMPORT_CREATED: "queued",
+    ImportEventType.IMPORT_STARTED: "running",
+    ImportEventType.RECIPE_CREATED: None,
+    ImportEventType.IMPORT_FAILED: "failed",
 }
 
 
@@ -27,10 +27,14 @@ class InternalImportJobSourceOut(CamelModel):
 
 class InternalJobEventOut(CamelModel):
     id: str
-    event_type: str
+    event_type: ImportEventType | str
     status_after: str | None = None
     payload: dict[str, Any] | None = None
     created_at: datetime | None = None
+
+    @field_serializer("event_type")
+    def serialize_event_type(self, value: ImportEventType | str) -> str:
+        return value.value if isinstance(value, ImportEventType) else value
 
 
 class InternalStatusHistoryOut(CamelModel):
@@ -43,7 +47,7 @@ def _status_history(job) -> list[InternalStatusHistoryOut]:
     events = getattr(job, "event_items", getattr(job, "events", []))
     for event in sorted(events, key=lambda item: item.created_at):
         current_status = job.status.value if hasattr(job.status, "value") else job.status
-        if event.event_type == "recipe_created":
+        if event.event_type == ImportEventType.RECIPE_CREATED:
             status = (event.payload or {}).get("status") or current_status
         else:
             status = EVENT_STATUS_MAP.get(event.event_type)
