@@ -10,7 +10,7 @@ from app.db.base import Base
 from app.db.init import ensure_default_user
 from app.db.session import get_session
 from app.embeddings.input import build_recipe_embedding_hash, build_recipe_embedding_input
-from app.imports.events import record_job_event
+from app.imports.events import build_job_event
 from app.main import create_app
 from app.models import (
     ImportEventType,
@@ -104,9 +104,9 @@ def test_internal_import_jobs_returns_jobs_sources_events_and_status_history():
             )
         )
         session.add(job)
-        record_job_event(job, ImportEventType.IMPORT_CREATED, {"clientImportId": "import-1"})
-        record_job_event(job, ImportEventType.IMPORT_STARTED, {"status": "running"})
-        record_job_event(job, ImportEventType.RECIPE_CREATED, {"recipeId": "recipe-1", "status": "succeeded"})
+        build_job_event(job, ImportEventType.IMPORT_CREATED, {"clientImportId": "import-1"})
+        build_job_event(job, ImportEventType.IMPORT_STARTED, {"status": "running"})
+        build_job_event(job, ImportEventType.RECIPE_CREATED, {"recipeId": "recipe-1", "status": "succeeded"})
         session.commit()
 
     response = client.get("/internal/import-jobs")

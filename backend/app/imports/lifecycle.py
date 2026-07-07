@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 
-from app.imports.events import record_job_event
+from app.imports.events import build_job_event
 from app.models import ImportEventType, ImportJob, ImportJobStatus
 from app.notifications.notification_data import (
     ImportFailedNotification,
@@ -12,7 +12,7 @@ from app.notifications.notification_data import (
 
 
 def handle_import_started(session: Session, job: ImportJob, *, client_import_id: str, dedupe_key: str) -> None:
-    record_job_event(job, ImportEventType.IMPORT_CREATED, {"clientImportId": client_import_id, "dedupeKey": dedupe_key})
+    build_job_event(job, ImportEventType.IMPORT_CREATED, {"clientImportId": client_import_id, "dedupeKey": dedupe_key})
     build_notification(
         session,
         ImportStartedNotification,
@@ -27,7 +27,7 @@ def handle_import_failed(session: Session, job: ImportJob, *, payload: dict | No
         "error_message": job.error_message,
         **(payload or {}),
     }
-    record_job_event(job, ImportEventType.IMPORT_FAILED, event_payload)
+    build_job_event(job, ImportEventType.IMPORT_FAILED, event_payload)
     build_notification(
         session,
         ImportFailedNotification,
@@ -37,7 +37,7 @@ def handle_import_failed(session: Session, job: ImportJob, *, payload: dict | No
 
 
 def handle_recipe_created(session: Session, job: ImportJob, *, recipe_id: str, status: ImportJobStatus) -> None:
-    record_job_event(job, ImportEventType.RECIPE_CREATED, {"recipeId": recipe_id, "status": status.value})
+    build_job_event(job, ImportEventType.RECIPE_CREATED, {"recipeId": recipe_id, "status": status.value})
     if status == ImportJobStatus.SUCCEEDED_WITH_FLAGS:
         notification_cls = ImportSucceededWithFlagsNotification
     else:
