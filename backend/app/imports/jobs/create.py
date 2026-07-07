@@ -23,7 +23,7 @@ from app.imports.constants import (
 )
 from app.imports.error_codes import (
     ImportCreationError,
-    ImportCreationErrorCode,
+    ResourceUploadError,
 )
 from app.imports.job_status import fail_import_job
 from app.imports.lifecycle import handle_import_failed, handle_import_started
@@ -112,15 +112,12 @@ def _create_image_source(image: ValidatedImage, position: int, storage: StorageS
             position=position,
         )
     except Exception as error:
-        raise ImportCreationError(
-            ImportCreationErrorCode.RESOURCE_UPLOAD_FAILED,
-            diagnostic_message=repr(error),
-            payload={
-                "resourcePosition": position,
-                "resourceType": SourceType.IMAGE.value,
-                "originalName": image.original_name,
-                "contentType": image.mime_type,
-            },
+        raise ResourceUploadError(
+            exception=repr(error),
+            resource_position=position,
+            resource_type=SourceType.IMAGE.value,
+            original_name=image.original_name,
+            content_type=image.mime_type,
         ) from error
     return source
 
@@ -190,21 +187,25 @@ def create_import_job(
         handle_import_started(session, job, client_import_id=client_import_id, dedupe_key=dedupe_key)
         session.commit()
     except Exception as error:
-        detail_code = error.detail_code.value if hasattr(error, "detail_code") else None
-        payload = error.payload if hasattr(error, "payload") else {}
+        if isinstance(error, ImportCreationError):
+            internal_error_code = error.code_value()
+            payload = error.extra
+        else:
+            internal_error_code = None
+            payload = {"exception": repr(error)}
 
         fail_import_job(
             job,
             storage,
             saved_storage_keys,
             ImportJobErrorCode.IMPORT_CREATION_FAILED,
-            detail_code,
+            internal_error_code,
             cleanup_storage=True,
         )
         handle_import_failed(
             session,
             job,
-            payload={"stage": "creation", "detailCode": detail_code, **payload},
+            payload={"stage": "creation", "detailCode": internal_error_code, **payload},
         )
         session.commit()
         log_error(

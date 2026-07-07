@@ -16,9 +16,13 @@ from app.imports.constants import (
 )
 from app.imports.cover_generation import CoverGenerationContext, generate_cover_image
 from app.imports.error_codes import (
+    ExtractorUnavailableError,
     ImportExtractionError,
     ImportExtractionErrorCode,
     ImportProcessingError,
+    InvalidExtractionResult,
+    NotARecipeError,
+    ResultParseError,
 )
 from app.imports.events import record_job_event
 from app.imports.job_stages.extraction_sources import build_extraction_context
@@ -96,10 +100,7 @@ def _extract_recipe_with_ai(
     try:
         result = anyio.run(extract_recipe)
     except Exception as error:
-        raise ImportExtractionError(
-            ImportExtractionErrorCode.AI_UNAVAILABLE,
-            diagnostic_message=repr(error),
-        ) from error
+        raise ExtractorUnavailableError(exception=repr(error)) from error
     record_job_event(job, "ai_succeeded", {"notARecipe": result.not_a_recipe})
     log.info(
         f"{IMPORT_LOG_COMPONENT} Import step timing",
@@ -110,13 +111,13 @@ def _extract_recipe_with_ai(
 
 
 def _extraction_error_from_provider_result(result) -> ImportExtractionError:
-    if result.error_code == ImportExtractionErrorCode.AI_PARSE_FAILED.value:
-        return ImportExtractionError(ImportExtractionErrorCode.AI_PARSE_FAILED, diagnostic_message=result.error_message)
+    if result.error_code == ImportExtractionErrorCode.RESULT_PARSE_FAILED.value:
+        return ResultParseError(provider_message=result.error_message)
     if result.error_code == ImportExtractionErrorCode.INVALID_EXTRACTION_RESULT.value:
-        return ImportExtractionError(ImportExtractionErrorCode.INVALID_EXTRACTION_RESULT, diagnostic_message=result.error_message)
-    if result.error_code == ImportExtractionErrorCode.AI_UNAVAILABLE.value:
-        return ImportExtractionError(ImportExtractionErrorCode.AI_UNAVAILABLE, diagnostic_message=result.error_message)
-    return ImportExtractionError(ImportExtractionErrorCode.NOT_A_RECIPE, diagnostic_message=result.error_message)
+        return InvalidExtractionResult(provider_message=result.error_message)
+    if result.error_code == ImportExtractionErrorCode.EXTRACTOR_UNAVAILABLE.value:
+        return ExtractorUnavailableError(provider_message=result.error_message)
+    return NotARecipeError(provider_message=result.error_message)
 
 
 def _fail_extraction_and_commit(
@@ -134,14 +135,13 @@ def _fail_extraction_and_commit(
         storage,
         saved_storage_keys,
         ImportJobErrorCode.IMPORT_EXTRACTION_FAILED,
-        error.detail_code.value,
+        error.code_value(),
         log=log,
         cleanup_storage=True,
         detail_payload={
             "stage": "extraction",
-            "detailCode": error.detail_code.value,
-            "diagnosticMessage": error.diagnostic_message,
-            **error.payload,
+            "detailCode": error.code_value(),
+            **error.extra,
         },
         **log_fields,
     )
@@ -156,12 +156,11 @@ def _fail_processing_and_commit(
     log: BoundLogger,
 ) -> None:
     if isinstance(error, ImportProcessingError):
-        message = error.detail_code.value if error.detail_code else None
+        message = error.code_value()
         detail_payload = {
             "stage": "processing",
-            "detailCode": error.detail_code.value if error.detail_code else None,
-            "diagnosticMessage": error.diagnostic_message,
-            **error.payload,
+            "detailCode": error.code_value(),
+            **error.extra,
         }
     else:
         message = None
@@ -230,7 +229,7 @@ def process_import_job(session: Session, job_id: str) -> None:
     except ImportExtractionError as error:
         log.error(
             f"{IMPORT_LOG_COMPONENT} AI extraction provider threw",
-            error=error.diagnostic_message,
+            error=str(error),
         )
         _fail_extraction_and_commit(session, job, storage, saved_storage_keys, error, log)
         return
@@ -253,10 +252,7 @@ def process_import_job(session: Session, job_id: str) -> None:
             job,
             storage,
             saved_storage_keys,
-            ImportExtractionError(
-                ImportExtractionErrorCode.NOT_A_RECIPE,
-                diagnostic_message="The extracted recipe confidence is too low.",
-            ),
+            NotARecipeError(reason="The extracted recipe confidence is too low."),
             log,
             confidence=recipe_result.quality.confidence,
         )

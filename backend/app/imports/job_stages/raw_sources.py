@@ -7,7 +7,7 @@ import anyio
 from app.core.logging import bind_logger, log_error
 from app.imports.config import ImportConfig
 from app.imports.constants import IMPORT_LOG_COMPONENT
-from app.imports.error_codes import ImportProcessingError, ImportProcessingErrorCode
+from app.imports.error_codes import SecondaryResourceUploadError
 from app.imports.source_loading.types import UrlContentService
 from app.imports.source_loading.url_loaders.types import LoadedUrlContent
 from app.imports.source_loading.video_processors.types import FirstPassVideoSources, VideoSourceProcessor
@@ -120,10 +120,10 @@ def _append_url_raw_sources(
             context.config.max_upload_bytes,
         )
     except Exception as error:
-        raise ImportProcessingError(
-            ImportProcessingErrorCode.SECONDARY_RESOURCE_UPLOADING_FAILED,
-            diagnostic_message=repr(error),
-            payload={"resourceType": SourceType.URL.value, "url": job_source.url},
+        raise SecondaryResourceUploadError(
+            exception=repr(error),
+            resource_type=SourceType.URL.value,
+            url=job_source.url,
         ) from error
     raw_sources[-1].url = loaded_url.url
     raw_sources.append(
@@ -139,15 +139,12 @@ def _append_url_raw_sources(
         try:
             saved = context.storage.save(remote_image.bytes, remote_image.original_name, remote_image.mime_type)
         except Exception as error:
-            raise ImportProcessingError(
-                ImportProcessingErrorCode.SECONDARY_RESOURCE_UPLOADING_FAILED,
-                diagnostic_message=repr(error),
-                payload={
-                    "resourceType": SourceType.IMAGE.value,
-                    "url": job_source.url,
-                    "originalName": remote_image.original_name,
-                    "mimeType": remote_image.mime_type,
-                },
+            raise SecondaryResourceUploadError(
+                exception=repr(error),
+                resource_type=SourceType.IMAGE.value,
+                url=job_source.url,
+                original_name=remote_image.original_name,
+                mime_type=remote_image.mime_type,
             ) from error
         context.saved_storage_keys.append(saved.storage_key)
         raw_sources.append(
@@ -196,10 +193,10 @@ def _append_url_video_raw_sources(
             video_count=len(loaded_videos),
             error=repr(error),
         )
-        raise ImportProcessingError(
-            ImportProcessingErrorCode.SECONDARY_RESOURCE_UPLOADING_FAILED,
-            diagnostic_message=repr(error),
-            payload={"resourceType": "VIDEO", "videoCount": len(loaded_videos)},
+        raise SecondaryResourceUploadError(
+            exception=repr(error),
+            resource_type="VIDEO",
+            video_count=len(loaded_videos),
         ) from error
     trimmed_transcript = (first_pass_video_sources.transcript_text or "").strip()
     bind_logger(
@@ -229,14 +226,11 @@ def _append_url_video_raw_sources(
         try:
             saved = context.storage.save(poster.bytes, poster.original_name, poster.mime_type)
         except Exception as error:
-            raise ImportProcessingError(
-                ImportProcessingErrorCode.SECONDARY_RESOURCE_UPLOADING_FAILED,
-                diagnostic_message=repr(error),
-                payload={
-                    "resourceType": "VIDEO_POSTER",
-                    "originalName": poster.original_name,
-                    "mimeType": poster.mime_type,
-                },
+            raise SecondaryResourceUploadError(
+                exception=repr(error),
+                resource_type="VIDEO_POSTER",
+                original_name=poster.original_name,
+                mime_type=poster.mime_type,
             ) from error
         context.saved_storage_keys.append(saved.storage_key)
         raw_sources.append(
