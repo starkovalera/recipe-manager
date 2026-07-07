@@ -72,6 +72,18 @@ class ImportEventType(str, enum.Enum):
     IMPORT_FAILED = "IMPORT_FAILED"
 
 
+class NotificationType(str, enum.Enum):
+    IMPORT_STARTED = "IMPORT_STARTED"
+    IMPORT_FAILED = "IMPORT_FAILED"
+    IMPORT_SUCCEEDED = "IMPORT_SUCCEEDED"
+    IMPORT_SUCCEEDED_WITH_FLAGS = "IMPORT_SUCCEEDED_WITH_FLAGS"
+
+
+class NotificationEntityType(str, enum.Enum):
+    RECIPE = "RECIPE"
+    IMPORT_JOB = "IMPORT_JOB"
+
+
 class ImportSourceStatus(str, enum.Enum):
     # Only READY is assigned by the current import flow. The other statuses are
     # reserved for a future per-source upload/validation/processing lifecycle.
@@ -437,11 +449,11 @@ class Notification(TimestampMixin, Base):
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
     owner_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    type: Mapped[str] = mapped_column(String, nullable=False)
+    type: Mapped[NotificationType] = mapped_column(Enum(NotificationType), nullable=False)
     status: Mapped[str] = mapped_column(String, default="unread", nullable=False)
     title: Mapped[str] = mapped_column(String, nullable=False)
     message: Mapped[str] = mapped_column(Text, nullable=False)
-    entity_type: Mapped[str | None] = mapped_column(String)
+    entity_type: Mapped[NotificationEntityType | None] = mapped_column(Enum(NotificationEntityType))
     entity_id: Mapped[str | None] = mapped_column(String)
     data: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

@@ -10,7 +10,7 @@ from app.db.base import Base
 from app.db.init import ensure_default_user
 from app.db.session import get_session
 from app.main import create_app
-from app.models import Notification, User
+from app.models import Notification, NotificationEntityType, NotificationType, User
 
 
 def client_with_session_factory():
@@ -38,25 +38,25 @@ def test_notifications_list_returns_current_user_notifications_newest_first():
         session.add(other_user)
         old_notification = Notification(
             owner_id=user.id,
-            type="import_started",
+            type=NotificationType.IMPORT_STARTED,
             title="Import started",
             message="Import queued.",
-            entity_type="import_job",
+            entity_type=NotificationEntityType.IMPORT_JOB,
             entity_id="job-1",
             created_at=datetime(2026, 6, 27, 10, 0, tzinfo=timezone.utc),
         )
         new_notification = Notification(
             owner_id=user.id,
-            type="import_succeeded",
+            type=NotificationType.IMPORT_SUCCEEDED,
             title="Import completed",
             message="Recipe imported.",
-            entity_type="recipe",
+            entity_type=NotificationEntityType.RECIPE,
             entity_id="recipe-1",
             created_at=datetime(2026, 6, 27, 10, 1, tzinfo=timezone.utc),
         )
         other_notification = Notification(
             owner_id=other_user.id,
-            type="import_failed",
+            type=NotificationType.IMPORT_FAILED,
             title="Hidden",
             message="Should not be returned.",
         )
@@ -67,9 +67,9 @@ def test_notifications_list_returns_current_user_notifications_newest_first():
 
     assert response.status_code == 200
     payload = response.json()
-    assert [item["type"] for item in payload["items"]] == ["import_succeeded", "import_started"]
+    assert [item["type"] for item in payload["items"]] == ["IMPORT_SUCCEEDED", "IMPORT_STARTED"]
     assert payload["items"][0]["status"] == "unread"
-    assert payload["items"][0]["entityType"] == "recipe"
+    assert payload["items"][0]["entityType"] == "RECIPE"
     assert payload["items"][0]["entityId"] == "recipe-1"
     assert payload["items"][0]["data"] is None
     assert "createdAt" in payload["items"][0]
@@ -83,10 +83,10 @@ def test_notification_can_be_marked_read():
         user = ensure_default_user(session)
         notification = Notification(
             owner_id=user.id,
-            type="import_succeeded",
+            type=NotificationType.IMPORT_SUCCEEDED,
             title="Import completed",
             message="Recipe imported.",
-            entity_type="recipe",
+            entity_type=NotificationEntityType.RECIPE,
             entity_id="recipe-1",
         )
         session.add(notification)
@@ -114,7 +114,7 @@ def test_notifications_can_be_marked_read_up_to_target_notification_only():
         user = ensure_default_user(session)
         old_notification = Notification(
             owner_id=user.id,
-            type="import_started",
+            type=NotificationType.IMPORT_STARTED,
             status="unread",
             title="Import started",
             message="Import queued.",
@@ -122,7 +122,7 @@ def test_notifications_can_be_marked_read_up_to_target_notification_only():
         )
         target_notification = Notification(
             owner_id=user.id,
-            type="import_succeeded",
+            type=NotificationType.IMPORT_SUCCEEDED,
             status="unread",
             title="Import completed",
             message="Recipe imported.",
@@ -130,7 +130,7 @@ def test_notifications_can_be_marked_read_up_to_target_notification_only():
         )
         newer_notification = Notification(
             owner_id=user.id,
-            type="import_failed",
+            type=NotificationType.IMPORT_FAILED,
             status="unread",
             title="New import failed",
             message="This arrived after the frontend snapshot.",
@@ -138,7 +138,7 @@ def test_notifications_can_be_marked_read_up_to_target_notification_only():
         )
         already_read_notification = Notification(
             owner_id=user.id,
-            type="import_started",
+            type=NotificationType.IMPORT_STARTED,
             status="read",
             title="Already read",
             message="Already read.",

@@ -10,11 +10,11 @@ export type ImportJob = {
 
 export type Notification = {
   id: string;
-  type: string;
+  type: "IMPORT_STARTED" | "IMPORT_FAILED" | "IMPORT_SUCCEEDED" | "IMPORT_SUCCEEDED_WITH_FLAGS" | string;
   status: "unread" | "read" | string;
   title: string;
   message: string;
-  entityType?: string | null;
+  entityType?: "RECIPE" | "IMPORT_JOB" | string | null;
   entityId?: string | null;
   data?: Record<string, unknown> | null;
   readAt?: string | null;

@@ -8,7 +8,7 @@ function formatDate(value?: string | null) {
 }
 
 function recipeIdForNotification(notification: Notification): string | null {
-  if (notification.entityType === "recipe" && notification.entityId) return notification.entityId;
+  if (notification.entityType === "RECIPE" && notification.entityId) return notification.entityId;
   return null;
 }
 

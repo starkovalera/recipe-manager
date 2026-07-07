@@ -13,6 +13,8 @@ from app.models import (
     Ingredient,
     JobEvent,
     Notification,
+    NotificationEntityType,
+    NotificationType,
     Recipe,
     RecipeEmbedding,
     RecipeEmbeddingEvent,
@@ -140,10 +142,10 @@ def test_recipe_graph_persists_core_import_entities():
     recipe.import_jobs.append(job)
     user.notifications.append(
         Notification(
-            type="import_succeeded",
+            type=NotificationType.IMPORT_SUCCEEDED,
             title="Import completed",
             message="Recipe imported.",
-            entity_type="recipe",
+            entity_type=NotificationEntityType.RECIPE,
             entity_id="recipe-1",
         )
     )
@@ -166,7 +168,7 @@ def test_recipe_graph_persists_core_import_entities():
     assert saved.import_jobs[0].client_import_id == "import-1"
     assert saved.import_jobs[0].dedupe_key == "import-1"
     assert saved.import_jobs[0].events[0].event_type == ImportEventType.IMPORT_CREATED
-    assert saved.owner.notifications[0].type == "import_succeeded"
+    assert saved.owner.notifications[0].type == NotificationType.IMPORT_SUCCEEDED
 
 
 def test_ingredient_persists_search_name():

@@ -377,11 +377,11 @@ describe("App", () => {
           items: [
             {
               id: "notification-1",
-              type: "import_succeeded",
+              type: "IMPORT_SUCCEEDED",
               status: "unread",
               title: "Import completed",
               message: "Soup was imported.",
-              entityType: "recipe",
+              entityType: "RECIPE",
               entityId: "recipe-1",
               createdAt: "2026-06-27T10:01:00Z",
             },
@@ -452,7 +452,7 @@ describe("App", () => {
           items: [
             {
               id: "notification-new",
-              type: "import_succeeded",
+              type: "IMPORT_SUCCEEDED",
               status: "unread",
               title: "Newest",
               message: "Newest notification.",
@@ -460,7 +460,7 @@ describe("App", () => {
             },
             {
               id: "notification-old",
-              type: "import_started",
+              type: "IMPORT_STARTED",
               status: "unread",
               title: "Older",
               message: "Older notification.",

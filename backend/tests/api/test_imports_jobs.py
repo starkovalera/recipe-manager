@@ -21,7 +21,7 @@ from app.imports.jobs import (
 )
 from app.imports.source_loading.url_loaders.types import LoadedRemoteImage, LoadedRemoteVideo, LoadedUrlContent
 from app.main import create_app
-from app.models import ImportEventType, ImportJob, ImportJobStatus, Ingredient, Notification, Recipe
+from app.models import ImportEventType, ImportJob, ImportJobStatus, Ingredient, Notification, NotificationType, Recipe
 from tests.imports.runtime_overrides import (
     reset_url_content_service,
     reset_video_processor,
@@ -179,7 +179,7 @@ def test_import_records_job_events_and_notifications():
         notifications = session.query(Notification).order_by(Notification.created_at).all()
 
         assert [event.event_type for event in job.events] == [ImportEventType.IMPORT_CREATED]
-        assert [notification.type for notification in notifications] == ["import_started"]
+        assert [notification.type for notification in notifications] == [NotificationType.IMPORT_STARTED]
 
     run_import_worker(client, response.json()["jobId"])
     with SessionLocal() as session:
@@ -194,7 +194,7 @@ def test_import_records_job_events_and_notifications():
             ImportEventType.EXTRACTOR_SUCCEEDED,
             ImportEventType.RECIPE_CREATED,
         ]
-        assert [notification.type for notification in notifications] == ["import_started", "import_succeeded"]
+        assert [notification.type for notification in notifications] == [NotificationType.IMPORT_STARTED, NotificationType.IMPORT_SUCCEEDED]
 
 
 def test_active_import_limit_uses_database_state():

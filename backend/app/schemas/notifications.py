@@ -3,16 +3,17 @@ from typing import Any, Literal
 
 from pydantic import BaseModel
 
+from app.models import NotificationEntityType, NotificationType
 from app.schemas.base import CamelModel
 
 
 class NotificationOut(CamelModel):
     id: str
-    type: str
+    type: NotificationType | str
     status: str
     title: str
     message: str
-    entity_type: str | None = None
+    entity_type: NotificationEntityType | str | None = None
     entity_id: str | None = None
     data: dict[str, Any] | None = None
     read_at: datetime | None = None

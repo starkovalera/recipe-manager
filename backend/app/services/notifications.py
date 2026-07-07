@@ -4,7 +4,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from app.core.errors import NotificationNotFoundError
-from app.models import Notification
+from app.models import Notification, NotificationEntityType, NotificationType
 from app.notifications.queries import get_notification, mark_unread_notifications_read_through
 from app.schemas.notifications import NotificationsMarkAllReadOut
 
@@ -13,10 +13,10 @@ def create_notification(
     session: Session,
     *,
     owner_id: str,
-    type: str,
+    type: NotificationType,
     title: str,
     message: str,
-    entity_type: str | None = None,
+    entity_type: NotificationEntityType | None = None,
     entity_id: str | None = None,
     data: dict[str, Any] | None = None,
 ) -> Notification:
