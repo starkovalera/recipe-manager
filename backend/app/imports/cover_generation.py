@@ -57,27 +57,27 @@ def generate_cover_image(
         if resource.image is not None
     }
     candidate_ref = _cover_candidate_ref(
-        recipe_result.coverCandidate.sourceRef if recipe_result.coverCandidate else None,
+        recipe_result.cover_candidate.source_ref if recipe_result.cover_candidate else None,
         set(image_by_ref.keys()),
     )
-    if candidate_ref is None or recipe_result.coverCandidate is None:
+    if candidate_ref is None or recipe_result.cover_candidate is None:
         return None
 
     chosen = anyio.run(
         choose_cover_candidate,
         CoverGuardInput(
-            candidate=ImportCoverCandidate(sourceRef=candidate_ref, crop=recipe_result.coverCandidate.crop),
-            acceptedImageRefs=list(image_by_ref.keys()),
-            fallbackCandidates=[],
+            candidate=ImportCoverCandidate(source_ref=candidate_ref, crop=recipe_result.cover_candidate.crop),
+            accepted_image_refs=list(image_by_ref.keys()),
+            fallback_candidates=[],
             enabled=get_settings().enable_cover_candidate_guard,
-            maxFallbackCandidates=get_settings().max_cover_fallback_candidates,
+            max_fallback_candidates=get_settings().max_cover_fallback_candidates,
         ),
         None,
     )
     if chosen is None:
         return None
 
-    source_image = image_by_ref[chosen.sourceRef]
+    source_image = image_by_ref[chosen.source_ref]
     cover_file = create_cover_image(context.storage, source_image.storage_key, chosen.crop, auto_crop_full_image=True)
     context.saved_storage_keys.append(cover_file.storage_key)
     cover_image = RecipeImage(
@@ -104,7 +104,7 @@ def generate_cover_image(
         component=IMPORT_LOG_COMPONENT,
         owner_id=job.owner_id,
         import_job_id=job.id,
-        source_ref=chosen.sourceRef,
+        source_ref=chosen.source_ref,
         storage_key=cover_file.storage_key,
     ).info(f"{IMPORT_LOG_COMPONENT} Cover image generated")
     return cover_image

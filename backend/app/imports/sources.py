@@ -30,8 +30,8 @@ def attachment_first_capacity(attachment_count: int, max_images: int) -> ImportC
 
 
 def source_assessments(source_ids: list[str], quality: ExtractionQuality) -> dict[str, SourceAssessment]:
-    primary = set(quality.primarySourceRefs)
-    ignored = set(quality.ignoredSourceRefs)
+    primary = set(quality.primary_source_refs)
+    ignored = set(quality.ignored_source_refs)
     assessments: dict[str, SourceAssessment] = {}
     for source_id in source_ids:
         if source_id in primary:
@@ -56,7 +56,7 @@ def source_assessments(source_ids: list[str], quality: ExtractionQuality) -> dic
 def normalize_single_url_quality(quality: ExtractionQuality, is_single_url_import: bool) -> ExtractionQuality:
     if not is_single_url_import:
         return quality
-    return quality.model_copy(update={"hasConflicts": False, "hasIgnored": False, "ignoredSourceRefs": []})
+    return quality.model_copy(update={"has_conflicts": False, "has_ignored": False, "ignored_source_refs": []})
 
 
 def normalize_quality_source_refs(quality: ExtractionQuality, sources: list[ExtractionSource]) -> ExtractionQuality:
@@ -79,8 +79,8 @@ def normalize_quality_source_refs(quality: ExtractionQuality, sources: list[Extr
 
     return quality.model_copy(
         update={
-            "primarySourceRefs": [normalize(source_ref) for source_ref in quality.primarySourceRefs],
-            "ignoredSourceRefs": [normalize(source_ref) for source_ref in quality.ignoredSourceRefs],
+            "primary_source_refs": [normalize(source_ref) for source_ref in quality.primary_source_refs],
+            "ignored_source_refs": [normalize(source_ref) for source_ref in quality.ignored_source_refs],
         }
     )
 
@@ -89,20 +89,20 @@ def should_create_review_flag(quality: ExtractionQuality, warn_confidence: float
     # Kept for the generic AI-quality rule and its unit tests. Production import
     # creation uses should_create_primary_review_flag because ignored final
     # resources must first be aggregated back to primary resources.
-    return quality.hasConflicts or quality.hasIgnored or quality.confidence <= warn_confidence
+    return quality.has_conflicts or quality.has_ignored or quality.confidence <= warn_confidence
 
 
 def should_create_primary_review_flag(quality: ExtractionQuality, warn_confidence: float, has_ignored_primary: bool) -> bool:
-    return quality.hasConflicts or has_ignored_primary or quality.confidence <= warn_confidence
+    return quality.has_conflicts or has_ignored_primary or quality.confidence <= warn_confidence
 
 
 def review_reason_codes(quality: ExtractionQuality, warn_confidence: float, has_ignored_primary: bool | None = None) -> list[str]:
     reasons: list[str] = []
-    if quality.hasConflicts:
+    if quality.has_conflicts:
         reasons.append("CONTENT_CONFLICT")
     if has_ignored_primary is True:
         reasons.append("IGNORED_PRIMARY_SOURCE")
-    elif has_ignored_primary is None and quality.hasIgnored:
+    elif has_ignored_primary is None and quality.has_ignored:
         reasons.append("IGNORED_SOURCES")
     if quality.confidence <= warn_confidence:
         reasons.append("LOW_CONFIDENCE")

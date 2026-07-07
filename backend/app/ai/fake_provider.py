@@ -14,11 +14,11 @@ class FakeRecipeExtractionProvider(RecipeExtractionProvider):
                 instructions=["Cook until done."],
                 quality=ExtractionQuality(
                     confidence=0.9,
-                    hasConflicts=False,
-                    hasIgnored=False,
-                    primarySourceRefs=primary_refs,
-                    ignoredSourceRefs=[],
+                    has_conflicts=False,
+                    has_ignored=False,
+                    primary_source_refs=primary_refs,
+                    ignored_source_refs=[],
                 ),
-                coverCandidate=None,
+                cover_candidate=None,
             )
         )

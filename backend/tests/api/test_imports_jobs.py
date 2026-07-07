@@ -649,10 +649,10 @@ class ManualPrimaryUrlIgnoredProvider:
                 instructions=["Cook."],
                 quality=ExtractionQuality(
                     confidence=0.9,
-                    hasConflicts=False,
-                    hasIgnored=True,
-                    primarySourceRefs=[manual_text.id],
-                    ignoredSourceRefs=ignored_refs,
+                    has_conflicts=False,
+                    has_ignored=True,
+                    primary_source_refs=[manual_text.id],
+                    ignored_source_refs=ignored_refs,
                 ),
             )
         )
@@ -686,10 +686,10 @@ class AllSourcesIgnoredProvider:
                 instructions=["Cook."],
                 quality=ExtractionQuality(
                     confidence=0.9,
-                    hasConflicts=False,
-                    hasIgnored=True,
-                    primarySourceRefs=[],
-                    ignoredSourceRefs=[source.id for source in sources],
+                    has_conflicts=False,
+                    has_ignored=True,
+                    primary_source_refs=[],
+                    ignored_source_refs=[source.id for source in sources],
                 ),
             )
         )
@@ -748,10 +748,10 @@ class LowConfidenceProvider:
                 instructions=["Cook."],
                 quality=ExtractionQuality(
                     confidence=0,
-                    hasConflicts=False,
-                    hasIgnored=False,
-                    primarySourceRefs=[],
-                    ignoredSourceRefs=[],
+                    has_conflicts=False,
+                    has_ignored=False,
+                    primary_source_refs=[],
+                    ignored_source_refs=[],
                 ),
             )
         )
@@ -766,10 +766,10 @@ class TooManyIngredientsProvider:
                 instructions=["Cook."],
                 quality=ExtractionQuality(
                     confidence=0.9,
-                    hasConflicts=False,
-                    hasIgnored=False,
-                    primarySourceRefs=[sources[0].id],
-                    ignoredSourceRefs=[],
+                    has_conflicts=False,
+                    has_ignored=False,
+                    primary_source_refs=[sources[0].id],
+                    ignored_source_refs=[],
                 ),
             )
         )
@@ -784,10 +784,10 @@ class TooLongInstructionsProvider:
                 instructions=["x" * 1001],
                 quality=ExtractionQuality(
                     confidence=0.9,
-                    hasConflicts=False,
-                    hasIgnored=False,
-                    primarySourceRefs=[sources[0].id],
-                    ignoredSourceRefs=[],
+                    has_conflicts=False,
+                    has_ignored=False,
+                    primary_source_refs=[sources[0].id],
+                    ignored_source_refs=[],
                 ),
             )
         )
@@ -804,10 +804,10 @@ class SourceAssessmentProvider:
                 instructions=["Cook."],
                 quality=ExtractionQuality(
                     confidence=0.9,
-                    hasConflicts=True,
-                    hasIgnored=True,
-                    primarySourceRefs=[image_ids[0], refs["TEXT"]],
-                    ignoredSourceRefs=[image_ids[1]],
+                    has_conflicts=True,
+                    has_ignored=True,
+                    primary_source_refs=[image_ids[0], refs["TEXT"]],
+                    ignored_source_refs=[image_ids[1]],
                 ),
             )
         )
@@ -824,10 +824,10 @@ class SourceIdPrefixedAssessmentProvider:
                 instructions=["Cook."],
                 quality=ExtractionQuality(
                     confidence=0.95,
-                    hasConflicts=False,
-                    hasIgnored=True,
-                    primarySourceRefs=[f"sourceId={text_id}", f"sourceId={image_ids[0]}"],
-                    ignoredSourceRefs=[f"sourceId={image_ids[1]}"],
+                    has_conflicts=False,
+                    has_ignored=True,
+                    primary_source_refs=[f"sourceId={text_id}", f"sourceId={image_ids[0]}"],
+                    ignored_source_refs=[f"sourceId={image_ids[1]}"],
                 ),
             )
         )
@@ -943,12 +943,12 @@ class CoverCandidateProvider:
                 instructions=["Cook."],
                 quality=ExtractionQuality(
                     confidence=0.9,
-                    hasConflicts=False,
-                    hasIgnored=False,
-                    primarySourceRefs=[image_ref],
-                    ignoredSourceRefs=[],
+                    has_conflicts=False,
+                    has_ignored=False,
+                    primary_source_refs=[image_ref],
+                    ignored_source_refs=[],
                 ),
-                coverCandidate=CoverCandidate(sourceRef=image_ref, confidence=0.9),
+                cover_candidate=CoverCandidate(source_ref=image_ref, confidence=0.9),
             )
         )
 
@@ -984,10 +984,10 @@ class WarningFlagProvider:
                 instructions=["Cook."],
                 quality=ExtractionQuality(
                     confidence=0.7,
-                    hasConflicts=True,
-                    hasIgnored=True,
-                    primarySourceRefs=[sources[0].id],
-                    ignoredSourceRefs=[],
+                    has_conflicts=True,
+                    has_ignored=True,
+                    primary_source_refs=[sources[0].id],
+                    ignored_source_refs=[],
                 ),
             )
         )
@@ -1026,10 +1026,10 @@ class ChildIgnoredWithoutPrimaryIgnoredProvider:
                 instructions=["Cook."],
                 quality=ExtractionQuality(
                     confidence=0.9,
-                    hasConflicts=False,
-                    hasIgnored=True,
-                    primarySourceRefs=[text_source.id],
-                    ignoredSourceRefs=[image_source.id],
+                    has_conflicts=False,
+                    has_ignored=True,
+                    primary_source_refs=[text_source.id],
+                    ignored_source_refs=[image_source.id],
                 ),
             )
         )
@@ -1044,10 +1044,10 @@ class PrimaryIgnoredProvider:
                 instructions=["Cook."],
                 quality=ExtractionQuality(
                     confidence=0.9,
-                    hasConflicts=False,
-                    hasIgnored=True,
-                    primarySourceRefs=[],
-                    ignoredSourceRefs=[source.id for source in sources],
+                    has_conflicts=False,
+                    has_ignored=True,
+                    primary_source_refs=[],
+                    ignored_source_refs=[source.id for source in sources],
                 ),
             )
         )

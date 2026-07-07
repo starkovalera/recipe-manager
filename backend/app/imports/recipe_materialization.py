@@ -59,9 +59,9 @@ def apply_extracted_recipe(
     recipe.title = recipe_result.title
     recipe.instructions = recipe_result.instructions
     recipe.servings = recipe_result.servings
-    recipe.cook_time_minutes = recipe_result.cookTimeMinutes
-    recipe.nutrition_estimate = recipe_result.nutritionEstimate.model_dump() if recipe_result.nutritionEstimate else None
-    recipe.author_name = recipe_result.authorName or imported_author_name
+    recipe.cook_time_minutes = recipe_result.cook_time_minutes
+    recipe.nutrition_estimate = recipe_result.nutrition_estimate.model_dump() if recipe_result.nutrition_estimate else None
+    recipe.author_name = recipe_result.author_name or imported_author_name
     _attach_ai_tags(recipe, active_tags, recipe_result.tags, owner_id, import_job_id)
     for index, ingredient in enumerate(recipe_result.ingredients):
         recipe.ingredients.append(
@@ -150,8 +150,8 @@ def create_review_flag_if_needed(job: ImportJob, recipe: Recipe, recipe_result: 
         import_job_id=job.id,
         reason_codes=reasons,
         confidence=recipe_result.quality.confidence,
-        has_conflicts=recipe_result.quality.hasConflicts,
-        has_ignored=recipe_result.quality.hasIgnored,
+        has_conflicts=recipe_result.quality.has_conflicts,
+        has_ignored=recipe_result.quality.has_ignored,
     ).info(f"{IMPORT_LOG_COMPONENT} Recipe review flag created")
     return True
 

@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 import anyio
 from sqlalchemy.orm import Session
 
-from app.ai.schemas import ExtractionSource
+from app.ai.schemas import ExtractionResult, ExtractionSource
 from app.core.config import get_settings
 from app.core.errors import ApiError, ImportNotFoundError
 from app.core.logging import BoundLogger, bind_logger
@@ -78,7 +78,13 @@ def _fail_import_and_commit(
     )
 
 
-def _extract_recipe_with_ai(job: ImportJob, ready_sources: list[ExtractionSource], ai_language: str, ai_tags: str, log: BoundLogger):
+def _extract_recipe_with_ai(
+    job: ImportJob,
+    ready_sources: list[ExtractionSource],
+    ai_language: str,
+    ai_tags: str,
+    log: BoundLogger,
+) -> ExtractionResult:
     started_at = datetime.now(timezone.utc)
     provider_name, provider = get_recipe_extraction_provider()
 
@@ -205,19 +211,18 @@ def process_import_job(session: Session, job_id: str) -> None:
         log.error(f"{IMPORT_LOG_COMPONENT} Import processing failed", error=repr(error))
         _fail_processing_and_commit(session, job, storage, saved_storage_keys, error, log)
         return
-    ai_id_by_resource = extraction_context.extraction_id_by_resource
-    ready_sources = extraction_context.extraction_sources
+
     log = bind_logger(
         logger,
         component=IMPORT_LOG_COMPONENT,
         owner_id=job.owner_id,
         import_job_id=job.id,
-        source_count=len(ready_sources),
+        source_count=len(extraction_context.extraction_sources),
     )
     try:
         result = _extract_recipe_with_ai(
             job,
-            ready_sources,
+            extraction_context.extraction_sources,
             extraction_context.language,
             ", ".join(tag.name for tag in extraction_context.tags),
             log,
@@ -235,7 +240,7 @@ def process_import_job(session: Session, job_id: str) -> None:
 
     recipe_result = result.recipe
     try:
-        recipe_result, status_quality = normalize_recipe_result(job, recipe_result, ready_sources)
+        recipe_result, status_quality = normalize_recipe_result(job, recipe_result, extraction_context.extraction_sources)
     except ImportExtractionError as error:
         _fail_extraction_and_commit(session, job, storage, saved_storage_keys, error, log)
         return
@@ -260,10 +265,10 @@ def process_import_job(session: Session, job_id: str) -> None:
         log.info(
             f"{IMPORT_LOG_COMPONENT} AI extraction quality",
             confidence=recipe_result.quality.confidence,
-            has_conflicts=recipe_result.quality.hasConflicts,
-            has_ignored=recipe_result.quality.hasIgnored,
-            primary_source_refs=recipe_result.quality.primarySourceRefs,
-            ignored_source_refs=recipe_result.quality.ignoredSourceRefs,
+            has_conflicts=recipe_result.quality.has_conflicts,
+            has_ignored=recipe_result.quality.has_ignored,
+            primary_source_refs=recipe_result.quality.primary_source_refs,
+            ignored_source_refs=recipe_result.quality.ignored_source_refs,
         )
         apply_extracted_recipe(
             recipe,
@@ -281,10 +286,10 @@ def process_import_job(session: Session, job_id: str) -> None:
                 storage=storage,
                 saved_storage_keys=saved_storage_keys,
                 final_resources=content_recipe_resources,
-                ai_id_by_resource=ai_id_by_resource,
+                ai_id_by_resource=extraction_context.extraction_id_by_resource,
             ),
         )
-        has_ignored_primary = apply_source_statuses(recipe_resources, content_recipe_resources, status_quality, ai_id_by_resource)
+        has_ignored_primary = apply_source_statuses(recipe_resources, content_recipe_resources, status_quality, extraction_context.extraction_id_by_resource)
         recipe.source_name = derive_source_name_from_primary_resources(recipe_resources)
         refresh_recipe_search_text(recipe)
         has_review_flag = create_review_flag_if_needed(job, recipe, recipe_result, has_ignored_primary)

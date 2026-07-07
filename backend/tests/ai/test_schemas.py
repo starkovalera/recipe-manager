@@ -33,11 +33,11 @@ def test_cover_candidate_accepts_source_ref_and_confidence_without_legacy_positi
         }
     )
 
-    assert recipe.coverCandidate is not None
-    assert recipe.coverCandidate.sourceRef == "image-source"
-    assert recipe.coverCandidate.confidence == 0.8
-    assert recipe.coverCandidate.sourcePosition is None
-    assert recipe.coverCandidate.crop is None
+    assert recipe.cover_candidate is not None
+    assert recipe.cover_candidate.source_ref == "image-source"
+    assert recipe.cover_candidate.confidence == 0.8
+    assert recipe.cover_candidate.source_position is None
+    assert recipe.cover_candidate.crop is None
 
 
 def test_cover_candidate_legacy_position_and_crop_are_none_only():
