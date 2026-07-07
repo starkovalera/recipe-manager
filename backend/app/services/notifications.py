@@ -1,36 +1,11 @@
 from datetime import datetime, timezone
-from typing import Any
 
 from sqlalchemy.orm import Session
 
 from app.core.errors import NotificationNotFoundError
-from app.models import Notification, NotificationEntityType, NotificationType
+from app.models import Notification
 from app.notifications.queries import get_notification, mark_unread_notifications_read_through
 from app.schemas.notifications import NotificationsMarkAllReadOut
-
-
-def create_notification(
-    session: Session,
-    *,
-    owner_id: str,
-    type: NotificationType,
-    title: str,
-    message: str,
-    entity_type: NotificationEntityType | None = None,
-    entity_id: str | None = None,
-    data: dict[str, Any] | None = None,
-) -> Notification:
-    notification = Notification(
-        owner_id=owner_id,
-        type=type,
-        title=title,
-        message=message,
-        entity_type=entity_type,
-        entity_id=entity_id,
-        data=data,
-    )
-    session.add(notification)
-    return notification
 
 
 def set_notification_status(session: Session, owner_id: str, notification_id: str, status: str) -> Notification:
