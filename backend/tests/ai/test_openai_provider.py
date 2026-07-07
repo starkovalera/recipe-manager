@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 
 from app.ai.openai_provider import RECIPE_JSON_SCHEMA, OpenAIRecipeExtractionProvider
-from app.ai.schemas import ReadySource
+from app.ai.schemas import ExtractionSource
 from app.core.config import Settings
 
 
@@ -68,24 +68,24 @@ async def test_openai_provider_uses_reference_responses_input_and_logs_output(ca
 
     result = await provider.extract(
         [
-            ReadySource(
+            ExtractionSource(
                 id="image-source-0",
                 type="IMAGE",
-                sourceRef="source_0",
-                storageKey="uploads/source-0.png",
-                dataUrl="data:image/png;base64,SECRET_IMAGE_DATA",
-                mimeType="image/png",
-                originalName="first.png",
+                source_ref="source_0",
+                storage_key="uploads/source-0.png",
+                data_url="data:image/png;base64,SECRET_IMAGE_DATA",
+                mime_type="image/png",
+                original_name="first.png",
                 position=0,
             ),
-            ReadySource(
+            ExtractionSource(
                 id="image-source-1",
                 type="IMAGE",
-                sourceRef="source_1",
-                storageKey="uploads/source-1.png",
-                dataUrl="data:image/png;base64,SECRET_IMAGE_DATA_2",
-                mimeType="image/png",
-                originalName="second.png",
+                source_ref="source_1",
+                storage_key="uploads/source-1.png",
+                data_url="data:image/png;base64,SECRET_IMAGE_DATA_2",
+                mime_type="image/png",
+                original_name="second.png",
                 position=1,
             ),
         ],
@@ -112,7 +112,7 @@ async def test_openai_provider_uses_reference_responses_input_and_logs_output(ca
     assert "[recipes.ai.openai] Recipe extraction request" in joined_logs
     assert '"input":' in joined_logs
     assert '"content":' in joined_logs
-    assert '"dataUrl": "<redacted>"' in joined_logs
+    assert '"data_url": "<redacted>"' in joined_logs
     assert "[recipes.ai.openai] Recipe extraction response" in joined_logs
     assert '"rawOutput":' in joined_logs
     assert '\\"title\\": \\"Roulade\\"' in joined_logs
@@ -147,16 +147,16 @@ async def test_openai_provider_sends_reference_mixed_source_labels_once():
 
     await provider.extract(
         [
-            ReadySource(id="text-url", type="TEXT", text="URL recipe body", position=0),
-            ReadySource(id="text-manual", type="TEXT", text="User pasted recipe body", position=1),
-            ReadySource(
+            ExtractionSource(id="text-url", type="TEXT", text="URL recipe body", position=0),
+            ExtractionSource(id="text-manual", type="TEXT", text="User pasted recipe body", position=1),
+            ExtractionSource(
                 id="image-manual",
                 type="IMAGE",
-                sourceRef="source_0",
-                storageKey="uploads/source-0.png",
-                dataUrl="data:image/png;base64,SECRET_IMAGE_DATA",
-                mimeType="image/png",
-                originalName="first.png",
+                source_ref="source_0",
+                storage_key="uploads/source-0.png",
+                data_url="data:image/png;base64,SECRET_IMAGE_DATA",
+                mime_type="image/png",
+                original_name="first.png",
                 position=2,
             ),
         ],

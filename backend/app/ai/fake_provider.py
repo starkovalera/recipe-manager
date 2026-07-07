@@ -1,12 +1,12 @@
 from app.ai.provider import RecipeExtractionProvider
-from app.ai.schemas import ExtractedRecipe, ExtractionQuality, ExtractionResult, ReadySource, ready_source_id
+from app.ai.schemas import ExtractedRecipe, ExtractionQuality, ExtractionResult, ExtractionSource, extraction_source_id
 
 
 class FakeRecipeExtractionProvider(RecipeExtractionProvider):
-    async def extract(self, sources: list[ReadySource], *, language: str, tags: str) -> ExtractionResult:
+    async def extract(self, sources: list[ExtractionSource], *, language: str, tags: str) -> ExtractionResult:
         if not sources:
             return ExtractionResult(not_a_recipe=True)
-        primary_refs = [ready_source_id(source) for source in sources]
+        primary_refs = [extraction_source_id(source) for source in sources]
         return ExtractionResult(
             recipe=ExtractedRecipe(
                 title="Imported Recipe",

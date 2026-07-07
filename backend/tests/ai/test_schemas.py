@@ -2,7 +2,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.ai.fake_provider import FakeRecipeExtractionProvider
-from app.ai.schemas import ExtractedRecipe, ReadySource, ready_source_id
+from app.ai.schemas import ExtractedRecipe, ExtractionSource, extraction_source_id
 
 
 def test_extracted_recipe_requires_quality_for_recipe_result():
@@ -64,10 +64,10 @@ def test_cover_candidate_legacy_position_and_crop_are_none_only():
         )
 
 
-def test_ready_source_id_matches_reference_contract():
-    assert ready_source_id(ReadySource(type="IMAGE", sourceRef="upload_0", position=0)) == "image:upload_0"
-    assert ready_source_id(ReadySource(type="URL", url="https://example.test", position=1)) == "url:1"
-    assert ready_source_id(ReadySource(type="TEXT", text="Recipe", position=2)) == "text:2"
+def test_extraction_source_id_matches_reference_contract():
+    assert extraction_source_id(ExtractionSource(type="IMAGE", source_ref="upload_0", position=0)) == "image:upload_0"
+    assert extraction_source_id(ExtractionSource(type="URL", url="https://example.test", position=1)) == "url:1"
+    assert extraction_source_id(ExtractionSource(type="TEXT", text="Recipe", position=2)) == "text:2"
 
 
 async def test_fake_provider_returns_not_recipe_for_empty_sources():

@@ -12,7 +12,7 @@ from app.imports.source_loading.types import UrlContentService
 from app.imports.source_loading.url_loaders.types import LoadedUrlContent
 from app.imports.source_loading.video_processors.types import FirstPassVideoSources, VideoSourceProcessor
 from app.models import ImportJob, ImportJobSource, RecipeResourceOrigin, SourceType
-from app.storage.local import LocalStorageService
+from app.storage.base import StorageService
 
 logger = logging.getLogger(IMPORT_LOG_COMPONENT)
 
@@ -35,7 +35,7 @@ class RawSource:
 @dataclass
 class RawSourceBuildContext:
     job: ImportJob
-    storage: LocalStorageService
+    storage: StorageService
     saved_storage_keys: list[str]
     url_content_loader: UrlContentService
     video_processor: VideoSourceProcessor
@@ -44,7 +44,7 @@ class RawSourceBuildContext:
 
 def build_raw_sources(
     job: ImportJob,
-    storage: LocalStorageService,
+    storage: StorageService,
     saved_storage_keys: list[str],
     url_content_loader: UrlContentService,
     video_processor: VideoSourceProcessor,

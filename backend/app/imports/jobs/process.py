@@ -1,11 +1,10 @@
 import logging
-from dataclasses import dataclass
 from datetime import datetime, timezone
 
 import anyio
 from sqlalchemy.orm import Session
 
-from app.ai.schemas import ReadySource
+from app.ai.schemas import ExtractionSource
 from app.core.config import get_settings
 from app.core.errors import ApiError, ImportNotFoundError
 from app.core.logging import BoundLogger, bind_logger
@@ -22,11 +21,12 @@ from app.imports.error_codes import (
     ImportProcessingError,
 )
 from app.imports.events import record_job_event
+from app.imports.job_stages.extraction_sources import build_extraction_context
+from app.imports.job_stages.raw_recipe import build_raw_recipe
 from app.imports.job_stages.raw_sources import build_raw_sources
 from app.imports.job_status import fail_import_job
 from app.imports.lifecycle import handle_import_failed, handle_recipe_created
 from app.imports.queries import get_import_job as query_import_job
-from app.imports.recipe_builder import build_ready_sources, build_recipe_from_raw_sources
 from app.imports.recipe_materialization import (
     apply_extracted_recipe,
     apply_source_statuses,
@@ -39,30 +39,12 @@ from app.models import (
     ImportJob,
     ImportJobErrorCode,
     ImportJobStatus,
-    Recipe,
-    RecipeResource,
-    Tag,
 )
 from app.services.search_text import refresh_recipe_search_text
+from app.storage.base import StorageService
 from app.storage.local import LocalStorageService
-from app.tags.queries import list_active_tags
 
 logger = logging.getLogger(IMPORT_LOG_COMPONENT)
-
-
-@dataclass
-class ImportProcessingContext:
-    storage: LocalStorageService
-    saved_storage_keys: list[str]
-    imported_author_name: str | None
-    recipe: Recipe
-    recipe_resources: list[RecipeResource]
-    final_resources: list[RecipeResource]
-    ai_id_by_resource: dict[RecipeResource, str]
-    ready_sources: list[ReadySource]
-    active_tags: list[Tag]
-    ai_language: str
-    ai_tags: str
 
 
 def _start_import_job(session: Session, job: ImportJob, log: BoundLogger) -> None:
@@ -72,47 +54,10 @@ def _start_import_job(session: Session, job: ImportJob, log: BoundLogger) -> Non
     session.commit()
     log.info(f"{IMPORT_LOG_COMPONENT} Import job processing started")
 
-
-def _build_import_processing_context(
-    session: Session,
-    job: ImportJob,
-    storage: LocalStorageService,
-    saved_storage_keys: list[str],
-) -> ImportProcessingContext:
-    import_config = ImportConfig.from_settings(get_settings())
-    raw_sources, imported_author_name = build_raw_sources(
-        job,
-        storage,
-        saved_storage_keys,
-        get_url_content_service(),
-        get_video_processor(),
-        import_config
-    )
-    record_job_event(job, "source_downloaded", {"sourceCount": len(raw_sources)})
-
-    built_sources = build_recipe_from_raw_sources(job.owner_id, raw_sources)
-    active_tags = list_active_tags(session, job.owner_id)
-    ai_language = job.owner.settings.recipe_language if job.owner and job.owner.settings else get_settings().recipe_language
-    ai_tags = ", ".join(tag.name for tag in active_tags)
-    return ImportProcessingContext(
-        storage=storage,
-        saved_storage_keys=saved_storage_keys,
-        imported_author_name=imported_author_name,
-        recipe=built_sources.recipe,
-        recipe_resources=built_sources.recipe_resources,
-        final_resources=built_sources.final_resources,
-        ai_id_by_resource=built_sources.ai_id_by_resource,
-        ready_sources=build_ready_sources(built_sources.final_resources, built_sources.ai_id_by_resource, storage),
-        active_tags=active_tags,
-        ai_language=ai_language,
-        ai_tags=ai_tags,
-    )
-
-
 def _fail_import_and_commit(
     session: Session,
     job: ImportJob,
-    storage: LocalStorageService,
+    storage: StorageService,
     saved_storage_keys: list[str],
     error_code: ImportJobErrorCode,
     message: str | None,
@@ -133,7 +78,7 @@ def _fail_import_and_commit(
     )
 
 
-def _extract_recipe_with_ai(job: ImportJob, ready_sources: list[ReadySource], ai_language: str, ai_tags: str, log: BoundLogger):
+def _extract_recipe_with_ai(job: ImportJob, ready_sources: list[ExtractionSource], ai_language: str, ai_tags: str, log: BoundLogger):
     started_at = datetime.now(timezone.utc)
     provider_name, provider = get_recipe_extraction_provider()
 
@@ -171,7 +116,7 @@ def _extraction_error_from_provider_result(result) -> ImportExtractionError:
 def _fail_extraction_and_commit(
     session: Session,
     job: ImportJob,
-    storage: LocalStorageService,
+    storage: StorageService,
     saved_storage_keys: list[str],
     error: ImportExtractionError,
     log: BoundLogger,
@@ -199,7 +144,7 @@ def _fail_extraction_and_commit(
 def _fail_processing_and_commit(
     session: Session,
     job: ImportJob,
-    storage: LocalStorageService,
+    storage: StorageService,
     saved_storage_keys: list[str],
     error: ImportProcessingError | Exception,
     log: BoundLogger,
@@ -236,26 +181,32 @@ def process_import_job(session: Session, job_id: str) -> None:
 
     log = bind_logger(logger, component=IMPORT_LOG_COMPONENT, job=job.to_dict())
 
-    # _start_import_job(session, job, log)
-    job.status = ImportJobStatus.RUNNING
-    job.started_at = datetime.now(timezone.utc)
-    record_job_event(job, "worker_started", {"status": job.status.value})  # EVENT
-    session.commit()
-    log.info(f"{IMPORT_LOG_COMPONENT} Import job processing started")
+    _start_import_job(session, job, log)
 
     storage = LocalStorageService(get_settings().upload_dir)
     saved_storage_keys = [source.image_storage_key for source in job.sources if source.image_storage_key]
+
+    import_config = ImportConfig.from_settings(get_settings())
+
     try:
-        context = _build_import_processing_context(session, job, storage, saved_storage_keys)
+        raw_sources, imported_author_name = build_raw_sources(
+            job,
+            storage,
+            saved_storage_keys,
+            get_url_content_service(),
+            get_video_processor(),
+            import_config,
+        )
+        record_job_event(job, "source_downloaded", {"sourceCount": len(raw_sources)})
+
+        recipe, recipe_resources, content_recipe_resources = build_raw_recipe(raw_sources, job.owner_id, imported_author_name)
+        extraction_context = build_extraction_context(content_recipe_resources, job, session, storage)
     except Exception as error:
         log.error(f"{IMPORT_LOG_COMPONENT} Import processing failed", error=repr(error))
         _fail_processing_and_commit(session, job, storage, saved_storage_keys, error, log)
         return
-    recipe = context.recipe
-    recipe_resources = context.recipe_resources
-    final_resources = context.final_resources
-    ai_id_by_resource = context.ai_id_by_resource
-    ready_sources = context.ready_sources
+    ai_id_by_resource = extraction_context.extraction_id_by_resource
+    ready_sources = extraction_context.extraction_sources
     log = bind_logger(
         logger,
         component=IMPORT_LOG_COMPONENT,
@@ -264,7 +215,13 @@ def process_import_job(session: Session, job_id: str) -> None:
         source_count=len(ready_sources),
     )
     try:
-        result = _extract_recipe_with_ai(job, ready_sources, context.ai_language, context.ai_tags, log)
+        result = _extract_recipe_with_ai(
+            job,
+            ready_sources,
+            extraction_context.language,
+            ", ".join(tag.name for tag in extraction_context.tags),
+            log,
+        )
     except ImportExtractionError as error:
         log.error(
             f"{IMPORT_LOG_COMPONENT} AI extraction provider threw",
@@ -311,8 +268,8 @@ def process_import_job(session: Session, job_id: str) -> None:
         apply_extracted_recipe(
             recipe,
             recipe_result,
-            active_tags=context.active_tags,
-            imported_author_name=context.imported_author_name,
+            active_tags=extraction_context.tags,
+            imported_author_name=imported_author_name,
             owner_id=job.owner_id,
             import_job_id=job.id,
         )
@@ -321,13 +278,13 @@ def process_import_job(session: Session, job_id: str) -> None:
             recipe,
             recipe_result,
             CoverGenerationContext(
-                storage=context.storage,
-                saved_storage_keys=context.saved_storage_keys,
-                final_resources=context.final_resources,
-                ai_id_by_resource=context.ai_id_by_resource,
+                storage=storage,
+                saved_storage_keys=saved_storage_keys,
+                final_resources=content_recipe_resources,
+                ai_id_by_resource=ai_id_by_resource,
             ),
         )
-        has_ignored_primary = apply_source_statuses(recipe_resources, final_resources, status_quality, ai_id_by_resource)
+        has_ignored_primary = apply_source_statuses(recipe_resources, content_recipe_resources, status_quality, ai_id_by_resource)
         recipe.source_name = derive_source_name_from_primary_resources(recipe_resources)
         refresh_recipe_search_text(recipe)
         has_review_flag = create_review_flag_if_needed(job, recipe, recipe_result, has_ignored_primary)

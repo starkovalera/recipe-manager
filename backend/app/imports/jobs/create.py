@@ -40,6 +40,7 @@ from app.models import (
     ImportSourceStatus,
     SourceType,
 )
+from app.storage.base import StorageService
 from app.storage.local import LocalStorageService
 
 logger = logging.getLogger(IMPORT_LOG_COMPONENT)
@@ -98,7 +99,7 @@ def _validate_import_request(
     return normalized_text, normalized_url, validated_images
 
 
-def _create_image_source(image: ValidatedImage, position: int, storage: LocalStorageService) -> ImportJobSource:
+def _create_image_source(image: ValidatedImage, position: int, storage: StorageService) -> ImportJobSource:
     try:
         saved = storage.save(image.content, image.original_name, image.mime_type)
         source = ImportJobSource(

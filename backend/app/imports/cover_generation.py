@@ -19,14 +19,14 @@ from app.models import (
     RecipeResourceStatus,
     SourceType,
 )
-from app.storage.local import LocalStorageService
+from app.storage.base import StorageService
 
 logger = logging.getLogger(IMPORT_LOG_COMPONENT)
 
 
 @dataclass
 class CoverGenerationContext:
-    storage: LocalStorageService
+    storage: StorageService
     saved_storage_keys: list[str]
     final_resources: list[RecipeResource]
     ai_id_by_resource: dict[RecipeResource, str]

@@ -1,4 +1,4 @@
-from app.ai.schemas import ExtractionQuality, ReadySource
+from app.ai.schemas import ExtractionQuality, ExtractionSource
 from app.imports.sources import (
     attachment_first_capacity,
     normalize_quality_source_refs,
@@ -60,9 +60,9 @@ def test_quality_source_refs_are_normalized_like_reference_pipeline():
             ignoredSourceRefs=["url_slide_0"],
         ),
         [
-            ReadySource(type="IMAGE", sourceRef="source_0", position=0),
-            ReadySource(type="URL", url="https://example.com/recipe", position=1),
-            ReadySource(type="IMAGE", sourceRef="url_slide_0", position=2),
+            ExtractionSource(type="IMAGE", source_ref="source_0", position=0),
+            ExtractionSource(type="URL", url="https://example.com/recipe", position=1),
+            ExtractionSource(type="IMAGE", source_ref="url_slide_0", position=2),
         ],
     )
 
@@ -80,9 +80,9 @@ def test_quality_source_refs_strip_source_id_prefix_from_ai_output():
             ignoredSourceRefs=["sourceId=image:url_slide_1"],
         ),
         [
-            ReadySource(type="URL", url="https://example.com/recipe", position=0),
-            ReadySource(type="IMAGE", sourceRef="url_slide_0", position=1),
-            ReadySource(type="IMAGE", sourceRef="url_slide_1", position=2),
+            ExtractionSource(type="URL", url="https://example.com/recipe", position=0),
+            ExtractionSource(type="IMAGE", source_ref="url_slide_0", position=1),
+            ExtractionSource(type="IMAGE", source_ref="url_slide_1", position=2),
         ],
     )
 
@@ -100,9 +100,9 @@ def test_quality_source_refs_normalize_bare_positions_from_ai_output():
             ignoredSourceRefs=[],
         ),
         [
-            ReadySource(type="URL", url="https://example.com/recipe", position=0),
-            ReadySource(type="TEXT", text="Video transcript", position=1),
-            ReadySource(type="IMAGE", sourceRef="url_video_poster_0", position=2),
+            ExtractionSource(type="URL", url="https://example.com/recipe", position=0),
+            ExtractionSource(type="TEXT", text="Video transcript", position=1),
+            ExtractionSource(type="IMAGE", source_ref="url_video_poster_0", position=2),
         ],
     )
 

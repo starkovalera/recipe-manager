@@ -452,7 +452,7 @@ def test_url_video_poster_and_transcript_are_passed_to_ai_sources():
     response = process_import_response(client, response)
 
     assert response.status_code == 200
-    assert [(source.type, source.text, source.originalName) for source in provider.sources] == [
+    assert [(source.type, source.text, source.original_name) for source in provider.sources] == [
         ("TEXT", "URL recipe text", None),
         ("TEXT", "Video 1 transcript:\nMix batter and bake.", None),
         ("IMAGE", None, "poster-video.mp4.jpg"),
@@ -730,7 +730,7 @@ def test_mixed_sources_match_reference_ai_source_order_and_refs():
     response = process_import_response(client, response)
 
     assert response.status_code == 200
-    assert [(source.type, source.text, source.originalName) for source in provider.sources] == [
+    assert [(source.type, source.text, source.original_name) for source in provider.sources] == [
         ("IMAGE", None, "first.jpg"),
         ("TEXT", "Manual recipe text", None),
         ("TEXT", "URL recipe text", None),

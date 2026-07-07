@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ExtractedIngredient(BaseModel):
@@ -56,25 +56,27 @@ class ExtractionResult(BaseModel):
     error_message: str | None = None
 
 
-class ReadySource(BaseModel):
+class ExtractionSource(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     id: str | None = None
     type: Literal["IMAGE", "URL", "TEXT"]
     position: int
-    sourceRef: str | None = None
-    storageKey: str | None = None
-    dataUrl: str | None = None
-    mimeType: str | None = None
-    originalName: str | None = None
+    source_ref: str | None = Field(default=None, alias="sourceRef")
+    storage_key: str | None = Field(default=None, alias="storageKey")
+    data_url: str | None = Field(default=None, alias="dataUrl")
+    mime_type: str | None = Field(default=None, alias="mimeType")
+    original_name: str | None = Field(default=None, alias="originalName")
     url: str | None = None
-    authorName: str | None = None
+    author_name: str | None = Field(default=None, alias="authorName")
     text: str | None = None
 
 
-def ready_source_id(source: ReadySource) -> str:
+def extraction_source_id(source: ExtractionSource) -> str:
     if source.id:
         return source.id
     if source.type == "IMAGE":
-        return f"image:{source.sourceRef}"
+        return f"image:{source.source_ref}"
     if source.type == "URL":
         return f"url:{source.position}"
     return f"text:{source.position}"

@@ -1,6 +1,6 @@
 import logging
 
-from app.ai.schemas import ExtractedRecipe, ReadySource
+from app.ai.schemas import ExtractedRecipe, ExtractionSource
 from app.core.config import get_settings
 from app.core.logging import bind_logger
 from app.imports.constants import IMPORT_LOG_COMPONENT
@@ -33,7 +33,7 @@ from app.services.search_text import build_ingredient_search_name
 logger = logging.getLogger(IMPORT_LOG_COMPONENT)
 
 
-def normalize_recipe_result(job: ImportJob, recipe_result: ExtractedRecipe, ready_sources: list[ReadySource]):
+def normalize_recipe_result(job: ImportJob, recipe_result: ExtractedRecipe, ready_sources: list[ExtractionSource]):
     size_violation = find_recipe_size_violation(recipe_result.ingredients, recipe_result.instructions)
     if size_violation is not None:
         raise ImportExtractionError(

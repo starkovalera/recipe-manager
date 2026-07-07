@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from app.ai.schemas import ExtractionQuality, ReadySource, ready_source_id
+from app.ai.schemas import ExtractionQuality, ExtractionSource, extraction_source_id
 
 
 @dataclass(frozen=True)
@@ -59,15 +59,15 @@ def normalize_single_url_quality(quality: ExtractionQuality, is_single_url_impor
     return quality.model_copy(update={"hasConflicts": False, "hasIgnored": False, "ignoredSourceRefs": []})
 
 
-def normalize_quality_source_refs(quality: ExtractionQuality, sources: list[ReadySource]) -> ExtractionQuality:
+def normalize_quality_source_refs(quality: ExtractionQuality, sources: list[ExtractionSource]) -> ExtractionQuality:
     aliases: dict[str, str] = {}
     for source in sources:
-        canonical = ready_source_id(source)
+        canonical = extraction_source_id(source)
         aliases[canonical] = canonical
         aliases[str(source.position)] = canonical
-        if source.type == "IMAGE" and source.sourceRef:
-            aliases[source.sourceRef] = canonical
-            aliases[f"image:{source.sourceRef}"] = canonical
+        if source.type == "IMAGE" and source.source_ref:
+            aliases[source.source_ref] = canonical
+            aliases[f"image:{source.source_ref}"] = canonical
         elif source.type == "URL" and source.url:
             aliases[source.url] = canonical
 
