@@ -9,8 +9,7 @@ function formatDate(value?: string | null) {
 
 function recipeIdForNotification(notification: Notification): string | null {
   if (notification.entityType === "recipe" && notification.entityId) return notification.entityId;
-  const createdRecipeId = notification.data?.createdRecipeId;
-  return typeof createdRecipeId === "string" ? createdRecipeId : null;
+  return null;
 }
 
 export function NotificationsPage({

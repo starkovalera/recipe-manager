@@ -43,7 +43,6 @@ def test_notifications_list_returns_current_user_notifications_newest_first():
             message="Import queued.",
             entity_type="import_job",
             entity_id="job-1",
-            data={"importJobId": "job-1"},
             created_at=datetime(2026, 6, 27, 10, 0, tzinfo=timezone.utc),
         )
         new_notification = Notification(
@@ -53,7 +52,6 @@ def test_notifications_list_returns_current_user_notifications_newest_first():
             message="Recipe imported.",
             entity_type="recipe",
             entity_id="recipe-1",
-            data={"importJobId": "job-1", "createdRecipeId": "recipe-1", "hasReviewFlags": False},
             created_at=datetime(2026, 6, 27, 10, 1, tzinfo=timezone.utc),
         )
         other_notification = Notification(
@@ -73,7 +71,7 @@ def test_notifications_list_returns_current_user_notifications_newest_first():
     assert payload["items"][0]["status"] == "unread"
     assert payload["items"][0]["entityType"] == "recipe"
     assert payload["items"][0]["entityId"] == "recipe-1"
-    assert payload["items"][0]["data"]["createdRecipeId"] == "recipe-1"
+    assert payload["items"][0]["data"] is None
     assert "createdAt" in payload["items"][0]
     assert "updatedAt" in payload["items"][0]
     assert all(item["title"] != "Hidden" for item in payload["items"])

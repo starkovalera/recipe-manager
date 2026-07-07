@@ -99,9 +99,9 @@ def _extract_recipe_with_ai(
     log.info(f"{IMPORT_LOG_COMPONENT} AI provider selected", provider=provider_name)
     record_job_event(job, ImportEventType.EXTRACTOR_REQUESTED, {"provider": provider_name, "sourceCount": len(ready_sources)})
     try:
-        result = anyio.run(extract_recipe)
+        result: ExtractionResult = anyio.run(extract_recipe)
     except Exception as error:
-        raise ExtractorUnavailableError(exception=repr(error)) from error
+        raise ExtractorUnavailableError(exception=str(error)) from error
     record_job_event(job, ImportEventType.EXTRACTOR_SUCCEEDED, {"notARecipe": result.not_a_recipe})
     log.info(
         f"{IMPORT_LOG_COMPONENT} Import step timing",

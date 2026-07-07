@@ -145,7 +145,6 @@ def test_recipe_graph_persists_core_import_entities():
             message="Recipe imported.",
             entity_type="recipe",
             entity_id="recipe-1",
-            data={"importJobId": "import-1"},
         )
     )
     session.add(recipe)

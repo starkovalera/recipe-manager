@@ -15,7 +15,6 @@ def handle_import_started(session: Session, job: ImportJob, *, client_import_id:
         message="Recipe import started.",
         entity_type="import_job",
         entity_id=job.id,
-        data={"importJobId": job.id},
     )
 
 
@@ -34,7 +33,6 @@ def handle_import_failed(session: Session, job: ImportJob, *, payload: dict | No
         message=job.error_message or "Recipe import failed.",
         entity_type="import_job",
         entity_id=job.id,
-        data={"importJobId": job.id, "recipeId": job.created_recipe_id, "errorCode": job.error_code.value if job.error_code else None},
     )
 
 
@@ -56,5 +54,4 @@ def handle_recipe_created(session: Session, job: ImportJob, *, recipe_id: str, s
         message=message,
         entity_type="recipe",
         entity_id=recipe_id,
-        data={"importJobId": job.id, "recipeId": recipe_id, "errorCode": job.error_code.value if job.error_code else None},
     )

@@ -383,7 +383,6 @@ describe("App", () => {
               message: "Soup was imported.",
               entityType: "recipe",
               entityId: "recipe-1",
-              data: { importJobId: "job-1", createdRecipeId: "recipe-1", hasReviewFlags: false },
               createdAt: "2026-06-27T10:01:00Z",
             },
           ],
