@@ -15,35 +15,33 @@ from app.core.errors import (
     TextTooLongError,
     TooManyFilesError,
 )
-from app.core.logging import log_error, log_info
+from app.core.logging import bind_logger
 from app.imports.constants import (
     ACTIVE_IMPORT_STATUSES,
     IMPORT_LOG_COMPONENT,
     SUPPORTED_UPLOAD_TYPES,
 )
-from app.imports.error_codes import (
-    ImportCreationError,
-    ResourceUploadError,
-)
-from app.imports.job_status import fail_import_job
-from app.imports.lifecycle import handle_import_failed, handle_import_started
+from app.imports.error_codes import ResourceUploadError
+from app.imports.events import build_job_event
+from app.imports.job_stages.failure import process_import_failure
 from app.imports.queries import (
     count_import_jobs_by_statuses,
     get_import_job_by_dedupe_key,
 )
 from app.media.images import ValidatedImage
 from app.models import (
+    ImportEventType,
     ImportJob,
-    ImportJobErrorCode,
     ImportJobSource,
     ImportJobStatus,
     ImportSourceStatus,
     SourceType,
 )
+from app.notifications.notification_data import ImportStartedNotification, build_notification
 from app.storage.base import StorageService
 from app.storage.local import LocalStorageService
 
-logger = logging.getLogger(IMPORT_LOG_COMPONENT)
+logger = bind_logger(logging.getLogger(__name__), component=IMPORT_LOG_COMPONENT)
 
 
 @dataclass
@@ -87,7 +85,7 @@ def _validate_import_request(
             raise InvalidFileTypeError(
                 content_type=content_type,
                 filename=original_filename,
-                reason=str(error),
+                original_error=str(error),
             ) from error
         validated_images.append(
             ValidatedImage(
@@ -113,7 +111,7 @@ def _create_image_source(image: ValidatedImage, position: int, storage: StorageS
         )
     except Exception as error:
         raise ResourceUploadError(
-            exception=repr(error),
+            original_error=str(error),
             resource_position=position,
             resource_type=SourceType.IMAGE.value,
             original_name=image.original_name,
@@ -184,41 +182,21 @@ def create_import_job(
                 )
             )
 
-        handle_import_started(session, job, client_import_id=client_import_id, dedupe_key=dedupe_key)
+        build_job_event(job, ImportEventType.IMPORT_CREATED, client_import_id=client_import_id, dedupe_key=dedupe_key)
+        build_notification(
+            session,
+            ImportStartedNotification,
+            owner_id=job.owner_id,
+            entity_id=job.id,
+        )
         session.commit()
     except Exception as error:
-        if isinstance(error, ImportCreationError):
-            internal_error_code = error.code_value()
-            payload = error.extra
-        else:
-            internal_error_code = None
-            payload = {"exception": repr(error)}
-
-        fail_import_job(
-            job,
-            storage,
-            saved_storage_keys,
-            ImportJobErrorCode.IMPORT_CREATION_FAILED,
-            internal_error_code,
-            cleanup_storage=True,
-        )
-        handle_import_failed(
-            session,
-            job,
-            payload={"stage": "creation", "detail_code": internal_error_code, **payload},
-        )
+        process_import_failure(job, session, storage, saved_storage_keys, error, cleanup_storage=True)
         session.commit()
-        log_error(
-            logger,
-            f"{IMPORT_LOG_COMPONENT} Import job failed",
-            job=job.to_dict(),
-            error=repr(error),
-        )
 
     session.refresh(job)
-    log_info(
-        logger,
-        f"{IMPORT_LOG_COMPONENT} Import job created",
+    logger.info(
+        "Import job was created.",
         job=job.to_dict(),
         has_text=normalized_text is not None,
         has_url=normalized_url is not None,

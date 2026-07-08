@@ -504,9 +504,11 @@ def test_url_secondary_resource_failure_fails_job_with_processing_error():
             ImportEventType.IMPORT_FAILED,
         ]
         failed_payload = job.events[-1].payload
-        assert failed_payload["error_code"] == "IMPORT_PROCESSING_FAILED"
-        assert failed_payload["error_message"] == "SECONDARY_RESOURCE_UPLOADING_FAILED"
-        assert failed_payload["detail_code"] == "SECONDARY_RESOURCE_UPLOADING_FAILED"
+        assert failed_payload["error"] == {
+            "import_job_code": "IMPORT_PROCESSING_FAILED",
+            "code": "SECONDARY_RESOURCE_UPLOADING_FAILED",
+            "message": "Import processing failed due to secondary resource uploading issue.",
+        }
         assert failed_payload["resource_type"] == "URL"
         assert failed_payload["url"] == "https://example.com/recipe"
 
@@ -1111,9 +1113,9 @@ def test_import_logs_lifecycle_without_image_payloads(caplog):
     assert response.status_code == 200
     messages = [record.getMessage() for record in caplog.records]
     joined = "\n".join(messages)
-    assert "Import job created" in joined
+    assert "Import job was created" in joined
     assert "AI extraction quality" in joined
-    assert "Import job succeeded" in joined
+    assert "Import recipe created" in joined
     assert '"component": "recipes.import"' in joined
     assert "data:image" not in joined
     assert "base64" not in joined

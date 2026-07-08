@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import enum
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from pgvector.sqlalchemy import Vector
@@ -57,6 +57,7 @@ class ImportJobErrorCode(str, enum.Enum):
     # High-level persisted import failure categories. Detailed creation,
     # processing, or extraction diagnostics are stored in ImportJob.error_message
     # and failed JobEvent payloads, not in this field.
+    IMPORT_FAILED = "IMPORT_FAILED"
     IMPORT_CREATION_FAILED = "IMPORT_CREATION_FAILED"
     IMPORT_PROCESSING_FAILED = "IMPORT_PROCESSING_FAILED"
     IMPORT_EXTRACTION_FAILED = "IMPORT_EXTRACTION_FAILED"
@@ -403,6 +404,21 @@ class ImportJob(TimestampMixin, Base):
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
+
+    def set_failed(self, error_code: ImportJobErrorCode, error_message: str | None) -> None:
+        self.status = ImportJobStatus.FAILED
+        self.error_code = error_code
+        self.error_message = error_message
+        self.finished_at = datetime.now(timezone.utc)
+
+    def set_running(self) -> None:
+        self.status = ImportJobStatus.RUNNING
+        self.started_at = datetime.now(timezone.utc)
+
+    def set_recipe_created(self, recipe_id: str, status: ImportJobStatus = ImportJobStatus.SUCCEEDED) -> None:
+        self.created_recipe_id = recipe_id
+        self.status = status
+        self.finished_at = datetime.now(timezone.utc)
 
 
 class ImportJobSource(TimestampMixin, Base):

@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.ai.schemas import ExtractionResult, ExtractionSource
 from app.core.config import get_settings
-from app.core.errors import ApiError, ImportNotFoundError
+from app.core.errors import ImportNotFoundError
 from app.core.logging import BoundLogger, bind_logger
 from app.embeddings.service import enqueue_recipe_embedding_with_event, prepare_recipe_embedding
 from app.imports.config import ImportConfig
@@ -19,17 +19,16 @@ from app.imports.error_codes import (
     ExtractorUnavailableError,
     ImportExtractionError,
     ImportExtractionErrorCode,
-    ImportProcessingError,
     InvalidExtractionResult,
     NotARecipeError,
     ResultParseError,
 )
 from app.imports.events import build_job_event
 from app.imports.job_stages.extraction_sources import build_extraction_context
+from app.imports.job_stages.failure import process_import_failure
 from app.imports.job_stages.raw_recipe import build_raw_recipe
 from app.imports.job_stages.raw_sources import build_raw_sources
-from app.imports.job_status import fail_import_job
-from app.imports.lifecycle import handle_import_failed, handle_recipe_created
+from app.imports.logging import log_import_started, log_recipe_created
 from app.imports.queries import get_import_job as query_import_job
 from app.imports.recipe_materialization import (
     apply_extracted_recipe,
@@ -42,45 +41,17 @@ from app.imports.runtime import get_recipe_extraction_provider, get_url_content_
 from app.models import (
     ImportEventType,
     ImportJob,
-    ImportJobErrorCode,
     ImportJobStatus,
 )
+from app.notifications.notification_data import (
+    ImportSucceededNotification,
+    ImportSucceededWithFlagsNotification,
+    build_notification,
+)
 from app.services.search_text import refresh_recipe_search_text
-from app.storage.base import StorageService
 from app.storage.local import LocalStorageService
 
-logger = logging.getLogger(IMPORT_LOG_COMPONENT)
-
-
-def _start_import_job(session: Session, job: ImportJob, log: BoundLogger) -> None:
-    job.status = ImportJobStatus.RUNNING
-    job.started_at = datetime.now(timezone.utc)
-    build_job_event(job, ImportEventType.IMPORT_STARTED, status=job.status.value)
-    session.commit()
-    log.info(f"{IMPORT_LOG_COMPONENT} Import job processing started")
-
-def _fail_import_and_commit(
-    session: Session,
-    job: ImportJob,
-    storage: StorageService,
-    saved_storage_keys: list[str],
-    error_code: ImportJobErrorCode,
-    message: str | None,
-    log: BoundLogger | None = None,
-    cleanup_storage: bool = True,
-    detail_payload: dict | None = None,
-    **log_fields,
-) -> None:
-    fail_import_job(job, storage, saved_storage_keys, error_code, message, cleanup_storage=cleanup_storage)
-    handle_import_failed(session, job, payload=detail_payload)
-    session.commit()
-    bound_log = log or bind_logger(logger, component=IMPORT_LOG_COMPONENT, owner_id=job.owner_id, import_job_id=job.id)
-    bound_log.info(
-        f"{IMPORT_LOG_COMPONENT} Import job failed",
-        error_code=job.error_code.value if job.error_code else None,
-        error_message=job.error_message,
-        **log_fields,
-    )
+logger = bind_logger(logging.getLogger(__name__), component=IMPORT_LOG_COMPONENT)
 
 
 def _extract_recipe_with_ai(
@@ -112,71 +83,15 @@ def _extract_recipe_with_ai(
 
 
 def _extraction_error_from_provider_result(result) -> ImportExtractionError:
-    if result.error_code == ImportExtractionErrorCode.RESULT_PARSE_FAILED.value:
+    # raise error here
+    # check if result.not_a_recipe or result.recipe is None:
+    if result.error_code == ImportExtractionErrorCode.RESULT_PARSE_FAILED:
         return ResultParseError(provider_message=result.error_message)
-    if result.error_code == ImportExtractionErrorCode.INVALID_EXTRACTION_RESULT.value:
+    if result.error_code == ImportExtractionErrorCode.INVALID_EXTRACTION_RESULT:
         return InvalidExtractionResult(provider_message=result.error_message)
-    if result.error_code == ImportExtractionErrorCode.EXTRACTOR_UNAVAILABLE.value:
+    if result.error_code == ImportExtractionErrorCode.EXTRACTOR_UNAVAILABLE:
         return ExtractorUnavailableError(provider_message=result.error_message)
     return NotARecipeError(provider_message=result.error_message)
-
-
-def _fail_extraction_and_commit(
-    session: Session,
-    job: ImportJob,
-    storage: StorageService,
-    saved_storage_keys: list[str],
-    error: ImportExtractionError,
-    log: BoundLogger,
-    **log_fields,
-) -> None:
-    _fail_import_and_commit(
-        session,
-        job,
-        storage,
-        saved_storage_keys,
-        ImportJobErrorCode.IMPORT_EXTRACTION_FAILED,
-        error.code_value(),
-        log=log,
-        cleanup_storage=True,
-        detail_payload={
-            "stage": "extraction",
-            "detail_code": error.code_value(),
-            **error.extra,
-        },
-        **log_fields,
-    )
-
-
-def _fail_processing_and_commit(
-    session: Session,
-    job: ImportJob,
-    storage: StorageService,
-    saved_storage_keys: list[str],
-    error: ImportProcessingError | Exception,
-    log: BoundLogger,
-) -> None:
-    if isinstance(error, ImportProcessingError):
-        message = error.code_value()
-        detail_payload = {
-            "stage": "processing",
-            "detail_code": error.code_value(),
-            **error.extra,
-        }
-    else:
-        message = None
-        detail_payload = {"stage": "processing", "exception": repr(error)}
-    _fail_import_and_commit(
-        session,
-        job,
-        storage,
-        saved_storage_keys,
-        ImportJobErrorCode.IMPORT_PROCESSING_FAILED,
-        message,
-        log=log,
-        cleanup_storage=False,
-        detail_payload=detail_payload,
-    )
 
 
 def process_import_job(session: Session, job_id: str) -> None:
@@ -185,13 +100,15 @@ def process_import_job(session: Session, job_id: str) -> None:
         logger.info(f"{IMPORT_LOG_COMPONENT} Import job id={job_id} is not found or can't be started.")
         return
 
-    log = bind_logger(logger, component=IMPORT_LOG_COMPONENT, job=job.to_dict())
-
-    _start_import_job(session, job, log)
+    # start the job
+    job.set_running()
+    build_job_event(job, ImportEventType.IMPORT_STARTED, status=job.status.value)
+    job_log = job.to_dict()
+    session.commit()
+    log_import_started(job_log)
 
     storage = LocalStorageService(get_settings().upload_dir)
     saved_storage_keys = [source.image_storage_key for source in job.sources if source.image_storage_key]
-
     import_config = ImportConfig.from_settings(get_settings())
 
     try:
@@ -207,59 +124,42 @@ def process_import_job(session: Session, job_id: str) -> None:
 
         recipe, recipe_resources, content_recipe_resources = build_raw_recipe(raw_sources, job.owner_id, imported_author_name)
         extraction_context = build_extraction_context(content_recipe_resources, job, session, storage)
-    except Exception as error:
-        log.error(f"{IMPORT_LOG_COMPONENT} Import processing failed", error=repr(error))
-        _fail_processing_and_commit(session, job, storage, saved_storage_keys, error, log)
-        return
 
-    log = bind_logger(
-        logger,
-        component=IMPORT_LOG_COMPONENT,
-        owner_id=job.owner_id,
-        import_job_id=job.id,
-        source_count=len(extraction_context.extraction_sources),
-    )
-    try:
         result = _extract_recipe_with_ai(
             job,
             extraction_context.extraction_sources,
             extraction_context.language,
             ", ".join(tag.name for tag in extraction_context.tags),
-            log,
+            logger,
         )
-    except ImportExtractionError as error:
-        log.error(
-            f"{IMPORT_LOG_COMPONENT} AI extraction provider threw",
-            error=str(error),
-        )
-        _fail_extraction_and_commit(session, job, storage, saved_storage_keys, error, log)
+    except Exception as error:
+        process_import_failure(job, session, storage, saved_storage_keys, error, cleanup_storage=True)
         return
+    # move to extraction validation
     if result.not_a_recipe or result.recipe is None:
-        _fail_extraction_and_commit(session, job, storage, saved_storage_keys, _extraction_error_from_provider_result(result), log)
+        process_import_failure(job, session, storage, saved_storage_keys, _extraction_error_from_provider_result(result), cleanup_storage=True)
         return
 
     recipe_result = result.recipe
+    # move to extraction validation
     try:
         recipe_result, status_quality = normalize_recipe_result(job, recipe_result, extraction_context.extraction_sources)
-    except ImportExtractionError as error:
-        _fail_extraction_and_commit(session, job, storage, saved_storage_keys, error, log)
-        return
-    except ApiError as error:
-        _fail_processing_and_commit(session, job, storage, saved_storage_keys, error, log)
+    except Exception as error:
+        process_import_failure(job, session, storage, saved_storage_keys, error, cleanup_storage=True)
         return
     if recipe_result.quality.confidence <= get_settings().import_min_confidence:
-        _fail_extraction_and_commit(
-            session,
+        process_import_failure(
             job,
+            session,
             storage,
             saved_storage_keys,
             NotARecipeError(reason="The extracted recipe confidence is too low."),
-            log,
+            cleanup_storage=True,
             confidence=recipe_result.quality.confidence,
         )
         return
     try:
-        log.info(
+        logger.info(
             f"{IMPORT_LOG_COMPONENT} AI extraction quality",
             confidence=recipe_result.quality.confidence,
             has_conflicts=recipe_result.quality.has_conflicts,
@@ -286,6 +186,7 @@ def process_import_job(session: Session, job_id: str) -> None:
                 ai_id_by_resource=extraction_context.extraction_id_by_resource,
             ),
         )
+
         has_ignored_primary = apply_source_statuses(recipe_resources, content_recipe_resources, status_quality, extraction_context.extraction_id_by_resource)
         recipe.source_name = derive_source_name_from_primary_resources(recipe_resources)
         refresh_recipe_search_text(recipe)
@@ -295,11 +196,23 @@ def process_import_job(session: Session, job_id: str) -> None:
         if cover_image is not None:
             recipe.cover_image_id = cover_image.id
         embedding, should_enqueue_embedding = prepare_recipe_embedding(recipe)
-        job.created_recipe_id = recipe.id
-        job.status = ImportJobStatus.SUCCEEDED_WITH_FLAGS if has_review_flag else ImportJobStatus.SUCCEEDED
-        job.finished_at = datetime.now(timezone.utc)
-        handle_recipe_created(session, job, recipe_id=recipe.id, status=job.status)
+
+        if has_review_flag:
+            job_status, notification_cls = ImportJobStatus.SUCCEEDED_WITH_FLAGS, ImportSucceededWithFlagsNotification
+        else:
+            job_status, notification_cls = ImportJobStatus.SUCCEEDED, ImportSucceededNotification
+        job.set_recipe_created(recipe.id, job_status)
+        build_job_event(job, ImportEventType.RECIPE_CREATED, recipe_id=recipe.id, status=job_status.value)
+        build_notification(
+            session,
+            notification_cls,
+            owner_id=job.owner_id,
+            entity_id=recipe.id,
+        )
+        job_log = job.to_dict()
         session.commit()
+        log_recipe_created(job_log)
+
         if should_enqueue_embedding:
             enqueue_recipe_embedding_with_event(session, embedding=embedding, owner_id=recipe.owner_id)
             session.commit()
@@ -307,16 +220,12 @@ def process_import_job(session: Session, job_id: str) -> None:
         session.rollback()
         job = session.get(ImportJob, job_id)
         if job is not None and job.status not in TERMINAL_IMPORT_STATUSES:
-            _fail_processing_and_commit(session, job, storage, saved_storage_keys, error, log)
+            process_import_failure(job, session, storage, saved_storage_keys, error, cleanup_storage=True)
         return
-    log.info(
-        f"{IMPORT_LOG_COMPONENT} Import job succeeded",
-        recipe_id=recipe.id,
-    )
 
 
-def get_import_job(session: Session, job_id: str, owner_id: str) -> ImportJob:
+def get_import_job(session: Session, job_id: str, owner_id: str, raise_error: bool = True) -> ImportJob | None:
     job = query_import_job(session, job_id, owner_id)
-    if job is None:
+    if job is None and raise_error:
         raise ImportNotFoundError()
     return job

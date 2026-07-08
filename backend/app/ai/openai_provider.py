@@ -128,7 +128,7 @@ def _parse_recipe_json(text: str) -> ExtractionResult:
     except json.JSONDecodeError as error:
         return ExtractionResult(
             not_a_recipe=True,
-            error_code=ImportExtractionErrorCode.RESULT_PARSE_FAILED.value,
+            error_code=ImportExtractionErrorCode.RESULT_PARSE_FAILED,
             error_message=str(error),
         )
     if isinstance(payload, dict) and payload.get("notARecipe") is True:
@@ -138,7 +138,7 @@ def _parse_recipe_json(text: str) -> ExtractionResult:
     except ValidationError as error:
         return ExtractionResult(
             not_a_recipe=True,
-            error_code=ImportExtractionErrorCode.INVALID_EXTRACTION_RESULT.value,
+            error_code=ImportExtractionErrorCode.INVALID_EXTRACTION_RESULT,
             error_message=str(error),
         )
 
@@ -189,7 +189,7 @@ class OpenAIRecipeExtractionProvider(RecipeExtractionProvider):
             )
             return ExtractionResult(
                 not_a_recipe=True,
-                error_code=ImportExtractionErrorCode.EXTRACTOR_UNAVAILABLE.value,
+                error_code=ImportExtractionErrorCode.EXTRACTOR_UNAVAILABLE,
                 error_message="AI extraction is unavailable.",
             )
 
