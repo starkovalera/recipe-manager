@@ -26,6 +26,7 @@ from app.imports.recipe_materialization import (
     apply_source_statuses,
     create_review_flag_if_needed,
     derive_source_name_from_primary_resources,
+    normalize_recipe_quality_for_review,
     normalize_recipe_result,
 )
 from app.imports.runtime import get_url_content_service, get_video_processor
@@ -83,7 +84,7 @@ def process_import_job(session: Session, job_id: str) -> None:
     recipe_result = extraction_result.recipe
     # move to extraction validation
     try:
-        recipe_result, status_quality = normalize_recipe_result(job, recipe_result, extraction_context.extraction_sources)
+        recipe_result = normalize_recipe_result(job, recipe_result, extraction_context.extraction_sources)
     except Exception as error:
         process_import_failure(job, session, storage, saved_storage_keys, error, cleanup_storage=True)
         return
@@ -128,10 +129,11 @@ def process_import_job(session: Session, job_id: str) -> None:
         )
 
         has_ignored_primary = apply_source_statuses(
-            recipe_resources, content_recipe_resources, status_quality, extraction_context.extraction_id_by_resource
+            recipe_resources, content_recipe_resources, recipe_result.quality, extraction_context.extraction_id_by_resource
         )
         recipe.source_name = derive_source_name_from_primary_resources(recipe_resources)
         refresh_recipe_search_text(recipe)
+        recipe_result = normalize_recipe_quality_for_review(job, recipe_result)
         has_review_flag = create_review_flag_if_needed(job, recipe, recipe_result, has_ignored_primary)
         session.add(recipe)
         session.flush()

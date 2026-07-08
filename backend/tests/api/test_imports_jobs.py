@@ -1078,7 +1078,7 @@ def test_child_ignored_does_not_create_warning_when_primary_url_is_used():
     assert detail.json()["reviewFlags"] == []
 
 
-def test_ignored_primary_url_creates_warning_flag():
+def test_single_url_ignored_primary_url_does_not_create_warning_flag():
     client = client_with_session()
     set_url_content_service(FakeRegistry())
     set_recipe_extraction_provider(PrimaryIgnoredProvider())
@@ -1095,7 +1095,7 @@ def test_ignored_primary_url_creates_warning_flag():
     assert response.status_code == 200
     url_parent = next(source for source in detail.json()["sources"] if source["type"] == "URL")
     assert url_parent["status"] == "ignored"
-    assert detail.json()["reviewFlags"][0]["details"]["reasons"] == ["IGNORED_PRIMARY_SOURCE"]
+    assert detail.json()["reviewFlags"] == []
 
 
 def test_import_logs_lifecycle_without_image_payloads(caplog):

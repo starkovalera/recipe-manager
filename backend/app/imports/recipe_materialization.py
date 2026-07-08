@@ -41,10 +41,17 @@ def normalize_recipe_result(job: ImportJob, recipe_result: ExtractedRecipe, read
             actual=size_violation.actual,
             limit=size_violation.limit,
         )
-    is_single_url_import = len(job.sources) == 1 and job.sources[0].type == SourceType.URL
-    status_quality = normalize_quality_source_refs(recipe_result.quality, ready_sources)
-    recipe_quality = normalize_single_url_quality(status_quality, is_single_url_import)
-    return recipe_result.model_copy(update={"quality": recipe_quality}), status_quality
+    quality = normalize_quality_source_refs(recipe_result.quality, ready_sources)
+    return recipe_result.model_copy(update={"quality": quality})
+
+
+def is_single_url_import(job: ImportJob) -> bool:
+    return len(job.sources) == 1 and job.sources[0].type == SourceType.URL
+
+
+def normalize_recipe_quality_for_review(job: ImportJob, recipe_result: ExtractedRecipe) -> ExtractedRecipe:
+    quality = normalize_single_url_quality(recipe_result.quality, is_single_url_import(job))
+    return recipe_result.model_copy(update={"quality": quality})
 
 
 def apply_extracted_recipe(
@@ -128,6 +135,8 @@ def derive_source_name_from_primary_resources(resources: list[RecipeResource]) -
 
 def create_review_flag_if_needed(job: ImportJob, recipe: Recipe, recipe_result: ExtractedRecipe, has_ignored_primary: bool) -> bool:
     warn_confidence = get_settings().import_warn_confidence
+    if is_single_url_import(job):
+        has_ignored_primary = False
     reasons = review_reason_codes(recipe_result.quality, warn_confidence, has_ignored_primary)
     has_review_flag = should_create_primary_review_flag(recipe_result.quality, warn_confidence, has_ignored_primary)
     if not has_review_flag:
