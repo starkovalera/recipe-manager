@@ -54,7 +54,7 @@ def process_import_failure(
         owner_id=job.owner_id,
         entity_id=job.id,
     )
-    job_log = job.to_dict()
     session.commit()
+    session.refresh(job)
 
-    log_import_failed(job_log, error=error_dict, **error_extra, **extra)
+    log_import_failed(job, error=error_dict, **error_extra, **extra)

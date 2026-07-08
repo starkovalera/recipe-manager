@@ -103,9 +103,9 @@ def process_import_job(session: Session, job_id: str) -> None:
     # start the job
     job.set_running()
     build_job_event(job, ImportEventType.IMPORT_STARTED, status=job.status.value)
-    job_log = job.to_dict()
     session.commit()
-    log_import_started(job_log)
+    session.refresh(job)
+    log_import_started(job)
 
     storage = LocalStorageService(get_settings().upload_dir)
     saved_storage_keys = [source.image_storage_key for source in job.sources if source.image_storage_key]
@@ -209,9 +209,9 @@ def process_import_job(session: Session, job_id: str) -> None:
             owner_id=job.owner_id,
             entity_id=recipe.id,
         )
-        job_log = job.to_dict()
         session.commit()
-        log_recipe_created(job_log)
+        session.refresh(job)
+        log_recipe_created(job)
 
         if should_enqueue_embedding:
             enqueue_recipe_embedding_with_event(session, embedding=embedding, owner_id=recipe.owner_id)
