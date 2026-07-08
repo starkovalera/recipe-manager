@@ -2,8 +2,9 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Protocol
 
-from app.core.config import get_settings
+from app.core.config import Settings, get_settings
 from app.core.errors import NoteTooLongError, TextTooLongError
+from app.imports.config import ImportConfig
 
 
 class IngredientLike(Protocol):
@@ -21,8 +22,10 @@ def instructions_text_length(instructions: Sequence[str]) -> int:
     return len("\n".join(step.strip() for step in instructions if step.strip()))
 
 
-def find_recipe_size_violation(ingredients: Sequence[IngredientLike], instructions: Sequence[str]) -> RecipeSizeViolation | None:
-    settings = get_settings()
+def find_recipe_size_violation(
+    ingredients: Sequence[IngredientLike], instructions: Sequence[str], settings: Settings | ImportConfig | None = None
+) -> RecipeSizeViolation | None:
+    settings = settings or get_settings()
     ingredient_count = len([ingredient for ingredient in ingredients if ingredient.name.strip()])
     if ingredient_count > settings.max_recipe_ingredients:
         return RecipeSizeViolation(reason="too_many_ingredients", actual=ingredient_count, limit=settings.max_recipe_ingredients)

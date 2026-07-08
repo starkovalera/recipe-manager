@@ -1,13 +1,10 @@
 import logging
-from datetime import datetime, timezone
 
-import anyio
 from sqlalchemy.orm import Session
 
-from app.ai.schemas import ExtractionResult, ExtractionSource
 from app.core.config import get_settings
 from app.core.errors import ImportNotFoundError
-from app.core.logging import BoundLogger, bind_logger
+from app.core.logging import bind_logger
 from app.embeddings.service import enqueue_recipe_embedding_with_event, prepare_recipe_embedding
 from app.imports.config import ImportConfig
 from app.imports.constants import (
@@ -15,15 +12,9 @@ from app.imports.constants import (
     TERMINAL_IMPORT_STATUSES,
 )
 from app.imports.cover_generation import CoverGenerationContext, generate_cover_image
-from app.imports.error_codes import (
-    ExtractorUnavailableError,
-    ImportExtractionError,
-    ImportExtractionErrorCode,
-    InvalidExtractionResult,
-    NotARecipeError,
-    ResultParseError,
-)
+from app.imports.error_codes import NotARecipeError
 from app.imports.events import build_job_event
+from app.imports.job_stages.extraction import extract
 from app.imports.job_stages.extraction_sources import build_extraction_context
 from app.imports.job_stages.failure import process_import_failure
 from app.imports.job_stages.raw_recipe import build_raw_recipe
@@ -37,7 +28,7 @@ from app.imports.recipe_materialization import (
     derive_source_name_from_primary_resources,
     normalize_recipe_result,
 )
-from app.imports.runtime import get_recipe_extraction_provider, get_url_content_service, get_video_processor
+from app.imports.runtime import get_url_content_service, get_video_processor
 from app.models import (
     ImportEventType,
     ImportJob,
@@ -52,46 +43,6 @@ from app.services.search_text import refresh_recipe_search_text
 from app.storage.local import LocalStorageService
 
 logger = bind_logger(logging.getLogger(__name__), component=IMPORT_LOG_COMPONENT)
-
-
-def _extract_recipe_with_ai(
-    job: ImportJob,
-    ready_sources: list[ExtractionSource],
-    ai_language: str,
-    ai_tags: str,
-    log: BoundLogger,
-) -> ExtractionResult:
-    started_at = datetime.now(timezone.utc)
-    provider_name, provider = get_recipe_extraction_provider()
-
-    async def extract_recipe():
-        return await provider.extract(ready_sources, language=ai_language, tags=ai_tags)
-
-    log.info(f"{IMPORT_LOG_COMPONENT} AI provider selected", provider=provider_name)
-    build_job_event(job, ImportEventType.EXTRACTOR_REQUESTED, provider=provider_name, source_count=len(ready_sources))
-    try:
-        result: ExtractionResult = anyio.run(extract_recipe)
-    except Exception as error:
-        raise ExtractorUnavailableError(exception=str(error)) from error
-    build_job_event(job, ImportEventType.EXTRACTOR_SUCCEEDED, not_a_recipe=result.not_a_recipe)
-    log.info(
-        f"{IMPORT_LOG_COMPONENT} Import step timing",
-        step="ai_extraction",
-        duration_ms=int((datetime.now(timezone.utc) - started_at).total_seconds() * 1000),
-    )
-    return result
-
-
-def _extraction_error_from_provider_result(result) -> ImportExtractionError:
-    # raise error here
-    # check if result.not_a_recipe or result.recipe is None:
-    if result.error_code == ImportExtractionErrorCode.RESULT_PARSE_FAILED:
-        return ResultParseError(provider_message=result.error_message)
-    if result.error_code == ImportExtractionErrorCode.INVALID_EXTRACTION_RESULT:
-        return InvalidExtractionResult(provider_message=result.error_message)
-    if result.error_code == ImportExtractionErrorCode.EXTRACTOR_UNAVAILABLE:
-        return ExtractorUnavailableError(provider_message=result.error_message)
-    return NotARecipeError(provider_message=result.error_message)
 
 
 def process_import_job(session: Session, job_id: str) -> None:
@@ -124,23 +75,12 @@ def process_import_job(session: Session, job_id: str) -> None:
 
         recipe, recipe_resources, content_recipe_resources = build_raw_recipe(raw_sources, job.owner_id, imported_author_name)
         extraction_context = build_extraction_context(content_recipe_resources, job, session, storage)
-
-        result = _extract_recipe_with_ai(
-            job,
-            extraction_context.extraction_sources,
-            extraction_context.language,
-            ", ".join(tag.name for tag in extraction_context.tags),
-            logger,
-        )
+        extraction_result = extract(job, extraction_context)
     except Exception as error:
         process_import_failure(job, session, storage, saved_storage_keys, error, cleanup_storage=True)
         return
-    # move to extraction validation
-    if result.not_a_recipe or result.recipe is None:
-        process_import_failure(job, session, storage, saved_storage_keys, _extraction_error_from_provider_result(result), cleanup_storage=True)
-        return
 
-    recipe_result = result.recipe
+    recipe_result = extraction_result.recipe
     # move to extraction validation
     try:
         recipe_result, status_quality = normalize_recipe_result(job, recipe_result, extraction_context.extraction_sources)
@@ -187,7 +127,9 @@ def process_import_job(session: Session, job_id: str) -> None:
             ),
         )
 
-        has_ignored_primary = apply_source_statuses(recipe_resources, content_recipe_resources, status_quality, extraction_context.extraction_id_by_resource)
+        has_ignored_primary = apply_source_statuses(
+            recipe_resources, content_recipe_resources, status_quality, extraction_context.extraction_id_by_resource
+        )
         recipe.source_name = derive_source_name_from_primary_resources(recipe_resources)
         refresh_recipe_search_text(recipe)
         has_review_flag = create_review_flag_if_needed(job, recipe, recipe_result, has_ignored_primary)

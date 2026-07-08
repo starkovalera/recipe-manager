@@ -1,9 +1,34 @@
+import pytest
+
+from app.ai.schemas import (
+    ExtractedIngredient,
+    ExtractedRecipe,
+    ExtractionQuality,
+    ExtractionResult,
+    ExtractionSource,
+)
 from app.imports.config import ImportConfig
-from app.imports.job_stages import extraction_sources as extraction_sources_module
-from app.imports.job_stages.extraction_sources import build_extraction_context
+from app.imports.error_codes import (
+    ExtractorUnavailableError,
+    ImportExtractionErrorCode,
+    InvalidExtractionResult,
+    NotARecipeError,
+    ResultParseError,
+)
+from app.imports.job_stages import extraction as extraction_module, extraction_sources as extraction_sources_module
+from app.imports.job_stages.extraction import extract
+from app.imports.job_stages.extraction_sources import ExtractionContext, build_extraction_context
 from app.imports.job_stages.raw_recipe import build_raw_recipe
 from app.imports.job_stages.raw_sources import RawSource, build_raw_sources
-from app.models import ImportJob, ImportJobSource, RecipeResourceOrigin, SourceType, Tag
+from app.models import (
+    ImportEventType,
+    ImportJob,
+    ImportJobSource,
+    ImportJobStatus,
+    RecipeResourceOrigin,
+    SourceType,
+    Tag,
+)
 
 
 class MemoryStorage:
@@ -24,8 +49,60 @@ class EmptyVideoProcessor:
         raise AssertionError("Video processor should not be called")
 
 
+class RecipeExtractionProvider:
+    def __init__(self, result: ExtractionResult | None = None, error: Exception | None = None):
+        self.result = result
+        self.error = error
+        self.calls: list[dict] = []
+
+    async def extract(self, sources, *, language: str, tags: str):
+        self.calls.append({"sources": sources, "language": language, "tags": tags})
+        if self.error is not None:
+            raise self.error
+        return self.result
+
+
+def import_config() -> ImportConfig:
+    return ImportConfig(
+        max_import_images=5,
+        max_upload_bytes=1000,
+        max_import_videos=1,
+        max_video_bytes=1000,
+        max_recipe_ingredients=50,
+        max_recipe_instruction_chars=1000,
+    )
+
+
+def extracted_recipe() -> ExtractedRecipe:
+    return ExtractedRecipe(
+        title="Recipe",
+        ingredients=[ExtractedIngredient(name="Ingredient")],
+        instructions=["Cook."],
+        quality=ExtractionQuality(
+            confidence=0.9,
+            has_conflicts=False,
+            has_ignored=False,
+            primary_source_refs=["source_1"],
+            ignored_source_refs=[],
+        ),
+    )
+
+
+def extraction_context() -> ExtractionContext:
+    return ExtractionContext(
+        extraction_sources=[ExtractionSource(id="source_1", type="TEXT", position=0, text="Recipe text")],
+        extraction_id_by_resource={},
+        tags=[Tag(name="quick"), Tag(name="dinner")],
+        language="ru",
+    )
+
+
+def import_job() -> ImportJob:
+    return ImportJob(owner_id="user-1", client_id="client-1", status=ImportJobStatus.RUNNING)
+
+
 def test_build_raw_sources_preserves_manual_text_and_image_order():
-    job = ImportJob(owner_id="user-1", client_id="client-1")
+    job = import_job()
     job.sources = [
         ImportJobSource(
             type=SourceType.IMAGE,
@@ -43,7 +120,7 @@ def test_build_raw_sources_preserves_manual_text_and_image_order():
         saved_storage_keys=[],
         url_content_loader=EmptyUrlContentService(),
         video_processor=EmptyVideoProcessor(),
-        import_config=ImportConfig(max_import_images=5, max_upload_bytes=1000, max_import_videos=1, max_video_bytes=1000),
+        import_config=import_config(),
     )
 
     assert imported_author_name is None
@@ -116,3 +193,64 @@ def test_build_extraction_context_sends_content_resources_only_with_short_ai_ids
         content_resources[0]: "source_1",
         content_resources[1]: "source_2",
     }
+
+
+def test_extract_calls_provider_and_records_extractor_events(monkeypatch):
+    provider = RecipeExtractionProvider(ExtractionResult(recipe=extracted_recipe()))
+    monkeypatch.setattr(extraction_module, "get_recipe_extraction_provider", lambda: ("test-provider", provider))
+    job = import_job()
+    context = extraction_context()
+
+    result = extract(job, context)
+
+    assert result.recipe.title == "Recipe"
+    assert provider.calls == [
+        {
+            "sources": context.extraction_sources,
+            "language": "ru",
+            "tags": "quick, dinner",
+        }
+    ]
+    assert [event.event_type for event in job.events] == [
+        ImportEventType.EXTRACTOR_REQUESTED,
+        ImportEventType.EXTRACTOR_SUCCEEDED,
+    ]
+    assert job.events[0].payload == {"provider": "test-provider", "source_count": 1}
+    assert job.events[1].payload == {"not_a_recipe": False}
+
+
+def test_extract_maps_provider_exception_to_extractor_unavailable(monkeypatch):
+    provider = RecipeExtractionProvider(error=RuntimeError("provider down"))
+    monkeypatch.setattr(extraction_module, "get_recipe_extraction_provider", lambda: ("test-provider", provider))
+
+    with pytest.raises(ExtractorUnavailableError) as exc_info:
+        extract(import_job(), extraction_context())
+
+    assert exc_info.value.code == ImportExtractionErrorCode.EXTRACTOR_UNAVAILABLE
+    assert exc_info.value.extra == {"original_error": "provider down"}
+
+
+@pytest.mark.parametrize(
+    ("error_code", "expected_error"),
+    [
+        (ImportExtractionErrorCode.RESULT_PARSE_FAILED, ResultParseError),
+        (ImportExtractionErrorCode.INVALID_EXTRACTION_RESULT, InvalidExtractionResult),
+        (ImportExtractionErrorCode.EXTRACTOR_UNAVAILABLE, ExtractorUnavailableError),
+        (ImportExtractionErrorCode.NOT_A_RECIPE, NotARecipeError),
+        (None, NotARecipeError),
+    ],
+)
+def test_extract_maps_invalid_provider_result_to_import_extraction_error(monkeypatch, error_code, expected_error):
+    provider = RecipeExtractionProvider(
+        ExtractionResult(
+            not_a_recipe=True,
+            error_code=error_code,
+            error_message="provider message",
+        )
+    )
+    monkeypatch.setattr(extraction_module, "get_recipe_extraction_provider", lambda: ("test-provider", provider))
+
+    with pytest.raises(expected_error) as exc_info:
+        extract(import_job(), extraction_context())
+
+    assert exc_info.value.extra == {"provider_message": "provider message"}

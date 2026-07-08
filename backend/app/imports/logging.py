@@ -16,6 +16,10 @@ def log_import_failed(job: ImportJob, **payload) -> None:
     logger.info("Import job failed.", job=job.to_dict(), **payload)
 
 
+def log_extraction_started(job: ImportJob, provider: str, **payload) -> None:
+    logger.info("Extraction started.", job=job.to_dict(), provider=provider, **payload)
+
+
 def log_extraction_finished(job: ImportJob, extraction_started_at: datetime | None = None, **payload) -> None:
     payload = payload or {}
     if extraction_started_at:
