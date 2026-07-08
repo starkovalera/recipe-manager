@@ -22,15 +22,15 @@ flowchart TD
 
   N --> O{"AI result is recipe\nand confidence > min?"}
   O -- no --> P["Fail ImportJob\ncleanup saved media"]
-  O -- yes --> Q["Normalize single-URL quality\nwhen applicable"]
-  Q --> R["Update Recipe, ingredients,\nimages, sources"]
+  O -- yes --> R["Update Recipe, ingredients,\nimages, sources"]
 
   R --> S["Final source statuses from\nprimarySourceRefs / ignoredSourceRefs"]
   S --> T["Select coverCandidate from AI"]
   T --> U["Cover guard block\nfeature-flagged, default off"]
   U --> V["Generate cover image when candidate accepted"]
   V --> W["Aggregate primary URL status\nused if any child used\nignored if all children ignored"]
-  W --> X{"hasConflicts OR ignored primary OR\nconfidence <= IMPORT_WARN_CONFIDENCE?"}
+  W --> Q["Normalize single-URL recipe-level quality\nwhen applicable"]
+  Q --> X{"warning rule\nsingle URL: low confidence only\nmulti-primary: conflict OR ignored primary OR low confidence"}
   X -- yes --> Y["Create open CONTENT_WARNING flag"]
   X -- no --> Z["No warning flag"]
   Y --> AA["Mark ImportJob succeeded_with_flags\ncreatedRecipeId=recipe.id\nrecord notification"]

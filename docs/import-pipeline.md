@@ -32,15 +32,15 @@ flowchart TD
   ai -->|"not recipe"| failJob["Mark ImportJob failed<br/>cleanup saved files"]
   ai --> quality{"confidence <= IMPORT_MIN_CONFIDENCE?"}
   quality -->|"yes"| lowConfidence["Mark ImportJob failed<br/>cleanup saved files"]
-  quality -->|"no"| singleUrl["Normalize single URL internal conflicts"]
-  singleUrl --> sources["Map primarySourceRefs / ignoredSourceRefs<br/>to final RecipeResource statuses"]
+  quality -->|"no"| sources["Map primarySourceRefs / ignoredSourceRefs<br/>to final RecipeResource statuses"]
+  sources --> singleUrl["Normalize single URL recipe-level quality"]
   sources --> cover{"AI coverCandidate references accepted image?"}
   cover -->|"no"| write
   cover -->|"yes"| guard["cover_guard black box<br/>ENABLE_COVER_CANDIDATE_GUARD default off"]
   guard --> generatedCover["Generate COVER image derivative"]
   generatedCover --> write["Update Recipe, Ingredients, Images,<br/>Sources, optional ReviewFlag"]
   write --> aggregate["Aggregate primary source status<br/>URL used if any child used<br/>URL ignored if all children ignored"]
-  aggregate --> warn{"hasConflicts OR ignored primary source OR<br/>confidence <= IMPORT_WARN_CONFIDENCE?"}
+  aggregate --> warn{"warning rule<br/>single URL: low confidence only<br/>multi-primary: conflict OR ignored primary OR low confidence"}
   warn -->|"yes"| flag["Create CONTENT_WARNING flag"]
   warn -->|"no"| success
   flag --> flagged["Mark ImportJob succeeded_with_flags<br/>createdRecipeId set"]
@@ -75,11 +75,12 @@ flowchart TD
 - URL imports create a parent URL source plus child final sources for URL text, URL images, video transcript, and video poster.
 - AI receives final sources only: all `RecipeResource` rows where `type != URL`, labeled with short request-local ids such as `source_1`.
 - The backend keeps an in-memory mapping from each request-local AI id back to its `RecipeResource` object for status and cover processing.
-- Final recipe source statuses are derived from AI `primarySourceRefs` and `ignoredSourceRefs`.
+- Final recipe source statuses are derived from AI `primarySourceRefs` and `ignoredSourceRefs` before any single URL recipe-level quality normalization.
 - Primary URL source status is aggregated from children: used if any child is used, ignored if all children are ignored, otherwise unknown.
-- Single URL import normalizes internal conflicts before warning/failure decisions, but source statuses still use the raw AI refs.
+- Single URL import treats ignored/conflicting child resources inside the only URL as internal diagnostics. Child resource statuses are still persisted, but recipe-level `quality.hasConflicts`, `quality.hasIgnored`, and `ignoredSourceRefs` are normalized to `false`, `false`, and `[]`.
 - `quality.confidence <= IMPORT_MIN_CONFIDENCE` fails the import and cleans saved files.
-- Warning flags are created when `quality.hasConflicts`, any primary source is ignored, or `quality.confidence <= IMPORT_WARN_CONFIDENCE`.
+- Warning flags for single URL imports are created only when `quality.confidence <= IMPORT_WARN_CONFIDENCE`.
+- Warning flags for multi-primary imports are created when `quality.hasConflicts`, any primary source is ignored, or `quality.confidence <= IMPORT_WARN_CONFIDENCE`.
 - AI `coverCandidate` generates a separate cover derivative when it references an accepted image source.
 - Cover candidate guard logic is isolated in `backend/app/imports/cover_guard.py` and remains default-off.
 

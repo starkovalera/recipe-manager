@@ -1998,7 +1998,7 @@ flowchart TD
   - URL text/images/video poster/transcript handling;
   - final sources sent to AI;
   - source status mapping;
-  - review flag rules;
+  - review flag rules, including single URL imports treating ignored/conflicting child resources as diagnostics only and creating warning flags only for low confidence;
   - cover candidate generation and persistence.
 - Added and refined internal diagnostics already needed during import/search work:
   - import jobs/job events page;
