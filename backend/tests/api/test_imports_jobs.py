@@ -558,14 +558,15 @@ def test_import_passes_user_language_and_active_tags_to_ai_and_attaches_known_ta
     assert "аэрогриль" in provider.tags
     assert [tag["name"] for tag in detail.json()["tags"]] == ["аэрогриль", "десерт"]
     joined_logs = "\n".join(record.getMessage() for record in caplog.records)
-    assert "AI tags processed" in joined_logs
+    assert "Extraction tags processed" in joined_logs
     assert '"component": "recipes.import"' in joined_logs
-    assert '"returned_count": 5' in joined_logs
-    assert '"duplicate_count": 2' in joined_logs
-    assert '"valid_count": 2' in joined_logs
-    assert '"valid_tags": ["десерт", "аэрогриль"]' in joined_logs
-    assert '"invalid_count": 1' in joined_logs
-    assert '"invalid_tags": ["unknown-tag"]' in joined_logs
+    assert '"extracted_tags":' in joined_logs
+    assert '"matched_tags": ["десерт", "аэрогриль"]' in joined_logs
+    assert '"ignored_tags": ["unknown-tag"]' in joined_logs
+    assert '"duplicated_tags":' in joined_logs
+    assert '"returned_count"' not in joined_logs
+    assert '"valid_count"' not in joined_logs
+    assert '"invalid_count"' not in joined_logs
 
 
 def test_ai_receives_short_request_source_ids_without_persisting_source_refs():
@@ -1114,7 +1115,11 @@ def test_import_logs_lifecycle_without_image_payloads(caplog):
     messages = [record.getMessage() for record in caplog.records]
     joined = "\n".join(messages)
     assert "Import job was created" in joined
-    assert "AI extraction quality" in joined
+    assert "Import extraction finished" in joined
+    assert '"confidence": 0.9' in joined
+    assert '"has_conflicts": false' in joined
+    assert '"has_ignored": false' in joined
+    assert '"primary_source_refs": ["source_1"]' in joined
     assert "Import recipe created" in joined
     assert '"component": "recipes.import"' in joined
     assert "data:image" not in joined

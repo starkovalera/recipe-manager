@@ -12,22 +12,20 @@ from app.imports.constants import (
     TERMINAL_IMPORT_STATUSES,
 )
 from app.imports.cover_generation import CoverGenerationContext, generate_cover_image
-from app.imports.error_codes import NotARecipeError
 from app.imports.events import build_job_event
+from app.imports.job_stages.extracted_recipe import normalize_extracted_recipe, validate_extracted_recipe
 from app.imports.job_stages.extraction import extract
 from app.imports.job_stages.extraction_sources import build_extraction_context
 from app.imports.job_stages.failure import process_import_failure
 from app.imports.job_stages.raw_recipe import build_raw_recipe
 from app.imports.job_stages.raw_sources import build_raw_sources
+from app.imports.job_stages.recipe_building import build_recipe
 from app.imports.logging import log_import_started, log_recipe_created
 from app.imports.queries import get_import_job as query_import_job
 from app.imports.recipe_materialization import (
-    apply_extracted_recipe,
     apply_source_statuses,
     create_review_flag_if_needed,
     derive_source_name_from_primary_resources,
-    normalize_recipe_quality_for_review,
-    normalize_recipe_result,
 )
 from app.imports.runtime import get_url_content_service, get_video_processor
 from app.models import (
@@ -75,51 +73,23 @@ def process_import_job(session: Session, job_id: str) -> None:
         build_job_event(job, ImportEventType.RAW_SOURCES_DOWNLOADED, source_count=len(raw_sources))
 
         recipe, recipe_resources, content_recipe_resources = build_raw_recipe(raw_sources, job.owner_id, imported_author_name)
+
         extraction_context = build_extraction_context(content_recipe_resources, job, session, storage)
-        extraction_result = extract(job, extraction_context)
+        extracted_recipe = normalize_extracted_recipe(
+            validate_extracted_recipe(extract(job, extraction_context), import_config),
+            extraction_context.extraction_sources,
+            job,
+        )
     except Exception as error:
         process_import_failure(job, session, storage, saved_storage_keys, error, cleanup_storage=True)
         return
 
-    recipe_result = extraction_result.recipe
-    # move to extraction validation
     try:
-        recipe_result = normalize_recipe_result(job, recipe_result, extraction_context.extraction_sources)
-    except Exception as error:
-        process_import_failure(job, session, storage, saved_storage_keys, error, cleanup_storage=True)
-        return
-    if recipe_result.quality.confidence <= get_settings().import_min_confidence:
-        process_import_failure(
-            job,
-            session,
-            storage,
-            saved_storage_keys,
-            NotARecipeError(reason="The extracted recipe confidence is too low."),
-            cleanup_storage=True,
-            confidence=recipe_result.quality.confidence,
-        )
-        return
-    try:
-        logger.info(
-            f"{IMPORT_LOG_COMPONENT} AI extraction quality",
-            confidence=recipe_result.quality.confidence,
-            has_conflicts=recipe_result.quality.has_conflicts,
-            has_ignored=recipe_result.quality.has_ignored,
-            primary_source_refs=recipe_result.quality.primary_source_refs,
-            ignored_source_refs=recipe_result.quality.ignored_source_refs,
-        )
-        apply_extracted_recipe(
-            recipe,
-            recipe_result,
-            active_tags=extraction_context.tags,
-            imported_author_name=imported_author_name,
-            owner_id=job.owner_id,
-            import_job_id=job.id,
-        )
+        build_recipe(recipe, extracted_recipe, extraction_context, job)
         cover_image = generate_cover_image(
             job,
             recipe,
-            recipe_result,
+            extracted_recipe,
             CoverGenerationContext(
                 storage=storage,
                 saved_storage_keys=saved_storage_keys,
@@ -129,12 +99,14 @@ def process_import_job(session: Session, job_id: str) -> None:
         )
 
         has_ignored_primary = apply_source_statuses(
-            recipe_resources, content_recipe_resources, recipe_result.quality, extraction_context.extraction_id_by_resource
+            recipe_resources,
+            content_recipe_resources,
+            extracted_recipe.quality,
+            extraction_context.extraction_id_by_resource,
         )
         recipe.source_name = derive_source_name_from_primary_resources(recipe_resources)
         refresh_recipe_search_text(recipe)
-        recipe_result = normalize_recipe_quality_for_review(job, recipe_result)
-        has_review_flag = create_review_flag_if_needed(job, recipe, recipe_result, has_ignored_primary)
+        has_review_flag = create_review_flag_if_needed(job, recipe, extracted_recipe, has_ignored_primary)
         session.add(recipe)
         session.flush()
         if cover_image is not None:

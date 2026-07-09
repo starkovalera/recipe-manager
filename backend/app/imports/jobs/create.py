@@ -192,7 +192,6 @@ def create_import_job(
         session.commit()
     except Exception as error:
         process_import_failure(job, session, storage, saved_storage_keys, error, cleanup_storage=True)
-        session.commit()
 
     session.refresh(job)
     logger.info(

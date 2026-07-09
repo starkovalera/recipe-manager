@@ -56,7 +56,7 @@ def source_assessments(source_ids: list[str], quality: ExtractionQuality) -> dic
 def normalize_single_url_quality(quality: ExtractionQuality, is_single_url_import: bool) -> ExtractionQuality:
     if not is_single_url_import:
         return quality
-    return quality.model_copy(update={"has_conflicts": False, "has_ignored": False, "ignored_source_refs": []})
+    return quality.model_copy(update={"has_conflicts": False, "has_ignored": False})
 
 
 def normalize_quality_source_refs(quality: ExtractionQuality, sources: list[ExtractionSource]) -> ExtractionQuality:

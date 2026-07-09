@@ -47,7 +47,7 @@ def test_single_url_quality_clears_internal_conflicts():
 
     assert quality.has_conflicts is False
     assert quality.has_ignored is False
-    assert quality.ignored_source_refs == []
+    assert quality.ignored_source_refs == ["image:remote_0"]
 
 
 def test_quality_source_refs_are_normalized_like_reference_pipeline():

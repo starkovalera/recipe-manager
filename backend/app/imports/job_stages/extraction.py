@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 
 import anyio
 
-from app.ai.schemas import ExtractionResult
+from app.ai.schemas import ExtractedRecipe, ExtractionResult
 from app.imports.error_codes import (
     ExtractorUnavailableError,
     ImportExtractionErrorCode,
@@ -41,7 +41,17 @@ def _extract(
         raise ExtractorUnavailableError(original_error=str(error)) from error
 
     build_job_event(job, ImportEventType.EXTRACTOR_SUCCEEDED, not_a_recipe=result.not_a_recipe)
-    log_extraction_finished(job, started_at)
+    quality_payload = {}
+    if result.recipe is not None:
+        quality = result.recipe.quality
+        quality_payload = {
+            "confidence": quality.confidence,
+            "has_conflicts": quality.has_conflicts,
+            "has_ignored": quality.has_ignored,
+            "primary_source_refs": quality.primary_source_refs,
+            "ignored_source_refs": quality.ignored_source_refs,
+        }
+    log_extraction_finished(job, started_at, **quality_payload)
     return result
 
 
@@ -62,7 +72,7 @@ def _validate_extraction_result(
 def extract(
     job: ImportJob,
     context: ExtractionContext,
-) -> ExtractionResult:
+) -> ExtractedRecipe:
     result = _extract(job, context)
     _validate_extraction_result(result)
-    return result
+    return result.recipe

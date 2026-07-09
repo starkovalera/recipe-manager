@@ -70,6 +70,7 @@ def import_config() -> ImportConfig:
         max_video_bytes=1000,
         max_recipe_ingredients=50,
         max_recipe_instruction_chars=1000,
+        import_min_confidence=0.2,
     )
 
 
@@ -203,7 +204,7 @@ def test_extract_calls_provider_and_records_extractor_events(monkeypatch):
 
     result = extract(job, context)
 
-    assert result.recipe.title == "Recipe"
+    assert result.title == "Recipe"
     assert provider.calls == [
         {
             "sources": context.extraction_sources,

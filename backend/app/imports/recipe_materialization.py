@@ -1,21 +1,17 @@
 import logging
 
-from app.ai.schemas import ExtractedRecipe, ExtractionSource
+from app.ai.schemas import ExtractedRecipe
 from app.core.config import get_settings
 from app.core.logging import bind_logger
 from app.imports.constants import IMPORT_LOG_COMPONENT
-from app.imports.error_codes import RecipeTooLongError
 from app.imports.source_platform import derive_source_name
 from app.imports.sources import (
-    normalize_quality_source_refs,
-    normalize_single_url_quality,
     review_reason_codes,
     should_create_primary_review_flag,
     source_assessments,
 )
 from app.models import (
     ImportJob,
-    Ingredient,
     Recipe,
     RecipeResource,
     RecipeResourceOrigin,
@@ -25,62 +21,13 @@ from app.models import (
     RecipeReviewFlagType,
     SourceName,
     SourceType,
-    Tag,
 )
-from app.services.recipe_limits import find_recipe_size_violation
-from app.services.search_text import build_ingredient_search_name
 
 logger = logging.getLogger(IMPORT_LOG_COMPONENT)
 
 
-def normalize_recipe_result(job: ImportJob, recipe_result: ExtractedRecipe, ready_sources: list[ExtractionSource]):
-    size_violation = find_recipe_size_violation(recipe_result.ingredients, recipe_result.instructions)
-    if size_violation is not None:
-        raise RecipeTooLongError(
-            reason=size_violation.reason,
-            actual=size_violation.actual,
-            limit=size_violation.limit,
-        )
-    quality = normalize_quality_source_refs(recipe_result.quality, ready_sources)
-    return recipe_result.model_copy(update={"quality": quality})
-
-
 def is_single_url_import(job: ImportJob) -> bool:
     return len(job.sources) == 1 and job.sources[0].type == SourceType.URL
-
-
-def normalize_recipe_quality_for_review(job: ImportJob, recipe_result: ExtractedRecipe) -> ExtractedRecipe:
-    quality = normalize_single_url_quality(recipe_result.quality, is_single_url_import(job))
-    return recipe_result.model_copy(update={"quality": quality})
-
-
-def apply_extracted_recipe(
-    recipe: Recipe,
-    recipe_result: ExtractedRecipe,
-    *,
-    active_tags: list[Tag],
-    imported_author_name: str | None,
-    owner_id: str,
-    import_job_id: str,
-) -> None:
-    recipe.title = recipe_result.title
-    recipe.instructions = recipe_result.instructions
-    recipe.servings = recipe_result.servings
-    recipe.cook_time_minutes = recipe_result.cook_time_minutes
-    recipe.nutrition_estimate = recipe_result.nutrition_estimate.model_dump() if recipe_result.nutrition_estimate else None
-    recipe.author_name = recipe_result.author_name or imported_author_name
-    _attach_ai_tags(recipe, active_tags, recipe_result.tags, owner_id, import_job_id)
-    for index, ingredient in enumerate(recipe_result.ingredients):
-        recipe.ingredients.append(
-            Ingredient(
-                name=ingredient.name,
-                search_name=build_ingredient_search_name(ingredient.name),
-                quantity=ingredient.quantity,
-                unit=ingredient.unit,
-                note=ingredient.note,
-                position=index,
-            )
-        )
 
 
 def apply_source_statuses(
@@ -163,40 +110,3 @@ def create_review_flag_if_needed(job: ImportJob, recipe: Recipe, recipe_result: 
         has_ignored=recipe_result.quality.has_ignored,
     ).info(f"{IMPORT_LOG_COMPONENT} Recipe review flag created")
     return True
-
-
-def _normalize_tag_name(value: str) -> str:
-    return " ".join(value.strip().casefold().split())
-
-
-def _attach_ai_tags(recipe: Recipe, active_tags: list[Tag], ai_tags: list[str], owner_id: str, import_job_id: str) -> None:
-    tag_by_name = {_normalize_tag_name(tag.name): tag for tag in active_tags}
-    matched_tags: list[Tag] = []
-    seen: set[str] = set()
-    ignored_tags: list[str] = []
-    duplicate_tags: list[str] = []
-    for ai_tag in ai_tags:
-        normalized = _normalize_tag_name(ai_tag)
-        tag = tag_by_name.get(normalized)
-        if tag is None:
-            ignored_tags.append(ai_tag)
-            continue
-        if normalized in seen:
-            duplicate_tags.append(ai_tag)
-            continue
-        matched_tags.append(tag)
-        seen.add(normalized)
-    recipe.tags = matched_tags
-    bind_logger(
-        logger,
-        component=IMPORT_LOG_COMPONENT,
-        owner_id=owner_id,
-        import_job_id=import_job_id,
-        returned_count=len(ai_tags),
-        duplicate_count=len(duplicate_tags),
-        duplicate_tags=duplicate_tags,
-        valid_count=len(matched_tags),
-        valid_tags=[tag.name for tag in matched_tags],
-        invalid_count=len(ignored_tags),
-        invalid_tags=ignored_tags,
-    ).info(f"{IMPORT_LOG_COMPONENT} AI tags processed")

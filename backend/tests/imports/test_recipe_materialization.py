@@ -1,5 +1,5 @@
-from app.ai.schemas import ExtractedIngredient, ExtractedRecipe, ExtractionQuality, ExtractionSource
-from app.imports.recipe_materialization import create_review_flag_if_needed, normalize_recipe_result
+from app.ai.schemas import ExtractedIngredient, ExtractedRecipe, ExtractionQuality
+from app.imports.recipe_materialization import create_review_flag_if_needed
 from app.models import ImportJob, ImportJobSource, Recipe, SourceType
 
 
@@ -39,32 +39,6 @@ def test_single_url_ignored_primary_does_not_create_review_flag():
 
     assert has_review_flag is False
     assert recipe.review_flags == []
-
-
-def test_single_url_normalize_recipe_result_preserves_refs_for_resource_statuses():
-    recipe_result = extracted_recipe_with_quality(
-        ExtractionQuality(
-            confidence=0.9,
-            has_conflicts=True,
-            has_ignored=True,
-            primary_source_refs=["sourceId=source_1"],
-            ignored_source_refs=["sourceId=source_2"],
-        )
-    )
-
-    normalized = normalize_recipe_result(
-        import_job_with_sources(SourceType.URL),
-        recipe_result,
-        [
-            ExtractionSource(id="source_1", type="TEXT", position=0, text="Recipe text"),
-            ExtractionSource(id="source_2", type="IMAGE", position=1, source_ref="image_1"),
-        ],
-    )
-
-    assert normalized.quality.has_conflicts is True
-    assert normalized.quality.has_ignored is True
-    assert normalized.quality.primary_source_refs == ["source_1"]
-    assert normalized.quality.ignored_source_refs == ["source_2"]
 
 
 def test_single_url_conflict_does_not_create_review_flag_after_quality_normalization():

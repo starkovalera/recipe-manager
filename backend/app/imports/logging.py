@@ -27,5 +27,28 @@ def log_extraction_finished(job: ImportJob, extraction_started_at: datetime | No
     logger.info("Import extraction finished.", job=job.to_dict(), **payload)
 
 
+def log_recipe_tags_built(
+    job: ImportJob,
+    extracted_tags: list[str],
+    matched_tags: list[str],
+    ignored_tags: list[str],
+    duplicated_tags: list[str],
+    **payload,
+) -> None:
+    extracted_tags_count = len(extracted_tags)
+    logger.info(
+        f"Extraction tags processed. "
+        f"[{len(matched_tags)}/{extracted_tags_count}] matched, "
+        f"[{len(ignored_tags)}/{extracted_tags_count}] ignored, "
+        f"[{len(duplicated_tags)}/{extracted_tags_count}] duplicated. ",
+        job=job.to_dict(),
+        extracted_tags=extracted_tags,
+        matched_tags=matched_tags,
+        ignored_tags=ignored_tags,
+        duplicated_tags=duplicated_tags,
+        **payload,
+    )
+
+
 def log_recipe_created(job: ImportJob, **payload) -> None:
     logger.info("Import recipe created.", job=job.to_dict(), **payload)

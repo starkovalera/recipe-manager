@@ -8,6 +8,7 @@ class ImportConfig:
     max_video_bytes: int
     max_recipe_ingredients: int
     max_recipe_instruction_chars: int
+    import_min_confidence: float
 
     def __init__(
         self,
@@ -17,6 +18,7 @@ class ImportConfig:
         max_video_bytes: int,
         max_recipe_ingredients: int,
         max_recipe_instruction_chars: int,
+        import_min_confidence: float,
     ) -> None:
         self.max_import_images = max_import_images
         self.max_import_videos = max_import_videos
@@ -24,6 +26,7 @@ class ImportConfig:
         self.max_video_bytes = max_video_bytes
         self.max_recipe_ingredients = max_recipe_ingredients
         self.max_recipe_instruction_chars = max_recipe_instruction_chars
+        self.import_min_confidence = import_min_confidence
 
     @classmethod
     def from_settings(cls, settings: Settings) -> "ImportConfig":
@@ -34,4 +37,5 @@ class ImportConfig:
             settings.max_video_bytes,
             settings.max_recipe_ingredients,
             settings.max_recipe_instruction_chars,
+            settings.import_min_confidence,
         )
