@@ -156,6 +156,22 @@ This checklist applies to every phase. Any phase that touches import, resources,
 - User resource deletion behavior is preserved.
 - Local storage cleanup on failed import is preserved.
 
+## Refactoring Guidelines and Phase Completion Checkpoint
+
+The canonical project-wide refactoring rules are defined in [Refactoring Guidelines](./refactoring-guidelines.md).
+
+Apply them during implementation and before closing every phase, subphase, or iteration. At each completion checkpoint:
+
+1. Re-check the relevant business invariants and public contracts.
+2. Review touched code for avoidable duplication, unclear ownership, unnecessary abstractions, oversized functions, hidden side effects, scattered dependent decisions, and obsolete code/tests.
+3. Perform only the small local refactor needed to leave the completed scope maintainable.
+4. Run focused tests and the full relevant suite when shared behavior or contracts changed.
+5. Propose updates to the invariant checklist when business rules changed or were added.
+6. Propose future-work entries for intentional compatibility code, shortcuts, or cleanup that does not belong in the completed scope.
+7. Stop for user review before starting the next phase, subphase, or iteration.
+
+Do not turn this checkpoint into an unapproved broad redesign. Larger refactoring work must be added to the plan with an explicit scope, invariant review, verification plan, and approval gate.
+
 ## 2. Work Plan by Phase
 
 0. Refactor the current import pipeline into clearer internal blocks.
@@ -1725,6 +1741,271 @@ Manual retry writes retry_requested and enqueued if queued.
 Internal/admin embeddings API/UI returns existing RecipeEmbedding rows and their events.
 Recipes without RecipeEmbedding rows are not included in the admin embeddings page.
 ```
+
+### Iteration 10c: Embedding Module Refactor
+
+Status: approved, not started.
+
+Goal: refactor the embedding subsystem into an explicit lifecycle-oriented pipeline with typed states, short database scopes, and no open ORM session during the provider call, while preserving current product behavior and API contracts.
+
+This iteration must follow [Refactoring Guidelines](./refactoring-guidelines.md) and stop for review after every subphase.
+
+#### Preserved Behavior
+
+```text
+Recipe 1 -- 0..1 RecipeEmbedding.
+Embedding input fields and normalization remain unchanged.
+Embedding provider/model selection remains unchanged.
+Open review flags produce skipped_due_to_flags and prevent enqueue.
+Ready embedding with the same input hash and model is not recalculated.
+Recipe changes during provider execution discard the stale vector and requeue.
+Provider failure records failed state, increments failed_attempts, and is re-raised for Dramatiq retry.
+Dramatiq max_retries remains 3.
+Embedding tasks do not create user-facing notifications.
+Public and internal API paths remain unchanged.
+Existing lowercase status and event values remain unchanged at API boundaries.
+Search ranking and vector distance behavior remain unchanged.
+```
+
+Queue publishing is a secondary operation. Failure to publish an embedding task must not turn an already successful import, recipe edit, or review-flag update into a failed user operation. The embedding remains `stale`, the publishing failure is logged, and no `enqueued` event is written. A transactional outbox remains deferred to production hardening.
+
+#### Target Module Responsibilities
+
+```text
+embeddings/input.py
+  Build one immutable RecipeEmbeddingInput containing text and input_hash.
+
+embeddings/queries.py
+  Own embedding/recipe reads, owner-scoped reads, get-or-create, and internal diagnostics queries.
+
+embeddings/events.py
+  Build typed RecipeEmbeddingEvent rows from explicit identifiers and lifecycle state.
+
+embeddings/planning.py
+  Decide skip, no-op, or schedule and apply the corresponding state/event changes.
+
+embeddings/processing.py
+  Orchestrate worker start, provider execution, completion, stale requeue, and failure persistence.
+
+embeddings/queue.py
+  Own the Dramatiq publishing boundary and successful enqueued-event recording.
+
+embeddings/service.py
+  Keep thin public use cases such as owner-scoped manual retry.
+
+embeddings/tasks.py
+  Declare the Dramatiq actor and call process_recipe_embedding(recipe_id).
+
+embeddings/logging.py
+  Own embedding-specific structured lifecycle logs.
+```
+
+Do not add repository, unit-of-work, command bus, generic state-machine, or global embedding context abstractions in this iteration. Remove `diagnostics.py` after moving its database query to `queries.py`.
+
+#### Target Types and Interfaces
+
+```python
+@dataclass(frozen=True)
+class RecipeEmbeddingInput:
+    text: str
+    input_hash: str
+
+
+@dataclass(frozen=True)
+class EmbeddingPlan:
+    embedding: RecipeEmbedding
+    enqueue: bool
+
+
+@dataclass(frozen=True)
+class EmbeddingProcessingContext:
+    recipe_id: str
+    owner_id: str
+    provider_name: str
+    model: str
+    embedding_input: RecipeEmbeddingInput
+```
+
+`EmbeddingProcessingContext` belongs in `processing.py` because it is local to worker execution. It is an immutable snapshot used only across the provider-call session boundary.
+
+`EmbeddingPlan` is session-local: callers must consume its ORM `embedding` inside the session that created the plan, commit the scheduling state, and pass only scalar identifiers to the queue boundary.
+
+```python
+def build_recipe_embedding_input(recipe: Recipe) -> RecipeEmbeddingInput: ...
+
+def prepare_recipe_embedding(
+    session: Session,
+    recipe: Recipe,
+    *,
+    force: bool = False,
+) -> EmbeddingPlan: ...
+
+def start_recipe_embedding(
+    session: Session,
+    recipe_id: str,
+    *,
+    provider_name: str,
+    model: str,
+) -> EmbeddingProcessingContext | None: ...
+
+def complete_recipe_embedding(
+    session: Session,
+    context: EmbeddingProcessingContext,
+    vector: list[float],
+    *,
+    duration_ms: int,
+) -> bool: ...
+
+def fail_recipe_embedding(
+    session: Session,
+    context: EmbeddingProcessingContext,
+    error: Exception,
+) -> None: ...
+
+def build_embedding_event(
+    session: Session,
+    *,
+    recipe_id: str,
+    owner_id: str,
+    event_type: RecipeEmbeddingEventType,
+    status_after: RecipeEmbeddingStatus | None,
+    **payload: Any,
+) -> RecipeEmbeddingEvent: ...
+
+def enqueue_recipe_embedding(recipe_id: str, owner_id: str) -> bool: ...
+
+def process_recipe_embedding(recipe_id: str) -> None: ...
+```
+
+The boolean returned by `complete_recipe_embedding` means that the recipe changed during provider execution and a new task must be published after the completion transaction commits.
+
+The boolean returned by `enqueue_recipe_embedding` reports whether broker publishing succeeded. Publishing failure is logged inside the queue boundary and is not raised into the completed user operation.
+
+#### Typed Lifecycle Model
+
+Keep the current `RecipeEmbeddingStatus` values and map model fields directly to the enum instead of storing untyped strings.
+
+Add `RecipeEmbeddingEventType` with the existing values:
+
+```text
+scheduled
+enqueued
+started
+skipped_due_to_flags
+already_ready
+provider_succeeded
+saved
+stale_requeued
+failed
+retry_requested
+```
+
+This explicitly supersedes the Iteration 10b decision to keep embedding event types as untyped strings. The stored values do not change.
+
+Update model fields:
+
+```python
+RecipeEmbedding.status: RecipeEmbeddingStatus
+RecipeEmbeddingEvent.event_type: RecipeEmbeddingEventType
+RecipeEmbeddingEvent.status_after: RecipeEmbeddingStatus | None
+```
+
+Add an Alembic migration that creates PostgreSQL enum types and converts existing columns without changing stored lowercase values. Cover upgrade, downgrade, fresh database, and persisted-value compatibility in migration/model tests.
+
+#### Worker Transaction Flow
+
+```python
+def process_recipe_embedding(recipe_id: str) -> None:
+    provider_name, provider = get_embedding_provider()
+
+    with db_session() as session:
+        context = start_recipe_embedding(
+            session,
+            recipe_id,
+            provider_name=provider_name,
+            model=provider.model,
+        )
+
+    if context is None:
+        return
+
+    try:
+        vector = provider.embed(context.embedding_input.text)
+    except Exception as error:
+        with db_session() as session:
+            fail_recipe_embedding(session, context, error)
+        raise
+
+    with db_session() as session:
+        requeue = complete_recipe_embedding(session, context, vector, duration_ms=duration_ms)
+
+    if requeue:
+        enqueue_recipe_embedding(context.recipe_id, context.owner_id)
+```
+
+The real implementation must calculate `duration_ms` around the provider call. The provider call must execute without an open SQLAlchemy session or transaction.
+
+#### Subphase 10c.1: Typed Lifecycle and Migration
+
+- Add `RecipeEmbeddingEventType` and type all three lifecycle model fields.
+- Add PostgreSQL migration and update schema/model serialization where required.
+- Replace `.value` comparisons with enum comparisons in application code and queries.
+- Update model, migration, API serialization, and search tests.
+- Run the refactoring checkpoint and stop for review.
+
+#### Subphase 10c.2: Input and Query Cleanup
+
+- Replace separate text/hash builders with one `RecipeEmbeddingInput` builder.
+- Remove `Any` from the input builder.
+- Update search debug and embedding consumers to use `text` and `input_hash` from the same snapshot.
+- Consolidate duplicated recipe-for-embedding queries with optional owner filtering.
+- Move internal diagnostics selection into `queries.py` and delete `diagnostics.py`.
+- Run the refactoring checkpoint and stop for review.
+
+#### Subphase 10c.3: Planning Lifecycle
+
+- Add `planning.py` and move skip/no-op/schedule decisions into `prepare_recipe_embedding`.
+- Pass `Session` explicitly; remove hidden session lookup through ORM objects.
+- Centralize open-flag counting and remove duplicate skip logic.
+- Return `EmbeddingPlan` instead of an unnamed tuple.
+- Preserve the rule that scheduler no-op does not write `already_ready`; that event remains worker-only.
+- Add focused tests for open flags, ready no-op, changed input, missing embedding row, and forced retry.
+- Run the refactoring checkpoint and stop for review.
+
+#### Subphase 10c.4: Worker Processing Lifecycle
+
+- Add `processing.py` with start, complete, failure, and orchestration functions.
+- Commit `running` and `started` before calling the provider.
+- Call the provider without an open database session.
+- Reload the current recipe after the provider returns and recompute the input snapshot.
+- Save `ready` and `saved`, or set `stale` and write `stale_requeued`, atomically with the corresponding state.
+- Persist provider failure in a fresh session and re-raise it for Dramatiq retry.
+- Make `tasks.py` a thin actor declaration without direct SessionLocal usage.
+- Add focused tests for success, already-ready, missing recipe, open flags, provider failure, recipe mutation during provider call, and requeue.
+- Run the refactoring checkpoint and stop for review.
+
+#### Subphase 10c.5: Queue Boundary and Callers
+
+- Add `queue.py` as the single Dramatiq publishing boundary.
+- Write `enqueued` only after broker publishing succeeds.
+- Keep embedding `stale` and log the error when publishing fails; do not fail the completed user operation.
+- Adapt import success, recipe editing, review-flag resolution/reopen, public retry, and internal retry callers.
+- Keep routers thin and preserve response models and owner checks.
+- Remove old service helpers, compatibility imports, duplicate commits, and stale tests.
+- Add regression tests proving queue failure does not fail import/edit/flag operations.
+- Run the refactoring checkpoint and stop for review.
+
+#### Subphase 10c.6: Logging, Cleanup, and Verification
+
+- Add embedding lifecycle structured logging with snake_case fields and stable messages.
+- Remove repeated component prefixes from log messages.
+- Verify no test-only provider or queue behavior remains in production code.
+- Update embedding invariants and future-work entries, including the deferred transactional outbox.
+- Run `uv run ruff check app tests`.
+- Run focused embedding, import, recipe, search, worker, model, and migration tests.
+- Run the full backend suite.
+- Run frontend tests and production build because enum serialization and internal embedding responses are cross-service contracts.
+- Stop for final review before continuing to Iteration 11 work.
 
 ### Iteration 11: Semantic/Vector Search Endpoint
 
