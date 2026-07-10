@@ -60,7 +60,7 @@ def test_enqueue_publishes_before_recording_enqueued_event(monkeypatch):
         assert embedding.events[0].status_after is RecipeEmbeddingStatus.STALE
 
 
-def test_enqueue_returns_false_without_event_when_broker_publish_fails(monkeypatch):
+def test_enqueue_returns_false_without_event_when_broker_publish_fails(monkeypatch, capsys):
     SessionLocal = create_session_factory()
     monkeypatch.setattr(session_module, "SessionLocal", SessionLocal)
     with SessionLocal() as session:
@@ -72,7 +72,6 @@ def test_enqueue_returns_false_without_event_when_broker_publish_fails(monkeypat
         raise RuntimeError("broker unavailable")
 
     monkeypatch.setattr("app.embeddings.tasks.embed_recipe_task.send", fail_send)
-
     published = enqueue_recipe_embedding(recipe_id, owner_id)
 
     assert published is False
@@ -81,6 +80,12 @@ def test_enqueue_returns_false_without_event_when_broker_publish_fails(monkeypat
         assert embedding is not None
         assert embedding.status is RecipeEmbeddingStatus.STALE
         assert embedding.events == []
+
+    message = next(line for line in capsys.readouterr().out.splitlines() if "Embedding task publish failed" in line)
+    assert " recipes.embeddings Embedding task publish failed {" in message
+    assert f'"recipe_id": "{recipe_id}"' in message
+    assert f'"owner_id": "{owner_id}"' in message
+    assert "[recipes.embeddings]" not in message
 
 
 def test_enqueue_returns_true_when_event_persistence_fails_after_publish(monkeypatch):

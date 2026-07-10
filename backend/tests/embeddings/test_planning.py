@@ -65,17 +65,23 @@ def test_prepare_embedding_skips_recipe_with_open_flags(monkeypatch):
         assert plan.embedding.events[0].payload == {"reason": "open_review_flags", "openFlagCount": 2}
 
 
-def test_prepare_embedding_creates_missing_embedding_and_schedules(monkeypatch):
+def test_prepare_embedding_creates_missing_embedding_and_schedules(monkeypatch, capsys):
     with create_session() as session:
         monkeypatch.setattr("app.embeddings.planning.get_embedding_provider", lambda: ("test", StaticEmbeddingProvider()))
         recipe = create_recipe(session)
-
         plan = prepare_recipe_embedding(session, recipe)
 
         assert plan.enqueue is True
         assert plan.embedding is session.get(RecipeEmbedding, recipe.id)
         assert plan.embedding.status is RecipeEmbeddingStatus.STALE
         assert plan.embedding.events[0].event_type is RecipeEmbeddingEventType.SCHEDULED
+        message = next(line for line in capsys.readouterr().out.splitlines() if "Embedding task planned" in line)
+        assert " recipes.embeddings Embedding task planned {" in message
+        assert '"recipe_id"' in message
+        assert '"owner_id"' in message
+        assert '"provider_name": "test"' in message
+        assert '"model": "test-embedding"' in message
+        assert "[recipes.embeddings]" not in message
 
 
 def test_prepare_embedding_keeps_current_ready_embedding_without_scheduler_event(monkeypatch):

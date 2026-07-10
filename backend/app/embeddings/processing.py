@@ -1,15 +1,13 @@
-import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from time import perf_counter
 
 from sqlalchemy.orm import Session
 
-from app.core.logging import bind_logger
 from app.db.session import db_session
-from app.embeddings.constants import EMBEDDING_LOG_COMPONENT, EMBEDDING_LOG_PREFIX
 from app.embeddings.events import add_embedding_event
 from app.embeddings.input import RecipeEmbeddingInput, build_recipe_embedding_input
+from app.embeddings.logging import bind_embedding_logger
 from app.embeddings.planning import prepare_recipe_embedding
 from app.embeddings.queries import (
     get_or_create_recipe_embedding,
@@ -20,8 +18,6 @@ from app.embeddings.queries import (
 from app.embeddings.queue import enqueue_recipe_embedding
 from app.embeddings.runtime import get_embedding_provider
 from app.models import RecipeEmbeddingEventType, RecipeEmbeddingStatus
-
-logger = logging.getLogger(EMBEDDING_LOG_COMPONENT)
 
 
 @dataclass(frozen=True)
@@ -153,10 +149,10 @@ def fail_recipe_embedding(
     session: Session,
     context: EmbeddingProcessingContext,
     error: Exception,
-) -> None:
+) -> int | None:
     embedding = get_recipe_embedding(session, context.recipe_id)
     if embedding is None:
-        return
+        return None
 
     embedding.status = RecipeEmbeddingStatus.FAILED
     embedding.error_message = repr(error)
@@ -175,6 +171,7 @@ def fail_recipe_embedding(
             "failedAttempts": embedding.failed_attempts,
         },
     )
+    return embedding.failed_attempts
 
 
 def process_recipe_embedding(recipe_id: str) -> None:
@@ -189,21 +186,27 @@ def process_recipe_embedding(recipe_id: str) -> None:
     if context is None:
         return
 
-    log = bind_logger(
-        logger,
-        component=EMBEDDING_LOG_COMPONENT,
-        recipeId=context.recipe_id,
-        ownerId=context.owner_id,
+    log = bind_embedding_logger(
+        recipe_id=context.recipe_id,
+        owner_id=context.owner_id,
+        provider_name=provider_name,
+        model=provider.model,
+        input_hash=context.embedding_input.input_hash,
     )
-    log.info(f"{EMBEDDING_LOG_PREFIX} Embedding started", provider=provider_name, model=provider.model)
+    log.info("Embedding processing started")
 
     started_at = perf_counter()
     try:
         vector = provider.embed(context.embedding_input.text)
     except Exception as error:
         with db_session() as session:
-            fail_recipe_embedding(session, context, error)
-        log.error(f"{EMBEDDING_LOG_PREFIX} Embedding provider threw", error=repr(error))
+            failed_attempts = fail_recipe_embedding(session, context, error)
+        log.error(
+            "Embedding provider failed",
+            error=repr(error),
+            failed_attempts=failed_attempts,
+            duration_ms=int((perf_counter() - started_at) * 1000),
+        )
         raise
     duration_ms = int((perf_counter() - started_at) * 1000)
 
@@ -217,7 +220,7 @@ def process_recipe_embedding(recipe_id: str) -> None:
 
     if requeue:
         enqueue_recipe_embedding(context.recipe_id, context.owner_id)
-        log.info(f"{EMBEDDING_LOG_PREFIX} Embedding input changed during provider call")
+        log.info("Embedding input changed during provider call", duration_ms=duration_ms)
         return
 
-    log.info(f"{EMBEDDING_LOG_PREFIX} Embedding ready", provider=provider_name, model=provider.model)
+    log.info("Embedding saved", duration_ms=duration_ms)

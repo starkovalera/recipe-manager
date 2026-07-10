@@ -209,7 +209,7 @@ def test_process_embedding_calls_provider_without_open_session_and_saves_vector(
         ]
 
 
-def test_process_embedding_persists_failure_in_fresh_session_and_reraises(monkeypatch):
+def test_process_embedding_persists_failure_in_fresh_session_and_reraises(monkeypatch, capsys):
     SessionLocal = create_session_factory()
     with SessionLocal() as session:
         recipe_id = create_recipe(session).id
@@ -218,7 +218,6 @@ def test_process_embedding_persists_failure_in_fresh_session_and_reraises(monkey
         "app.embeddings.processing.get_embedding_provider",
         lambda: ("test", FailingEmbeddingProvider()),
     )
-
     with pytest.raises(RuntimeError, match="embedding failed"):
         process_recipe_embedding(recipe_id)
 
@@ -229,6 +228,16 @@ def test_process_embedding_persists_failure_in_fresh_session_and_reraises(monkey
         assert embedding.failed_attempts == 1
         assert embedding.events[-1].event_type is RecipeEmbeddingEventType.FAILED
         assert embedding.events[-1].payload["failedAttempts"] == 1
+
+    message = next(line for line in capsys.readouterr().out.splitlines() if "Embedding provider failed" in line)
+    assert " recipes.embeddings Embedding provider failed {" in message
+    assert '"recipe_id"' in message
+    assert '"owner_id"' in message
+    assert '"provider_name": "test"' in message
+    assert '"model": "test-embedding"' in message
+    assert '"input_hash"' in message
+    assert '"failed_attempts": 1' in message
+    assert "[recipes.embeddings]" not in message
 
 
 def test_process_embedding_requeues_when_recipe_changes_during_provider_call(monkeypatch):
