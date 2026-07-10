@@ -1,6 +1,7 @@
 from sqlalchemy import create_engine
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker
 
+from app.db import session as session_module
 from app.db.base import Base
 from app.db.init import ensure_default_user
 from app.imports.error_codes import SecondaryResourceUploadError
@@ -40,10 +41,11 @@ def test_process_import_failure_sets_job_status_event_and_notification() -> None
     session = create_session()
     job = create_job(session)
     storage = FakeStorage()
+    SessionLocal = sessionmaker(bind=session.get_bind(), expire_on_commit=False)
+    session_module.SessionLocal = SessionLocal
 
     process_import_failure(
-        job,
-        session,
+        job.id,
         storage,
         ["upload-1"],
         SecondaryResourceUploadError(resource_type="URL", url="https://example.com"),
@@ -51,6 +53,7 @@ def test_process_import_failure_sets_job_status_event_and_notification() -> None
     )
 
     assert storage.deleted_keys == ["upload-1"]
+    session.refresh(job)
     assert job.status == ImportJobStatus.FAILED
     assert job.error_code == ImportJobErrorCode.IMPORT_PROCESSING_FAILED
     assert job.error_message == "SECONDARY_RESOURCE_UPLOADING_FAILED"
@@ -71,10 +74,11 @@ def test_process_import_failure_can_keep_storage_on_processing_failures() -> Non
     session = create_session()
     job = create_job(session)
     storage = FakeStorage()
+    SessionLocal = sessionmaker(bind=session.get_bind(), expire_on_commit=False)
+    session_module.SessionLocal = SessionLocal
 
     process_import_failure(
-        job,
-        session,
+        job.id,
         storage,
         ["upload-1"],
         ValueError("unexpected"),
@@ -82,6 +86,7 @@ def test_process_import_failure_can_keep_storage_on_processing_failures() -> Non
     )
 
     assert storage.deleted_keys == []
+    session.refresh(job)
     assert job.error_code == ImportJobErrorCode.IMPORT_FAILED
     assert job.error_message == "UNEXPECTED_ERROR"
     assert job.events[-1].payload["error"] == {
@@ -95,10 +100,11 @@ def test_process_import_failure_handles_missing_error() -> None:
     session = create_session()
     job = create_job(session)
     storage = FakeStorage()
+    SessionLocal = sessionmaker(bind=session.get_bind(), expire_on_commit=False)
+    session_module.SessionLocal = SessionLocal
 
     process_import_failure(
-        job,
-        session,
+        job.id,
         storage,
         ["upload-1"],
         error=None,
@@ -106,6 +112,7 @@ def test_process_import_failure_handles_missing_error() -> None:
     )
 
     assert storage.deleted_keys == []
+    session.refresh(job)
     assert job.status == ImportJobStatus.FAILED
     assert job.error_code == ImportJobErrorCode.IMPORT_FAILED
     assert job.error_message == "UNEXPECTED_ERROR"
@@ -114,3 +121,26 @@ def test_process_import_failure_handles_missing_error() -> None:
         "code": "UNEXPECTED_ERROR",
         "message": "Import failed.",
     }
+
+
+def test_process_import_failure_does_not_overwrite_terminal_job() -> None:
+    session = create_session()
+    job = create_job(session)
+    job.status = ImportJobStatus.SUCCEEDED
+    session.commit()
+    storage = FakeStorage()
+    SessionLocal = sessionmaker(bind=session.get_bind(), expire_on_commit=False)
+    session_module.SessionLocal = SessionLocal
+
+    process_import_failure(
+        job.id,
+        storage,
+        ["upload-1"],
+        ValueError("unexpected"),
+        cleanup_storage=False,
+    )
+
+    session.refresh(job)
+    assert job.status == ImportJobStatus.SUCCEEDED
+    assert job.error_code is None
+    assert job.events == []

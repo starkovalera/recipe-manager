@@ -104,9 +104,10 @@ def test_internal_import_jobs_returns_jobs_sources_events_and_status_history():
             )
         )
         session.add(job)
-        build_job_event(job, ImportEventType.IMPORT_CREATED, client_import_id="import-1")
-        build_job_event(job, ImportEventType.IMPORT_STARTED, status="running")
-        build_job_event(job, ImportEventType.RECIPE_CREATED, recipe_id="recipe-1", status="succeeded")
+        session.flush()
+        build_job_event(session, import_job_id=job.id, event_type=ImportEventType.IMPORT_CREATED, client_import_id="import-1")
+        build_job_event(session, import_job_id=job.id, event_type=ImportEventType.IMPORT_STARTED, status="running")
+        build_job_event(session, import_job_id=job.id, event_type=ImportEventType.RECIPE_CREATED, recipe_id="recipe-1", status="succeeded")
         session.commit()
 
     response = client.get("/internal/import-jobs")

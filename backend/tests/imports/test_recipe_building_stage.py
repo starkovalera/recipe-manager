@@ -1,5 +1,5 @@
 from app.ai.schemas import ExtractedIngredient, ExtractedRecipe, ExtractionQuality
-from app.imports.job_stages.extraction_sources import ExtractionContext
+from app.imports.job_context import ImportJobContext
 from app.imports.job_stages.recipe_building import build_recipe
 from app.models import ImportJob, ImportJobStatus, Recipe, Tag
 
@@ -25,23 +25,18 @@ def extracted_recipe() -> ExtractedRecipe:
     )
 
 
-def extraction_context() -> ExtractionContext:
-    return ExtractionContext(
-        extraction_sources=[],
-        extraction_id_by_resource={},
-        tags=[Tag(name="quick"), Tag(name="dessert")],
-        language="ru",
-    )
+def available_tags() -> list[Tag]:
+    return [Tag(name="quick"), Tag(name="dessert")]
 
 
-def import_job() -> ImportJob:
-    return ImportJob(owner_id="user-1", client_id="client-1", status=ImportJobStatus.RUNNING)
+def import_job_context() -> ImportJobContext:
+    return ImportJobContext.from_job(ImportJob(owner_id="user-1", client_id="client-1", status=ImportJobStatus.RUNNING))
 
 
 def test_build_recipe_applies_fields_tags_and_ingredients():
     recipe = Recipe(owner_id="user-1")
 
-    build_recipe(recipe, extracted_recipe(), extraction_context(), import_job())
+    build_recipe(recipe, extracted_recipe(), available_tags(), import_job_context())
 
     assert recipe.title == "Recipe"
     assert recipe.instructions == ["Mix.", "Bake."]
@@ -57,6 +52,6 @@ def test_build_recipe_applies_fields_tags_and_ingredients():
 def test_build_recipe_keeps_existing_author_name():
     recipe = Recipe(owner_id="user-1", author_name="imported_author")
 
-    build_recipe(recipe, extracted_recipe(), extraction_context(), import_job())
+    build_recipe(recipe, extracted_recipe(), available_tags(), import_job_context())
 
     assert recipe.author_name == "imported_author"

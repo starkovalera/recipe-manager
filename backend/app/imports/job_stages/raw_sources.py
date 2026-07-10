@@ -8,10 +8,11 @@ from app.core.logging import bind_logger, log_error
 from app.imports.config import ImportConfig
 from app.imports.constants import IMPORT_LOG_COMPONENT
 from app.imports.error_codes import SecondaryResourceUploadError
+from app.imports.job_context import ImportJobContext, ImportJobSourceContext
 from app.imports.source_loading.types import UrlContentService
 from app.imports.source_loading.url_loaders.types import LoadedUrlContent
 from app.imports.source_loading.video_processors.types import FirstPassVideoSources, VideoSourceProcessor
-from app.models import ImportJob, ImportJobSource, RecipeResourceOrigin, SourceType
+from app.models import RecipeResourceOrigin, SourceType
 from app.storage.base import StorageService
 
 logger = logging.getLogger(IMPORT_LOG_COMPONENT)
@@ -34,7 +35,7 @@ class RawSource:
 
 @dataclass
 class RawSourceBuildContext:
-    job: ImportJob
+    job: ImportJobContext
     storage: StorageService
     saved_storage_keys: list[str]
     url_content_loader: UrlContentService
@@ -43,7 +44,7 @@ class RawSourceBuildContext:
 
 
 def build_raw_sources(
-    job: ImportJob,
+    job: ImportJobContext,
     storage: StorageService,
     saved_storage_keys: list[str],
     url_content_loader: UrlContentService,
@@ -90,7 +91,7 @@ def build_raw_sources(
 
 def _append_url_raw_sources(
     context: RawSourceBuildContext,
-    job_source: ImportJobSource,
+    job_source: ImportJobSourceContext,
     raw_sources: list[RawSource],
 ) -> str | None:
     parent_key = f"url:{job_source.position}"
@@ -108,7 +109,7 @@ def _append_url_raw_sources(
     bind_logger(
         logger,
         component=IMPORT_LOG_COMPONENT,
-        job=job_source.import_job.to_dict(),
+        job=context.job.to_dict(),
         accepted_attachment_count=image_count,
         remaining_remote_image_count=remaining_images,
     ).info(f"{IMPORT_LOG_COMPONENT} Import image capacity")

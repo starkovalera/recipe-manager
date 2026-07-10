@@ -2,7 +2,8 @@ from datetime import datetime, timezone
 
 import anyio
 
-from app.ai.schemas import ExtractedRecipe, ExtractionResult
+from app.ai.provider import RecipeExtractionProvider
+from app.ai.schemas import ExtractionResult
 from app.imports.error_codes import (
     ExtractorUnavailableError,
     ImportExtractionErrorCode,
@@ -10,37 +11,34 @@ from app.imports.error_codes import (
     NotARecipeError,
     ResultParseError,
 )
-from app.imports.events import build_job_event
+from app.imports.job_context import ImportJobContext
 from app.imports.job_stages.extraction_sources import ExtractionContext
 from app.imports.logging import log_extraction_finished, log_extraction_started
-from app.imports.runtime import get_recipe_extraction_provider
-from app.models import ImportEventType, ImportJob
 
 
-def _extract(
-    job: ImportJob,
+def extract(
+    job: ImportJobContext,
     context: ExtractionContext,
+    provider_name: str,
+    provider: RecipeExtractionProvider,
 ) -> ExtractionResult:
     started_at = datetime.now(timezone.utc)
     source_count = len(context.extraction_sources)
-    provider_name, provider = get_recipe_extraction_provider()
 
     async def extract_recipe():
         return await provider.extract(
             context.extraction_sources,
             language=context.language,
-            tags=", ".join(tag.name for tag in context.tags)
+            tags=", ".join(context.tag_names),
         )
 
     log_extraction_started(job, provider_name, source_count=source_count)
-    build_job_event(job, ImportEventType.EXTRACTOR_REQUESTED, provider=provider_name, source_count=source_count)
 
     try:
         result: ExtractionResult = anyio.run(extract_recipe)
     except Exception as error:
         raise ExtractorUnavailableError(original_error=str(error)) from error
 
-    build_job_event(job, ImportEventType.EXTRACTOR_SUCCEEDED, not_a_recipe=result.not_a_recipe)
     quality_payload = {}
     if result.recipe is not None:
         quality = result.recipe.quality
@@ -55,7 +53,7 @@ def _extract(
     return result
 
 
-def _validate_extraction_result(
+def validate_extraction_result(
     result: ExtractionResult,
 ) -> None:
     if result.recipe and not result.not_a_recipe:
@@ -67,12 +65,3 @@ def _validate_extraction_result(
     if result.error_code == ImportExtractionErrorCode.EXTRACTOR_UNAVAILABLE:
         raise ExtractorUnavailableError(provider_message=result.error_message)
     raise NotARecipeError(provider_message=result.error_message)
-
-
-def extract(
-    job: ImportJob,
-    context: ExtractionContext,
-) -> ExtractedRecipe:
-    result = _extract(job, context)
-    _validate_extraction_result(result)
-    return result.recipe

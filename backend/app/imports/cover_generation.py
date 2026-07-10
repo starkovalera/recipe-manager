@@ -8,9 +8,9 @@ from app.core.config import get_settings
 from app.core.logging import bind_logger
 from app.imports.constants import IMPORT_LOG_COMPONENT
 from app.imports.cover_guard import CoverCandidate as ImportCoverCandidate, CoverGuardInput, choose_cover_candidate
+from app.imports.job_context import ImportJobContext
 from app.media.images import create_cover_image
 from app.models import (
-    ImportJob,
     Recipe,
     RecipeImage,
     RecipeResource,
@@ -46,7 +46,7 @@ def _cover_candidate_ref(source_ref: str | None, accepted_refs: set[str]) -> str
 
 
 def generate_cover_image(
-    job: ImportJob,
+    job: ImportJobContext,
     recipe: Recipe,
     recipe_result: ExtractedRecipe,
     context: CoverGenerationContext,

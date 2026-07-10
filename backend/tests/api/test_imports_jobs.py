@@ -13,6 +13,7 @@ from app.ai.fake_provider import FakeRecipeExtractionProvider
 from app.ai.schemas import CoverCandidate, ExtractedRecipe, ExtractionQuality, ExtractionResult
 from app.api.routes import imports as import_routes
 from app.core.config import get_settings
+from app.db import session as session_module
 from app.db.base import Base
 from app.db.init import ensure_default_user
 from app.db.session import get_session
@@ -54,6 +55,7 @@ def client_with_session_factory():
     engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False}, poolclass=StaticPool)
     Base.metadata.create_all(engine)
     SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
+    session_module.SessionLocal = SessionLocal
 
     def override_session() -> Generator[Session, None, None]:
         session = SessionLocal()
@@ -80,8 +82,7 @@ def image_bytes() -> bytes:
 
 
 def run_import_worker(client: TestClient, job_id: str) -> None:
-    with client.app.state.SessionLocal() as session:
-        process_import_job(session, job_id)
+    process_import_job(job_id)
 
 
 def poll_import(client: TestClient, job_id: str):

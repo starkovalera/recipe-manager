@@ -1,15 +1,15 @@
 from app.ai.schemas import ExtractedRecipe
-from app.imports.job_stages.extraction_sources import ExtractionContext
+from app.imports.job_context import ImportJobContext
 from app.imports.logging import log_recipe_tags_built
-from app.models import ImportJob, Ingredient, Recipe, Tag
+from app.models import Ingredient, Recipe, Tag
 from app.services.search_text import build_ingredient_search_name
 
 
 def build_recipe(
     recipe: Recipe,
     extracted_recipe: ExtractedRecipe,
-    extraction_context: ExtractionContext,
-    job: ImportJob,
+    available_tags: list[Tag],
+    job: ImportJobContext,
 ) -> None:
     recipe.title = extracted_recipe.title
     recipe.instructions = extracted_recipe.instructions
@@ -19,7 +19,7 @@ def build_recipe(
     if not recipe.author_name and extracted_recipe.author_name:
         recipe.author_name = extracted_recipe.author_name
 
-    matched, ignored, duplicate = _build_tags(recipe, extraction_context.tags, extracted_recipe.tags)
+    matched, ignored, duplicate = _build_tags(recipe, available_tags, extracted_recipe.tags)
     log_recipe_tags_built(job, extracted_recipe.tags, matched, ignored, duplicate)
 
     for index, ingredient in enumerate(extracted_recipe.ingredients):

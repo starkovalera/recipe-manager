@@ -1,3 +1,5 @@
+from contextlib import contextmanager
+
 import pytest
 
 from app.ai.schemas import (
@@ -15,13 +17,13 @@ from app.imports.error_codes import (
     NotARecipeError,
     ResultParseError,
 )
-from app.imports.job_stages import extraction as extraction_module, extraction_sources as extraction_sources_module
-from app.imports.job_stages.extraction import extract
+from app.imports.job_context import ImportJobContext
+from app.imports.job_stages import extraction_sources as extraction_sources_module
+from app.imports.job_stages.extraction import extract, validate_extraction_result
 from app.imports.job_stages.extraction_sources import ExtractionContext, build_extraction_context
 from app.imports.job_stages.raw_recipe import build_raw_recipe
 from app.imports.job_stages.raw_sources import RawSource, build_raw_sources
 from app.models import (
-    ImportEventType,
     ImportJob,
     ImportJobSource,
     ImportJobStatus,
@@ -93,13 +95,17 @@ def extraction_context() -> ExtractionContext:
     return ExtractionContext(
         extraction_sources=[ExtractionSource(id="source_1", type="TEXT", position=0, text="Recipe text")],
         extraction_id_by_resource={},
-        tags=[Tag(name="quick"), Tag(name="dinner")],
+        tag_names=["quick", "dinner"],
         language="ru",
     )
 
 
 def import_job() -> ImportJob:
     return ImportJob(owner_id="user-1", client_id="client-1", status=ImportJobStatus.RUNNING)
+
+
+def import_job_context() -> ImportJobContext:
+    return ImportJobContext.from_job(import_job())
 
 
 def test_build_raw_sources_preserves_manual_text_and_image_order():
@@ -176,15 +182,20 @@ def test_build_extraction_context_sends_content_resources_only_with_short_ai_ids
     tags = [Tag(name="quick")]
     monkeypatch.setattr(extraction_sources_module, "list_active_tags", lambda _session, owner_id: tags)
 
+    @contextmanager
+    def fake_db_session():
+        yield None
+
+    monkeypatch.setattr(extraction_sources_module, "db_session", fake_db_session)
+
     context = build_extraction_context(
         content_recipe_resources=content_resources,
-        job=ImportJob(owner_id="user-1"),
-        session=None,
+        job_context=ImportJobContext.from_job(ImportJob(owner_id="user-1")),
         storage=MemoryStorage({"images/source.jpg": b"image-bytes"}),
     )
 
     assert len(recipe.images) == 1
-    assert context.tags == tags
+    assert context.tag_names == ["quick"]
     assert [(source.id, source.type, source.original_name, source.text) for source in context.extraction_sources] == [
         ("source_1", "IMAGE", "source.jpg", None),
         ("source_2", "TEXT", None, "Manual text"),
@@ -196,15 +207,15 @@ def test_build_extraction_context_sends_content_resources_only_with_short_ai_ids
     }
 
 
-def test_extract_calls_provider_and_records_extractor_events(monkeypatch):
+def test_extract_calls_provider_without_recording_extractor_events():
     provider = RecipeExtractionProvider(ExtractionResult(recipe=extracted_recipe()))
-    monkeypatch.setattr(extraction_module, "get_recipe_extraction_provider", lambda: ("test-provider", provider))
-    job = import_job()
+    job_context = import_job_context()
     context = extraction_context()
 
-    result = extract(job, context)
+    result = extract(job_context, context, "test-provider", provider)
 
-    assert result.title == "Recipe"
+    assert result.recipe is not None
+    assert result.recipe.title == "Recipe"
     assert provider.calls == [
         {
             "sources": context.extraction_sources,
@@ -212,20 +223,14 @@ def test_extract_calls_provider_and_records_extractor_events(monkeypatch):
             "tags": "quick, dinner",
         }
     ]
-    assert [event.event_type for event in job.events] == [
-        ImportEventType.EXTRACTOR_REQUESTED,
-        ImportEventType.EXTRACTOR_SUCCEEDED,
-    ]
-    assert job.events[0].payload == {"provider": "test-provider", "source_count": 1}
-    assert job.events[1].payload == {"not_a_recipe": False}
+    assert job_context.to_dict()["id"] is None
 
 
-def test_extract_maps_provider_exception_to_extractor_unavailable(monkeypatch):
+def test_extract_maps_provider_exception_to_extractor_unavailable():
     provider = RecipeExtractionProvider(error=RuntimeError("provider down"))
-    monkeypatch.setattr(extraction_module, "get_recipe_extraction_provider", lambda: ("test-provider", provider))
 
     with pytest.raises(ExtractorUnavailableError) as exc_info:
-        extract(import_job(), extraction_context())
+        extract(import_job_context(), extraction_context(), "test-provider", provider)
 
     assert exc_info.value.code == ImportExtractionErrorCode.EXTRACTOR_UNAVAILABLE
     assert exc_info.value.extra == {"original_error": "provider down"}
@@ -241,17 +246,14 @@ def test_extract_maps_provider_exception_to_extractor_unavailable(monkeypatch):
         (None, NotARecipeError),
     ],
 )
-def test_extract_maps_invalid_provider_result_to_import_extraction_error(monkeypatch, error_code, expected_error):
-    provider = RecipeExtractionProvider(
-        ExtractionResult(
-            not_a_recipe=True,
-            error_code=error_code,
-            error_message="provider message",
-        )
-    )
-    monkeypatch.setattr(extraction_module, "get_recipe_extraction_provider", lambda: ("test-provider", provider))
-
+def test_validate_extraction_result_maps_invalid_provider_result_to_import_extraction_error(error_code, expected_error):
     with pytest.raises(expected_error) as exc_info:
-        extract(import_job(), extraction_context())
+        validate_extraction_result(
+            ExtractionResult(
+                not_a_recipe=True,
+                error_code=error_code,
+                error_message="provider message",
+            )
+    )
 
     assert exc_info.value.extra == {"provider_message": "provider message"}

@@ -151,6 +151,8 @@ def create_import_job(
     )
     session.add(job)
     session.flush()
+    session.commit()
+    session.refresh(job)
 
     storage = LocalStorageService(get_settings().upload_dir)
     saved_storage_keys: list[str] = []
@@ -182,7 +184,13 @@ def create_import_job(
                 )
             )
 
-        build_job_event(job, ImportEventType.IMPORT_CREATED, client_import_id=client_import_id, dedupe_key=dedupe_key)
+        build_job_event(
+            session,
+            import_job_id=job.id,
+            event_type=ImportEventType.IMPORT_CREATED,
+            client_import_id=client_import_id,
+            dedupe_key=dedupe_key,
+        )
         build_notification(
             session,
             ImportStartedNotification,
@@ -191,7 +199,7 @@ def create_import_job(
         )
         session.commit()
     except Exception as error:
-        process_import_failure(job, session, storage, saved_storage_keys, error, cleanup_storage=True)
+        process_import_failure(job.id, storage, saved_storage_keys, error, cleanup_storage=True)
 
     session.refresh(job)
     logger.info(

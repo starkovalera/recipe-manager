@@ -1,4 +1,5 @@
 from app.ai.schemas import ExtractedIngredient, ExtractedRecipe, ExtractionQuality
+from app.imports.job_context import ImportJobContext
 from app.imports.recipe_materialization import create_review_flag_if_needed
 from app.models import ImportJob, ImportJobSource, Recipe, SourceType
 
@@ -12,10 +13,10 @@ def extracted_recipe_with_quality(quality: ExtractionQuality) -> ExtractedRecipe
     )
 
 
-def import_job_with_sources(*source_types: SourceType) -> ImportJob:
+def import_job_context_with_sources(*source_types: SourceType) -> ImportJobContext:
     job = ImportJob(owner_id="user-1", client_id="client-1")
     job.sources = [ImportJobSource(type=source_type, position=index) for index, source_type in enumerate(source_types)]
-    return job
+    return ImportJobContext.from_job(job)
 
 
 def test_single_url_ignored_primary_does_not_create_review_flag():
@@ -31,7 +32,7 @@ def test_single_url_ignored_primary_does_not_create_review_flag():
     )
 
     has_review_flag = create_review_flag_if_needed(
-        import_job_with_sources(SourceType.URL),
+        import_job_context_with_sources(SourceType.URL),
         recipe,
         recipe_result,
         has_ignored_primary=True,
@@ -54,7 +55,7 @@ def test_single_url_conflict_does_not_create_review_flag_after_quality_normaliza
     )
 
     has_review_flag = create_review_flag_if_needed(
-        import_job_with_sources(SourceType.URL),
+        import_job_context_with_sources(SourceType.URL),
         recipe,
         recipe_result,
         has_ignored_primary=False,
@@ -77,7 +78,7 @@ def test_single_url_low_confidence_creates_review_flag():
     )
 
     has_review_flag = create_review_flag_if_needed(
-        import_job_with_sources(SourceType.URL),
+        import_job_context_with_sources(SourceType.URL),
         recipe,
         recipe_result,
         has_ignored_primary=True,
@@ -100,7 +101,7 @@ def test_multi_primary_ignored_primary_creates_review_flag():
     )
 
     has_review_flag = create_review_flag_if_needed(
-        import_job_with_sources(SourceType.URL, SourceType.TEXT),
+        import_job_context_with_sources(SourceType.URL, SourceType.TEXT),
         recipe,
         recipe_result,
         has_ignored_primary=True,

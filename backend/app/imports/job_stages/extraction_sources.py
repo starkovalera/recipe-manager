@@ -1,11 +1,10 @@
 from dataclasses import dataclass
 
-from sqlalchemy.orm.session import Session
-
 from app.ai.schemas import ExtractionSource
-from app.core.config import get_settings
+from app.db.session import db_session
+from app.imports.job_context import ImportJobContext
 from app.media.images import image_to_data_url
-from app.models import ImportJob, RecipeResource, Tag
+from app.models import RecipeResource
 from app.storage.base import StorageService
 from app.tags.queries import list_active_tags
 
@@ -14,7 +13,7 @@ from app.tags.queries import list_active_tags
 class ExtractionContext:
     extraction_sources: list[ExtractionSource]
     extraction_id_by_resource: dict[RecipeResource, str]
-    tags: list[Tag]
+    tag_names: list[str]
     language: str
 
 
@@ -45,12 +44,12 @@ def _build_extraction_sources(
 
 def build_extraction_context(
     content_recipe_resources: list[RecipeResource],
-    job: ImportJob,
-    session: Session,
+    job_context: ImportJobContext,
     storage: StorageService,
 ) -> ExtractionContext:
-    active_tags = list_active_tags(session, job.owner_id)
-    language = job.owner.settings.recipe_language if job.owner and job.owner.settings else get_settings().recipe_language
+    with db_session() as session:
+        active_tags = list_active_tags(session, job_context.owner_id)
+        tag_names = [tag.name for tag in active_tags]
 
     extraction_id_by_resource = {
         resource: f"source_{index}"
@@ -63,6 +62,6 @@ def build_extraction_context(
             storage,
         ),
         extraction_id_by_resource=extraction_id_by_resource,
-        tags=active_tags,
-        language=language,
+        tag_names=tag_names,
+        language=job_context.recipe_language,
     )

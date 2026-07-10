@@ -3,6 +3,7 @@ import pytest
 from app.ai.schemas import ExtractedIngredient, ExtractedRecipe, ExtractionQuality, ExtractionSource
 from app.imports.config import ImportConfig
 from app.imports.error_codes import NotARecipeError, RecipeTooLongError
+from app.imports.job_context import ImportJobContext
 from app.imports.job_stages.extracted_recipe import normalize_extracted_recipe, validate_extracted_recipe
 from app.models import ImportJob, ImportJobSource, SourceType
 
@@ -40,6 +41,10 @@ def import_job(*source_types: SourceType) -> ImportJob:
     return job
 
 
+def import_job_context(*source_types: SourceType) -> ImportJobContext:
+    return ImportJobContext.from_job(import_job(*source_types))
+
+
 def test_validate_extracted_recipe_rejects_low_confidence():
     with pytest.raises(NotARecipeError) as exc_info:
         validate_extracted_recipe(extracted_recipe(confidence=0.1), import_config(min_confidence=0.2))
@@ -61,7 +66,7 @@ def test_normalize_extracted_recipe_canonicalizes_source_refs():
             ExtractionSource(id="source_1", type="TEXT", position=0, text="Recipe text"),
             ExtractionSource(id="source_2", type="IMAGE", position=1, source_ref="image_1"),
         ],
-        import_job(SourceType.TEXT, SourceType.IMAGE),
+        import_job_context(SourceType.TEXT, SourceType.IMAGE),
     )
 
     assert result.quality.primary_source_refs == ["source_1"]
@@ -75,7 +80,7 @@ def test_single_url_normalization_clears_review_flags_without_losing_ignored_ref
             ExtractionSource(id="source_1", type="TEXT", position=0, text="Recipe text"),
             ExtractionSource(id="source_2", type="IMAGE", position=1, source_ref="image_1"),
         ],
-        import_job(SourceType.URL),
+        import_job_context(SourceType.URL),
     )
 
     assert result.quality.has_conflicts is False

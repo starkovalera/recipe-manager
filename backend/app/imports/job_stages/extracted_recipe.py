@@ -1,7 +1,7 @@
 from app.ai.schemas import ExtractedRecipe, ExtractionQuality, ExtractionSource, extraction_source_id
 from app.imports.config import ImportConfig
 from app.imports.error_codes import NotARecipeError, RecipeTooLongError
-from app.models import ImportJob, SourceType
+from app.imports.job_context import ImportJobContext
 from app.services.recipe_limits import find_recipe_size_violation
 
 
@@ -48,17 +48,17 @@ def _restore_canonical_source_refs(quality: ExtractionQuality, sources: list[Ext
     return quality
 
 
-def _is_single_url_import(job: ImportJob) -> bool:
-    return len(job.sources) == 1 and job.sources[0].type == SourceType.URL
-
-
-def _normalize_quality_flags(extracted_recipe: ExtractedRecipe, job: ImportJob) -> None:
-    if _is_single_url_import(job):
+def _normalize_quality_flags(extracted_recipe: ExtractedRecipe, job_context: ImportJobContext) -> None:
+    if job_context.is_single_url_import:
         extracted_recipe.quality.has_conflicts = False
         extracted_recipe.quality.has_ignored = False
 
 
-def normalize_extracted_recipe(extracted_recipe: ExtractedRecipe, sources: list[ExtractionSource], job: ImportJob) -> ExtractedRecipe:
+def normalize_extracted_recipe(
+    extracted_recipe: ExtractedRecipe,
+    sources: list[ExtractionSource],
+    job_context: ImportJobContext,
+) -> ExtractedRecipe:
     _restore_canonical_source_refs(extracted_recipe.quality, sources)
-    _normalize_quality_flags(extracted_recipe, job)
+    _normalize_quality_flags(extracted_recipe, job_context)
     return extracted_recipe

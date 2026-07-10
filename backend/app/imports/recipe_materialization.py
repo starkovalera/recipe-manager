@@ -4,6 +4,7 @@ from app.ai.schemas import ExtractedRecipe
 from app.core.config import get_settings
 from app.core.logging import bind_logger
 from app.imports.constants import IMPORT_LOG_COMPONENT
+from app.imports.job_context import ImportJobContext
 from app.imports.source_platform import derive_source_name
 from app.imports.sources import (
     review_reason_codes,
@@ -11,7 +12,6 @@ from app.imports.sources import (
     source_assessments,
 )
 from app.models import (
-    ImportJob,
     Recipe,
     RecipeResource,
     RecipeResourceOrigin,
@@ -24,10 +24,6 @@ from app.models import (
 )
 
 logger = logging.getLogger(IMPORT_LOG_COMPONENT)
-
-
-def is_single_url_import(job: ImportJob) -> bool:
-    return len(job.sources) == 1 and job.sources[0].type == SourceType.URL
 
 
 def apply_source_statuses(
@@ -80,9 +76,14 @@ def derive_source_name_from_primary_resources(resources: list[RecipeResource]) -
     return SourceName.OTHER
 
 
-def create_review_flag_if_needed(job: ImportJob, recipe: Recipe, recipe_result: ExtractedRecipe, has_ignored_primary: bool) -> bool:
+def create_review_flag_if_needed(
+    job: ImportJobContext,
+    recipe: Recipe,
+    recipe_result: ExtractedRecipe,
+    has_ignored_primary: bool,
+) -> bool:
     warn_confidence = get_settings().import_warn_confidence
-    if is_single_url_import(job):
+    if job.is_single_url_import:
         has_ignored_primary = False
     reasons = review_reason_codes(recipe_result.quality, warn_confidence, has_ignored_primary)
     has_review_flag = should_create_primary_review_flag(recipe_result.quality, warn_confidence, has_ignored_primary)
