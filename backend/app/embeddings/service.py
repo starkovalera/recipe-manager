@@ -2,13 +2,14 @@ import logging
 from datetime import datetime, timezone
 from time import perf_counter
 
-from sqlalchemy.orm import Session, object_session
+from sqlalchemy.orm import Session
 
 from app.core.errors import RecipeNotFoundError
 from app.core.logging import bind_logger
 from app.embeddings.constants import EMBEDDING_LOG_COMPONENT, EMBEDDING_LOG_PREFIX
 from app.embeddings.events import add_embedding_event
 from app.embeddings.input import build_recipe_embedding_input
+from app.embeddings.planning import prepare_recipe_embedding
 from app.embeddings.queries import (
     get_or_create_recipe_embedding,
     get_recipe_embedding,
@@ -16,20 +17,13 @@ from app.embeddings.queries import (
     has_open_review_flags,
 )
 from app.embeddings.runtime import get_embedding_provider
-from app.models import Recipe, RecipeEmbedding, RecipeEmbeddingEventType, RecipeEmbeddingStatus, RecipeReviewFlagStatus
+from app.models import RecipeEmbedding, RecipeEmbeddingEventType, RecipeEmbeddingStatus
 
 logger = logging.getLogger(EMBEDDING_LOG_COMPONENT)
 
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
-
-
-def _require_session(recipe: Recipe) -> Session:
-    session = object_session(recipe)
-    if session is None:
-        raise RuntimeError("Recipe must be attached to a session before embedding state can be updated.")
-    return session
 
 
 def enqueue_recipe_embedding(recipe_id: str) -> None:
@@ -49,78 +43,6 @@ def enqueue_recipe_embedding_with_event(session: Session, *, embedding: RecipeEm
     )
 
 
-def prepare_recipe_embedding(recipe: Recipe, *, force: bool = False) -> tuple[RecipeEmbedding, bool]:
-    session = _require_session(recipe)
-    provider_name, provider = get_embedding_provider()
-    embedding = get_or_create_recipe_embedding(session, recipe.id, model=provider.model)
-    embedding_input = build_recipe_embedding_input(recipe)
-    log = bind_logger(logger, component=EMBEDDING_LOG_COMPONENT, recipeId=recipe.id, ownerId=recipe.owner_id, provider=provider_name)
-
-    if any(flag.status == RecipeReviewFlagStatus.OPEN for flag in recipe.review_flags):
-        embedding.model = provider.model
-        embedding.input_hash = embedding_input.input_hash
-        embedding.status = RecipeEmbeddingStatus.SKIPPED_DUE_TO_FLAGS
-        embedding.error_message = None
-        add_embedding_event(
-            session,
-            embedding=embedding,
-            owner_id=recipe.owner_id,
-            event_type=RecipeEmbeddingEventType.SKIPPED_DUE_TO_FLAGS,
-            payload={
-                "reason": "open_review_flags",
-                "openFlagCount": sum(1 for flag in recipe.review_flags if flag.status == RecipeReviewFlagStatus.OPEN),
-            },
-        )
-        log.info(f"{EMBEDDING_LOG_PREFIX} Embedding skipped due to open review flags")
-        return embedding, False
-
-    if (
-        not force
-        and embedding.status == RecipeEmbeddingStatus.READY
-        and embedding.input_hash == embedding_input.input_hash
-        and embedding.model == provider.model
-    ):
-        log.info(f"{EMBEDDING_LOG_PREFIX} Embedding already ready")
-        return embedding, False
-
-    embedding.model = provider.model
-    embedding.input_hash = embedding_input.input_hash
-    embedding.status = RecipeEmbeddingStatus.STALE
-    embedding.error_message = None
-    add_embedding_event(
-        session,
-        embedding=embedding,
-        owner_id=recipe.owner_id,
-        event_type=RecipeEmbeddingEventType.SCHEDULED,
-        payload={"reason": "manual_retry" if force else "recipe_content_changed", "model": provider.model},
-    )
-    log.info(f"{EMBEDDING_LOG_PREFIX} Embedding task planned", force=force)
-    return embedding, True
-
-
-def skip_recipe_embedding_due_to_flags(session: Session, recipe_id: str) -> RecipeEmbedding | None:
-    recipe = get_recipe_for_embedding(session, recipe_id)
-    if recipe is None:
-        return None
-    _, provider = get_embedding_provider()
-    embedding = get_or_create_recipe_embedding(session, recipe.id, model=provider.model)
-    embedding.model = provider.model
-    embedding.input_hash = build_recipe_embedding_input(recipe).input_hash
-    embedding.status = RecipeEmbeddingStatus.SKIPPED_DUE_TO_FLAGS
-    embedding.error_message = None
-    add_embedding_event(
-        session,
-        embedding=embedding,
-        owner_id=recipe.owner_id,
-        event_type=RecipeEmbeddingEventType.SKIPPED_DUE_TO_FLAGS,
-        payload={
-            "reason": "open_review_flags",
-            "openFlagCount": sum(1 for flag in recipe.review_flags if flag.status == RecipeReviewFlagStatus.OPEN),
-        },
-    )
-    return embedding
-
-
 def retry_recipe_embedding(session: Session, recipe_id: str, owner_id: str) -> RecipeEmbedding:
     recipe = get_recipe_for_embedding(session, recipe_id, owner_id=owner_id)
     if recipe is None:
@@ -135,13 +57,13 @@ def retry_recipe_embedding(session: Session, recipe_id: str, owner_id: str) -> R
         event_type=RecipeEmbeddingEventType.RETRY_REQUESTED,
         payload={"source": "manual", "previousStatus": previous_status, "failedAttempts": embedding.failed_attempts},
     )
-    embedding, should_enqueue = prepare_recipe_embedding(recipe, force=True)
+    plan = prepare_recipe_embedding(session, recipe, force=True)
     session.commit()
-    if should_enqueue:
-        enqueue_recipe_embedding_with_event(session, embedding=embedding, owner_id=recipe.owner_id)
+    if plan.enqueue:
+        enqueue_recipe_embedding_with_event(session, embedding=plan.embedding, owner_id=recipe.owner_id)
         session.commit()
-    session.refresh(embedding)
-    return embedding
+    session.refresh(plan.embedding)
+    return plan.embedding
 
 
 def process_recipe_embedding(session: Session, recipe_id: str) -> None:
@@ -150,7 +72,7 @@ def process_recipe_embedding(session: Session, recipe_id: str) -> None:
         return
     log = bind_logger(logger, component=EMBEDDING_LOG_COMPONENT, recipeId=recipe.id, ownerId=recipe.owner_id)
     if has_open_review_flags(session, recipe.id):
-        skip_recipe_embedding_due_to_flags(session, recipe.id)
+        prepare_recipe_embedding(session, recipe)
         session.commit()
         log.info(f"{EMBEDDING_LOG_PREFIX} Embedding skipped due to open review flags")
         return

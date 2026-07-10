@@ -4,7 +4,8 @@ from sqlalchemy.pool import StaticPool
 
 from app.db.base import Base
 from app.db.init import ensure_default_user
-from app.embeddings.service import prepare_recipe_embedding, process_recipe_embedding, retry_recipe_embedding
+from app.embeddings.input import build_recipe_embedding_input
+from app.embeddings.service import process_recipe_embedding, retry_recipe_embedding
 from app.models import (
     Ingredient,
     Recipe,
@@ -72,15 +73,16 @@ def create_recipe(session, *, with_open_flag: bool = False) -> Recipe:
     return recipe
 
 
-def test_prepare_embedding_skips_recipe_with_open_flags(monkeypatch):
+def test_process_embedding_uses_planning_skip_for_open_flags(monkeypatch):
     SessionLocal = session_factory()
     with SessionLocal() as session:
-        monkeypatch.setattr("app.embeddings.service.get_embedding_provider", lambda: ("test", StaticEmbeddingProvider()))
+        monkeypatch.setattr("app.embeddings.planning.get_embedding_provider", lambda: ("test", StaticEmbeddingProvider()))
         recipe = create_recipe(session, with_open_flag=True)
 
-        embedding, should_enqueue = prepare_recipe_embedding(recipe)
+        process_recipe_embedding(session, recipe.id)
 
-        assert should_enqueue is False
+        embedding = session.get(RecipeEmbedding, recipe.id)
+        assert embedding is not None
         assert embedding.status is RecipeEmbeddingStatus.SKIPPED_DUE_TO_FLAGS
         assert [event.event_type for event in embedding.events] == [RecipeEmbeddingEventType.SKIPPED_DUE_TO_FLAGS]
 
@@ -90,6 +92,7 @@ def test_retry_embedding_commits_and_enqueues_when_recipe_has_no_open_flags(monk
     enqueued: list[str] = []
     with SessionLocal() as session:
         monkeypatch.setattr("app.embeddings.service.get_embedding_provider", lambda: ("test", StaticEmbeddingProvider()))
+        monkeypatch.setattr("app.embeddings.planning.get_embedding_provider", lambda: ("test", StaticEmbeddingProvider()))
         monkeypatch.setattr("app.embeddings.service.enqueue_recipe_embedding", enqueued.append)
         recipe = create_recipe(session)
 
@@ -103,22 +106,6 @@ def test_retry_embedding_commits_and_enqueues_when_recipe_has_no_open_flags(monk
             RecipeEmbeddingEventType.SCHEDULED,
             RecipeEmbeddingEventType.ENQUEUED,
         ]
-
-
-def test_prepare_embedding_creates_missing_embedding_row(monkeypatch):
-    SessionLocal = session_factory()
-    with SessionLocal() as session:
-        monkeypatch.setattr("app.embeddings.service.get_embedding_provider", lambda: ("test", StaticEmbeddingProvider()))
-        recipe = create_recipe(session)
-
-        assert recipe.embedding is None
-
-        embedding, should_enqueue = prepare_recipe_embedding(recipe)
-
-        assert should_enqueue is True
-        assert embedding.recipe_id == recipe.id
-        assert session.get(RecipeEmbedding, recipe.id) is embedding
-        assert [event.event_type for event in embedding.events] == [RecipeEmbeddingEventType.SCHEDULED]
 
 
 def test_process_embedding_saves_ready_vector(monkeypatch):
@@ -145,8 +132,14 @@ def test_process_embedding_records_already_ready_noop(monkeypatch):
     with SessionLocal() as session:
         monkeypatch.setattr("app.embeddings.service.get_embedding_provider", lambda: ("test", StaticEmbeddingProvider()))
         recipe = create_recipe(session)
-        embedding, _ = prepare_recipe_embedding(recipe)
-        embedding.status = RecipeEmbeddingStatus.READY
+        embedding_input = build_recipe_embedding_input(recipe)
+        embedding = RecipeEmbedding(
+            recipe_id=recipe.id,
+            model="test-embedding",
+            input_hash=embedding_input.input_hash,
+            status=RecipeEmbeddingStatus.READY,
+        )
+        session.add(embedding)
         session.commit()
 
         process_recipe_embedding(session, recipe.id)

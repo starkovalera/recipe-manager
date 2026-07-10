@@ -289,6 +289,7 @@ def test_retry_embedding_endpoint_marks_stale_and_enqueues(monkeypatch):
         recipe_id = recipe.id
     enqueued: list[str] = []
     monkeypatch.setattr("app.embeddings.service.get_embedding_provider", lambda: ("test", StaticEmbeddingProvider()))
+    monkeypatch.setattr("app.embeddings.planning.get_embedding_provider", lambda: ("test", StaticEmbeddingProvider()))
     monkeypatch.setattr("app.embeddings.service.enqueue_recipe_embedding", enqueued.append)
 
     response = client.post(f"/recipes/{recipe_id}/embedding/retry")

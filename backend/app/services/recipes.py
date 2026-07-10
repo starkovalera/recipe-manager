@@ -13,7 +13,8 @@ from app.core.errors import (
     ReviewFlagNotFoundError,
     UnsupportedSourceStatusError,
 )
-from app.embeddings.service import enqueue_recipe_embedding_with_event, prepare_recipe_embedding
+from app.embeddings.planning import prepare_recipe_embedding
+from app.embeddings.service import enqueue_recipe_embedding_with_event
 from app.models import (
     Ingredient,
     Recipe,
@@ -166,10 +167,10 @@ def patch_recipe(session: Session, recipe_id: str, owner_id: str, patch: RecipeP
     _apply_cover_selection(session, recipe, patch)
 
     refresh_recipe_search_text(recipe)
-    embedding, should_enqueue_embedding = prepare_recipe_embedding(recipe)
+    embedding_plan = prepare_recipe_embedding(session, recipe)
     session.commit()
-    if should_enqueue_embedding:
-        enqueue_recipe_embedding_with_event(session, embedding=embedding, owner_id=recipe.owner_id)
+    if embedding_plan.enqueue:
+        enqueue_recipe_embedding_with_event(session, embedding=embedding_plan.embedding, owner_id=recipe.owner_id)
         session.commit()
     return get_recipe_detail(session, recipe_id, owner_id)
 
@@ -192,10 +193,10 @@ def set_review_flag_status(session: Session, recipe_id: str, owner_id: str, flag
     else:
         flag.status = RecipeReviewFlagStatus.OPEN
         flag.resolved_at = None
-    embedding, should_enqueue_embedding = prepare_recipe_embedding(flag.recipe)
+    embedding_plan = prepare_recipe_embedding(session, flag.recipe)
     session.commit()
-    if should_enqueue_embedding:
-        enqueue_recipe_embedding_with_event(session, embedding=embedding, owner_id=flag.recipe.owner_id)
+    if embedding_plan.enqueue:
+        enqueue_recipe_embedding_with_event(session, embedding=embedding_plan.embedding, owner_id=flag.recipe.owner_id)
         session.commit()
     session.refresh(flag)
     return flag

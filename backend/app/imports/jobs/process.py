@@ -8,8 +8,9 @@ from app.core.config import get_settings
 from app.core.errors import ImportNotFoundError
 from app.core.logging import bind_logger
 from app.db.session import db_session
+from app.embeddings.planning import prepare_recipe_embedding
 from app.embeddings.queries import get_recipe_embedding
-from app.embeddings.service import enqueue_recipe_embedding_with_event, prepare_recipe_embedding
+from app.embeddings.service import enqueue_recipe_embedding_with_event
 from app.imports.config import ImportConfig
 from app.imports.constants import (
     IMPORT_LOG_COMPONENT,
@@ -120,7 +121,7 @@ def save_import(
     session.add(recipe)
     session.flush()
 
-    _, enqueue_embedding = prepare_recipe_embedding(recipe)
+    embedding_plan = prepare_recipe_embedding(session, recipe)
 
     job.set_recipe_created(recipe.id, job_status)
     build_job_event(
@@ -139,7 +140,7 @@ def save_import(
 
     session.flush()
     session.refresh(job)
-    return ImportResult(job=ImportJobContext.from_job(job), recipe_id=recipe.id, enqueue_embedding=enqueue_embedding)
+    return ImportResult(job=ImportJobContext.from_job(job), recipe_id=recipe.id, enqueue_embedding=embedding_plan.enqueue)
 
 
 def process_import_job(job_id: str) -> None:
