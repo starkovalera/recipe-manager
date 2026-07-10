@@ -2283,7 +2283,7 @@ flowchart TD
   - `ImportJobErrorCode` for persisted high-level job failure categories;
   - processing and extraction detail codes for `ImportJob.error_message` and failed event payloads.
 - Changed empty import preflight failure from API `NOT_A_RECIPE` to `NO_IMPORT_SOURCES`; no job is created for this validation failure.
-- Approved atomic creation semantics: creation-stage failures are synchronous API failures, not failed background jobs. The implementation is tracked in the subphase below.
+- Implemented atomic creation semantics: creation-stage failures are synchronous API failures, not failed background jobs.
 - Added processing failure handling for secondary URL/media/video failures:
   - high-level `IMPORT_PROCESSING_FAILED`;
   - detail `SECONDARY_RESOURCE_UPLOADING_FAILED`;
@@ -2317,7 +2317,7 @@ flowchart TD
 
 ### Subphase: Atomic Import Job Creation
 
-Status: implementation complete, pending review.
+Status: completed and approved.
 
 Goal: persist an `ImportJob` only when its complete primary-source creation scope succeeds.
 
