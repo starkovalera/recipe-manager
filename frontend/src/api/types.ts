@@ -105,7 +105,7 @@ export type SearchExplainResponse = {
       rank?: number | null;
       distance?: number | null;
       similarity?: number | null;
-      embeddingStatus?: string | null;
+      embeddingStatus?: RecipeEmbeddingStatus | null;
       embeddingModel?: string | null;
       inputHash?: string | null;
       embeddingInputPreview?: string | null;
@@ -118,6 +118,20 @@ export type EmbeddingInputPreview = {
   input: string;
   inputHash: string;
 };
+
+export type RecipeEmbeddingStatus = "STALE" | "RUNNING" | "READY" | "FAILED" | "SKIPPED_DUE_TO_FLAGS";
+
+export type RecipeEmbeddingEventType =
+  | "SCHEDULED"
+  | "ENQUEUED"
+  | "STARTED"
+  | "SKIPPED_DUE_TO_FLAGS"
+  | "ALREADY_READY"
+  | "PROVIDER_SUCCEEDED"
+  | "SAVED"
+  | "STALE_REQUEUED"
+  | "FAILED"
+  | "RETRY_REQUESTED";
 
 export type InternalImportJobList = {
   items: Array<{
@@ -144,7 +158,7 @@ export type InternalRecipeEmbeddingList = {
     recipeId: string;
     ownerId?: string | null;
     recipeTitle?: string | null;
-    status: string;
+    status: RecipeEmbeddingStatus;
     model: string;
     inputHash?: string | null;
     failedAttempts: number;
@@ -155,8 +169,8 @@ export type InternalRecipeEmbeddingList = {
     updatedAt?: string | null;
     events: Array<{
       id: string;
-      eventType: string;
-      statusAfter?: string | null;
+      eventType: RecipeEmbeddingEventType;
+      statusAfter?: RecipeEmbeddingStatus | null;
       payload?: Record<string, unknown> | null;
       createdAt?: string | null;
     }>;

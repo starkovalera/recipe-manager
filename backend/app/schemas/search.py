@@ -2,6 +2,7 @@ from typing import Literal
 
 from pydantic import ConfigDict, Field
 
+from app.models import RecipeEmbeddingStatus
 from app.schemas.base import CamelModel
 from app.schemas.recipes import RecipeImageOut
 
@@ -74,7 +75,7 @@ class SearchExplainDebugOut(CamelModel):
     rank: int | None = None
     distance: float | None = None
     similarity: float | None = None
-    embedding_status: str | None = None
+    embedding_status: RecipeEmbeddingStatus | None = None
     embedding_model: str | None = None
     input_hash: str | None = None
     embedding_input_preview: str | None = None

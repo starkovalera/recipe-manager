@@ -18,6 +18,7 @@ from app.models import (
     Recipe,
     RecipeEmbedding,
     RecipeEmbeddingEvent,
+    RecipeEmbeddingEventType,
     RecipeEmbeddingStatus,
     RecipeImage,
     RecipeResource,
@@ -235,6 +236,28 @@ def test_recipe_can_exist_without_embedding_row():
     assert saved.embedding is None
 
 
+def test_recipe_embedding_lifecycle_enum_names_match_values():
+    assert {status.name: status.value for status in RecipeEmbeddingStatus} == {
+        "STALE": "STALE",
+        "RUNNING": "RUNNING",
+        "READY": "READY",
+        "FAILED": "FAILED",
+        "SKIPPED_DUE_TO_FLAGS": "SKIPPED_DUE_TO_FLAGS",
+    }
+    assert {event_type.name: event_type.value for event_type in RecipeEmbeddingEventType} == {
+        "SCHEDULED": "SCHEDULED",
+        "ENQUEUED": "ENQUEUED",
+        "STARTED": "STARTED",
+        "SKIPPED_DUE_TO_FLAGS": "SKIPPED_DUE_TO_FLAGS",
+        "ALREADY_READY": "ALREADY_READY",
+        "PROVIDER_SUCCEEDED": "PROVIDER_SUCCEEDED",
+        "SAVED": "SAVED",
+        "STALE_REQUEUED": "STALE_REQUEUED",
+        "FAILED": "FAILED",
+        "RETRY_REQUESTED": "RETRY_REQUESTED",
+    }
+
+
 def test_recipe_embedding_is_one_to_optional_one():
     session = create_session()
     user = ensure_default_user(session)
@@ -245,7 +268,7 @@ def test_recipe_embedding_is_one_to_optional_one():
     embedding = RecipeEmbedding(
         recipe_id=recipe.id,
         model="test-embedding",
-        status=RecipeEmbeddingStatus.STALE.value,
+        status=RecipeEmbeddingStatus.STALE,
     )
     session.add(embedding)
     session.commit()
@@ -259,7 +282,7 @@ def test_recipe_embedding_is_one_to_optional_one():
             insert(RecipeEmbedding).values(
                 recipe_id=recipe.id,
                 model="test-embedding",
-                status=RecipeEmbeddingStatus.STALE.value,
+                status=RecipeEmbeddingStatus.STALE,
             )
         )
         session.commit()
@@ -269,7 +292,7 @@ def test_deleting_recipe_deletes_embedding_row():
     session = create_session()
     user = ensure_default_user(session)
     recipe = Recipe(owner_id=user.id, title="Toast", instructions=["Toast bread"])
-    recipe.embedding = RecipeEmbedding(model="test-embedding", status=RecipeEmbeddingStatus.READY.value)
+    recipe.embedding = RecipeEmbedding(model="test-embedding", status=RecipeEmbeddingStatus.READY)
     session.add(recipe)
     session.commit()
     recipe_id = recipe.id
@@ -284,14 +307,14 @@ def test_recipe_embedding_event_belongs_to_embedding_and_cascades_with_recipe():
     session = create_session()
     user = ensure_default_user(session)
     recipe = Recipe(owner_id=user.id, title="Toast", instructions=["Toast bread"])
-    recipe.embedding = RecipeEmbedding(model="test-embedding", status=RecipeEmbeddingStatus.STALE.value)
+    recipe.embedding = RecipeEmbedding(model="test-embedding", status=RecipeEmbeddingStatus.STALE)
     session.add(recipe)
     session.flush()
     event = RecipeEmbeddingEvent(
         recipe_id=recipe.id,
         owner_id=user.id,
-        event_type="scheduled",
-        status_after=RecipeEmbeddingStatus.STALE.value,
+        event_type=RecipeEmbeddingEventType.SCHEDULED,
+        status_after=RecipeEmbeddingStatus.STALE,
         payload={"reason": "test"},
     )
     recipe.embedding.events.append(event)
@@ -300,7 +323,10 @@ def test_recipe_embedding_event_belongs_to_embedding_and_cascades_with_recipe():
 
     saved = session.get(RecipeEmbedding, recipe.id)
     assert saved is not None
+    assert saved.status is RecipeEmbeddingStatus.STALE
     assert saved.events[0].id == event_id
+    assert saved.events[0].event_type is RecipeEmbeddingEventType.SCHEDULED
+    assert saved.events[0].status_after is RecipeEmbeddingStatus.STALE
     assert saved.events[0].payload == {"reason": "test"}
 
     session.delete(recipe)

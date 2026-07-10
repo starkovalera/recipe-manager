@@ -124,11 +124,24 @@ class RecipeReviewFlagType(str, enum.Enum):
 
 
 class RecipeEmbeddingStatus(str, enum.Enum):
-    STALE = "stale"
-    RUNNING = "running"
-    READY = "ready"
-    FAILED = "failed"
-    SKIPPED_DUE_TO_FLAGS = "skipped_due_to_flags"
+    STALE = "STALE"
+    RUNNING = "RUNNING"
+    READY = "READY"
+    FAILED = "FAILED"
+    SKIPPED_DUE_TO_FLAGS = "SKIPPED_DUE_TO_FLAGS"
+
+
+class RecipeEmbeddingEventType(str, enum.Enum):
+    SCHEDULED = "SCHEDULED"
+    ENQUEUED = "ENQUEUED"
+    STARTED = "STARTED"
+    SKIPPED_DUE_TO_FLAGS = "SKIPPED_DUE_TO_FLAGS"
+    ALREADY_READY = "ALREADY_READY"
+    PROVIDER_SUCCEEDED = "PROVIDER_SUCCEEDED"
+    SAVED = "SAVED"
+    STALE_REQUEUED = "STALE_REQUEUED"
+    FAILED = "FAILED"
+    RETRY_REQUESTED = "RETRY_REQUESTED"
 
 
 class TimestampMixin:
@@ -306,7 +319,10 @@ class RecipeEmbedding(TimestampMixin, Base):
     embedding: Mapped[list[float] | None] = mapped_column(Vector(1536).with_variant(JSON(), "sqlite"))
     model: Mapped[str] = mapped_column(String, nullable=False)
     input_hash: Mapped[str | None] = mapped_column(String)
-    status: Mapped[str] = mapped_column(String, nullable=False)
+    status: Mapped[RecipeEmbeddingStatus] = mapped_column(
+        Enum(RecipeEmbeddingStatus, name="recipe_embedding_status"),
+        nullable=False,
+    )
     error_message: Mapped[str | None] = mapped_column(Text)
     failed_attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     last_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -327,8 +343,13 @@ class RecipeEmbeddingEvent(Base):
     id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
     recipe_id: Mapped[str] = mapped_column(ForeignKey("recipe_embeddings.recipe_id", ondelete="CASCADE"), nullable=False)
     owner_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    event_type: Mapped[str] = mapped_column(String, nullable=False)
-    status_after: Mapped[str | None] = mapped_column(String)
+    event_type: Mapped[RecipeEmbeddingEventType] = mapped_column(
+        Enum(RecipeEmbeddingEventType, name="recipe_embedding_event_type"),
+        nullable=False,
+    )
+    status_after: Mapped[RecipeEmbeddingStatus | None] = mapped_column(
+        Enum(RecipeEmbeddingStatus, name="recipe_embedding_status"),
+    )
     payload: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 

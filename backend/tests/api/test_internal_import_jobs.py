@@ -22,6 +22,7 @@ from app.models import (
     Recipe,
     RecipeEmbedding,
     RecipeEmbeddingEvent,
+    RecipeEmbeddingEventType,
     RecipeEmbeddingStatus,
     SourceType,
     Tag,
@@ -136,14 +137,14 @@ def test_internal_embeddings_returns_recipe_embedding_status():
         recipe.embedding = RecipeEmbedding(
             model="test-embedding",
             input_hash="hash-1",
-            status=RecipeEmbeddingStatus.READY.value,
+            status=RecipeEmbeddingStatus.READY,
             failed_attempts=1,
         )
         recipe.embedding.events.append(
             RecipeEmbeddingEvent(
                 owner_id=user.id,
-                event_type="saved",
-                status_after=RecipeEmbeddingStatus.READY.value,
+                event_type=RecipeEmbeddingEventType.SAVED,
+                status_after=RecipeEmbeddingStatus.READY,
                 payload={"dimension": 1536},
             )
         )
@@ -159,13 +160,13 @@ def test_internal_embeddings_returns_recipe_embedding_status():
     assert item["recipeId"] == recipe.id
     assert item["recipeTitle"] == "Soup"
     assert item["ownerId"] == "local-user"
-    assert item["status"] == "ready"
+    assert item["status"] == "READY"
     assert item["model"] == "test-embedding"
     assert item["inputHash"] == "hash-1"
     assert item["failedAttempts"] == 1
     assert len(response.json()["items"]) == 1
-    assert item["events"][0]["eventType"] == "saved"
-    assert item["events"][0]["statusAfter"] == "ready"
+    assert item["events"][0]["eventType"] == "SAVED"
+    assert item["events"][0]["statusAfter"] == "READY"
     assert item["events"][0]["payload"] == {"dimension": 1536}
 
 
@@ -178,7 +179,7 @@ def test_internal_embedding_retry_uses_existing_embedding_owner(monkeypatch):
         recipe.embedding = RecipeEmbedding(
             model="test-embedding",
             input_hash="hash-1",
-            status=RecipeEmbeddingStatus.FAILED.value,
+            status=RecipeEmbeddingStatus.FAILED,
             failed_attempts=1,
         )
         session.add(recipe)
@@ -189,12 +190,16 @@ def test_internal_embedding_retry_uses_existing_embedding_owner(monkeypatch):
     response = client.post(f"/internal/embeddings/{recipe_id}/retry")
 
     assert response.status_code == 200
-    assert response.json()["status"] == "stale"
+    assert response.json()["status"] == "STALE"
     assert enqueued == [recipe_id]
     with SessionLocal() as session:
         embedding = session.get(RecipeEmbedding, recipe_id)
         assert embedding is not None
-        assert [event.event_type for event in embedding.events] == ["retry_requested", "scheduled", "enqueued"]
+        assert [event.event_type for event in embedding.events] == [
+            RecipeEmbeddingEventType.RETRY_REQUESTED,
+            RecipeEmbeddingEventType.SCHEDULED,
+            RecipeEmbeddingEventType.ENQUEUED,
+        ]
 
 
 def test_internal_search_explain_applies_filters_and_ready_embeddings(monkeypatch):
@@ -205,13 +210,18 @@ def test_internal_search_explain_applies_filters_and_ready_embeddings(monkeypatc
         session.add(dessert)
         cake = Recipe(owner_id=user.id, title="Apple Cake", instructions=["Bake"], tags=[dessert])
         cake.ingredients.append(Ingredient(name="Apple", search_name="apple", position=0))
-        cake.embedding = RecipeEmbedding(model="test-embedding", status=RecipeEmbeddingStatus.READY.value, embedding=[1.0, 0.0], input_hash="hash-cake")
+        cake.embedding = RecipeEmbedding(model="test-embedding", status=RecipeEmbeddingStatus.READY, embedding=[1.0, 0.0], input_hash="hash-cake")
         soup = Recipe(owner_id=user.id, title="Apple Soup", instructions=["Boil"], tags=[dessert])
         soup.ingredients.append(Ingredient(name="Apple", search_name="apple", position=0))
-        soup.embedding = RecipeEmbedding(model="test-embedding", status=RecipeEmbeddingStatus.SKIPPED_DUE_TO_FLAGS.value, embedding=[1.0, 0.0], input_hash="hash-soup")
+        soup.embedding = RecipeEmbedding(
+            model="test-embedding",
+            status=RecipeEmbeddingStatus.SKIPPED_DUE_TO_FLAGS,
+            embedding=[1.0, 0.0],
+            input_hash="hash-soup",
+        )
         other = Recipe(owner_id=user.id, title="Berry Cake", instructions=["Bake"], tags=[dessert])
         other.ingredients.append(Ingredient(name="Berry", search_name="berry", position=0))
-        other.embedding = RecipeEmbedding(model="test-embedding", status=RecipeEmbeddingStatus.READY.value, embedding=[0.0, 1.0], input_hash="hash-berry")
+        other.embedding = RecipeEmbedding(model="test-embedding", status=RecipeEmbeddingStatus.READY, embedding=[0.0, 1.0], input_hash="hash-berry")
         session.add_all([cake, soup, other])
         session.commit()
         dessert_id = dessert.id

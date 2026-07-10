@@ -6,6 +6,7 @@ from pydantic import ConfigDict, Field, computed_field
 from app.models import (
     Collection,
     Ingredient,
+    RecipeEmbeddingStatus,
     RecipeImage,
     RecipeResource,
     RecipeResourceStatus,
@@ -266,7 +267,7 @@ class RecipeResourcePatchIn(CamelModel):
 
 class RecipeEmbeddingOut(CamelModel):
     recipe_id: str
-    status: str
+    status: RecipeEmbeddingStatus
     model: str
     input_hash: str | None = None
     failed_attempts: int

@@ -249,7 +249,7 @@ describe("App", () => {
             recipeId: "recipe-1",
             ownerId: "local-user",
             recipeTitle: "Soup",
-            status: "ready",
+            status: "READY",
             model: "test-embedding",
             inputHash: "abcdef1234567890",
             failedAttempts: 1,
@@ -258,8 +258,8 @@ describe("App", () => {
             events: [
               {
                 id: "event-1",
-                eventType: "saved",
-                statusAfter: "ready",
+                eventType: "SAVED",
+                statusAfter: "READY",
                 createdAt: "2026-07-02T10:00:00Z",
                 payload: { dimension: 1536 },
               },
@@ -275,7 +275,7 @@ describe("App", () => {
 
     await waitFor(() => expect(screen.getByRole("heading", { name: "Recipe embeddings" })).toBeTruthy());
     expect(screen.getByText("Soup")).toBeTruthy();
-    expect(screen.getByText(/ready - user local-user - recipe recipe-1/)).toBeTruthy();
+    expect(screen.getByText(/READY - user local-user - recipe recipe-1/)).toBeTruthy();
     expect(screen.getByText("test-embedding")).toBeTruthy();
     expect(screen.getByText("abcdef123456...")).toBeTruthy();
     expect(screen.getByText("Events (1)")).toBeTruthy();
@@ -320,7 +320,7 @@ describe("App", () => {
                 rank: 1,
                 distance: 0.1,
                 similarity: 0.9,
-                embeddingStatus: "ready",
+                embeddingStatus: "READY",
                 embeddingModel: "test-embedding",
                 inputHash: "abcdef1234567890",
                 embeddingInputPreview: "apple cake apple bake",
@@ -355,7 +355,7 @@ describe("App", () => {
     expect(screen.getByText(/query provider test - query model test-embedding/)).toBeTruthy();
     expect(screen.getByText("cosine")).toBeTruthy();
     expect(screen.getByText("recipe-1")).toBeTruthy();
-    expect(screen.getByText("ready")).toBeTruthy();
+    expect(screen.getByText("READY")).toBeTruthy();
     expect(screen.getByText("apple cake apple bake")).toBeTruthy();
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
       expect.stringContaining("/internal/search/explain"),

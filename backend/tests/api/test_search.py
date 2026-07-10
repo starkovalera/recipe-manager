@@ -80,7 +80,7 @@ def add_recipe(
         recipe.ingredients.append(Ingredient(name=ingredient_name, position=position))
     recipe.tags.extend(tags or [])
     if vector is not None and status is not None:
-        recipe.embedding = RecipeEmbedding(model="test-embedding", status=status.value, embedding=vector, input_hash=f"hash-{title}")
+        recipe.embedding = RecipeEmbedding(model="test-embedding", status=status, embedding=vector, input_hash=f"hash-{title}")
     session.add(recipe)
     return recipe
 

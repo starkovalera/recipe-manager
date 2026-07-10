@@ -4,12 +4,12 @@ from sqlalchemy.pool import StaticPool
 
 from app.db.base import Base
 from app.db.init import ensure_default_user
-from app.embeddings.events import EmbeddingEventType
 from app.embeddings.service import prepare_recipe_embedding, process_recipe_embedding, retry_recipe_embedding
 from app.models import (
     Ingredient,
     Recipe,
     RecipeEmbedding,
+    RecipeEmbeddingEventType,
     RecipeEmbeddingStatus,
     RecipeReviewFlag,
     RecipeReviewFlagStatus,
@@ -81,8 +81,8 @@ def test_prepare_embedding_skips_recipe_with_open_flags(monkeypatch):
         embedding, should_enqueue = prepare_recipe_embedding(recipe)
 
         assert should_enqueue is False
-        assert embedding.status == RecipeEmbeddingStatus.SKIPPED_DUE_TO_FLAGS.value
-        assert [event.event_type for event in embedding.events] == [EmbeddingEventType.SKIPPED_DUE_TO_FLAGS]
+        assert embedding.status is RecipeEmbeddingStatus.SKIPPED_DUE_TO_FLAGS
+        assert [event.event_type for event in embedding.events] == [RecipeEmbeddingEventType.SKIPPED_DUE_TO_FLAGS]
 
 
 def test_retry_embedding_commits_and_enqueues_when_recipe_has_no_open_flags(monkeypatch):
@@ -95,13 +95,13 @@ def test_retry_embedding_commits_and_enqueues_when_recipe_has_no_open_flags(monk
 
         embedding = retry_recipe_embedding(session, recipe.id, recipe.owner_id)
 
-        assert embedding.status == RecipeEmbeddingStatus.STALE.value
+        assert embedding.status is RecipeEmbeddingStatus.STALE
         assert session.get(RecipeEmbedding, recipe.id) is not None
         assert enqueued == [recipe.id]
         assert [event.event_type for event in embedding.events] == [
-            EmbeddingEventType.RETRY_REQUESTED,
-            EmbeddingEventType.SCHEDULED,
-            EmbeddingEventType.ENQUEUED,
+            RecipeEmbeddingEventType.RETRY_REQUESTED,
+            RecipeEmbeddingEventType.SCHEDULED,
+            RecipeEmbeddingEventType.ENQUEUED,
         ]
 
 
@@ -118,7 +118,7 @@ def test_prepare_embedding_creates_missing_embedding_row(monkeypatch):
         assert should_enqueue is True
         assert embedding.recipe_id == recipe.id
         assert session.get(RecipeEmbedding, recipe.id) is embedding
-        assert [event.event_type for event in embedding.events] == [EmbeddingEventType.SCHEDULED]
+        assert [event.event_type for event in embedding.events] == [RecipeEmbeddingEventType.SCHEDULED]
 
 
 def test_process_embedding_saves_ready_vector(monkeypatch):
@@ -131,12 +131,12 @@ def test_process_embedding_saves_ready_vector(monkeypatch):
         session.refresh(recipe)
 
         assert recipe.embedding is not None
-        assert recipe.embedding.status == RecipeEmbeddingStatus.READY.value
+        assert recipe.embedding.status is RecipeEmbeddingStatus.READY
         assert recipe.embedding.embedding == [0.1, 0.2, 0.3]
         assert [event.event_type for event in recipe.embedding.events] == [
-            EmbeddingEventType.STARTED,
-            EmbeddingEventType.PROVIDER_SUCCEEDED,
-            EmbeddingEventType.SAVED,
+            RecipeEmbeddingEventType.STARTED,
+            RecipeEmbeddingEventType.PROVIDER_SUCCEEDED,
+            RecipeEmbeddingEventType.SAVED,
         ]
 
 
@@ -146,14 +146,14 @@ def test_process_embedding_records_already_ready_noop(monkeypatch):
         monkeypatch.setattr("app.embeddings.service.get_embedding_provider", lambda: ("test", StaticEmbeddingProvider()))
         recipe = create_recipe(session)
         embedding, _ = prepare_recipe_embedding(recipe)
-        embedding.status = RecipeEmbeddingStatus.READY.value
+        embedding.status = RecipeEmbeddingStatus.READY
         session.commit()
 
         process_recipe_embedding(session, recipe.id)
         session.refresh(embedding)
 
-        assert embedding.status == RecipeEmbeddingStatus.READY.value
-        assert embedding.events[-1].event_type == EmbeddingEventType.ALREADY_READY
+        assert embedding.status is RecipeEmbeddingStatus.READY
+        assert embedding.events[-1].event_type is RecipeEmbeddingEventType.ALREADY_READY
 
 
 def test_process_embedding_records_provider_failure(monkeypatch):
@@ -169,8 +169,8 @@ def test_process_embedding_records_provider_failure(monkeypatch):
 
         embedding = session.get(RecipeEmbedding, recipe.id)
         assert embedding is not None
-        assert embedding.status == RecipeEmbeddingStatus.FAILED.value
-        assert embedding.events[-1].event_type == EmbeddingEventType.FAILED
+        assert embedding.status is RecipeEmbeddingStatus.FAILED
+        assert embedding.events[-1].event_type is RecipeEmbeddingEventType.FAILED
         assert embedding.events[-1].payload["failedAttempts"] == 1
 
 
@@ -187,11 +187,11 @@ def test_process_embedding_records_stale_requeue(monkeypatch):
 
         embedding = session.get(RecipeEmbedding, recipe.id)
         assert embedding is not None
-        assert embedding.status == RecipeEmbeddingStatus.STALE.value
+        assert embedding.status is RecipeEmbeddingStatus.STALE
         assert enqueued == [recipe.id]
         assert [event.event_type for event in embedding.events] == [
-            EmbeddingEventType.STARTED,
-            EmbeddingEventType.PROVIDER_SUCCEEDED,
-            EmbeddingEventType.STALE_REQUEUED,
-            EmbeddingEventType.ENQUEUED,
+            RecipeEmbeddingEventType.STARTED,
+            RecipeEmbeddingEventType.PROVIDER_SUCCEEDED,
+            RecipeEmbeddingEventType.STALE_REQUEUED,
+            RecipeEmbeddingEventType.ENQUEUED,
         ]

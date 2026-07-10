@@ -57,7 +57,7 @@ def list_semantic_recipe_candidates(
         base_search_query(owner_id, filters)
         .join(RecipeEmbedding, RecipeEmbedding.recipe_id == Recipe.id)
         .where(
-            RecipeEmbedding.status == RecipeEmbeddingStatus.READY.value,
+            RecipeEmbedding.status == RecipeEmbeddingStatus.READY,
             RecipeEmbedding.model == embedding_model,
             RecipeEmbedding.embedding.is_not(None),
         )
@@ -85,7 +85,7 @@ def list_semantic_recipes_by_pgvector(
         base_search_query(owner_id, filters)
         .join(RecipeEmbedding, RecipeEmbedding.recipe_id == Recipe.id)
         .where(
-            RecipeEmbedding.status == RecipeEmbeddingStatus.READY.value,
+            RecipeEmbedding.status == RecipeEmbeddingStatus.READY,
             RecipeEmbedding.model == embedding_model,
             RecipeEmbedding.embedding.is_not(None),
         )

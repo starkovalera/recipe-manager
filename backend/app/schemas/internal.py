@@ -1,9 +1,19 @@
+from __future__ import annotations
+
 from datetime import datetime
 from typing import Any
 
 from pydantic import BaseModel, Field, computed_field, field_serializer
 
-from app.models import ImportEventType, ImportJobSource, JobEvent, Recipe, RecipeEmbeddingEvent
+from app.models import (
+    ImportEventType,
+    ImportJobSource,
+    JobEvent,
+    Recipe,
+    RecipeEmbeddingEvent,
+    RecipeEmbeddingEventType,
+    RecipeEmbeddingStatus,
+)
 from app.schemas.base import CamelModel
 
 EVENT_STATUS_MAP = {
@@ -98,7 +108,7 @@ class InternalImportJobListOut(BaseModel):
 
 class InternalRecipeEmbeddingOut(CamelModel):
     recipe_id: str
-    status: str
+    status: RecipeEmbeddingStatus
     model: str
     input_hash: str | None = None
     failed_attempts: int
@@ -122,8 +132,19 @@ class InternalRecipeEmbeddingOut(CamelModel):
 
     @computed_field
     @property
-    def events(self) -> list[InternalJobEventOut]:
-        return [InternalJobEventOut.model_validate(event) for event in sorted(self.event_items, key=lambda item: item.created_at, reverse=True)]
+    def events(self) -> list[InternalRecipeEmbeddingEventOut]:
+        return [
+            InternalRecipeEmbeddingEventOut.model_validate(event)
+            for event in sorted(self.event_items, key=lambda item: item.created_at, reverse=True)
+        ]
+
+
+class InternalRecipeEmbeddingEventOut(CamelModel):
+    id: str
+    event_type: RecipeEmbeddingEventType
+    status_after: RecipeEmbeddingStatus | None = None
+    payload: dict[str, Any] | None = None
+    created_at: datetime | None = None
 
 
 class InternalRecipeEmbeddingListOut(BaseModel):

@@ -65,11 +65,11 @@ flowchart TD
 
 `RecipeEmbedding.status`:
 
-- `stale`
-- `running`
-- `ready`
-- `failed`
-- `skipped_due_to_flags`
+- `STALE`
+- `RUNNING`
+- `READY`
+- `FAILED`
+- `SKIPPED_DUE_TO_FLAGS`
 
 ### Target Import Flow
 
@@ -92,7 +92,7 @@ flowchart TD
   pipeline --> ai["AI extraction"]
   ai --> writeRecipe["Create recipe, resources, images, flags"]
   writeRecipe --> flags{"Open review flags?"}
-  flags -->|"yes"| flagged["status=succeeded_with_flags<br/>embedding=skipped_due_to_flags"]
+  flags -->|"yes"| flagged["status=succeeded_with_flags<br/>embedding=SKIPPED_DUE_TO_FLAGS"]
   flags -->|"no"| success["status=succeeded<br/>enqueue embed_recipe_task"]
   flagged --> notifyDone["Create completion notification"]
   success --> notifyDone
@@ -127,13 +127,13 @@ This checklist applies to every phase. Any phase that touches import, resources,
 - Recipe ingredients are edited and saved as structured rows. The only required ingredient field is `name`; `quantity`, `unit`, and `note` are optional. Frontend ingredient edits remain local until the whole recipe form is saved. `Ingredient.search_name` is an internal normalized/casefolded derivative of `Ingredient.name`, is not exposed through API responses, and is recalculated during import and manual recipe edits. Recipe PATCH updates existing ingredients by `id`, creates new ingredients without `id`, deletes existing ingredients omitted from the payload, and rejects empty ingredient names.
 - `Recipe.search_text` and `Recipe.search_text_hash` are internal derived fields, not API response fields. They are built only from `title`, `source_name`, `author_name`, `ingredients.search_name`, `instructions`, `nutrition_estimate`, and `cook_time_minutes`, and are rebuilt after successful import and relevant manual recipe edits. Nutrition data is formatted as readable semantic text, for example `181.0 calories per serving`, `18.5 grams of proteins per serving`, `6.9 grams of fat per serving`, and `10.5 grams of carbs per serving`. Cooking time is formatted as readable semantic text, for example `Cooking time 20 minutes.`, not as a bare number.
 - `RecipeEmbedding` is optional technical search-index state: `Recipe 1 -- 0..1 RecipeEmbedding`. `recipe_embeddings.recipe_id` is both primary key and foreign key to `recipes.id` with cascade delete. Application code creates or updates the row only when the embedding subsystem needs to record state.
-- `RecipeEmbedding.input_hash` is independent from `Recipe.search_text_hash`. Embedding input is built only from `title`, `ingredients.search_name`, `instructions`, `nutrition_estimate`, and `cook_time_minutes`. Nutrition data and cooking time use the same readable semantic formatting described for `Recipe.search_text`. Recipes with open review flags are marked `skipped_due_to_flags` and are not enqueued for embedding until the last open flag is resolved. Embedding tasks do not create user-facing notifications.
+- `RecipeEmbedding.input_hash` is independent from `Recipe.search_text_hash`. Embedding input is built only from `title`, `ingredients.search_name`, `instructions`, `nutrition_estimate`, and `cook_time_minutes`. Nutrition data and cooking time use the same readable semantic formatting described for `Recipe.search_text`. Recipes with open review flags are marked `SKIPPED_DUE_TO_FLAGS` and are not enqueued for embedding until the last open flag is resolved. Embedding tasks do not create user-facing notifications.
 - `RecipeEmbeddingEvent` is append-only internal audit/debug history for `RecipeEmbedding`. It is not user-facing notification data and current embedding status is never computed from events. `RecipeEmbeddingEvent.recipe_id` points to `recipe_embeddings.recipe_id` and cascades through `RecipeEmbedding`.
 - Recipe and collection list endpoints are owner-scoped and paginated. Public list responses include `items`, `total`, `limit`, and `offset`. Lower-level query functions may return full owner-scoped lists when `limit` and `offset` are omitted.
 - Selected search chips are hard filters. Free text is reserved for vector search. `ingredient_name` has been replaced with `ingredient_query` in autocomplete, API parameters, and frontend types. Autocomplete always returns an `ingredient_query` suggestion first for a non-empty `q`, for example `Ingredient - cottage`. Concrete ingredient suggestions are no longer returned, to avoid encouraging overly exact ingredient choices. `/recipes` accepts repeatable `ingredientQuery=<text>` query parameters. Each `ingredientQuery` value filters recipes through `contains` matching against `Ingredient.search_name`, and multiple `ingredientQuery` values are combined with AND semantics.
-- `POST /search` uses selected chips as hard filters and free text as semantic/vector search. With free text present, the backend computes the query embedding using the current embedding provider/model, considers only current-owner recipes with `RecipeEmbedding.status = ready`, non-null embeddings, and `RecipeEmbedding.model == current query embedding model`, applies chip filters before vector ranking, and sorts by configured vector distance ascending with `Recipe.id` as a stable tie-breaker. The default and preferred metric is pgvector cosine distance (`<=>`); `EMBEDDING_DISTANCE_METRIC` defaults to `cosine` and currently supports `cosine` and `l2`. Debug similarity for cosine is `1 - distance`.
+- `POST /search` uses selected chips as hard filters and free text as semantic/vector search. With free text present, the backend computes the query embedding using the current embedding provider/model, considers only current-owner recipes with `RecipeEmbedding.status = READY`, non-null embeddings, and `RecipeEmbedding.model == current query embedding model`, applies chip filters before vector ranking, and sorts by configured vector distance ascending with `Recipe.id` as a stable tie-breaker. The default and preferred metric is pgvector cosine distance (`<=>`); `EMBEDDING_DISTANCE_METRIC` defaults to `cosine` and currently supports `cosine` and `l2`. Debug similarity for cosine is `1 - distance`.
 - Internal search debugging surfaces are admin-only. Until real Phase 6 auth/permissions exist, temporary frontend admin visibility is only a UI guard; backend `/internal` admin dependencies remain authoritative.
-- `POST /internal/search/explain` uses the public `SearchRequest` shape, applies selected chips as hard filters, uses only ready same-model embeddings for semantic candidates, and does not persist search debug snapshots. It returns effective filters, provider, query embedding model, distance metric, candidate count, returned count, pagination fields, `snapshot_persisted=false`, and ranked items with recipe id/title, rank, distance, similarity, embedding status, embedding model, input hash, embedding input preview, and match reasons. Semantic match reasons include a similarity `score`; selected chips are returned as individual match reasons.
+- `POST /internal/search/explain` uses the public `SearchRequest` shape, applies selected chips as hard filters, uses only `READY` same-model embeddings for semantic candidates, and does not persist search debug snapshots. It returns effective filters, provider, query embedding model, distance metric, candidate count, returned count, pagination fields, `snapshot_persisted=false`, and ranked items with recipe id/title, rank, distance, similarity, embedding status, embedding model, input hash, embedding input preview, and match reasons. Semantic match reasons include a similarity `score`; selected chips are returned as individual match reasons.
 - `GET /internal/recipes/{recipeId}/embedding-input` returns the same current embedding input text and input hash produced by the embedding input builder.
 - URL source status aggregation is preserved.
 - Final and primary resource status mapping is preserved.
@@ -504,7 +504,7 @@ flowchart TD
 - autocomplete + selected chips
 - paginated recipe/collection/search APIs
 - RecipeEmbedding with pgvector
-- embedding tasks with skipped_due_to_flags behavior
+- embedding tasks with `SKIPPED_DUE_TO_FLAGS` behavior
 - free text search = vector search only
 ```
 
@@ -1374,11 +1374,11 @@ class RecipeEmbedding(Base):
 Statuses:
 
 ```text
-stale
-running
-ready
-failed
-skipped_due_to_flags
+STALE
+RUNNING
+READY
+FAILED
+SKIPPED_DUE_TO_FLAGS
 ```
 
 No `desired_input_hash`.
@@ -1427,15 +1427,15 @@ Rules:
 
 ```text
 If recipe has open review flags:
-  create/update RecipeEmbedding.status = skipped_due_to_flags
+  create/update RecipeEmbedding.status = SKIPPED_DUE_TO_FLAGS
   do not enqueue embedding
 
 If last open review flag is resolved:
-  mark RecipeEmbedding.status = stale
+  mark RecipeEmbedding.status = STALE
   enqueue embed_recipe(recipe_id)
 
 If a flag is reopened:
-  set RecipeEmbedding.status = skipped_due_to_flags
+  set RecipeEmbedding.status = SKIPPED_DUE_TO_FLAGS
 ```
 
 Current review flag endpoint calls `set_review_flag_status`.
@@ -1449,21 +1449,21 @@ embed_recipe(recipe_id):
   - reload latest recipe
   - check owner-scoped recipe exists
   - if open review flags exist:
-      set status = skipped_due_to_flags
+      set status = SKIPPED_DUE_TO_FLAGS
       return
   - build deterministic embedding input
   - compute input_hash
-  - if status=ready and input_hash/model match:
+  - if status=READY and input_hash/model match:
       return
-  - mark running
+  - mark RUNNING
   - call embedding provider
   - reload recipe after provider call
   - recompute hash
   - if hash changed:
-      mark stale
+      mark STALE
       enqueue embed_recipe(recipe_id)
       return
-  - save vector, model, input_hash, status=ready
+  - save vector, model, input_hash, status=READY
 ```
 
 #### Failure Handling MVP
@@ -1485,8 +1485,8 @@ Behavior:
 
 ```text
 - check recipe belongs to current user
-- if open flags exist: set skipped_due_to_flags and do not enqueue
-- else set stale and enqueue embed_recipe(recipe_id)
+- if open flags exist: set SKIPPED_DUE_TO_FLAGS and do not enqueue
+- else set STALE and enqueue embed_recipe(recipe_id)
 ```
 
 No watchdog/repair job yet.
@@ -1593,16 +1593,16 @@ Event constants:
 
 ```python
 class EmbeddingEventType:
-    SCHEDULED = "scheduled"
-    ENQUEUED = "enqueued"
-    STARTED = "started"
-    SKIPPED_DUE_TO_FLAGS = "skipped_due_to_flags"
-    ALREADY_READY = "already_ready"
-    PROVIDER_SUCCEEDED = "provider_succeeded"
-    SAVED = "saved"
-    STALE_REQUEUED = "stale_requeued"
-    FAILED = "failed"
-    RETRY_REQUESTED = "retry_requested"
+    SCHEDULED = "SCHEDULED"
+    ENQUEUED = "ENQUEUED"
+    STARTED = "STARTED"
+    SKIPPED_DUE_TO_FLAGS = "SKIPPED_DUE_TO_FLAGS"
+    ALREADY_READY = "ALREADY_READY"
+    PROVIDER_SUCCEEDED = "PROVIDER_SUCCEEDED"
+    SAVED = "SAVED"
+    STALE_REQUEUED = "STALE_REQUEUED"
+    FAILED = "FAILED"
+    RETRY_REQUESTED = "RETRY_REQUESTED"
 ```
 
 Helper:
@@ -1632,50 +1632,50 @@ Set `RecipeEmbedding.status` first, then call `add_embedding_event`, so `status_
 #### Event Writing Rules
 
 ```text
-scheduled:
-  write when embedding recalculation is needed and status becomes stale
+SCHEDULED:
+  write when embedding recalculation is needed and status becomes STALE
   payload: reason, model
 
-enqueued:
+ENQUEUED:
   write after embed_recipe(recipe_id) is successfully queued
   payload: taskName, recipeId
 
-skipped_due_to_flags:
-  write after status becomes skipped_due_to_flags
+SKIPPED_DUE_TO_FLAGS:
+  write after status becomes SKIPPED_DUE_TO_FLAGS
   payload: reason=open_review_flags, openFlagCount
 
-started:
-  write when worker sets status=running
+STARTED:
+  write when worker sets status=RUNNING
   payload: model, inputHash
 
-already_ready:
+ALREADY_READY:
   write only when an actual worker task starts and exits as no-op
   payload: model, inputHash
 
-provider_succeeded:
+PROVIDER_SUCCEEDED:
   write after provider returns vector successfully, before or around saving it
   payload: model, inputHash, dimension, durationMs
 
-saved:
-  write after vector is persisted and status becomes ready
+SAVED:
+  write after vector is persisted and status becomes READY
   payload: model, inputHash, dimension
 
-stale_requeued:
+STALE_REQUEUED:
   write when recipe changed while provider call was running and computed vector is discarded
   payload: reason, taskInputHash, latestInputHash
-  also write enqueued if requeue succeeds
+  also write `ENQUEUED` if requeue succeeds
 
-failed:
-  write after status becomes failed
+FAILED:
+  write after status becomes FAILED
   payload: model, inputHash, error, temporary, failedAttempts
 
-retry_requested:
+RETRY_REQUESTED:
   write when manual retry is requested
   payload: source=manual, previousStatus, failedAttempts
-  also write enqueued if retry is queued
+  also write `ENQUEUED` if retry is queued
 ```
 
-Do not write `already_ready` from scheduler checks; it is worker-only.
+Do not write `ALREADY_READY` from scheduler checks; it is worker-only.
 
 #### Admin API and UI
 
@@ -1689,8 +1689,8 @@ GET /internal/embeddings
 
 POST /internal/embeddings/{recipe_id}/retry
   triggers manual retry
-  writes retry_requested
-  writes enqueued if queueing succeeds
+  writes RETRY_REQUESTED
+  writes ENQUEUED if queueing succeeds
 ```
 
 Dedicated paginated `/admin/recipe-embeddings` endpoints are deferred until real admin auth/routes are introduced. Current implementation extends the existing `/internal/embeddings` local/admin diagnostics page.
@@ -1731,20 +1731,20 @@ Add/update tests:
 RecipeEmbeddingEvent can be created for an existing RecipeEmbedding.
 add_embedding_event stores recipe_id, owner_id, event_type, status_after, payload.
 Deleting Recipe cascades Recipe -> RecipeEmbedding -> RecipeEmbeddingEvent.
-Scheduling writes scheduled and enqueued.
-Open review flags write skipped_due_to_flags and do not enqueue.
-Worker success writes started, provider_succeeded, saved.
-Worker no-op writes already_ready.
-Provider failure writes failed.
-Stale requeue writes stale_requeued and enqueued.
-Manual retry writes retry_requested and enqueued if queued.
+Scheduling writes SCHEDULED and ENQUEUED.
+Open review flags write SKIPPED_DUE_TO_FLAGS and do not enqueue.
+Worker success writes STARTED, PROVIDER_SUCCEEDED, SAVED.
+Worker no-op writes ALREADY_READY.
+Provider failure writes FAILED.
+Stale requeue writes STALE_REQUEUED and ENQUEUED.
+Manual retry writes RETRY_REQUESTED and ENQUEUED if queued.
 Internal/admin embeddings API/UI returns existing RecipeEmbedding rows and their events.
 Recipes without RecipeEmbedding rows are not included in the admin embeddings page.
 ```
 
 ### Iteration 10c: Embedding Module Refactor
 
-Status: approved, not started.
+Status: in progress. Subphase 10c.1 is implemented and awaiting review; Subphase 10c.2 has not started.
 
 Goal: refactor the embedding subsystem into an explicit lifecycle-oriented pipeline with typed states, short database scopes, and no open ORM session during the provider call, while preserving current product behavior and API contracts.
 
@@ -1756,18 +1756,18 @@ This iteration must follow [Refactoring Guidelines](./refactoring-guidelines.md)
 Recipe 1 -- 0..1 RecipeEmbedding.
 Embedding input fields and normalization remain unchanged.
 Embedding provider/model selection remains unchanged.
-Open review flags produce skipped_due_to_flags and prevent enqueue.
+Open review flags produce SKIPPED_DUE_TO_FLAGS and prevent enqueue.
 Ready embedding with the same input hash and model is not recalculated.
 Recipe changes during provider execution discard the stale vector and requeue.
 Provider failure records failed state, increments failed_attempts, and is re-raised for Dramatiq retry.
 Dramatiq max_retries remains 3.
 Embedding tasks do not create user-facing notifications.
 Public and internal API paths remain unchanged.
-Existing lowercase status and event values remain unchanged at API boundaries.
+Embedding status and event names and values are identical uppercase strings in Python, PostgreSQL, API responses, and frontend contracts.
 Search ranking and vector distance behavior remain unchanged.
 ```
 
-Queue publishing is a secondary operation. Failure to publish an embedding task must not turn an already successful import, recipe edit, or review-flag update into a failed user operation. The embedding remains `stale`, the publishing failure is logged, and no `enqueued` event is written. A transactional outbox remains deferred to production hardening.
+Queue publishing is a secondary operation. Failure to publish an embedding task must not turn an already successful import, recipe edit, or review-flag update into a failed user operation. The embedding remains `STALE`, the publishing failure is logged, and no `ENQUEUED` event is written. A transactional outbox remains deferred to production hardening.
 
 #### Target Module Responsibilities
 
@@ -1883,24 +1883,35 @@ The boolean returned by `enqueue_recipe_embedding` reports whether broker publis
 
 #### Typed Lifecycle Model
 
-Keep the current `RecipeEmbeddingStatus` values and map model fields directly to the enum instead of storing untyped strings.
+Change `RecipeEmbeddingStatus` so every enum name and value is the same uppercase string, and map model fields directly to the enum instead of storing untyped strings:
 
-Add `RecipeEmbeddingEventType` with the existing values:
-
-```text
-scheduled
-enqueued
-started
-skipped_due_to_flags
-already_ready
-provider_succeeded
-saved
-stale_requeued
-failed
-retry_requested
+```python
+class RecipeEmbeddingStatus(str, Enum):
+    STALE = "STALE"
+    RUNNING = "RUNNING"
+    READY = "READY"
+    FAILED = "FAILED"
+    SKIPPED_DUE_TO_FLAGS = "SKIPPED_DUE_TO_FLAGS"
 ```
 
-This explicitly supersedes the Iteration 10b decision to keep embedding event types as untyped strings. The stored values do not change.
+Add `RecipeEmbeddingEventType` with the lifecycle values:
+
+```python
+class RecipeEmbeddingEventType(str, Enum):
+    SCHEDULED = "SCHEDULED"
+    ENQUEUED = "ENQUEUED"
+    STARTED = "STARTED"
+    SKIPPED_DUE_TO_FLAGS = "SKIPPED_DUE_TO_FLAGS"
+    ALREADY_READY = "ALREADY_READY"
+    PROVIDER_SUCCEEDED = "PROVIDER_SUCCEEDED"
+    SAVED = "SAVED"
+    STALE_REQUEUED = "STALE_REQUEUED"
+    FAILED = "FAILED"
+    RETRY_REQUESTED = "RETRY_REQUESTED"
+```
+
+This explicitly supersedes the Iteration 10b decision to keep embedding event types as untyped strings and lowercase values.
+SQLAlchemy can persist the enum member names directly because each member name and value are identical; `values_callable` is not needed.
 
 Update model fields:
 
@@ -1910,7 +1921,7 @@ RecipeEmbeddingEvent.event_type: RecipeEmbeddingEventType
 RecipeEmbeddingEvent.status_after: RecipeEmbeddingStatus | None
 ```
 
-Add an Alembic migration that creates PostgreSQL enum types and converts existing columns without changing stored lowercase values. Cover upgrade, downgrade, fresh database, and persisted-value compatibility in migration/model tests.
+Add an Alembic migration that converts existing lowercase status and event values to their uppercase equivalents, creates PostgreSQL enum types, and converts the columns. Downgrade must restore the lowercase string values. Cover upgrade, downgrade, fresh database, and persisted-value compatibility in migration/model tests.
 
 #### Worker Transaction Flow
 
@@ -1947,6 +1958,8 @@ The real implementation must calculate `duration_ms` around the provider call. T
 
 #### Subphase 10c.1: Typed Lifecycle and Migration
 
+Status: implemented, awaiting review.
+
 - Add `RecipeEmbeddingEventType` and type all three lifecycle model fields.
 - Add PostgreSQL migration and update schema/model serialization where required.
 - Replace `.value` comparisons with enum comparisons in application code and queries.
@@ -1968,17 +1981,17 @@ The real implementation must calculate `duration_ms` around the provider call. T
 - Pass `Session` explicitly; remove hidden session lookup through ORM objects.
 - Centralize open-flag counting and remove duplicate skip logic.
 - Return `EmbeddingPlan` instead of an unnamed tuple.
-- Preserve the rule that scheduler no-op does not write `already_ready`; that event remains worker-only.
+- Preserve the rule that scheduler no-op does not write `ALREADY_READY`; that event remains worker-only.
 - Add focused tests for open flags, ready no-op, changed input, missing embedding row, and forced retry.
 - Run the refactoring checkpoint and stop for review.
 
 #### Subphase 10c.4: Worker Processing Lifecycle
 
 - Add `processing.py` with start, complete, failure, and orchestration functions.
-- Commit `running` and `started` before calling the provider.
+- Commit `RUNNING` and `STARTED` before calling the provider.
 - Call the provider without an open database session.
 - Reload the current recipe after the provider returns and recompute the input snapshot.
-- Save `ready` and `saved`, or set `stale` and write `stale_requeued`, atomically with the corresponding state.
+- Save `READY` and `SAVED`, or set `STALE` and write `STALE_REQUEUED`, atomically with the corresponding state.
 - Persist provider failure in a fresh session and re-raise it for Dramatiq retry.
 - Make `tasks.py` a thin actor declaration without direct SessionLocal usage.
 - Add focused tests for success, already-ready, missing recipe, open flags, provider failure, recipe mutation during provider call, and requeue.
@@ -1987,8 +2000,8 @@ The real implementation must calculate `duration_ms` around the provider call. T
 #### Subphase 10c.5: Queue Boundary and Callers
 
 - Add `queue.py` as the single Dramatiq publishing boundary.
-- Write `enqueued` only after broker publishing succeeds.
-- Keep embedding `stale` and log the error when publishing fails; do not fail the completed user operation.
+- Write `ENQUEUED` only after broker publishing succeeds.
+- Keep embedding `STALE` and log the error when publishing fails; do not fail the completed user operation.
 - Adapt import success, recipe editing, review-flag resolution/reopen, public retry, and internal retry callers.
 - Keep routers thin and preserve response models and owner checks.
 - Remove old service helpers, compatibility imports, duplicate commits, and stale tests.
@@ -2080,7 +2093,7 @@ SELECT recipes.*
 FROM recipes
 JOIN recipe_embeddings ON recipe_embeddings.recipe_id = recipes.id
 WHERE recipes.owner_id = :owner_id
-  AND recipe_embeddings.status = 'ready'
+  AND recipe_embeddings.status = 'READY'
 ORDER BY recipe_embeddings.embedding <=> :query_embedding
 LIMIT :limit_plus_one
 OFFSET :offset;
@@ -2102,15 +2115,15 @@ Selected chips only:
 
 Text only:
   return vector matches.
-  if no ready embeddings exist, return empty items with hasMore=false.
+  if no `READY` embeddings exist, return empty items with hasMore=false.
 
 Selected chips + text:
   apply hard filters first, then vector rank within filtered candidates.
 
 Embeddings missing for some recipes:
-  those recipes are absent from semantic results until embedding is ready.
+  those recipes are absent from semantic results until embedding is `READY`.
 
-Recipe has skipped_due_to_flags:
+Recipe has SKIPPED_DUE_TO_FLAGS:
   absent from vector search.
 ```
 
@@ -2226,7 +2239,7 @@ internal search explain requires admin guard
 internal embedding input preview requires admin guard
 search explain returns no persisted debug snapshot rows
 search explain applies selected chips as hard filters
-search explain uses only ready embeddings for semantic ranking
+search explain uses only `READY` embeddings for semantic ranking
 embedding input preview returns the same text/hash built by the embedding input builder
 frontend Search Debug page calls internal explain endpoint
 recipe detail hides embedding preview for non-admin state once user context exists

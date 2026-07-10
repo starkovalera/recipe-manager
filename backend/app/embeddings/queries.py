@@ -49,7 +49,7 @@ def get_or_create_recipe_embedding(session: Session, recipe_id: str, *, model: s
     embedding = RecipeEmbedding(
         recipe_id=recipe_id,
         model=model,
-        status=RecipeEmbeddingStatus.STALE.value,
+        status=RecipeEmbeddingStatus.STALE,
         embedding=None,
         input_hash=None,
     )
