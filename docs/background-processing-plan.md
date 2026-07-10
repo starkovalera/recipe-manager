@@ -1744,7 +1744,7 @@ Recipes without RecipeEmbedding rows are not included in the admin embeddings pa
 
 ### Iteration 10c: Embedding Module Refactor
 
-Status: in progress. Subphase 10c.1 is implemented and awaiting review; Subphase 10c.2 has not started.
+Status: in progress. Subphase 10c.1 is completed and approved; Subphase 10c.2 is awaiting approval.
 
 Goal: refactor the embedding subsystem into an explicit lifecycle-oriented pipeline with typed states, short database scopes, and no open ORM session during the provider call, while preserving current product behavior and API contracts.
 
@@ -1958,7 +1958,7 @@ The real implementation must calculate `duration_ms` around the provider call. T
 
 #### Subphase 10c.1: Typed Lifecycle and Migration
 
-Status: implemented, awaiting review.
+Status: completed and approved.
 
 - Add `RecipeEmbeddingEventType` and type all three lifecycle model fields.
 - Add PostgreSQL migration and update schema/model serialization where required.
@@ -1967,6 +1967,8 @@ Status: implemented, awaiting review.
 - Run the refactoring checkpoint and stop for review.
 
 #### Subphase 10c.2: Input and Query Cleanup
+
+Status: awaiting approval.
 
 - Replace separate text/hash builders with one `RecipeEmbeddingInput` builder.
 - Remove `Any` from the input builder.
