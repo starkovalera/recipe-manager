@@ -1744,7 +1744,7 @@ Recipes without RecipeEmbedding rows are not included in the admin embeddings pa
 
 ### Iteration 10c: Embedding Module Refactor
 
-Status: in progress. Subphases 10c.1, 10c.2, and 10c.3 are completed and approved.
+Status: in progress. Subphases 10c.1, 10c.2, 10c.3, and 10c.4 are completed and approved.
 
 Goal: refactor the embedding subsystem into an explicit lifecycle-oriented pipeline with typed states, short database scopes, and no open ORM session during the provider call, while preserving current product behavior and API contracts.
 
@@ -1990,6 +1990,8 @@ Status: completed and approved.
 - Run the refactoring checkpoint and stop for review.
 
 #### Subphase 10c.4: Worker Processing Lifecycle
+
+Status: completed and approved.
 
 - Add `processing.py` with start, complete, failure, and orchestration functions.
 - Commit `RUNNING` and `STARTED` before calling the provider.
