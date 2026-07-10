@@ -5,7 +5,7 @@ from io import BytesIO
 import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -18,6 +18,7 @@ from app.db.base import Base
 from app.db.init import ensure_default_user
 from app.db.session import get_session
 from app.imports.jobs import (
+    create as import_create,
     process_import_job,
 )
 from app.imports.source_loading.url_loaders.types import LoadedRemoteImage, LoadedRemoteVideo, LoadedUrlContent
@@ -25,14 +26,17 @@ from app.main import create_app
 from app.models import (
     ImportEventType,
     ImportJob,
+    ImportJobSource,
     ImportJobStatus,
     Ingredient,
+    JobEvent,
     Notification,
     NotificationType,
     Recipe,
     RecipeEmbeddingEventType,
     RecipeEmbeddingStatus,
 )
+from app.storage.base import StoredFile
 from tests.imports.runtime_overrides import (
     reset_url_content_service,
     reset_video_processor,
@@ -89,6 +93,29 @@ def image_bytes() -> bytes:
     out = BytesIO()
     Image.new("RGB", (20, 20), color=(255, 0, 0)).save(out, format="JPEG")
     return out.getvalue()
+
+
+class RecordingStorage:
+    def __init__(self, fail_on_save: int | None = None) -> None:
+        self.fail_on_save = fail_on_save
+        self.saved_keys: list[str] = []
+        self.deleted_keys: list[str] = []
+
+    def save(self, content: bytes, original_name: str, mime_type: str) -> StoredFile:
+        save_number = len(self.saved_keys) + 1
+        if save_number == self.fail_on_save:
+            raise OSError(f"save {save_number} failed")
+        storage_key = f"saved-{save_number}.jpg"
+        self.saved_keys.append(storage_key)
+        return StoredFile(
+            storage_key=storage_key,
+            original_name=original_name,
+            mime_type=mime_type,
+            size_bytes=len(content),
+        )
+
+    def delete(self, storage_key: str) -> None:
+        self.deleted_keys.append(storage_key)
 
 
 def run_import_worker(client: TestClient, job_id: str) -> None:
@@ -367,6 +394,141 @@ def test_import_rejects_invalid_image_payload_before_job_creation():
     assert response.json()["errorCode"] == "INVALID_FILE_TYPE"
     with SessionLocal() as session:
         assert session.query(ImportJob).count() == 0
+
+
+@pytest.mark.parametrize(
+    ("fail_on_save", "expected_deleted_keys"),
+    [(1, []), (2, ["saved-1.jpg"])],
+)
+def test_upload_failure_rolls_back_import_creation_and_deletes_saved_files(
+    monkeypatch,
+    fail_on_save: int,
+    expected_deleted_keys: list[str],
+):
+    client, SessionLocal = client_with_session_factory()
+    storage = RecordingStorage(fail_on_save=fail_on_save)
+    monkeypatch.setattr(import_create, "LocalStorageService", lambda upload_dir: storage)
+    enqueued: list[str] = []
+    monkeypatch.setattr(import_routes, "enqueue_import_job", enqueued.append)
+
+    response = client.post(
+        "/imports",
+        data={"clientImportId": "second-upload-fails"},
+        files=[
+            ("files", ("first.jpg", image_bytes(), "image/jpeg")),
+            ("files", ("second.jpg", image_bytes(), "image/jpeg")),
+        ],
+        headers={"X-Client-Id": "client-1"},
+    )
+
+    assert response.status_code == 500
+    assert response.json() == {
+        "errorCode": "IMPORT_CREATION_FAILED",
+        "message": "Failed to create import. Please try again.",
+    }
+    assert storage.deleted_keys == expected_deleted_keys
+    assert enqueued == []
+    with SessionLocal() as session:
+        assert session.query(ImportJob).count() == 0
+        assert session.query(ImportJobSource).count() == 0
+        assert session.query(JobEvent).count() == 0
+        assert session.query(Notification).count() == 0
+
+
+@pytest.mark.parametrize("failing_builder", ["build_job_event", "build_notification"])
+def test_audit_write_failure_rolls_back_import_creation_and_deletes_uploaded_files(monkeypatch, failing_builder: str):
+    client, SessionLocal = client_with_session_factory()
+    storage = RecordingStorage()
+    monkeypatch.setattr(import_create, "LocalStorageService", lambda upload_dir: storage)
+    enqueued: list[str] = []
+    monkeypatch.setattr(import_routes, "enqueue_import_job", enqueued.append)
+
+    def fail_audit_write(*args, **kwargs):
+        raise RuntimeError("audit write failed")
+
+    monkeypatch.setattr(import_create, failing_builder, fail_audit_write)
+
+    response = client.post(
+        "/imports",
+        data={"clientImportId": "event-fails"},
+        files=[("files", ("recipe.jpg", image_bytes(), "image/jpeg"))],
+        headers={"X-Client-Id": "client-1"},
+    )
+
+    assert response.status_code == 500
+    assert response.json()["errorCode"] == "IMPORT_CREATION_FAILED"
+    assert storage.deleted_keys == ["saved-1.jpg"]
+    assert enqueued == []
+    with SessionLocal() as session:
+        assert session.query(ImportJob).count() == 0
+        assert session.query(ImportJobSource).count() == 0
+        assert session.query(JobEvent).count() == 0
+        assert session.query(Notification).count() == 0
+
+
+def test_storage_initialization_failure_returns_import_creation_error(monkeypatch):
+    client = client_with_session()
+
+    def fail_storage_initialization(upload_dir):
+        raise OSError("storage unavailable")
+
+    monkeypatch.setattr(import_create, "LocalStorageService", fail_storage_initialization)
+
+    response = client.post(
+        "/imports",
+        data={"clientImportId": "storage-init-fails", "text": "Recipe"},
+        headers={"X-Client-Id": "client-1"},
+    )
+
+    assert response.status_code == 500
+    assert response.json()["errorCode"] == "IMPORT_CREATION_FAILED"
+
+
+def test_commit_failure_rolls_back_import_creation_and_deletes_uploaded_files(monkeypatch):
+    client, SessionLocal = client_with_session_factory()
+    storage = RecordingStorage()
+    monkeypatch.setattr(import_create, "LocalStorageService", lambda upload_dir: storage)
+    commit_count = 0
+
+    def fail_creation_commit(session):
+        nonlocal commit_count
+        commit_count += 1
+        if commit_count == 2:
+            raise RuntimeError("commit failed")
+
+    event.listen(SessionLocal, "before_commit", fail_creation_commit)
+    try:
+        response = client.post(
+            "/imports",
+            data={"clientImportId": "commit-fails"},
+            files=[("files", ("recipe.jpg", image_bytes(), "image/jpeg"))],
+            headers={"X-Client-Id": "client-1"},
+        )
+    finally:
+        event.remove(SessionLocal, "before_commit", fail_creation_commit)
+
+    assert response.status_code == 500
+    assert response.json()["errorCode"] == "IMPORT_CREATION_FAILED"
+    assert storage.deleted_keys == ["saved-1.jpg"]
+    with SessionLocal() as session:
+        assert session.query(ImportJob).count() == 0
+
+
+def test_successful_creation_does_not_refresh_after_commit(monkeypatch):
+    client = client_with_session()
+
+    def fail_refresh(*args, **kwargs):
+        raise RuntimeError("post-commit refresh must not run")
+
+    monkeypatch.setattr(Session, "refresh", fail_refresh)
+
+    response = client.post(
+        "/imports",
+        data={"clientImportId": "no-post-commit-refresh", "text": "Recipe"},
+        headers={"X-Client-Id": "client-1"},
+    )
+
+    assert response.status_code == 202
 
 
 def test_image_attachment_import_creates_image_source():

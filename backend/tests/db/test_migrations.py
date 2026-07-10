@@ -1,9 +1,33 @@
+import importlib.util
 from pathlib import Path
+from types import SimpleNamespace
 
 from alembic.config import Config
 from sqlalchemy import create_engine, inspect, text
 
 from alembic import command
+
+
+def test_import_creation_error_postgres_migration_maps_value_during_enum_cast(monkeypatch):
+    migration_path = Path(__file__).resolve().parents[2] / "alembic" / "versions" / "20260710_0018_remove_import_creation_error_code.py"
+    spec = importlib.util.spec_from_file_location("migration_0018", migration_path)
+    assert spec is not None and spec.loader is not None
+    migration = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(migration)
+    statements: list[str] = []
+    fake_op = SimpleNamespace(
+        get_bind=lambda: SimpleNamespace(dialect=SimpleNamespace(name="postgresql")),
+        execute=statements.append,
+    )
+    monkeypatch.setattr(migration, "op", fake_op)
+
+    migration.upgrade()
+
+    assert not any(statement.startswith("UPDATE import_jobs SET error_code = 'IMPORT_FAILED'") for statement in statements)
+    assert any(
+        "CASE error_code::text WHEN 'IMPORT_CREATION_FAILED' THEN 'IMPORT_FAILED'" in statement
+        for statement in statements
+    )
 
 
 def test_alembic_upgrade_head_creates_core_tables(tmp_path: Path):
@@ -87,3 +111,37 @@ def test_embedding_lifecycle_migration_converts_existing_values_and_downgrades(t
     assert embedding_row.status == "ready"
     assert event_row.event_type == "saved"
     assert event_row.status_after == "ready"
+
+
+def test_import_creation_error_migration_maps_existing_rows_and_does_not_restore_classification(tmp_path: Path):
+    db_path = tmp_path / "import-creation-error-migration.db"
+    backend_root = Path(__file__).resolve().parents[2]
+    config = Config(str(backend_root / "alembic.ini"))
+    config.set_main_option("sqlalchemy.url", f"sqlite:///{db_path}")
+    config.set_main_option("script_location", str(backend_root / "alembic"))
+
+    command.upgrade(config, "20260710_0017")
+    engine = create_engine(f"sqlite:///{db_path}")
+    with engine.begin() as connection:
+        connection.execute(text("INSERT INTO users (id, email) VALUES ('user-1', 'user@example.com')"))
+        connection.execute(
+            text(
+                """
+                INSERT INTO import_jobs (
+                    id, owner_id, client_id, client_import_id, dedupe_key, status, error_code
+                ) VALUES (
+                    'job-1', 'user-1', 'client-1', 'import-1', 'import-1', 'FAILED', 'IMPORT_CREATION_FAILED'
+                )
+                """
+            )
+        )
+
+    command.upgrade(config, "head")
+    with engine.connect() as connection:
+        error_code = connection.execute(text("SELECT error_code FROM import_jobs WHERE id = 'job-1'")).scalar_one()
+    assert error_code == "IMPORT_FAILED"
+
+    command.downgrade(config, "20260710_0017")
+    with engine.connect() as connection:
+        error_code = connection.execute(text("SELECT error_code FROM import_jobs WHERE id = 'job-1'")).scalar_one()
+    assert error_code == "IMPORT_FAILED"

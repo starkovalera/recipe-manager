@@ -6,6 +6,7 @@ from app.db.base import Base
 from app.db.init import ensure_default_user
 from app.imports.error_codes import SecondaryResourceUploadError
 from app.imports.job_stages.failure import process_import_failure
+from app.imports.storage_cleanup import cleanup_import_storage
 from app.models import ImportEventType, ImportJob, ImportJobErrorCode, ImportJobStatus, NotificationType
 
 
@@ -15,6 +16,13 @@ class FakeStorage:
 
     def delete(self, storage_key: str) -> None:
         self.deleted_keys.append(storage_key)
+
+
+class PartiallyFailingStorage(FakeStorage):
+    def delete(self, storage_key: str) -> None:
+        self.deleted_keys.append(storage_key)
+        if storage_key == "upload-1":
+            raise OSError("delete failed")
 
 
 def create_session() -> Session:
@@ -68,6 +76,14 @@ def test_process_import_failure_sets_job_status_event_and_notification() -> None
         "url": "https://example.com",
     }
     assert job.owner.notifications[-1].type == NotificationType.IMPORT_FAILED
+
+
+def test_cleanup_import_storage_attempts_every_key_when_one_delete_fails() -> None:
+    storage = PartiallyFailingStorage()
+
+    cleanup_import_storage(storage, ["upload-1", "upload-2"])
+
+    assert storage.deleted_keys == ["upload-1", "upload-2"]
 
 
 def test_process_import_failure_can_keep_storage_on_processing_failures() -> None:

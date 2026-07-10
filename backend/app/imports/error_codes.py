@@ -8,10 +8,6 @@ class ImportGeneralErrorCode:
     UNEXPECTED_ERROR = "UNEXPECTED_ERROR"
 
 
-class ImportCreationErrorCode:
-    RESOURCE_UPLOAD_FAILED = "RESOURCE_UPLOAD_FAILED"
-
-
 class ImportProcessingErrorCode:
     SECONDARY_RESOURCE_UPLOADING_FAILED = "SECONDARY_RESOURCE_UPLOADING_FAILED"
 
@@ -64,17 +60,6 @@ class ImportRecipeError(Exception):
 
     def __str__(self) -> str:
         return f"<[{self.code} | {self.import_job_code.value}] {self.__class__.__name__}>: {self.to_dict()}"
-
-
-# creation
-class ImportCreationError(ImportRecipeError):
-    import_job_code: ImportJobErrorCode = ImportJobErrorCode.IMPORT_CREATION_FAILED
-    message: str = "Import creation failed."
-
-
-class ResourceUploadError(ImportCreationError):
-    code: str = ImportCreationErrorCode.RESOURCE_UPLOAD_FAILED
-    message: str = "Import creation failed due to resource upload issue."
 
 
 # processing

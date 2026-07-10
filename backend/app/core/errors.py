@@ -14,6 +14,7 @@ class ApiErrorCode(str, Enum):
     INVALID_FILE_TYPE = "INVALID_FILE_TYPE"
     FILE_TOO_LARGE = "FILE_TOO_LARGE"
     ACTIVE_IMPORT_EXISTS = "ACTIVE_IMPORT_EXISTS"
+    IMPORT_CREATION_FAILED = "IMPORT_CREATION_FAILED"
     INVALID_INGREDIENT = "INVALID_INGREDIENT"
     IMPORT_NOT_FOUND = "IMPORT_NOT_FOUND"
     NOTIFICATION_NOT_FOUND = "NOTIFICATION_NOT_FOUND"
@@ -120,6 +121,12 @@ class FileTooLargeError(ApiValidationError):
 class ActiveImportExistsError(ApiValidationError):
     error_code = ApiErrorCode.ACTIVE_IMPORT_EXISTS
     message = "Too many active imports for this user."
+
+
+class ImportCreationError(ApiError):
+    status_code = 500
+    error_code = ApiErrorCode.IMPORT_CREATION_FAILED
+    message = "Failed to create import. Please try again."
 
 
 class InvalidIngredientError(ApiValidationError):

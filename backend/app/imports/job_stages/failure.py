@@ -5,14 +5,10 @@ from app.imports.constants import TERMINAL_IMPORT_STATUSES
 from app.imports.error_codes import ImportGeneralErrorCode, ImportRecipeError
 from app.imports.events import build_job_event
 from app.imports.logging import log_import_failed
+from app.imports.storage_cleanup import cleanup_import_storage
 from app.models import ImportEventType, ImportJob, ImportJobErrorCode
 from app.notifications.notification_data import ImportFailedNotification, build_notification
 from app.storage.base import StorageService
-
-
-def cleanup_import_storage(storage: StorageService, storage_keys: list[str]) -> None:
-    for storage_key in storage_keys:
-        storage.delete(storage_key)
 
 
 def _parse_error(error: Exception | None) -> tuple[ImportJobErrorCode, str, str, dict[str, Any]]:

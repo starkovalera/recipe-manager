@@ -9,6 +9,7 @@ from app.db.init import ensure_default_user
 from app.models import (
     ImportEventType,
     ImportJob,
+    ImportJobErrorCode,
     ImportJobStatus,
     Ingredient,
     JobEvent,
@@ -50,6 +51,18 @@ def test_ensure_default_user_is_idempotent():
     assert first.id == DEFAULT_USER_ID
     assert second.id == DEFAULT_USER_ID
     assert session.query(type(first)).count() == 1
+
+
+def test_ensure_default_user_does_not_leave_an_implicit_transaction_open():
+    session = create_session()
+
+    ensure_default_user(session)
+
+    assert session.in_transaction() is False
+
+
+def test_import_job_error_codes_do_not_include_creation_failures():
+    assert "IMPORT_CREATION_FAILED" not in {error_code.value for error_code in ImportJobErrorCode}
 
 
 def test_ensure_default_user_creates_settings_and_default_tags_idempotently():

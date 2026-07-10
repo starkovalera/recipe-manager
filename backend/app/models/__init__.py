@@ -54,11 +54,9 @@ class ImportJobStatus(str, enum.Enum):
 
 
 class ImportJobErrorCode(str, enum.Enum):
-    # High-level persisted import failure categories. Detailed creation,
-    # processing, or extraction diagnostics are stored in ImportJob.error_message
-    # and failed JobEvent payloads, not in this field.
+    # High-level persisted processing failures. Import creation failures are
+    # synchronous API errors and therefore never belong to a persisted job.
     IMPORT_FAILED = "IMPORT_FAILED"
-    IMPORT_CREATION_FAILED = "IMPORT_CREATION_FAILED"
     IMPORT_PROCESSING_FAILED = "IMPORT_PROCESSING_FAILED"
     IMPORT_EXTRACTION_FAILED = "IMPORT_EXTRACTION_FAILED"
 

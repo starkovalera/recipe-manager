@@ -141,11 +141,11 @@ This checklist applies to every phase. Any phase that touches import, resources,
 - URL source status aggregation is preserved.
 - Final and primary resource status mapping is preserved.
 - Public API errors use `ApiErrorCode`; import-job persisted failure categories use `ImportJobErrorCode`. These enums are separate and must not be mixed.
-- `ImportJob.error_code` is always one of `ImportJobErrorCode.value`: `IMPORT_CREATION_FAILED`, `IMPORT_PROCESSING_FAILED`, or `IMPORT_EXTRACTION_FAILED`.
+- `ImportJob.error_code` is always one of `ImportJobErrorCode.value`: `IMPORT_FAILED`, `IMPORT_PROCESSING_FAILED`, or `IMPORT_EXTRACTION_FAILED`.
 - Detailed import failure reasons are stored in `ImportJob.error_message` and failed `JobEvent.payload.detailCode` when available; they are not stored in `ImportJob.error_code`.
 - Empty import requests fail preflight validation with API error `NO_IMPORT_SOURCES`; no `ImportJob` is created.
-- After preflight validation succeeds, `ImportJob` is created before primary resource upload work, so creation-stage failures can be persisted as failed jobs with events and notifications.
-- Primary upload/resource creation failures fail the job with `IMPORT_CREATION_FAILED`, detail `RESOURCE_UPLOAD_FAILED`, create failed event/notification, and clean up uploaded files/resources.
+- Import job creation is atomic across the database state: if an `ImportJob` exists, all requested primary `ImportJobSource` rows, the `IMPORT_CREATED` event, and the import-started notification were persisted successfully.
+- Import creation validation failures create no `ImportJob`. Storage, database, event, notification, or other unexpected creation failures roll back all database changes, clean up files saved by the failed request, return API error `IMPORT_CREATION_FAILED`, and create no failed job/event/notification.
 - Secondary URL/media/video resource loading failures fail the job with `IMPORT_PROCESSING_FAILED`, detail `SECONDARY_RESOURCE_UPLOADING_FAILED`, create failed event/notification, and do not clean up already persisted job resources.
 - Extraction-stage failures fail the job with `IMPORT_EXTRACTION_FAILED`, store extraction detail code in `error_message`, create failed event/notification, and clean up storage created for the import.
 - Extraction detail codes are `AI_PARSE_FAILED`, `INVALID_EXTRACTION_RESULT`, `NOT_A_RECIPE`, `AI_UNAVAILABLE`, and `RECIPE_TOO_LONG`.
@@ -157,7 +157,7 @@ This checklist applies to every phase. Any phase that touches import, resources,
 - Cover candidate generation is preserved.
 - Generated cover persistence is preserved.
 - User resource deletion behavior is preserved.
-- Local storage cleanup on failed import is preserved.
+- Local storage cleanup on failed processing/extraction and failed atomic import creation is preserved.
 
 ## Refactoring Guidelines and Phase Completion Checkpoint
 
@@ -2281,13 +2281,9 @@ flowchart TD
 - Introduced separated API and import-job error taxonomies:
   - `ApiErrorCode` for public API errors;
   - `ImportJobErrorCode` for persisted high-level job failure categories;
-  - creation, processing, and extraction detail codes for `ImportJob.error_message` and failed event payloads.
+  - processing and extraction detail codes for `ImportJob.error_message` and failed event payloads.
 - Changed empty import preflight failure from API `NOT_A_RECIPE` to `NO_IMPORT_SOURCES`; no job is created for this validation failure.
-- Preserved immediate job creation after successful preflight validation, so creation-stage failures can be represented as failed `ImportJob` rows with events and notifications.
-- Added creation failure handling for upload/resource failures:
-  - high-level `IMPORT_CREATION_FAILED`;
-  - detail `RESOURCE_UPLOAD_FAILED`;
-  - cleanup of uploaded files/resources.
+- Approved atomic creation semantics: creation-stage failures are synchronous API failures, not failed background jobs. The implementation is tracked in the subphase below.
 - Added processing failure handling for secondary URL/media/video failures:
   - high-level `IMPORT_PROCESSING_FAILED`;
   - detail `SECONDARY_RESOURCE_UPLOADING_FAILED`;
@@ -2315,11 +2311,64 @@ flowchart TD
 
 ### Remaining Work / Follow-Up Candidates
 
-- Review whether `backend/app/imports/jobs.py` should be split further after the error-system migration settles.
 - Review user-facing failure messages for the new high-level/detail error split.
-- Decide whether creation-stage failed jobs should return HTTP 202 with failed job payload, or whether the import API should surface this differently while preserving job history.
 - Decide whether platform loaders should expose more granular secondary failure payload fields for images, video poster, and transcription.
 - Keep broader notification UX, import history UI, and visual design work in the following phases.
+
+### Subphase: Atomic Import Job Creation
+
+Status: implementation complete, pending review.
+
+Goal: persist an `ImportJob` only when its complete primary-source creation scope succeeds.
+
+#### Database and Storage Boundary
+
+- Keep request preflight validation before the creation transaction.
+- Inside one explicit database transaction:
+  - resolve idempotency/dedupe;
+  - enforce the active-import limit;
+  - add and flush the queued `ImportJob`;
+  - save uploaded images and add all requested primary `ImportJobSource` rows;
+  - add `IMPORT_CREATED`;
+  - add the import-started notification;
+  - commit the complete database scope.
+- Track every storage key saved during the request.
+- On any failure after storage writes begin, roll back database changes and run best-effort cleanup for every tracked storage key.
+- Storage cleanup failures are logged and never mask the original creation error.
+- Existing idempotent duplicate behavior remains unchanged.
+
+#### Error Taxonomy
+
+- Add public `ApiErrorCode.IMPORT_CREATION_FAILED` and `ImportCreationError(ApiError)` with HTTP 500 and static message `Failed to create import. Please try again.`
+- Remove creation-stage errors from the internal `ImportRecipeError` hierarchy.
+- Remove `ImportCreationErrorCode` and `ResourceUploadError`; log original storage/database exceptions as structured diagnostics.
+- Remove persisted `ImportJobErrorCode.IMPORT_CREATION_FAILED`.
+
+#### Migration
+
+- Before removing the PostgreSQL enum value, map existing `ImportJob.error_code = IMPORT_CREATION_FAILED` rows to `IMPORT_FAILED`.
+- Downgrade restores the enum member but cannot reconstruct the old per-row classification.
+
+#### API and Frontend Behavior
+
+- Creation failures return the new API error directly from `POST /imports`; no background task is enqueued.
+- The import form keeps URL, text, and selected files after the error and displays the static API message.
+- A failed creation produces no `ImportJob`, `ImportJobSource`, `JobEvent`, or `Notification` rows.
+
+#### Verification
+
+- Cover preflight failures, first/second upload failure, event/notification/database failure, cleanup continuation, successful atomic creation, and duplicate behavior.
+- Cover migration upgrade/downgrade and fresh-schema behavior.
+- Add frontend regression coverage for preserving all form fields and selected files after HTTP 500.
+- Run focused import/create/API/migration checks, full backend tests, frontend typecheck/tests, and frontend build.
+
+#### Implementation Result
+
+- Import creation now uses one explicit transaction for the job, all primary sources, `IMPORT_CREATED`, and the import-started notification.
+- Failed creation rolls back all database rows, performs best-effort cleanup for every saved file, logs original exceptions, and returns public API error `IMPORT_CREATION_FAILED`.
+- Creation errors are no longer represented by `ImportRecipeError` or persisted `ImportJobErrorCode` values.
+- Migration `20260710_0018` maps existing creation-failure rows to `IMPORT_FAILED` and removes the obsolete PostgreSQL enum value.
+- The existing frontend already retained its form on mutation failure; regression coverage now fixes that behavior as a contract.
 
 ### Checkpoints
 

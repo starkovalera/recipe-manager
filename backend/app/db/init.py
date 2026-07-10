@@ -33,7 +33,6 @@ def ensure_default_user(session: Session, recipe_language: str | None = None) ->
             session.add(Tag(owner_id=user.id, name=tag_name))
 
     session.commit()
-    session.refresh(user)
     return user
 
 
