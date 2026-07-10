@@ -2035,7 +2035,7 @@ Status: completed and approved.
 
 ### Iteration 11: Semantic/Vector Search Endpoint
 
-Status: implemented, pending review.
+Status: completed and approved.
 
 #### Files
 
@@ -2156,7 +2156,7 @@ Free text or selected chips present:
 
 ### Iteration 12: Admin Search Debugging Tools
 
-Status: implemented, pending review.
+Status: completed and approved.
 
 Goal: add admin-only tools for explaining semantic search behavior and previewing the exact embedding input used for a recipe.
 
