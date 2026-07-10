@@ -43,13 +43,11 @@ def apply_source_statuses(
         if resource.parent is not None or resource.type != SourceType.URL:
             continue
         children = [child for child in recipe_resources if child.parent is resource]
-        if not children:
-            resource.status = RecipeResourceStatus.UNKNOWN
-        elif any(child.status == RecipeResourceStatus.USED for child in children):
+        if any(child.status == RecipeResourceStatus.USED for child in children):
             resource.status = RecipeResourceStatus.USED
             resource.assessment_reason = "At least one child resource was selected as primary evidence by AI."
             resource.assessment_confidence = quality.confidence
-        elif all(child.status == RecipeResourceStatus.IGNORED for child in children):
+        elif children and all(child.status == RecipeResourceStatus.IGNORED for child in children):
             resource.status = RecipeResourceStatus.IGNORED
             resource.assessment_reason = "All child resources were ignored by AI."
             resource.assessment_confidence = quality.confidence
@@ -71,7 +69,10 @@ def derive_source_name_from_primary_resources(resources: list[RecipeResource]) -
     if url_values:
         result = derive_source_name(url_values)
         return result.source_name if result.ok and result.source_name is not None else SourceName.OTHER
-    if any(resource.source == RecipeResourceOrigin.MANUAL and resource.type in {SourceType.IMAGE, SourceType.TEXT} for resource in primary_resources):
+    if any(
+        resource.source == RecipeResourceOrigin.MANUAL and resource.type in {SourceType.IMAGE, SourceType.TEXT}
+        for resource in primary_resources
+    ):
         return SourceName.MANUAL
     return SourceName.OTHER
 

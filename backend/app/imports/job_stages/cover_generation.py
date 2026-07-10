@@ -52,9 +52,7 @@ def generate_cover_image(
     context: CoverGenerationContext,
 ) -> RecipeImage | None:
     image_by_ref: dict[str, RecipeImage] = {
-        context.ai_id_by_resource[resource]: resource.image
-        for resource in context.final_resources
-        if resource.image is not None
+        context.ai_id_by_resource[resource]: resource.image for resource in context.final_resources if resource.image is not None
     }
     candidate_ref = _cover_candidate_ref(
         recipe_result.cover_candidate.source_ref if recipe_result.cover_candidate else None,

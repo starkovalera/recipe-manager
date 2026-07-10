@@ -15,12 +15,12 @@ from app.imports.constants import (
     IMPORT_LOG_COMPONENT,
     TERMINAL_IMPORT_STATUSES,
 )
-from app.imports.cover_generation import CoverGenerationContext, generate_cover_image
 from app.imports.events import build_job_event
 from app.imports.job_context import ImportJobContext
+from app.imports.job_stages.cover_generation import CoverGenerationContext, generate_cover_image
 from app.imports.job_stages.extracted_recipe import normalize_extracted_recipe, validate_extracted_recipe
 from app.imports.job_stages.extraction import extract, validate_extraction_result
-from app.imports.job_stages.extraction_sources import build_extraction_context
+from app.imports.job_stages.extraction_sources import ExtractionContext, build_extraction_context
 from app.imports.job_stages.failure import process_import_failure
 from app.imports.job_stages.raw_recipe import build_raw_recipe
 from app.imports.job_stages.raw_sources import build_raw_sources
@@ -83,7 +83,7 @@ def persist_import_success(
     recipe,
     recipe_resources,
     content_recipe_resources,
-    extraction_context,
+    extraction_context: ExtractionContext,
     extracted_recipe: ExtractedRecipe,
     storage,
     saved_storage_keys: list[str],
