@@ -22,7 +22,17 @@ from app.imports.jobs import (
 )
 from app.imports.source_loading.url_loaders.types import LoadedRemoteImage, LoadedRemoteVideo, LoadedUrlContent
 from app.main import create_app
-from app.models import ImportEventType, ImportJob, ImportJobStatus, Ingredient, Notification, NotificationType, Recipe
+from app.models import (
+    ImportEventType,
+    ImportJob,
+    ImportJobStatus,
+    Ingredient,
+    Notification,
+    NotificationType,
+    Recipe,
+    RecipeEmbeddingEventType,
+    RecipeEmbeddingStatus,
+)
 from tests.imports.runtime_overrides import (
     reset_url_content_service,
     reset_video_processor,
@@ -43,7 +53,7 @@ def reset_import_dependencies(monkeypatch):
     set_recipe_extraction_provider(FakeRecipeExtractionProvider())
     reset_url_content_service()
     monkeypatch.setattr(import_routes, "enqueue_import_job", lambda import_job_id: None, raising=False)
-    monkeypatch.setattr("app.embeddings.service.enqueue_recipe_embedding", lambda recipe_id: None)
+    monkeypatch.setattr("app.imports.jobs.process.enqueue_recipe_embedding", lambda recipe_id, owner_id: True)
     yield
     set_recipe_extraction_provider(FakeRecipeExtractionProvider())
     reset_url_content_service()
@@ -156,6 +166,31 @@ def test_text_import_sets_recipe_search_text_and_hash():
     assert "ingredient" in recipe.search_text
     assert recipe.search_text_hash is not None
     assert len(recipe.search_text_hash) == 64
+
+
+def test_import_succeeds_when_embedding_publish_fails(monkeypatch):
+    client, SessionLocal = client_with_session_factory()
+    monkeypatch.setattr(
+        "app.imports.jobs.process.enqueue_recipe_embedding",
+        lambda recipe_id, owner_id: False,
+        raising=False,
+    )
+
+    created = client.post(
+        "/imports",
+        data={"clientImportId": "import-queue-failure", "text": "Tomato soup recipe"},
+        headers={"X-Client-Id": "client-1"},
+    )
+    completed = process_import_response(client, created)
+
+    assert completed.json()["status"] == "succeeded"
+    recipe_id = completed.json()["createdRecipeId"]
+    with SessionLocal() as session:
+        recipe = session.get(Recipe, recipe_id)
+        assert recipe is not None
+        assert recipe.embedding is not None
+        assert recipe.embedding.status is RecipeEmbeddingStatus.STALE
+        assert [event.event_type for event in recipe.embedding.events] == [RecipeEmbeddingEventType.SCHEDULED]
 
 
 def test_duplicate_client_import_id_returns_existing_job():

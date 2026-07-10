@@ -38,20 +38,39 @@ def create_recipe(session) -> Recipe:
 
 def test_retry_embedding_commits_and_enqueues_when_recipe_has_no_open_flags(monkeypatch):
     SessionLocal = session_factory()
-    enqueued: list[str] = []
+    enqueued: list[tuple[str, str]] = []
     with SessionLocal() as session:
         monkeypatch.setattr("app.embeddings.service.get_embedding_provider", lambda: ("test", StaticEmbeddingProvider()))
         monkeypatch.setattr("app.embeddings.planning.get_embedding_provider", lambda: ("test", StaticEmbeddingProvider()))
-        monkeypatch.setattr("app.embeddings.service.enqueue_recipe_embedding", enqueued.append)
+        monkeypatch.setattr(
+            "app.embeddings.service.enqueue_recipe_embedding",
+            lambda recipe_id, owner_id: enqueued.append((recipe_id, owner_id)) or True,
+        )
         recipe = create_recipe(session)
 
         embedding = retry_recipe_embedding(session, recipe.id, recipe.owner_id)
 
         assert embedding.status is RecipeEmbeddingStatus.STALE
         assert session.get(RecipeEmbedding, recipe.id) is not None
-        assert enqueued == [recipe.id]
+        assert enqueued == [(recipe.id, recipe.owner_id)]
         assert [event.event_type for event in embedding.events] == [
             RecipeEmbeddingEventType.RETRY_REQUESTED,
             RecipeEmbeddingEventType.SCHEDULED,
-            RecipeEmbeddingEventType.ENQUEUED,
+        ]
+
+
+def test_retry_embedding_succeeds_when_queue_publish_fails(monkeypatch):
+    SessionLocal = session_factory()
+    with SessionLocal() as session:
+        monkeypatch.setattr("app.embeddings.service.get_embedding_provider", lambda: ("test", StaticEmbeddingProvider()))
+        monkeypatch.setattr("app.embeddings.planning.get_embedding_provider", lambda: ("test", StaticEmbeddingProvider()))
+        monkeypatch.setattr("app.embeddings.service.enqueue_recipe_embedding", lambda recipe_id, owner_id: False)
+        recipe = create_recipe(session)
+
+        embedding = retry_recipe_embedding(session, recipe.id, recipe.owner_id)
+
+        assert embedding.status is RecipeEmbeddingStatus.STALE
+        assert [event.event_type for event in embedding.events] == [
+            RecipeEmbeddingEventType.RETRY_REQUESTED,
+            RecipeEmbeddingEventType.SCHEDULED,
         ]

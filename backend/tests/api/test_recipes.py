@@ -15,6 +15,7 @@ from app.main import create_app
 from app.models import (
     Ingredient,
     Recipe,
+    RecipeEmbeddingEventType,
     RecipeEmbeddingStatus,
     RecipeImage,
     RecipeResource,
@@ -44,7 +45,8 @@ def reset_settings(monkeypatch):
     monkeypatch.setenv("MAX_RECIPE_INGREDIENTS", "50")
     monkeypatch.setenv("MAX_RECIPE_INSTRUCTION_CHARS", "1000")
     monkeypatch.setenv("MAX_RECIPE_NOTE_CHARS", "500")
-    monkeypatch.setattr("app.embeddings.service.enqueue_recipe_embedding", lambda recipe_id: None)
+    monkeypatch.setattr("app.embeddings.service.enqueue_recipe_embedding", lambda recipe_id, owner_id: True)
+    monkeypatch.setattr("app.services.recipes.enqueue_recipe_embedding", lambda recipe_id, owner_id: True)
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()
@@ -287,16 +289,46 @@ def test_retry_embedding_endpoint_marks_stale_and_enqueues(monkeypatch):
         session.add(recipe)
         session.commit()
         recipe_id = recipe.id
-    enqueued: list[str] = []
+    enqueued: list[tuple[str, str]] = []
     monkeypatch.setattr("app.embeddings.service.get_embedding_provider", lambda: ("test", StaticEmbeddingProvider()))
     monkeypatch.setattr("app.embeddings.planning.get_embedding_provider", lambda: ("test", StaticEmbeddingProvider()))
-    monkeypatch.setattr("app.embeddings.service.enqueue_recipe_embedding", enqueued.append)
+    monkeypatch.setattr(
+        "app.embeddings.service.enqueue_recipe_embedding",
+        lambda recipe_id, owner_id: enqueued.append((recipe_id, owner_id)) or True,
+    )
 
     response = client.post(f"/recipes/{recipe_id}/embedding/retry")
 
     assert response.status_code == 200
     assert response.json()["status"] == RecipeEmbeddingStatus.STALE.value
-    assert enqueued == [recipe_id]
+    assert enqueued == [(recipe_id, "local-user")]
+
+
+def test_patch_recipe_succeeds_when_embedding_publish_fails(monkeypatch):
+    client, SessionLocal = client_with_session()
+    with SessionLocal() as session:
+        user = ensure_default_user(session)
+        recipe = Recipe(owner_id=user.id, title="Soup", instructions=["Heat water"])
+        recipe.ingredients.append(Ingredient(name="Water", position=0))
+        session.add(recipe)
+        session.commit()
+        recipe_id = recipe.id
+    monkeypatch.setattr(
+        "app.services.recipes.enqueue_recipe_embedding",
+        lambda recipe_id, owner_id: False,
+        raising=False,
+    )
+
+    response = client.patch(f"/recipes/{recipe_id}", json={"title": "Updated soup"})
+
+    assert response.status_code == 200
+    assert response.json()["title"] == "Updated soup"
+    with SessionLocal() as session:
+        recipe = session.get(Recipe, recipe_id)
+        assert recipe is not None
+        assert recipe.embedding is not None
+        assert recipe.embedding.status is RecipeEmbeddingStatus.STALE
+        assert [event.event_type for event in recipe.embedding.events] == [RecipeEmbeddingEventType.SCHEDULED]
 
 
 def test_cover_options_select_source_image_for_generated_cover():
@@ -591,6 +623,27 @@ def test_resolve_and_unresolve_review_flag():
     assert reopened.status_code == 200
     assert reopened.json()["status"] == "open"
     assert reopened.json()["resolvedAt"] is None
+
+
+def test_resolve_review_flag_succeeds_when_embedding_publish_fails(monkeypatch):
+    client, SessionLocal = client_with_session()
+    recipe_id, flag_id = seed_recipe(SessionLocal)
+    monkeypatch.setattr(
+        "app.services.recipes.enqueue_recipe_embedding",
+        lambda recipe_id, owner_id: False,
+        raising=False,
+    )
+
+    response = client.patch(f"/recipes/{recipe_id}/review-flags/{flag_id}", json={"status": "resolved"})
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "resolved"
+    with SessionLocal() as session:
+        recipe = session.get(Recipe, recipe_id)
+        assert recipe is not None
+        assert recipe.embedding is not None
+        assert recipe.embedding.status is RecipeEmbeddingStatus.STALE
+        assert [event.event_type for event in recipe.embedding.events] == [RecipeEmbeddingEventType.SCHEDULED]
 
 
 def test_patch_recipe_source_status_marks_single_source_without_children():

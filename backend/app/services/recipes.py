@@ -14,7 +14,7 @@ from app.core.errors import (
     UnsupportedSourceStatusError,
 )
 from app.embeddings.planning import prepare_recipe_embedding
-from app.embeddings.service import enqueue_recipe_embedding_with_event
+from app.embeddings.queue import enqueue_recipe_embedding
 from app.models import (
     Ingredient,
     Recipe,
@@ -170,8 +170,7 @@ def patch_recipe(session: Session, recipe_id: str, owner_id: str, patch: RecipeP
     embedding_plan = prepare_recipe_embedding(session, recipe)
     session.commit()
     if embedding_plan.enqueue:
-        enqueue_recipe_embedding_with_event(session, embedding=embedding_plan.embedding, owner_id=recipe.owner_id)
-        session.commit()
+        enqueue_recipe_embedding(recipe.id, recipe.owner_id)
     return get_recipe_detail(session, recipe_id, owner_id)
 
 
@@ -196,8 +195,7 @@ def set_review_flag_status(session: Session, recipe_id: str, owner_id: str, flag
     embedding_plan = prepare_recipe_embedding(session, flag.recipe)
     session.commit()
     if embedding_plan.enqueue:
-        enqueue_recipe_embedding_with_event(session, embedding=embedding_plan.embedding, owner_id=flag.recipe.owner_id)
-        session.commit()
+        enqueue_recipe_embedding(flag.recipe.id, flag.recipe.owner_id)
     session.refresh(flag)
     return flag
 

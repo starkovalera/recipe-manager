@@ -9,8 +9,7 @@ from app.core.errors import ImportNotFoundError
 from app.core.logging import bind_logger
 from app.db.session import db_session
 from app.embeddings.planning import prepare_recipe_embedding
-from app.embeddings.queries import get_recipe_embedding
-from app.embeddings.service import enqueue_recipe_embedding_with_event
+from app.embeddings.queue import enqueue_recipe_embedding
 from app.imports.config import ImportConfig
 from app.imports.constants import (
     IMPORT_LOG_COMPONENT,
@@ -68,12 +67,6 @@ def start_import_job(session: Session, job_id: str) -> ImportJob | None:
     session.flush()
     session.refresh(job)
     return job
-
-
-def enqueue_recipe_embedding_for_import(session: Session, *, recipe_id: str, owner_id: str) -> None:
-    embedding = get_recipe_embedding(session, recipe_id)
-    if embedding is not None:
-        enqueue_recipe_embedding_with_event(session, embedding=embedding, owner_id=owner_id)
 
 
 def save_import(
@@ -220,12 +213,7 @@ def process_import_job(job_id: str) -> None:
         log_recipe_created(import_result.job)
 
         if import_result.enqueue_embedding:
-            with db_session() as session:
-                enqueue_recipe_embedding_for_import(
-                    session,
-                    recipe_id=import_result.recipe_id,
-                    owner_id=job_context.owner_id,
-                )
+            enqueue_recipe_embedding(import_result.recipe_id, job_context.owner_id)
     except Exception as error:
         process_import_failure(job_id, storage, saved_storage_keys, error, cleanup_storage=True)
         return

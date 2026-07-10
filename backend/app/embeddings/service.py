@@ -7,25 +7,9 @@ from app.embeddings.queries import (
     get_or_create_recipe_embedding,
     get_recipe_for_embedding,
 )
+from app.embeddings.queue import enqueue_recipe_embedding
 from app.embeddings.runtime import get_embedding_provider
 from app.models import RecipeEmbedding, RecipeEmbeddingEventType
-
-
-def enqueue_recipe_embedding(recipe_id: str) -> None:
-    from app.embeddings.tasks import embed_recipe_task
-
-    embed_recipe_task.send(recipe_id)
-
-
-def enqueue_recipe_embedding_with_event(session: Session, *, embedding: RecipeEmbedding, owner_id: str) -> None:
-    enqueue_recipe_embedding(embedding.recipe_id)
-    add_embedding_event(
-        session,
-        embedding=embedding,
-        owner_id=owner_id,
-        event_type=RecipeEmbeddingEventType.ENQUEUED,
-        payload={"taskName": "embed_recipe", "recipeId": embedding.recipe_id},
-    )
 
 
 def retry_recipe_embedding(session: Session, recipe_id: str, owner_id: str) -> RecipeEmbedding:
@@ -45,7 +29,6 @@ def retry_recipe_embedding(session: Session, recipe_id: str, owner_id: str) -> R
     plan = prepare_recipe_embedding(session, recipe, force=True)
     session.commit()
     if plan.enqueue:
-        enqueue_recipe_embedding_with_event(session, embedding=plan.embedding, owner_id=recipe.owner_id)
-        session.commit()
+        enqueue_recipe_embedding(recipe.id, recipe.owner_id)
     session.refresh(plan.embedding)
     return plan.embedding

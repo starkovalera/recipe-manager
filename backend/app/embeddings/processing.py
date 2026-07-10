@@ -17,8 +17,8 @@ from app.embeddings.queries import (
     get_recipe_for_embedding,
     has_open_review_flags,
 )
+from app.embeddings.queue import enqueue_recipe_embedding
 from app.embeddings.runtime import get_embedding_provider
-from app.embeddings.service import enqueue_recipe_embedding_with_event
 from app.models import RecipeEmbeddingEventType, RecipeEmbeddingStatus
 
 logger = logging.getLogger(EMBEDDING_LOG_COMPONENT)
@@ -216,14 +216,7 @@ def process_recipe_embedding(recipe_id: str) -> None:
         )
 
     if requeue:
-        with db_session() as session:
-            embedding = get_recipe_embedding(session, context.recipe_id)
-            if embedding is not None:
-                enqueue_recipe_embedding_with_event(
-                    session,
-                    embedding=embedding,
-                    owner_id=context.owner_id,
-                )
+        enqueue_recipe_embedding(context.recipe_id, context.owner_id)
         log.info(f"{EMBEDDING_LOG_PREFIX} Embedding input changed during provider call")
         return
 

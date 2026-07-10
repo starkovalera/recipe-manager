@@ -172,7 +172,7 @@ def test_internal_embeddings_returns_recipe_embedding_status():
 
 def test_internal_embedding_retry_uses_existing_embedding_owner(monkeypatch):
     client, SessionLocal = client_with_session()
-    enqueued: list[str] = []
+    enqueued: list[tuple[str, str]] = []
     with SessionLocal() as session:
         user = ensure_default_user(session)
         recipe = Recipe(owner_id=user.id, title="Soup", instructions=["Heat water"])
@@ -186,19 +186,21 @@ def test_internal_embedding_retry_uses_existing_embedding_owner(monkeypatch):
         session.commit()
         recipe_id = recipe.id
 
-    monkeypatch.setattr("app.embeddings.service.enqueue_recipe_embedding", enqueued.append)
+    monkeypatch.setattr(
+        "app.embeddings.service.enqueue_recipe_embedding",
+        lambda recipe_id, owner_id: enqueued.append((recipe_id, owner_id)) or True,
+    )
     response = client.post(f"/internal/embeddings/{recipe_id}/retry")
 
     assert response.status_code == 200
     assert response.json()["status"] == "STALE"
-    assert enqueued == [recipe_id]
+    assert enqueued == [(recipe_id, "local-user")]
     with SessionLocal() as session:
         embedding = session.get(RecipeEmbedding, recipe_id)
         assert embedding is not None
         assert [event.event_type for event in embedding.events] == [
             RecipeEmbeddingEventType.RETRY_REQUESTED,
             RecipeEmbeddingEventType.SCHEDULED,
-            RecipeEmbeddingEventType.ENQUEUED,
         ]
 
 
