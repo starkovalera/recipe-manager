@@ -320,18 +320,18 @@ def search_recipes(session: Session, owner_id: str, request: SearchRequestIn) ->
     bind_logger(
         logger,
         component=SEARCH_LOG_COMPONENT,
-        ownerId=owner_id,
-        textPresent=bool(text),
-        selectedChipCount=len(request.selected),
+        owner_id=owner_id,
+        text_present=bool(text),
+        selected_chip_count=len(request.selected),
         limit=request.limit,
         offset=request.offset,
-        provider=provider_name,
+        provider_name=provider_name,
         model=provider_model,
-        distanceMetric=distance_metric,
+        distance_metric=distance_metric,
     ).info(
         "Semantic search completed",
-        returnedCount=len(items),
-        durationMs=round((time.perf_counter() - started_at) * 1000),
+        returned_count=len(items),
+        duration_ms=round((time.perf_counter() - started_at) * 1000),
     )
 
     return SearchResponseOut(
@@ -399,19 +399,19 @@ def explain_search(session: Session, owner_id: str, request: SearchRequestIn) ->
     bind_logger(
         logger,
         component=SEARCH_LOG_COMPONENT,
-        ownerId=owner_id,
-        textPresent=bool(text),
-        selectedChipCount=len(request.selected),
+        owner_id=owner_id,
+        text_present=bool(text),
+        selected_chip_count=len(request.selected),
         limit=request.limit,
         offset=request.offset,
-        provider=provider_name,
+        provider_name=provider_name,
         model=provider_model,
-        distanceMetric=distance_metric,
+        distance_metric=distance_metric,
     ).info(
         "Semantic search explained",
-        candidateCount=candidate_count,
-        returnedCount=len(items),
-        durationMs=round((time.perf_counter() - started_at) * 1000),
+        candidate_count=candidate_count,
+        returned_count=len(items),
+        duration_ms=round((time.perf_counter() - started_at) * 1000),
     )
 
     return SearchExplainResponseOut(

@@ -204,7 +204,7 @@ def test_internal_embedding_retry_uses_existing_embedding_owner(monkeypatch):
         ]
 
 
-def test_internal_search_explain_applies_filters_and_ready_embeddings(monkeypatch):
+def test_internal_search_explain_applies_filters_and_ready_embeddings(monkeypatch, capsys):
     client, SessionLocal = client_with_session()
     with SessionLocal() as session:
         user = ensure_default_user(session)
@@ -261,6 +261,15 @@ def test_internal_search_explain_applies_filters_and_ready_embeddings(monkeypatc
         {"type": "semantic", "label": "Semantic match", "score": 1.0},
     ]
     assert payload["snapshotPersisted"] is False
+    message = next(line for line in capsys.readouterr().out.splitlines() if "Semantic search explained" in line)
+    assert '"owner_id": "local-user"' in message
+    assert '"text_present": true' in message
+    assert '"selected_chip_count": 2' in message
+    assert '"provider_name": "test"' in message
+    assert '"candidate_count": 1' in message
+    assert '"returned_count": 1' in message
+    assert '"duration_ms"' in message
+    assert '"candidateCount"' not in message
 
 
 def test_internal_embedding_input_preview_returns_current_input_and_hash():

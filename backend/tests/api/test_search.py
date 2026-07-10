@@ -85,7 +85,7 @@ def add_recipe(
     return recipe
 
 
-def test_semantic_search_ranks_ready_embeddings_and_is_owner_scoped(monkeypatch):
+def test_semantic_search_ranks_ready_embeddings_and_is_owner_scoped(monkeypatch, capsys):
     client, SessionLocal = client_with_session()
     with SessionLocal() as session:
         user = ensure_default_user(session)
@@ -107,6 +107,15 @@ def test_semantic_search_ranks_ready_embeddings_and_is_owner_scoped(monkeypatch)
     assert payload["offset"] == 0
     assert all(item["matchReasons"][0]["type"] == "semantic" for item in payload["items"])
     assert payload["items"][0]["matchReasons"][0]["score"] == 1.0
+    message = next(line for line in capsys.readouterr().out.splitlines() if "Semantic search completed" in line)
+    assert '"owner_id": "local-user"' in message
+    assert '"text_present": true' in message
+    assert '"selected_chip_count": 0' in message
+    assert '"provider_name": "test"' in message
+    assert '"distance_metric": "cosine"' in message
+    assert '"returned_count": 2' in message
+    assert '"duration_ms"' in message
+    assert '"ownerId"' not in message
 
 
 def test_cosine_distance_handles_vector_like_database_values():
