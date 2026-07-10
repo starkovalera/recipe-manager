@@ -8,10 +8,9 @@ from app.core.errors import RecipeNotFoundError
 from app.core.logging import bind_logger
 from app.embeddings.constants import EMBEDDING_LOG_COMPONENT, EMBEDDING_LOG_PREFIX
 from app.embeddings.events import add_embedding_event
-from app.embeddings.input import build_recipe_embedding_hash, build_recipe_embedding_input
+from app.embeddings.input import build_recipe_embedding_input
 from app.embeddings.queries import (
     get_or_create_recipe_embedding,
-    get_owner_recipe_for_embedding_retry,
     get_recipe_embedding,
     get_recipe_for_embedding,
     has_open_review_flags,
@@ -54,12 +53,12 @@ def prepare_recipe_embedding(recipe: Recipe, *, force: bool = False) -> tuple[Re
     session = _require_session(recipe)
     provider_name, provider = get_embedding_provider()
     embedding = get_or_create_recipe_embedding(session, recipe.id, model=provider.model)
-    input_hash = build_recipe_embedding_hash(recipe)
+    embedding_input = build_recipe_embedding_input(recipe)
     log = bind_logger(logger, component=EMBEDDING_LOG_COMPONENT, recipeId=recipe.id, ownerId=recipe.owner_id, provider=provider_name)
 
     if any(flag.status == RecipeReviewFlagStatus.OPEN for flag in recipe.review_flags):
         embedding.model = provider.model
-        embedding.input_hash = input_hash
+        embedding.input_hash = embedding_input.input_hash
         embedding.status = RecipeEmbeddingStatus.SKIPPED_DUE_TO_FLAGS
         embedding.error_message = None
         add_embedding_event(
@@ -75,12 +74,17 @@ def prepare_recipe_embedding(recipe: Recipe, *, force: bool = False) -> tuple[Re
         log.info(f"{EMBEDDING_LOG_PREFIX} Embedding skipped due to open review flags")
         return embedding, False
 
-    if not force and embedding.status == RecipeEmbeddingStatus.READY and embedding.input_hash == input_hash and embedding.model == provider.model:
+    if (
+        not force
+        and embedding.status == RecipeEmbeddingStatus.READY
+        and embedding.input_hash == embedding_input.input_hash
+        and embedding.model == provider.model
+    ):
         log.info(f"{EMBEDDING_LOG_PREFIX} Embedding already ready")
         return embedding, False
 
     embedding.model = provider.model
-    embedding.input_hash = input_hash
+    embedding.input_hash = embedding_input.input_hash
     embedding.status = RecipeEmbeddingStatus.STALE
     embedding.error_message = None
     add_embedding_event(
@@ -101,7 +105,7 @@ def skip_recipe_embedding_due_to_flags(session: Session, recipe_id: str) -> Reci
     _, provider = get_embedding_provider()
     embedding = get_or_create_recipe_embedding(session, recipe.id, model=provider.model)
     embedding.model = provider.model
-    embedding.input_hash = build_recipe_embedding_hash(recipe)
+    embedding.input_hash = build_recipe_embedding_input(recipe).input_hash
     embedding.status = RecipeEmbeddingStatus.SKIPPED_DUE_TO_FLAGS
     embedding.error_message = None
     add_embedding_event(
@@ -118,7 +122,7 @@ def skip_recipe_embedding_due_to_flags(session: Session, recipe_id: str) -> Reci
 
 
 def retry_recipe_embedding(session: Session, recipe_id: str, owner_id: str) -> RecipeEmbedding:
-    recipe = get_owner_recipe_for_embedding_retry(session, recipe_id, owner_id)
+    recipe = get_recipe_for_embedding(session, recipe_id, owner_id=owner_id)
     if recipe is None:
         raise RecipeNotFoundError()
     _, provider = get_embedding_provider()
@@ -152,16 +156,19 @@ def process_recipe_embedding(session: Session, recipe_id: str) -> None:
         return
 
     provider_name, provider = get_embedding_provider()
-    input_text = build_recipe_embedding_input(recipe)
-    input_hash = build_recipe_embedding_hash(recipe)
+    embedding_input = build_recipe_embedding_input(recipe)
     embedding = get_or_create_recipe_embedding(session, recipe.id, model=provider.model)
-    if embedding.status == RecipeEmbeddingStatus.READY and embedding.input_hash == input_hash and embedding.model == provider.model:
+    if (
+        embedding.status == RecipeEmbeddingStatus.READY
+        and embedding.input_hash == embedding_input.input_hash
+        and embedding.model == provider.model
+    ):
         add_embedding_event(
             session,
             embedding=embedding,
             owner_id=recipe.owner_id,
             event_type=RecipeEmbeddingEventType.ALREADY_READY,
-            payload={"model": provider.model, "inputHash": input_hash},
+            payload={"model": provider.model, "inputHash": embedding_input.input_hash},
         )
         session.commit()
         log.info(f"{EMBEDDING_LOG_PREFIX} Embedding already ready", provider=provider_name, model=provider.model)
@@ -169,21 +176,21 @@ def process_recipe_embedding(session: Session, recipe_id: str) -> None:
 
     embedding.status = RecipeEmbeddingStatus.RUNNING
     embedding.model = provider.model
-    embedding.input_hash = input_hash
+    embedding.input_hash = embedding_input.input_hash
     embedding.last_attempt_at = _now()
     add_embedding_event(
         session,
         embedding=embedding,
         owner_id=recipe.owner_id,
         event_type=RecipeEmbeddingEventType.STARTED,
-        payload={"model": provider.model, "inputHash": input_hash},
+        payload={"model": provider.model, "inputHash": embedding_input.input_hash},
     )
     session.commit()
     log.info(f"{EMBEDDING_LOG_PREFIX} Embedding started", provider=provider_name, model=provider.model)
 
     started_at = perf_counter()
     try:
-        vector = provider.embed(input_text)
+        vector = provider.embed(embedding_input.text)
     except Exception as error:
         latest = get_recipe_embedding(session, recipe.id) or embedding
         latest.status = RecipeEmbeddingStatus.FAILED
@@ -197,7 +204,7 @@ def process_recipe_embedding(session: Session, recipe_id: str) -> None:
             event_type=RecipeEmbeddingEventType.FAILED,
             payload={
                 "model": provider.model,
-                "inputHash": input_hash,
+                "inputHash": embedding_input.input_hash,
                 "error": repr(error),
                 "temporary": True,
                 "failedAttempts": latest.failed_attempts,
@@ -212,17 +219,22 @@ def process_recipe_embedding(session: Session, recipe_id: str) -> None:
         embedding=embedding,
         owner_id=recipe.owner_id,
         event_type=RecipeEmbeddingEventType.PROVIDER_SUCCEEDED,
-        payload={"model": provider.model, "inputHash": input_hash, "dimension": len(vector), "durationMs": duration_ms},
+        payload={
+            "model": provider.model,
+            "inputHash": embedding_input.input_hash,
+            "dimension": len(vector),
+            "durationMs": duration_ms,
+        },
     )
 
     session.expire_all()
     latest_recipe = get_recipe_for_embedding(session, recipe.id)
     if latest_recipe is None:
         return
-    latest_hash = build_recipe_embedding_hash(latest_recipe)
+    latest_input = build_recipe_embedding_input(latest_recipe)
     latest_embedding = get_or_create_recipe_embedding(session, latest_recipe.id, model=provider.model)
-    if latest_hash != input_hash:
-        latest_embedding.input_hash = latest_hash
+    if latest_input.input_hash != embedding_input.input_hash:
+        latest_embedding.input_hash = latest_input.input_hash
         latest_embedding.status = RecipeEmbeddingStatus.STALE
         latest_embedding.error_message = None
         add_embedding_event(
@@ -232,8 +244,8 @@ def process_recipe_embedding(session: Session, recipe_id: str) -> None:
             event_type=RecipeEmbeddingEventType.STALE_REQUEUED,
             payload={
                 "reason": "recipe_changed_while_embedding",
-                "taskInputHash": input_hash,
-                "latestInputHash": latest_hash,
+                "taskInputHash": embedding_input.input_hash,
+                "latestInputHash": latest_input.input_hash,
             },
         )
         session.commit()
@@ -244,7 +256,7 @@ def process_recipe_embedding(session: Session, recipe_id: str) -> None:
 
     latest_embedding.embedding = vector
     latest_embedding.model = provider.model
-    latest_embedding.input_hash = input_hash
+    latest_embedding.input_hash = embedding_input.input_hash
     latest_embedding.status = RecipeEmbeddingStatus.READY
     latest_embedding.error_message = None
     add_embedding_event(
@@ -252,7 +264,7 @@ def process_recipe_embedding(session: Session, recipe_id: str) -> None:
         embedding=latest_embedding,
         owner_id=latest_recipe.owner_id,
         event_type=RecipeEmbeddingEventType.SAVED,
-        payload={"model": provider.model, "inputHash": input_hash, "dimension": len(vector)},
+        payload={"model": provider.model, "inputHash": embedding_input.input_hash, "dimension": len(vector)},
     )
     session.commit()
     log.info(f"{EMBEDDING_LOG_PREFIX} Embedding ready", provider=provider_name, model=provider.model)

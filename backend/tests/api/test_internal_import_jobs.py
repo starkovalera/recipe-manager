@@ -9,7 +9,7 @@ from app.api.deps import get_current_user
 from app.db.base import Base
 from app.db.init import ensure_default_user
 from app.db.session import get_session
-from app.embeddings.input import build_recipe_embedding_hash, build_recipe_embedding_input
+from app.embeddings.input import build_recipe_embedding_input
 from app.imports.events import build_job_event
 from app.main import create_app
 from app.models import (
@@ -271,13 +271,12 @@ def test_internal_embedding_input_preview_returns_current_input_and_hash():
         session.commit()
         recipe_id = recipe.id
         expected_input = build_recipe_embedding_input(recipe)
-        expected_hash = build_recipe_embedding_hash(recipe)
 
     response = client.get(f"/internal/recipes/{recipe_id}/embedding-input")
 
     assert response.status_code == 200
     assert response.json() == {
         "recipeId": recipe_id,
-        "input": expected_input,
-        "inputHash": expected_hash,
+        "input": expected_input.text,
+        "inputHash": expected_input.input_hash,
     }

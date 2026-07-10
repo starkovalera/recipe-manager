@@ -2,8 +2,7 @@ from fastapi import APIRouter
 
 from app.api.deps import CurrentAdminUserDep, SessionDep
 from app.core.errors import RecipeEmbeddingNotFoundError
-from app.embeddings.diagnostics import list_internal_recipe_embeddings
-from app.embeddings.queries import get_recipe_embedding_with_recipe
+from app.embeddings.queries import get_recipe_embedding_with_recipe, list_internal_recipe_embeddings
 from app.embeddings.service import retry_recipe_embedding
 from app.imports.queries import list_internal_import_jobs
 from app.models import ImportJob, RecipeEmbedding

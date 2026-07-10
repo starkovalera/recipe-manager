@@ -1744,7 +1744,7 @@ Recipes without RecipeEmbedding rows are not included in the admin embeddings pa
 
 ### Iteration 10c: Embedding Module Refactor
 
-Status: in progress. Subphase 10c.1 is completed and approved; Subphase 10c.2 is awaiting approval.
+Status: in progress. Subphase 10c.1 is completed and approved; Subphase 10c.2 is implemented and awaiting review.
 
 Goal: refactor the embedding subsystem into an explicit lifecycle-oriented pipeline with typed states, short database scopes, and no open ORM session during the provider call, while preserving current product behavior and API contracts.
 
@@ -1968,7 +1968,7 @@ Status: completed and approved.
 
 #### Subphase 10c.2: Input and Query Cleanup
 
-Status: awaiting approval.
+Status: implemented, awaiting review.
 
 - Replace separate text/hash builders with one `RecipeEmbeddingInput` builder.
 - Remove `Any` from the input builder.

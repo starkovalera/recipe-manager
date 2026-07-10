@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.core.errors import RecipeNotFoundError
 from app.core.logging import bind_logger
-from app.embeddings.input import build_recipe_embedding_hash, build_recipe_embedding_input
+from app.embeddings.input import build_recipe_embedding_input
 from app.embeddings.runtime import get_embedding_provider
 from app.models import Recipe, SourceName
 from app.recipes.filters import RecipeListFilters
@@ -238,7 +238,7 @@ def _to_search_explain_result(
             embedding_status=embedding.status if embedding is not None else None,
             embedding_model=embedding.model if embedding is not None else None,
             input_hash=embedding.input_hash if embedding is not None else None,
-            embedding_input_preview=build_recipe_embedding_input(recipe),
+            embedding_input_preview=build_recipe_embedding_input(recipe).text,
         ),
     )
 
@@ -434,8 +434,9 @@ def get_embedding_input_preview(session: Session, recipe_id: str) -> EmbeddingIn
     recipe = get_recipe_for_embedding_input_preview(session, recipe_id)
     if recipe is None:
         raise RecipeNotFoundError()
+    embedding_input = build_recipe_embedding_input(recipe)
     return EmbeddingInputPreviewOut(
         recipe_id=recipe.id,
-        input=build_recipe_embedding_input(recipe),
-        input_hash=build_recipe_embedding_hash(recipe),
+        input=embedding_input.text,
+        input_hash=embedding_input.input_hash,
     )

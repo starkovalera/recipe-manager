@@ -4,11 +4,12 @@ from sqlalchemy.orm import Session, selectinload
 from app.models import Recipe, RecipeEmbedding, RecipeEmbeddingStatus, RecipeReviewFlag, RecipeReviewFlagStatus
 
 
-def get_recipe_for_embedding(session: Session, recipe_id: str) -> Recipe | None:
+def get_recipe_for_embedding(session: Session, recipe_id: str, *, owner_id: str | None = None) -> Recipe | None:
+    query = select(Recipe).where(Recipe.id == recipe_id)
+    if owner_id is not None:
+        query = query.where(Recipe.owner_id == owner_id)
     return session.scalar(
-        select(Recipe)
-        .where(Recipe.id == recipe_id)
-        .options(
+        query.options(
             selectinload(Recipe.ingredients),
             selectinload(Recipe.review_flags),
             selectinload(Recipe.embedding),
@@ -16,14 +17,12 @@ def get_recipe_for_embedding(session: Session, recipe_id: str) -> Recipe | None:
     )
 
 
-def get_owner_recipe_for_embedding_retry(session: Session, recipe_id: str, owner_id: str) -> Recipe | None:
-    return session.scalar(
-        select(Recipe)
-        .where(Recipe.id == recipe_id, Recipe.owner_id == owner_id)
-        .options(
-            selectinload(Recipe.ingredients),
-            selectinload(Recipe.review_flags),
-            selectinload(Recipe.embedding),
+def list_internal_recipe_embeddings(session: Session) -> list[RecipeEmbedding]:
+    return list(
+        session.scalars(
+            select(RecipeEmbedding)
+            .options(selectinload(RecipeEmbedding.recipe), selectinload(RecipeEmbedding.events))
+            .order_by(RecipeEmbedding.updated_at.desc(), RecipeEmbedding.created_at.desc())
         )
     )
 

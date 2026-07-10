@@ -1,3 +1,8 @@
+import hashlib
+from dataclasses import FrozenInstanceError
+
+import pytest
+
 from app.embeddings.input import build_recipe_embedding_input
 from app.models import Ingredient, Recipe, SourceName
 
@@ -15,7 +20,8 @@ def test_embedding_input_uses_only_approved_fields():
         Ingredient(name="Water", search_name="water", quantity="1", unit="cup", note="filtered", position=0),
     ]
 
-    text = build_recipe_embedding_input(recipe)
+    embedding_input = build_recipe_embedding_input(recipe)
+    text = embedding_input.text
 
     assert "soup" in text
     assert "water" in text
@@ -29,3 +35,13 @@ def test_embedding_input_uses_only_approved_fields():
     assert "chef" not in text
     assert "filtered" not in text
     assert "cup" not in text
+    assert embedding_input.input_hash == hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def test_embedding_input_is_immutable():
+    recipe = Recipe(title="Soup", instructions=["Heat water"])
+
+    embedding_input = build_recipe_embedding_input(recipe)
+
+    with pytest.raises(FrozenInstanceError):
+        embedding_input.text = "changed"
