@@ -29,7 +29,7 @@ def base_search_query(owner_id: str, filters: RecipeListFilters) -> Select[tuple
     query = (
         select(Recipe)
         .where(Recipe.owner_id == owner_id)
-        .options(selectinload(Recipe.images), selectinload(Recipe.ingredients), selectinload(Recipe.review_flags))
+        .options(selectinload(Recipe.cover_image), selectinload(Recipe.ingredients), selectinload(Recipe.review_flags))
     )
     return apply_recipe_list_filters(query, filters)
 

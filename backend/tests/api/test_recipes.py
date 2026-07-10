@@ -340,9 +340,8 @@ def test_cover_options_select_source_image_for_generated_cover():
                 ),
             ]
         )
+        recipe.cover_image = cover_image
         session.add(recipe)
-        session.flush()
-        recipe.cover_image_id = cover_image.id
         session.commit()
         recipe_id = recipe.id
 
@@ -645,9 +644,8 @@ def test_delete_url_source_hides_children_but_keeps_current_cover_image_source()
             position=0,
         )
         recipe.images.append(source_image)
+        recipe.cover_image = source_image
         session.add(recipe)
-        session.flush()
-        recipe.cover_image_id = source_image.id
         parent = RecipeResource(
             owner_id=user.id,
             type=SourceType.URL,
@@ -671,7 +669,7 @@ def test_delete_url_source_hides_children_but_keeps_current_cover_image_source()
             type=SourceType.IMAGE,
             source=RecipeResourceOrigin.URL,
             role=RecipeResourceRole.SOURCE,
-            image_id=source_image.id,
+            image=source_image,
             position=2,
             status=RecipeResourceStatus.USED,
         )

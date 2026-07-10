@@ -121,6 +121,7 @@ def test_recipe_graph_persists_core_import_entities():
             status=RecipeResourceStatus.USED,
         )
     )
+    recipe.cover_image = cover
     recipe.review_flags.append(
         RecipeReviewFlag(
             owner_id=user.id,
@@ -150,8 +151,6 @@ def test_recipe_graph_persists_core_import_entities():
         )
     )
     session.add(recipe)
-    session.flush()
-    recipe.cover_image_id = cover.id
     session.commit()
 
     saved = session.query(Recipe).filter_by(title="Tomato Pasta").one()
@@ -163,12 +162,51 @@ def test_recipe_graph_persists_core_import_entities():
     assert saved.resources[0].status is RecipeResourceStatus.USED
     assert saved.resources[1].source is RecipeResourceOrigin.GENERATED
     assert saved.resources[1].role is RecipeResourceRole.COVER_CANDIDATE
-    assert saved.cover_image_id == saved.resources[1].image_id
+    assert saved.cover_image is saved.resources[1].image
+    assert saved.cover_image_id == saved.cover_image.id
     assert saved.review_flags[0].reason_code == "LOW_CONFIDENCE"
     assert saved.import_jobs[0].client_import_id == "import-1"
     assert saved.import_jobs[0].dedupe_key == "import-1"
     assert saved.import_jobs[0].events[0].event_type == ImportEventType.IMPORT_CREATED
     assert saved.owner.notifications[0].type == NotificationType.IMPORT_SUCCEEDED
+
+
+def test_recipe_cover_image_is_nullable_relationship():
+    session = create_session()
+    user = ensure_default_user(session)
+    recipe = Recipe(owner_id=user.id, title="Toast", instructions=["Toast bread"])
+    session.add(recipe)
+    session.commit()
+
+    saved = session.get(Recipe, recipe.id)
+
+    assert saved is not None
+    assert saved.cover_image is None
+
+
+def test_deleting_recipe_with_cover_image_deletes_image_graph():
+    session = create_session()
+    user = ensure_default_user(session)
+    recipe = Recipe(owner_id=user.id, title="Toast", instructions=["Toast bread"])
+    cover_image = RecipeImage(
+        storage_key="dev/cover.jpg",
+        original_name="cover.jpg",
+        mime_type="image/jpeg",
+        size_bytes=64,
+        position=0,
+    )
+    recipe.images.append(cover_image)
+    recipe.cover_image = cover_image
+    session.add(recipe)
+    session.commit()
+    recipe_id = recipe.id
+    cover_image_id = cover_image.id
+
+    session.delete(recipe)
+    session.commit()
+
+    assert session.get(Recipe, recipe_id) is None
+    assert session.get(RecipeImage, cover_image_id) is None
 
 
 def test_ingredient_persists_search_name():

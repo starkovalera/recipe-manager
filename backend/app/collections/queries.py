@@ -17,7 +17,7 @@ def list_collections(session: Session, owner_id: str, *, limit: int | None = Non
 def get_collection(session: Session, collection_id: str, owner_id: str, *, include_recipes: bool = False) -> Collection | None:
     query = select(Collection).where(Collection.id == collection_id, Collection.owner_id == owner_id)
     if include_recipes:
-        query = query.options(selectinload(Collection.recipes).selectinload(Recipe.images))
+        query = query.options(selectinload(Collection.recipes).selectinload(Recipe.cover_image))
     return session.scalar(query)
 
 

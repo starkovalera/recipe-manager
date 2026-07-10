@@ -145,13 +145,13 @@ def _apply_cover_selection(session: Session, recipe: Recipe, patch: RecipePatchI
         return
 
     if patch.cover_selection.kind == "DEFAULT":
-        recipe.cover_image_id = None
+        recipe.cover_image = None
         return
     if patch.cover_selection.image_id:
         image = get_recipe_image(session, patch.cover_selection.image_id, recipe.id)
         if image is None:
             raise CoverImageNotFoundError(image_id=patch.cover_selection.image_id)
-        recipe.cover_image_id = image.id
+        recipe.cover_image = image
 
 
 def patch_recipe(session: Session, recipe_id: str, owner_id: str, patch: RecipePatchIn) -> Recipe:
@@ -209,7 +209,7 @@ def _load_recipe_for_resource_mutation(session: Session, recipe_id: str, owner_i
 
 
 def _is_current_cover_resource(recipe: Recipe, resource: RecipeResource) -> bool:
-    return resource.image_id is not None and resource.image_id == recipe.cover_image_id
+    return recipe.cover_image is not None and resource.image_id == recipe.cover_image.id
 
 
 def patch_recipe_resource_status(session: Session, recipe_id: str, owner_id: str, resource_id: str, status: str) -> Recipe:

@@ -190,10 +190,7 @@ def _selected_match_reasons(selected: list[SearchChipIn]) -> list[MatchReasonOut
 
 
 def _cover_image(recipe: Recipe) -> RecipeImageOut | None:
-    if recipe.cover_image_id is None:
-        return None
-    image = next((item for item in recipe.images if item.id == recipe.cover_image_id), None)
-    return RecipeImageOut.model_validate(image) if image is not None else None
+    return RecipeImageOut.model_validate(recipe.cover_image) if recipe.cover_image is not None else None
 
 
 def _semantic_match_reason(score: float | None = None) -> MatchReasonOut:

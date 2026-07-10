@@ -47,7 +47,7 @@ def list_recipes(
     query = (
         select(Recipe)
         .where(Recipe.owner_id == owner_id)
-        .options(selectinload(Recipe.images), selectinload(Recipe.review_flags))
+        .options(selectinload(Recipe.cover_image), selectinload(Recipe.review_flags))
         .order_by(Recipe.created_at.desc())
     )
     if filters is not None:
@@ -61,7 +61,7 @@ def get_recipe_detail(session: Session, recipe_id: str, owner_id: str) -> Recipe
         .where(Recipe.id == recipe_id, Recipe.owner_id == owner_id)
         .options(
             selectinload(Recipe.ingredients),
-            selectinload(Recipe.images),
+            selectinload(Recipe.cover_image),
             selectinload(Recipe.resources).selectinload(RecipeResource.image),
             selectinload(Recipe.review_flags),
             selectinload(Recipe.tags),
@@ -84,7 +84,7 @@ def get_recipe_for_resource_mutation(session: Session, recipe_id: str, owner_id:
         .where(Recipe.id == recipe_id, Recipe.owner_id == owner_id)
         .options(
             selectinload(Recipe.ingredients),
-            selectinload(Recipe.images),
+            selectinload(Recipe.cover_image),
             selectinload(Recipe.resources).selectinload(RecipeResource.children),
             selectinload(Recipe.review_flags),
             selectinload(Recipe.tags),

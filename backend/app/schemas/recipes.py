@@ -101,15 +101,13 @@ class RecipeListItemOut(CamelModel):
     title: str
     note: str | None = None
     updated_at: datetime | None = None
-    cover_image_id: str | None = Field(default=None, exclude=True)
-    image_items: list[RecipeImage] = Field(default_factory=list, validation_alias="images", exclude=True)
+    cover_image_item: RecipeImage | None = Field(default=None, validation_alias="cover_image", exclude=True)
     review_flag_items: list[RecipeReviewFlag] = Field(default_factory=list, validation_alias="review_flags", exclude=True)
 
     @computed_field
     @property
     def cover_image(self) -> RecipeImageOut | None:
-        cover_image = next((image for image in self.image_items if image.id == self.cover_image_id), None) if self.cover_image_id else None
-        return RecipeImageOut.model_validate(cover_image) if cover_image else None
+        return RecipeImageOut.model_validate(self.cover_image_item) if self.cover_image_item is not None else None
 
     @computed_field
     @property
@@ -127,7 +125,7 @@ def _resource_sort_key(resource) -> tuple[int, str]:
 
 def _visible_image_resources(recipe) -> list:
     resources = getattr(recipe, "resource_items", getattr(recipe, "resources", []))
-    cover_image_id = getattr(recipe, "cover_image_id", None)
+    cover_image_id = recipe.cover_image_item.id if recipe.cover_image_item is not None else None
     resources = [
         resource
         for resource in resources
@@ -138,13 +136,13 @@ def _visible_image_resources(recipe) -> list:
     return sorted(resources, key=_resource_sort_key)
 
 
-def _cover_options(recipe, image_resources: list, cover_image) -> list[CoverOptionOut]:
+def _cover_options(image_resources: list, cover_image) -> list[CoverOptionOut]:
     options: list[CoverOptionOut] = [
         CoverOptionOut(
             kind="DEFAULT",
             image=None,
             label="Default image",
-            selected=recipe.cover_image_id is None,
+            selected=cover_image is None,
         )
     ]
     label_index = 1
@@ -208,8 +206,7 @@ class RecipeDetailOut(RecipeListItemOut):
     @computed_field
     @property
     def cover_options(self) -> list[CoverOptionOut]:
-        cover_image = next((image for image in self.image_items if image.id == self.cover_image_id), None)
-        return _cover_options(self, _visible_image_resources(self), cover_image)
+        return _cover_options(_visible_image_resources(self), self.cover_image_item)
 
     @computed_field
     @property

@@ -180,7 +180,15 @@ class Recipe(TimestampMixin, Base):
     source_name: Mapped[SourceName] = mapped_column(Enum(SourceName), default=SourceName.MANUAL, nullable=False)
     search_text: Mapped[str | None] = mapped_column(Text)
     search_text_hash: Mapped[str | None] = mapped_column(String)
-    cover_image_id: Mapped[str | None] = mapped_column(String, unique=True)
+    cover_image_id: Mapped[str | None] = mapped_column(
+        ForeignKey(
+            "recipe_images.id",
+            name="fk_recipes_cover_image_id_recipe_images",
+            ondelete="SET NULL",
+        ),
+        nullable=True,
+        unique=True,
+    )
 
     owner: Mapped[User] = relationship(back_populates="recipes")
     ingredients: Mapped[list[Ingredient]] = relationship(back_populates="recipe", cascade="all, delete-orphan")
@@ -188,6 +196,10 @@ class Recipe(TimestampMixin, Base):
         back_populates="recipe",
         cascade="all, delete-orphan",
         foreign_keys="RecipeImage.recipe_id",
+    )
+    cover_image: Mapped[RecipeImage | None] = relationship(
+        foreign_keys=[cover_image_id],
+        post_update=True,
     )
     resources: Mapped[list[RecipeResource]] = relationship(back_populates="recipe", cascade="all, delete-orphan")
     review_flags: Mapped[list[RecipeReviewFlag]] = relationship(back_populates="recipe", cascade="all, delete-orphan")

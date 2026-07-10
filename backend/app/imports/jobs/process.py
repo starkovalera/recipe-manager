@@ -104,6 +104,8 @@ def persist_import_success(
             ai_id_by_resource=extraction_context.extraction_id_by_resource,
         ),
     )
+    if cover_image is not None:
+        recipe.cover_image = cover_image
 
     has_ignored_primary = apply_source_statuses(
         recipe_resources,
@@ -116,8 +118,6 @@ def persist_import_success(
     has_review_flag = create_review_flag_if_needed(job_context, recipe, extracted_recipe, has_ignored_primary)
     session.add(recipe)
     session.flush()
-    if cover_image is not None:
-        recipe.cover_image_id = cover_image.id
     _embedding, enqueue_embedding = prepare_recipe_embedding(recipe)
 
     if has_review_flag:
