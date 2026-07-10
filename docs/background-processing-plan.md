@@ -401,31 +401,10 @@ This prevents Redis queue state from becoming the source of truth.
 
 #### Error Handling and Retries
 
-Errors should be normalized into two categories.
-
-Temporary errors:
-
-- AI API timeout;
-- network error;
-- video transcript provider unavailable;
-- rate limit.
-
-Permanent errors:
-
-- unsupported source;
-- not a recipe;
-- invalid image;
-- AI returned `notARecipe`;
-- conflicting sources that cannot be resolved.
-
-Retry policy:
-
-- AI timeout: retry up to 3 times with backoff.
-- source download failed: retry up to 2 times.
-- validation failed: no retry.
-- `notARecipe`: no retry.
-
-The job must be idempotent: if a retried task sees a terminal status, it returns without changing data.
+- Import retry is manual, not automatic.
+- The total allowed attempt count includes the initial attempt and defaults to three.
+- Dramatiq actor retries are independently configurable and default to zero.
+- The detailed manual retry design is tracked in Phase 3.
 
 #### Notifications
 
@@ -2370,6 +2349,120 @@ Goal: persist an `ImportJob` only when its complete primary-source creation scop
 - Migration `20260710_0018` maps existing creation-failure rows to `IMPORT_FAILED` and removes the obsolete PostgreSQL enum value.
 - The existing frontend already retained its form on mutation failure; regression coverage now fixes that behavior as a contract.
 
+### Subphase: Manual Import Retry
+
+Status: backend design agreed; backend implementation awaits explicit start approval. Frontend requirements remain deferred for a separate review.
+
+Goal: allow the owner to manually restart a failed background import without recreating its successfully persisted primary inputs.
+
+#### Agreed Configuration and Attempt Semantics
+
+- `MAX_IMPORT_ATTEMPTS` is configurable through environment settings and defaults to `3` total attempts, including the initial attempt.
+- `IMPORT_TASK_MAX_RETRIES` configures Dramatiq actor retries independently and defaults to `0`.
+- `MAX_IMPORT_ATTEMPTS` is runtime policy, not persisted job data. Every existing job uses the current value from `Settings`, regardless of the value in effect when the job was created or when previous attempts ran.
+- Add the effective limit to `ImportConfig` and pass it through import processing where attempt/event decisions require it.
+- Import retry is user-requested only; the application does not automatically retry failed imports.
+- Add non-null `ImportJob.attempt_count` with default `0`.
+- Atomically increment `attempt_count` when a worker successfully claims `QUEUED -> RUNNING`.
+- The initial worker execution becomes attempt `1`; retries become attempts `2` and `3`.
+- Retry is allowed only when the job is `FAILED` and `attempt_count < MAX_IMPORT_ATTEMPTS`.
+- For the first version, every `FAILED` import is retryable regardless of its detailed processing/extraction error. Possible non-retryable detail codes are deferred to `future-work.md`.
+
+#### Retry State Transition
+
+- A successful retry request transitions `FAILED -> QUEUED`.
+- The retry request does not clear fields from the previous attempt. It changes only the status and creates the new `IMPORT_STARTED` notification, so queue-publish compensation does not need a separate snapshot of old values.
+- `start_import_job` remains the single point that starts an attempt. When it atomically claims `QUEUED -> RUNNING`, it:
+  - increments `attempt_count`;
+  - clears `error_code`, `error_message`, and `created_recipe_id`;
+  - sets `started_at` for the new attempt;
+  - clears `finished_at`.
+- `created_recipe_id` should already be null for a failed import, but clearing it at actual attempt start keeps the transition defensive and explicit.
+- Do not add `IMPORT_RETRY_REQUESTED` at this stage.
+- Add `attempt_count` and `max_attempts` to `IMPORT_STARTED` and `IMPORT_FAILED` event payloads.
+- After a user retry request is accepted, create another existing `IMPORT_STARTED` notification for the same import job.
+- The notification records the user-visible retry start; the `IMPORT_STARTED` job event is still written only when the worker actually claims and starts the next attempt.
+
+#### Storage and Persistence Semantics
+
+- Use separate collections for persisted primary files and files created during the current processing execution.
+- Agreed names:
+  - `primary_storage_keys` for original uploaded image files referenced by `ImportJobSource`;
+  - `secondary_storage_keys` for URL images, video posters, generated covers, and other files created by the current `process_import_job` execution.
+- On every failed attempt, delete all `secondary_storage_keys` from that attempt.
+- After a non-final failed attempt, preserve `primary_storage_keys` so the next manual retry can reuse them.
+- After the final failed attempt, delete both current `secondary_storage_keys` and primary files.
+- Database entities created during failed processing remain protected by the existing transaction rollback behavior.
+- `ImportJobSource` rows are intentionally left unchanged after final primary-file cleanup; later reconciliation is recorded in `future-work.md`.
+
+#### API and Frontend Guards
+
+- Add a manual retry endpoint scoped to the current owner.
+- Backend must prevent concurrent/double retry requests and must re-check status and attempt limits transactionally.
+- If attempts are exhausted, return `IMPORT_ATTEMPTS_EXHAUSTED` with HTTP `409`.
+- If another request already moved the job out of `FAILED`, return `IMPORT_NOT_RETRYABLE` with HTTP `409`.
+- If retry preparation or queue publishing fails unexpectedly, return `IMPORT_RETRY_FAILED` with HTTP `500`.
+- Missing or foreign jobs continue to return the existing `IMPORT_NOT_FOUND` with HTTP `404`.
+- Retry should be subject to the same per-owner active-import limit as a new import.
+- Public/internal job responses expose persisted `attempt_count` plus the current effective maximum attempt count from settings needed by future clients.
+
+#### Queue Publish Compensation
+
+- The retry transaction changes `FAILED -> QUEUED` and creates the retry `IMPORT_STARTED` notification without clearing previous-attempt fields.
+- After that transaction commits, publish the Dramatiq message.
+- If publishing fails, open a compensating transaction and lock the job.
+- If the job is still `QUEUED`:
+  - restore only its status to `FAILED`; previous error/timestamp fields are already intact;
+  - delete the retry notification created by the failed request;
+  - log the original publish error;
+  - return `IMPORT_RETRY_FAILED` with HTTP `500`.
+- The compensating update must be conditional so it cannot overwrite a worker transition that already changed the job to `RUNNING` or a terminal state.
+- If publishing raised but the locked job is no longer `QUEUED`, treat delivery as successful/ambiguous rather than failed:
+  - do not revert status;
+  - do not delete the retry notification;
+  - log the publish exception and observed current status;
+  - return the current job with HTTP `200` because the worker already observed and progressed the retry.
+
+#### Implementation Outline
+
+1. Configuration and persistence:
+   - add `MAX_IMPORT_ATTEMPTS=3` and `IMPORT_TASK_MAX_RETRIES=0` settings;
+   - add `ImportJob.attempt_count` with migration/backfill/default `0`;
+   - add the effective current max to `ImportConfig`, API output, and internal job diagnostics.
+2. Attempt lifecycle:
+   - make `start_import_job` atomically claim only `QUEUED` jobs;
+   - increment `attempt_count`, clear prior failure/result fields, set new timestamps, and add attempt metadata to `IMPORT_STARTED`;
+   - add attempt metadata to `IMPORT_FAILED`.
+3. Storage cleanup:
+   - rename/separate `primary_storage_keys` and `secondary_storage_keys` throughout processing;
+   - always clean current secondary files after failure;
+   - clean primary files only when the current failed attempt exhausts the current configured limit.
+4. Retry API:
+   - add owner-scoped `POST /imports/{job_id}/retry`;
+   - lock and validate the job, current attempt limit, active-import limit, and `FAILED` status;
+   - transition only status to `QUEUED` and create `IMPORT_STARTED` notification;
+   - publish the task and apply the agreed conditional compensation on failure.
+5. Backend verification:
+   - migration/default/backfill tests;
+   - worker claim/increment/field-reset and event payload tests;
+   - intermediate/final storage cleanup tests;
+   - owner, exhausted, non-failed, active-limit, concurrent request, publish compensation, and ambiguous-delivery API tests;
+   - full backend lint/tests and PostgreSQL migration smoke test.
+
+#### Deferred Frontend Requirements
+
+Frontend retry work is not part of the backend implementation subphase and requires a separate requirements/design review before implementation.
+
+Ideas already fixed for that future review:
+
+- Do not add Retry to the current import form page's status block.
+- Add a user-facing ImportJob detail page representing one concrete import job; it is distinct from both the import form and the admin ImportJobs page.
+- A failed-import notification should navigate to that user-facing ImportJob detail page.
+- The user-facing ImportJob detail page should show import details and offer Retry only when the backend reports that retry is currently allowed.
+- The existing admin ImportJobs page should also expose a Retry action.
+- User-triggered and admin-triggered retry permissions, notification recipients, and audit semantics must be revisited during the authentication/users phase before real multi-user access is enabled.
+- Frontend visibility, pending-state, exhausted-attempt, concurrency/race, and API-error behavior must be designed and tested when this frontend scope starts.
+
 ### Checkpoints
 
 After each import-pipeline-detail change:
@@ -2395,9 +2488,11 @@ flowchart TD
 
 - Add notification history tab.
 - Add import history page.
+- Add a user-facing ImportJob detail page, link failed-import notifications to it, and design user retry interaction there.
 - Add job event audit table if not already added.
 - Show retry attempts and final normalized error.
 - Add admin/debug view for jobs and events.
+- Add an admin ImportJobs retry action, with real permission and notification semantics finalized during the authentication/users phase.
 - Hide the basic internal diagnostics page behind real roles in Phase 6.
 - Improve user-facing error messages.
 - Keep functional UI changes scoped here; broader visual redesign belongs to Phase 7.

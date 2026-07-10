@@ -11,6 +11,9 @@ After each completed phase or subphase, review the finished work and propose can
 ## Background Processing
 
 - Add a transactional outbox for embedding scheduling so persisted embedding lifecycle state and broker publishing are durably coordinated. Publishing is currently best-effort and intentionally secondary to completed user operations.
+- After the final failed import attempt deletes primary files, `ImportJobSource` rows currently remain unchanged and may point to missing storage objects. Consider cleaning or reconciling these records in a separate background maintenance job.
+- Manual retry is initially allowed for every `FAILED` import, including failures such as `NOT_A_RECIPE` and `RECIPE_TOO_LONG`. Revisit whether some failure details should become explicitly non-retryable.
+- During the authentication/users phase, distinguish user-triggered and admin-triggered import retries and define notification policy for each case. A user-triggered retry creates an `IMPORT_STARTED` notification; an admin-triggered retry may require different recipient, visibility, and audit behavior.
 
 ## Tags
 
