@@ -129,6 +129,9 @@ This checklist applies to every phase. Any phase that touches import, resources,
 - `RecipeEmbedding` is optional technical search-index state: `Recipe 1 -- 0..1 RecipeEmbedding`. `recipe_embeddings.recipe_id` is both primary key and foreign key to `recipes.id` with cascade delete. Application code creates or updates the row only when the embedding subsystem needs to record state.
 - `RecipeEmbedding.input_hash` is independent from `Recipe.search_text_hash`. Embedding input is built only from `title`, `ingredients.search_name`, `instructions`, `nutrition_estimate`, and `cook_time_minutes`. Nutrition data and cooking time use the same readable semantic formatting described for `Recipe.search_text`. Recipes with open review flags are marked `SKIPPED_DUE_TO_FLAGS` and are not enqueued for embedding until the last open flag is resolved. Embedding tasks do not create user-facing notifications.
 - `RecipeEmbeddingEvent` is append-only internal audit/debug history for `RecipeEmbedding`. It is not user-facing notification data and current embedding status is never computed from events. `RecipeEmbeddingEvent.recipe_id` points to `recipe_embeddings.recipe_id` and cascades through `RecipeEmbedding`.
+- Embedding state transitions and their corresponding lifecycle events are persisted atomically in the same database scope. The external embedding provider is called without an open database session.
+- `ENQUEUED` is written only after the broker accepts the embedding task. Queue publishing is secondary to successful import, recipe edit, review-flag, retry, and stale-requeue operations: a publish failure is logged, does not fail the completed user operation, leaves the embedding `STALE`, and does not write `ENQUEUED`.
+- Embedding provider failure persists `FAILED`, increments `failed_attempts`, writes the corresponding failure event, and is re-raised for Dramatiq retry.
 - Recipe and collection list endpoints are owner-scoped and paginated. Public list responses include `items`, `total`, `limit`, and `offset`. Lower-level query functions may return full owner-scoped lists when `limit` and `offset` are omitted.
 - Selected search chips are hard filters. Free text is reserved for vector search. `ingredient_name` has been replaced with `ingredient_query` in autocomplete, API parameters, and frontend types. Autocomplete always returns an `ingredient_query` suggestion first for a non-empty `q`, for example `Ingredient - cottage`. Concrete ingredient suggestions are no longer returned, to avoid encouraging overly exact ingredient choices. `/recipes` accepts repeatable `ingredientQuery=<text>` query parameters. Each `ingredientQuery` value filters recipes through `contains` matching against `Ingredient.search_name`, and multiple `ingredientQuery` values are combined with AND semantics.
 - `POST /search` uses selected chips as hard filters and free text as semantic/vector search. With free text present, the backend computes the query embedding using the current embedding provider/model, considers only current-owner recipes with `RecipeEmbedding.status = READY`, non-null embeddings, and `RecipeEmbedding.model == current query embedding model`, applies chip filters before vector ranking, and sorts by configured vector distance ascending with `Recipe.id` as a stable tie-breaker. The default and preferred metric is pgvector cosine distance (`<=>`); `EMBEDDING_DISTANCE_METRIC` defaults to `cosine` and currently supports `cosine` and `l2`. Debug similarity for cosine is `1 - distance`.
@@ -1731,20 +1734,20 @@ Add/update tests:
 RecipeEmbeddingEvent can be created for an existing RecipeEmbedding.
 add_embedding_event stores recipe_id, owner_id, event_type, status_after, payload.
 Deleting Recipe cascades Recipe -> RecipeEmbedding -> RecipeEmbeddingEvent.
-Scheduling writes SCHEDULED and ENQUEUED.
+Scheduling writes SCHEDULED; successful broker publishing then writes ENQUEUED.
 Open review flags write SKIPPED_DUE_TO_FLAGS and do not enqueue.
 Worker success writes STARTED, PROVIDER_SUCCEEDED, SAVED.
 Worker no-op writes ALREADY_READY.
 Provider failure writes FAILED.
-Stale requeue writes STALE_REQUEUED and ENQUEUED.
-Manual retry writes RETRY_REQUESTED and ENQUEUED if queued.
+Stale requeue writes STALE_REQUEUED; successful broker publishing then writes ENQUEUED.
+Manual retry writes RETRY_REQUESTED and SCHEDULED; successful broker publishing then writes ENQUEUED.
 Internal/admin embeddings API/UI returns existing RecipeEmbedding rows and their events.
 Recipes without RecipeEmbedding rows are not included in the admin embeddings page.
 ```
 
 ### Iteration 10c: Embedding Module Refactor
 
-Status: in progress. Subphases 10c.1, 10c.2, 10c.3, 10c.4, and 10c.5 are completed and approved.
+Status: completed and approved.
 
 Goal: refactor the embedding subsystem into an explicit lifecycle-oriented pipeline with typed states, short database scopes, and no open ORM session during the provider call, while preserving current product behavior and API contracts.
 
@@ -1860,7 +1863,7 @@ def fail_recipe_embedding(
     session: Session,
     context: EmbeddingProcessingContext,
     error: Exception,
-) -> None: ...
+) -> int | None: ...
 
 def build_embedding_event(
     session: Session,
@@ -2017,6 +2020,8 @@ Status: completed and approved.
 - Run the refactoring checkpoint and stop for review.
 
 #### Subphase 10c.6: Logging, Cleanup, and Verification
+
+Status: completed and approved.
 
 - Add embedding lifecycle structured logging with snake_case fields and stable messages.
 - Remove repeated component prefixes from log messages.

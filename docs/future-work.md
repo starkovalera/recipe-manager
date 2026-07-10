@@ -8,6 +8,10 @@ After each completed phase or subphase, review the finished work and propose can
 
 - Remove `sourcePosition` and `crop` from the Pydantic AI response schema for `coverCandidate`. They are currently kept as `None`-only legacy compatibility fields after the OpenAI response schema was narrowed to `sourceRef` and `confidence`.
 
+## Background Processing
+
+- Add a transactional outbox for embedding scheduling so persisted embedding lifecycle state and broker publishing are durably coordinated. Publishing is currently best-effort and intentionally secondary to completed user operations.
+
 ## Tags
 
 - Validate tag name and tag description length on both frontend and backend.
