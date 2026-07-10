@@ -1744,7 +1744,7 @@ Recipes without RecipeEmbedding rows are not included in the admin embeddings pa
 
 ### Iteration 10c: Embedding Module Refactor
 
-Status: in progress. Subphases 10c.1 and 10c.2 are completed and approved; Subphase 10c.3 is awaiting approval.
+Status: in progress. Subphases 10c.1, 10c.2, and 10c.3 are completed and approved.
 
 Goal: refactor the embedding subsystem into an explicit lifecycle-oriented pipeline with typed states, short database scopes, and no open ORM session during the provider call, while preserving current product behavior and API contracts.
 
@@ -1979,7 +1979,7 @@ Status: completed and approved.
 
 #### Subphase 10c.3: Planning Lifecycle
 
-Status: awaiting approval.
+Status: completed and approved.
 
 - Add `planning.py` and move skip/no-op/schedule decisions into `prepare_recipe_embedding`.
 - Pass `Session` explicitly; remove hidden session lookup through ORM objects.
