@@ -17,26 +17,25 @@ from app.imports.constants import (
 )
 from app.imports.events import build_job_event
 from app.imports.job_context import ImportJobContext
-from app.imports.job_stages.cover_generation import CoverGenerationContext, generate_cover_image
+from app.imports.job_stages.cover_generation import build_cover_image
 from app.imports.job_stages.extracted_recipe import normalize_extracted_recipe, validate_extracted_recipe
 from app.imports.job_stages.extraction import extract, validate_extraction_result
 from app.imports.job_stages.extraction_sources import ExtractionContext, build_extraction_context
 from app.imports.job_stages.failure import process_import_failure
+from app.imports.job_stages.flags import set_flags
 from app.imports.job_stages.raw_recipe import build_raw_recipe
 from app.imports.job_stages.raw_sources import build_raw_sources
 from app.imports.job_stages.recipe_building import build_recipe
+from app.imports.job_stages.recipe_resource_building import build_recipe_resources
 from app.imports.logging import log_import_started, log_recipe_created
 from app.imports.queries import get_import_job as query_import_job
-from app.imports.recipe_materialization import (
-    apply_source_statuses,
-    create_review_flag_if_needed,
-    derive_source_name_from_primary_resources,
-)
 from app.imports.runtime import get_recipe_extraction_provider, get_url_content_service, get_video_processor
 from app.models import (
     ImportEventType,
     ImportJob,
     ImportJobStatus,
+    Recipe,
+    RecipeResource,
 )
 from app.notifications.notification_data import (
     ImportSucceededNotification,
@@ -44,6 +43,7 @@ from app.notifications.notification_data import (
     build_notification,
 )
 from app.services.search_text import refresh_recipe_search_text
+from app.storage.base import StorageService
 from app.storage.local import LocalStorageService
 from app.tags.queries import list_active_tags
 
@@ -75,63 +75,68 @@ def enqueue_recipe_embedding_for_import(session: Session, *, recipe_id: str, own
         enqueue_recipe_embedding_with_event(session, embedding=embedding, owner_id=owner_id)
 
 
-def persist_import_success(
+def save_import(
     *,
     session: Session,
-    job_id: str,
     job_context: ImportJobContext,
-    recipe,
-    recipe_resources,
-    content_recipe_resources,
+    recipe: Recipe,
+    recipe_resources: list[RecipeResource],
+    content_recipe_resources: list[RecipeResource],
     extraction_context: ExtractionContext,
     extracted_recipe: ExtractedRecipe,
-    storage,
+    import_config: ImportConfig,
+    storage: StorageService,
     saved_storage_keys: list[str],
 ) -> ImportResult:
-    job: ImportJob | None = session.get(ImportJob, job_id)
+    job: ImportJob | None = session.get(ImportJob, job_context.id)
     if job is None:
-        raise RuntimeError(f"Import job {job_id} not found while persisting import success.")
+        raise RuntimeError(f"Import job {job_context.id} not found while persisting import success.")
 
     build_recipe(recipe, extracted_recipe, list_active_tags(session, job_context.owner_id), job_context)
-    cover_image = generate_cover_image(
+    build_cover_image(
         job_context,
         recipe,
         extracted_recipe,
-        CoverGenerationContext(
-            storage=storage,
-            saved_storage_keys=saved_storage_keys,
-            final_resources=content_recipe_resources,
-            ai_id_by_resource=extraction_context.extraction_id_by_resource,
-        ),
+        content_recipe_resources,
+        extraction_context.extraction_id_by_resource,
+        storage,
+        saved_storage_keys,
     )
-    if cover_image is not None:
-        recipe.cover_image = cover_image
-
-    has_ignored_primary = apply_source_statuses(
+    has_ignored_primary_resource = build_recipe_resources(
+        recipe,
         recipe_resources,
         content_recipe_resources,
-        extracted_recipe.quality,
         extraction_context.extraction_id_by_resource,
+        extracted_recipe.quality,
     )
-    recipe.source_name = derive_source_name_from_primary_resources(recipe_resources)
-    refresh_recipe_search_text(recipe)
-    has_review_flag = create_review_flag_if_needed(job_context, recipe, extracted_recipe, has_ignored_primary)
-    session.add(recipe)
-    session.flush()
-    _embedding, enqueue_embedding = prepare_recipe_embedding(recipe)
-
-    if has_review_flag:
+    has_flags = set_flags(job_context, recipe, extracted_recipe, has_ignored_primary_resource, import_config)
+    if has_flags:
         job_status, notification_cls = ImportJobStatus.SUCCEEDED_WITH_FLAGS, ImportSucceededWithFlagsNotification
     else:
         job_status, notification_cls = ImportJobStatus.SUCCEEDED, ImportSucceededNotification
+
+    refresh_recipe_search_text(recipe)
+
+    session.add(recipe)
+    session.flush()
+
+    _, enqueue_embedding = prepare_recipe_embedding(recipe)
+
     job.set_recipe_created(recipe.id, job_status)
-    build_job_event(session, import_job_id=job.id, event_type=ImportEventType.RECIPE_CREATED, recipe_id=recipe.id, status=job_status.value)
+    build_job_event(
+        session,
+        import_job_id=job.id,
+        event_type=ImportEventType.RECIPE_CREATED,
+        recipe_id=recipe.id,
+        status=job_status.value,
+    )
     build_notification(
         session,
         notification_cls,
         owner_id=job.owner_id,
         entity_id=recipe.id,
     )
+
     session.flush()
     session.refresh(job)
     return ImportResult(job=ImportJobContext.from_job(job), recipe_id=recipe.id, enqueue_embedding=enqueue_embedding)
@@ -195,19 +200,18 @@ def process_import_job(job_id: str) -> None:
         extracted_recipe = normalize_extracted_recipe(
             validate_extracted_recipe(extraction_result.recipe, import_config),
             extraction_context.extraction_sources,
-            job_context,
         )
 
         with db_session() as session:
-            import_result = persist_import_success(
+            import_result = save_import(
                 session=session,
-                job_id=job_context.id,
                 job_context=job_context,
                 recipe=recipe,
                 recipe_resources=recipe_resources,
                 content_recipe_resources=content_recipe_resources,
                 extraction_context=extraction_context,
                 extracted_recipe=extracted_recipe,
+                import_config=import_config,
                 storage=storage,
                 saved_storage_keys=saved_storage_keys,
             )

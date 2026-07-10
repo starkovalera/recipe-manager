@@ -1,5 +1,4 @@
 import logging
-from dataclasses import dataclass
 
 import anyio
 
@@ -24,14 +23,6 @@ from app.storage.base import StorageService
 logger = logging.getLogger(IMPORT_LOG_COMPONENT)
 
 
-@dataclass
-class CoverGenerationContext:
-    storage: StorageService
-    saved_storage_keys: list[str]
-    final_resources: list[RecipeResource]
-    ai_id_by_resource: dict[RecipeResource, str]
-
-
 def _cover_candidate_ref(source_ref: str | None, accepted_refs: set[str]) -> str | None:
     if source_ref is None:
         return None
@@ -45,26 +36,29 @@ def _cover_candidate_ref(source_ref: str | None, accepted_refs: set[str]) -> str
     return image_ref if image_ref in accepted_refs else None
 
 
-def generate_cover_image(
+def build_cover_image(
     job: ImportJobContext,
     recipe: Recipe,
-    recipe_result: ExtractedRecipe,
-    context: CoverGenerationContext,
+    extracted_recipe: ExtractedRecipe,
+    content_recipe_resources: list[RecipeResource],
+    extraction_id_by_resource: dict[RecipeResource, str],
+    storage: StorageService,
+    saved_storage_keys: list[str],
 ) -> RecipeImage | None:
     image_by_ref: dict[str, RecipeImage] = {
-        context.ai_id_by_resource[resource]: resource.image for resource in context.final_resources if resource.image is not None
+        extraction_id_by_resource[resource]: resource.image for resource in content_recipe_resources if resource.image is not None
     }
     candidate_ref = _cover_candidate_ref(
-        recipe_result.cover_candidate.source_ref if recipe_result.cover_candidate else None,
+        extracted_recipe.cover_candidate.source_ref if extracted_recipe.cover_candidate else None,
         set(image_by_ref.keys()),
     )
-    if candidate_ref is None or recipe_result.cover_candidate is None:
+    if candidate_ref is None or extracted_recipe.cover_candidate is None:
         return None
 
     chosen = anyio.run(
         choose_cover_candidate,
         CoverGuardInput(
-            candidate=ImportCoverCandidate(source_ref=candidate_ref, crop=recipe_result.cover_candidate.crop),
+            candidate=ImportCoverCandidate(source_ref=candidate_ref, crop=extracted_recipe.cover_candidate.crop),
             accepted_image_refs=list(image_by_ref.keys()),
             fallback_candidates=[],
             enabled=get_settings().enable_cover_candidate_guard,
@@ -76,8 +70,8 @@ def generate_cover_image(
         return None
 
     source_image = image_by_ref[chosen.source_ref]
-    cover_file = create_cover_image(context.storage, source_image.storage_key, chosen.crop, auto_crop_full_image=True)
-    context.saved_storage_keys.append(cover_file.storage_key)
+    cover_file = create_cover_image(storage, source_image.storage_key, chosen.crop, auto_crop_full_image=True)
+    saved_storage_keys.append(cover_file.storage_key)
     cover_image = RecipeImage(
         storage_key=cover_file.storage_key,
         original_name=cover_file.original_name,
@@ -97,6 +91,7 @@ def generate_cover_image(
             status=RecipeResourceStatus.USED,
         )
     )
+    recipe.cover_image = cover_image
     bind_logger(
         logger,
         component=IMPORT_LOG_COMPONENT,
@@ -104,5 +99,5 @@ def generate_cover_image(
         import_job_id=job.id,
         source_ref=chosen.source_ref,
         storage_key=cover_file.storage_key,
-    ).info(f"{IMPORT_LOG_COMPONENT} Cover image generated")
+    ).info("Cover image generated")
     return cover_image

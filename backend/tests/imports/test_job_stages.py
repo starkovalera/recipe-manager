@@ -73,6 +73,7 @@ def import_config() -> ImportConfig:
         max_recipe_ingredients=50,
         max_recipe_instruction_chars=1000,
         import_min_confidence=0.2,
+        import_warn_confidence=0.75,
     )
 
 
@@ -254,6 +255,6 @@ def test_validate_extraction_result_maps_invalid_provider_result_to_import_extra
                 error_code=error_code,
                 error_message="provider message",
             )
-    )
+        )
 
     assert exc_info.value.extra == {"provider_message": "provider message"}
