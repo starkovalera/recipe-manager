@@ -58,6 +58,14 @@ After each completed phase or subphase, review the finished work and propose can
 
 - Add distinct colors and icons for different notification types while preserving accessible text/status cues.
 
+## Flags and Review UX
+
+- Revisit whether review concerns should use multiple flag types instead of one generic warning type. Define behavior when a recipe has more than one open flag, including aggregation, ordering, independent resolution, list-page indicators, recipe-detail messaging, and mobile/web UI/UX.
+
+## Import History UX
+
+- Evaluate whether users need a general Import History page in addition to notification history and direct ImportJob detail links. Before implementation, research the expected use cases, retention expectations, filtering/status needs, and retry/navigation UI. The current product intentionally relies on notifications plus per-job detail.
+
 ## Pagination and Lists
 
 - Finish pagination-aware selectors on recipe detail. The main Recipes, Collections, and Tags pages already have pagination controls, but recipe detail still loads collections without paging controls and loads only the first 100 tags.

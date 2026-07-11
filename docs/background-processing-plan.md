@@ -214,6 +214,8 @@ Do not turn this checkpoint into an unapproved broad redesign. Larger refactorin
 
 Goal: make the current synchronous import logic easier to move into a worker without changing behavior.
 
+Status: completed and approved.
+
 ```mermaid
 flowchart TD
   handler["Current create_import_job / process_import_job"] --> orchestrator["Import orchestration function"]
@@ -258,6 +260,8 @@ This phase must not change the import contract or any behavior listed in the Imp
 
 Goal: make import execution non-blocking and durable enough for local production-style testing.
 
+Status: completed and approved.
+
 This phase is split into subphases so database correctness, queue execution, and frontend behavior can be verified independently.
 
 PostgreSQL should come before Dramatiq because active import limits, idempotency, worker claiming, and `SELECT ... FOR UPDATE` are database-centered concerns.
@@ -280,6 +284,8 @@ flowchart TD
 
 #### Phase 1a: PostgreSQL Migration
 
+Status: completed and approved.
+
 - Add PostgreSQL configuration while preserving `dev` and `preview` runtime profiles.
 - Make PostgreSQL the normal backend database once background workers are introduced.
 - Keep `preview` behavior by recreating/truncating PostgreSQL schema state and local uploads on startup.
@@ -289,7 +295,7 @@ flowchart TD
 
 #### Phase 1b: Import Schema, Notifications, Job Events, Dramatiq, Redis
 
-Status: implemented and approved.
+Status: completed and approved.
 
 - Update `ImportJob.status` to the target statuses.
 - Migrate existing import job statuses by meaning:
@@ -320,7 +326,7 @@ Implemented notes:
 
 #### Phase 1c: Backend Queue Cutover
 
-Status: implemented and reviewed.
+Status: completed and approved.
 
 - Make `POST /imports` return `202 Accepted` with `{ importJobId, status }`.
 - Move import execution into the Dramatiq worker.
@@ -346,7 +352,7 @@ After this subphase, run the required checkpoint:
 
 #### Phase 1d: Polling API and Frontend Import UX
 
-Status: implemented, pending review.
+Status: completed and approved.
 
 - Add API polling for active imports and notifications.
 - Add frontend polling for active imports and notifications.
@@ -480,6 +486,8 @@ Minimum structured log fields:
 ## Phase 2: Hybrid Search and Embedding Tasks
 
 Goal: add user-scoped settings, fixed tags, deterministic search text, autocomplete chips, pagination, embeddings, and semantic/vector search. This phase is large and is split into iterations; each iteration is a review checkpoint and must not begin implementation until its iteration plan is printed and approved.
+
+Status: completed and approved.
 
 ```mermaid
 flowchart TD
@@ -1155,7 +1163,7 @@ Rebuild synchronously after:
 
 ### Iteration 7: Pagination for Recipes and Collections
 
-Status: implemented, pending review.
+Status: completed and approved.
 
 This should happen before or alongside search UI work.
 
@@ -1233,7 +1241,7 @@ Use the same pagination envelope as recipes and collections.
 
 ### Iteration 8: Autocomplete + Selected Chips Backend/Frontend
 
-Status: implemented, pending review.
+Status: completed and approved.
 
 #### Autocomplete Sources
 
@@ -1316,7 +1324,7 @@ title           -> filter by recipes.id
 
 ### Iteration 9: Background Task Infrastructure - Dramatiq + Redis
 
-Status: implemented, pending review.
+Status: completed and approved.
 
 Add infrastructure before embedding tasks.
 
@@ -1335,7 +1343,7 @@ The current README already says imports are sync-first but frontend polling is c
 
 ### Iteration 10: RecipeEmbedding + pgvector + Embedding Task
 
-Status: implemented, pending review.
+Status: completed and approved.
 
 #### Model
 
@@ -1499,7 +1507,7 @@ No user notifications for embedding tasks. Logs/audit are enough.
 
 ### Iteration 10b: RecipeEmbeddingEvent Audit History
 
-Status: implemented, pending review.
+Status: completed and approved.
 
 Goal: add append-only internal audit/debug history for the `RecipeEmbedding` lifecycle. This is not user-facing notification functionality and must not change how current embedding status is computed.
 
@@ -2263,7 +2271,7 @@ recipe detail hides embedding preview for non-admin state once user context exis
 
 Goal: tighten import pipeline correctness, diagnostics, and failure semantics before broader UI/diagnostics work.
 
-Status: in progress.
+Status: completed and approved.
 
 ```mermaid
 flowchart TD
@@ -2312,8 +2320,8 @@ flowchart TD
 
 ### Remaining Work / Follow-Up Candidates
 
-- Review user-facing failure messages for the new high-level/detail error split.
-- Keep broader notification UX, import history UI, and visual design work in the following phases.
+- Import-history UX, additional review-flag UX, and storage-retention cleanup are tracked in `future-work.md`.
+- Real admin permissions remain in Phase 6; broader visual and error-message design remains in Phase 7.
 
 ### Subphase: Atomic Import Job Creation
 
@@ -2372,7 +2380,7 @@ Goal: persist an `ImportJob` only when its complete primary-source creation scop
 
 ### Subphase: Manual Import Retry
 
-Status: backend implementation completed and verified. Frontend requirements remain deferred for a separate review.
+Status: completed and approved.
 
 Goal: allow the owner to manually restart a failed background import without recreating its successfully persisted primary inputs.
 
@@ -2472,7 +2480,7 @@ Goal: allow the owner to manually restart a failed background import without rec
 
 #### Frontend Import Retry and Job Detail
 
-Status: implemented, pending review.
+Status: completed and approved.
 
 - Do not add Retry to the current import form page's status block.
 - After job creation, the import form resets and remains independent from that job: it does not poll job state, show processing/extraction failures, or redirect when a recipe is created. It shows only synchronous job-creation/API errors and lets the user submit another import immediately.
@@ -2486,7 +2494,7 @@ Status: implemented, pending review.
 
 #### Staged Secondary Resource Loading
 
-Status: implemented, pending review.
+Status: completed and approved.
 
 - Secondary resource loading is tolerant at the individual-resource boundary. A failed URL image, video poster, video download, or transcription is recorded as a typed result instead of immediately aborting `_append_url_raw_sources`.
 - Add typed `SecondaryResourceLoadResult` records with `LOADED`, `FAILED`, and `SKIPPED` statuses and diagnostic resource kinds for URL content, text, image, video poster, and video transcript.
@@ -2516,26 +2524,32 @@ After each import-pipeline-detail change:
 
 Goal: make background processing visible and debuggable without exposing internal complexity to normal users.
 
+Status: completed and approved.
+
 ```mermaid
 flowchart TD
   notifications[("Notifications")] --> notificationTab["Notification history tab"]
-  importJobs[("Import jobs")] --> importHistory["Import history page"]
+  importJobs[("Import jobs")] --> importDetail["Public ImportJob detail"]
   jobEvents[("Job events")] --> debugView["Admin/debug view"]
   recipes["Recipe pages"] --> flags["Open flag indicators"]
 ```
 
-### Work List
+### Completed Scope
 
-- Add notification history tab.
-- Add import history page.
-- Add a user-facing ImportJob detail page, link failed-import notifications to it, and design user retry interaction there.
-- Add job event audit table if not already added.
-- Show retry attempts and final normalized error.
-- Add admin/debug view for jobs and events.
-- Add an admin ImportJobs retry action, with real permission and notification semantics finalized during the authentication/users phase.
-- Hide the basic internal diagnostics page behind real roles in Phase 6.
-- Improve user-facing error messages.
-- Keep functional UI changes scoped here; broader visual redesign belongs to Phase 7.
+- Added notification polling and notification history with read/unread actions.
+- Added a user-facing ImportJob detail page linked from import-job notifications.
+- Kept the import form independent from background job completion: it resets after accepted creation and does not poll or redirect.
+- Added user-safe status, mapped known errors with an unexpected-error fallback, timestamps, attempt limits, primary resources, retry, and successful recipe navigation.
+- Added internal/admin Import Jobs and Job Events diagnostics with attempt metadata, recipe links, newest-first events, and expandable payloads.
+- Added admin retry action and backend temporary admin guards.
+- Added recipe, embedding, and search debugging surfaces needed for local development.
+- Kept technical event payloads and internal metadata out of the public ImportJob detail response and page.
+
+### Explicit Deferrals
+
+- A general user-facing Import History page is not part of this phase. Its need and UX are tracked in `future-work.md`; notification history and direct ImportJob detail are sufficient for now.
+- Real permission checks and hiding all internal/debug UI from non-admin users remain Phase 6 work.
+- Broader visual redesign, notification styling, review-flag UX, and user-facing error-message design remain Phase 7 work.
 
 ### Blocks and Nuances
 
@@ -2657,6 +2671,7 @@ flowchart TD
   - web `Search Debug` page;
   - recipe detail admin-only embedding input preview block;
   - future user management, user settings, admin settings, and worker diagnostics pages.
+- Ensure non-admin frontend users cannot see internal/debug information even when it appears inside an otherwise public page. Hide debug sections, raw event payloads, internal identifiers, embedding diagnostics, storage metadata, and admin actions based on real permissions; backend authorization remains authoritative.
 - Replace `get_current_user` default local-user behavior with authenticated user resolution.
 - Keep a clean dependency boundary so mobile can use the same backend APIs.
 - Verify all owner-scoped data access:
@@ -2717,6 +2732,7 @@ flowchart TD
   - notification popup/box placement, including showing new notifications in a corner overlay instead of inline page content;
   - unread notification indicator for the Notifications tab, such as a red dot/badge when unread notifications exist;
   - search.
+- Review and improve user-facing error messages as part of the visual/content design system, including consistent tone, actionable recovery guidance, and presentation by error severity.
 - Produce a design direction that can inform both responsive web and mobile implementation.
 
 ### Blocks and Nuances
