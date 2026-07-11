@@ -170,14 +170,25 @@ This checklist applies to every phase. Any phase that touches import, resources,
 - User resource deletion behavior is preserved.
 - Local storage cleanup on failed processing/extraction and failed atomic import creation is preserved.
 
-## Refactoring Guidelines and Phase Completion Checkpoint
+## Phase Start and Completion Checkpoints
+
+Before starting every phase, subphase, or iteration:
+
+1. Review the current global plan and the status of preceding work.
+2. Present the concrete phase/subphase plan. While doing so, explicitly check whether any planned items have already been implemented, have become obsolete, or require clarification because of changes made during earlier phases.
+3. Identify any requirement clarification, architecture research, tool selection, business-rule decision, prompt change, or AI schema change that requires explicit approval.
+4. Review `future-work.md` and include a separate section listing todo items relevant to the upcoming phase/subphase.
+5. Update the global plan when the agreed scope or sequencing has changed.
+6. Wait for explicit user approval before implementation begins.
+
+### Refactoring Guidelines and Phase Completion Checkpoint
 
 The canonical project-wide refactoring rules are defined in [Refactoring Guidelines](./refactoring-guidelines.md).
 
 Apply them during implementation and before closing every phase, subphase, or iteration. At each completion checkpoint:
 
 1. Re-check the relevant business invariants and public contracts.
-2. Review touched code for avoidable duplication, unclear ownership, unnecessary abstractions, oversized functions, hidden side effects, scattered dependent decisions, and obsolete code/tests.
+2. Using the canonical [Refactoring Guidelines](./refactoring-guidelines.md), review touched code for avoidable duplication, unclear ownership, unnecessary abstractions, oversized functions, hidden side effects, scattered dependent decisions, and obsolete code/tests.
 3. Perform only the small local refactor needed to leave the completed scope maintainable.
 4. Run focused tests and the full relevant suite when shared behavior or contracts changed.
 5. Propose updates to the invariant checklist when business rules changed or were added.
