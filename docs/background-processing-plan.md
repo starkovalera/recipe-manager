@@ -135,7 +135,7 @@ This checklist applies to every phase. Any phase that touches import, resources,
 - Recipe and collection list endpoints are owner-scoped and paginated. Public list responses include `items`, `total`, `limit`, and `offset`. Lower-level query functions may return full owner-scoped lists when `limit` and `offset` are omitted.
 - Selected search chips are hard filters. Free text is reserved for vector search. `ingredient_name` has been replaced with `ingredient_query` in autocomplete, API parameters, and frontend types. Autocomplete always returns an `ingredient_query` suggestion first for a non-empty `q`, for example `Ingredient - cottage`. Concrete ingredient suggestions are no longer returned, to avoid encouraging overly exact ingredient choices. `/recipes` accepts repeatable `ingredientQuery=<text>` query parameters. Each `ingredientQuery` value filters recipes through `contains` matching against `Ingredient.search_name`, and multiple `ingredientQuery` values are combined with AND semantics.
 - `POST /search` uses selected chips as hard filters and free text as semantic/vector search. With free text present, the backend computes the query embedding using the current embedding provider/model, considers only current-owner recipes with `RecipeEmbedding.status = READY`, non-null embeddings, and `RecipeEmbedding.model == current query embedding model`, applies chip filters before vector ranking, and sorts by configured vector distance ascending with `Recipe.id` as a stable tie-breaker. The default and preferred metric is pgvector cosine distance (`<=>`); `EMBEDDING_DISTANCE_METRIC` defaults to `cosine` and currently supports `cosine` and `l2`. Debug similarity for cosine is `1 - distance`.
-- Internal search debugging surfaces are admin-only. Until real Phase 6 auth/permissions exist, temporary frontend admin visibility is only a UI guard; backend `/internal` admin dependencies remain authoritative.
+- Internal search debugging surfaces are admin-only. Until real Phase 5 auth/permissions exist, temporary frontend admin visibility is only a UI guard; backend `/internal` admin dependencies remain authoritative.
 - `POST /internal/search/explain` uses the public `SearchRequest` shape, applies selected chips as hard filters, uses only `READY` same-model embeddings for semantic candidates, and does not persist search debug snapshots. It returns effective filters, provider, query embedding model, distance metric, candidate count, returned count, pagination fields, `snapshot_persisted=false`, and ranked items with recipe id/title, rank, distance, similarity, embedding status, embedding model, input hash, embedding input preview, and match reasons. Semantic match reasons include a similarity `score`; selected chips are returned as individual match reasons.
 - `GET /internal/recipes/{recipeId}/embedding-input` returns the same current embedding input text and input hash produced by the embedding input builder.
 - Final resource statuses are derived from extractor `primarySourceRefs` and `ignoredSourceRefs`. A primary URL resource is `USED` when any child is `USED`, `IGNORED` when all children are `IGNORED`, and `UNKNOWN` otherwise. The unresolved case where a non-sole URL produces no child resources remains tracked in future work and is not yet an invariant.
@@ -203,8 +203,8 @@ Do not turn this checkpoint into an unapproved broad redesign. Larger refactorin
 1. Move persistence to PostgreSQL, then add Dramatiq + Redis and non-blocking import.
 2. Clarify search requirements, then add hybrid search with pgvector and embedding tasks.
 3. Add UI and diagnostics for notifications, import history, and job events.
-4. Clarify scaling requirements, then add production hardening where needed.
-5. Clarify auth and multi-user requirements, then replace the local default-user model with real authorization.
+4. Clarify auth and multi-user requirements, then replace the local default-user model with real authorization.
+5. Clarify scaling requirements, then add production hardening where needed.
 6. Do a dedicated web UI/UX design pass and draft mobile frontend design.
 7. Prepare the mobile implementation path through responsive web/PWA first, then Expo.
 
@@ -455,7 +455,7 @@ The first frontend version uses polling. SSE is a later scaling/UX enhancement.
 
 Notification API endpoints are implemented in Phase 1d. Phase 1b only creates the persisted model and backend service that import processing can call; Phase 1c only moves import execution into the worker.
 
-Basic internal import job diagnostics may be implemented before Phase 4 to support local debugging of the queue cutover. Until Phase 6, these views are treated as local/admin-only tooling by convention, not by real authorization.
+Basic internal import job diagnostics may be implemented before Phase 4 to support local debugging of the queue cutover. Until Phase 5, these views are treated as local/admin-only tooling by convention, not by real authorization.
 
 #### Observability
 
@@ -2189,7 +2189,7 @@ All search debug, search explain, and embedding input preview functionality is a
 
 Until real auth/roles are implemented, use the explicit temporary internal admin guard introduced for `/internal/*`. Do not expose debug endpoints publicly, and do not show debug UI to normal users.
 
-When Phase 6 introduces real authorization, replace the temporary guard with role/permission checks for these surfaces too.
+When Phase 5 introduces real authorization, replace the temporary guard with role/permission checks for these surfaces too.
 
 #### Backend API
 
@@ -2321,7 +2321,7 @@ flowchart TD
 ### Remaining Work / Follow-Up Candidates
 
 - Import-history UX, additional review-flag UX, and storage-retention cleanup are tracked in `future-work.md`.
-- Real admin permissions remain in Phase 6; broader visual and error-message design remains in Phase 7.
+- Real admin permissions remain in Phase 5; broader visual and error-message design remains in Phase 7.
 
 ### Subphase: Atomic Import Job Creation
 
@@ -2548,7 +2548,7 @@ flowchart TD
 ### Explicit Deferrals
 
 - A general user-facing Import History page is not part of this phase. Its need and UX are tracked in `future-work.md`; notification history and direct ImportJob detail are sufficient for now.
-- Real permission checks and hiding all internal/debug UI from non-admin users remain Phase 6 work.
+- Real permission checks and hiding all internal/debug UI from non-admin users remain Phase 5 work.
 - Broader visual redesign, notification styling, review-flag UX, and user-facing error-message design remain Phase 7 work.
 
 ### Blocks and Nuances
@@ -2568,56 +2568,7 @@ Debug/admin views can expose:
 - event timeline;
 - source loader failures.
 
-## Phase 5: Scaling and Production Hardening
-
-Goal: keep the architecture ready for higher load without complicating the first implementation.
-
-```mermaid
-flowchart TD
-  redis[("Redis")] --> importQueue["import queue"]
-  redis --> embeddingQueue["embedding queue"]
-  redis --> mediaQueue["media queue"]
-  importQueue --> importWorkers["Import workers"]
-  embeddingQueue --> embeddingWorkers["Embedding workers"]
-  mediaQueue --> mediaWorkers["Media workers"]
-  workers["Workers"] --> metrics["Metrics + alerting"]
-  storage["StorageService"] --> cloud["Cloud object storage"]
-```
-
-### Work List
-
-- Start with a requirements checkpoint:
-  - decide whether Redis is still enough or RabbitMQ is needed;
-  - decide whether polling is still enough or SSE is needed;
-  - decide target deployment shape and expected concurrency;
-  - decide cloud object storage provider.
-- Increase worker count.
-- Split queues by task type:
-  - import;
-  - embedding;
-  - media.
-- Add per-provider AI rate limits.
-- Consider RabbitMQ if broker durability becomes more important than Redis simplicity.
-- Replace local filesystem with cloud object storage through `StorageService`.
-- Add SSE after polling is proven insufficient.
-- Add metrics and alerting.
-
-### Blocks and Nuances
-
-Metrics to add later:
-
-- `imports_started_total`
-- `imports_succeeded_total`
-- `imports_failed_total`
-- `import_duration_seconds`
-- `embedding_duration_seconds`
-- `queue_depth`
-- `active_workers`
-- `ai_errors_total`
-
-Polling should remain the first notification transport. SSE is useful later but should not be required for correctness.
-
-## Phase 6: Authorization and Multi-User Access
+## Phase 5: Authorization and Multi-User Access
 
 Goal: replace the current local default/admin user assumption with real authentication and authorization before the product design pass and mobile work.
 
@@ -2702,6 +2653,55 @@ Current local-first default user is a development convenience, not a production 
 Workers should never depend on request sessions or frontend identity tokens. They should receive durable ids, load persisted jobs, and rely on owner-scoped rows already written by the API.
 
 This phase should happen before the dedicated UI/UX phase so web and mobile design can account for real login, session, account, and user-state flows.
+
+## Phase 6: Scaling and Production Hardening
+
+Goal: keep the architecture ready for higher load without complicating the first implementation.
+
+```mermaid
+flowchart TD
+  redis[("Redis")] --> importQueue["import queue"]
+  redis --> embeddingQueue["embedding queue"]
+  redis --> mediaQueue["media queue"]
+  importQueue --> importWorkers["Import workers"]
+  embeddingQueue --> embeddingWorkers["Embedding workers"]
+  mediaQueue --> mediaWorkers["Media workers"]
+  workers["Workers"] --> metrics["Metrics + alerting"]
+  storage["StorageService"] --> cloud["Cloud object storage"]
+```
+
+### Work List
+
+- Start with a requirements checkpoint:
+  - decide whether Redis is still enough or RabbitMQ is needed;
+  - decide whether polling is still enough or SSE is needed;
+  - decide target deployment shape and expected concurrency;
+  - decide cloud object storage provider.
+- Increase worker count.
+- Split queues by task type:
+  - import;
+  - embedding;
+  - media.
+- Add per-provider AI rate limits.
+- Consider RabbitMQ if broker durability becomes more important than Redis simplicity.
+- Replace local filesystem with cloud object storage through `StorageService`.
+- Add SSE after polling is proven insufficient.
+- Add metrics and alerting.
+
+### Blocks and Nuances
+
+Metrics to add later:
+
+- `imports_started_total`
+- `imports_succeeded_total`
+- `imports_failed_total`
+- `import_duration_seconds`
+- `embedding_duration_seconds`
+- `queue_depth`
+- `active_workers`
+- `ai_errors_total`
+
+Polling should remain the first notification transport. SSE is useful later but should not be required for correctness.
 
 ## Phase 7: Web UI/UX and Mobile FE Design
 
@@ -2810,4 +2810,4 @@ Phase 2 starts with requirements for hybrid search ranking. The likely shape is 
 
 ### Open: RabbitMQ and SSE Timing
 
-Phase 5 starts with a checkpoint to decide whether RabbitMQ and SSE are actually needed at that stage.
+Phase 6 starts with a checkpoint to decide whether RabbitMQ and SSE are actually needed at that stage.
