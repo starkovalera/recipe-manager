@@ -4,7 +4,14 @@ from urllib.parse import urljoin
 
 import httpx
 
+from app.imports.source_loading.results import (
+    SecondaryResourceKind,
+    SecondaryResourceLoadResult,
+    SecondaryResourceLoadStatus,
+)
 from app.imports.source_loading.url_loaders.types import Fetch, FetchResponse, LoadedRemoteImage, LoadedUrlContent
+
+SUPPORTED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
 
 
 async def httpx_fetch(url: str, max_bytes: int) -> FetchResponse:
@@ -46,17 +53,32 @@ class GenericUrlContentLoader:
         text = description or _body_text(html)
         image_url = _meta_content(html, "og:image")
         images: list[LoadedRemoteImage] = []
+        resource_results: list[SecondaryResourceLoadResult] = []
         if image_url and max_images > 0:
             resolved = urljoin(url, image_url)
-            image = await self.fetch(resolved, max_image_bytes)
-            mime_type = image.headers.get("content-type", "application/octet-stream").split(";")[0]
-            images.append(
-                LoadedRemoteImage(
-                    bytes=image.content,
-                    mime_type=mime_type,
-                    original_name="preview-image",
-                    url=resolved,
-                    position=0,
+            try:
+                image = await self.fetch(resolved, max_image_bytes)
+                mime_type = image.headers.get("content-type", "application/octet-stream").split(";")[0]
+                if not image.content or mime_type not in SUPPORTED_IMAGE_TYPES:
+                    raise ValueError("Generic preview image is empty or has an unsupported content type.")
+                images.append(
+                    LoadedRemoteImage(
+                        bytes=image.content,
+                        mime_type=mime_type,
+                        original_name="preview-image",
+                        url=resolved,
+                        position=0,
+                    )
                 )
-            )
-        return LoadedUrlContent(url=url, text=text, images=images)
+            except Exception as error:
+                resource_results.append(
+                    SecondaryResourceLoadResult(
+                        kind=SecondaryResourceKind.IMAGE,
+                        status=SecondaryResourceLoadStatus.FAILED,
+                        position=0,
+                        url=resolved,
+                        original_name="preview-image",
+                        error=repr(error),
+                    )
+                )
+        return LoadedUrlContent(url=url, text=text or None, images=images, resource_results=resource_results)

@@ -8,6 +8,11 @@ from openai import OpenAI
 from app.core.config import Settings, get_settings
 from app.core.logging import bind_logger
 from app.imports.constants import IMPORT_VIDEO_LOG_COMPONENT
+from app.imports.source_loading.types import (
+    SecondaryResourceKind,
+    SecondaryResourceLoadResult,
+    SecondaryResourceLoadStatus,
+)
 from app.imports.source_loading.url_loaders.generic import httpx_fetch
 from app.imports.source_loading.url_loaders.types import Fetch, LoadedRemoteImage, LoadedRemoteVideo
 from app.imports.source_loading.video_processors.types import FirstPassVideoSources
@@ -68,8 +73,10 @@ class VideoProcessor:
     ) -> FirstPassVideoSources:
         poster_images: list[LoadedRemoteImage] = []
         transcripts: list[str] = []
+        resource_results: list[SecondaryResourceLoadResult] = []
 
         for video in videos:
+            poster = None
             try:
                 poster = await self._download_poster(video, max_image_bytes)
             except Exception as error:
@@ -77,10 +84,30 @@ class VideoProcessor:
                     f"{IMPORT_VIDEO_LOG_COMPONENT} Video poster download failed",
                     error=repr(error),
                 )
-                raise
+                resource_results.append(
+                    SecondaryResourceLoadResult(
+                        kind=SecondaryResourceKind.VIDEO_POSTER,
+                        status=SecondaryResourceLoadStatus.FAILED,
+                        position=video.position,
+                        url=video.poster_url,
+                        original_name=video.original_name,
+                        error=repr(error),
+                    )
+                )
+            else:
+                resource_results.append(
+                    SecondaryResourceLoadResult(
+                        kind=SecondaryResourceKind.VIDEO_POSTER,
+                        status=(SecondaryResourceLoadStatus.LOADED if poster is not None else SecondaryResourceLoadStatus.SKIPPED),
+                        position=video.position,
+                        url=video.poster_url,
+                        original_name=video.original_name,
+                    )
+                )
             if poster is not None:
                 poster_images.append(poster)
 
+            transcript = None
             try:
                 transcript = await self._transcribe(video, max_video_bytes)
             except Exception as error:
@@ -88,11 +115,31 @@ class VideoProcessor:
                     f"{IMPORT_VIDEO_LOG_COMPONENT} Video transcription failed",
                     error=repr(error),
                 )
-                raise
+                resource_results.append(
+                    SecondaryResourceLoadResult(
+                        kind=SecondaryResourceKind.VIDEO_TRANSCRIPT,
+                        status=SecondaryResourceLoadStatus.FAILED,
+                        position=video.position,
+                        url=video.url,
+                        original_name=video.original_name,
+                        error=repr(error),
+                    )
+                )
+            else:
+                resource_results.append(
+                    SecondaryResourceLoadResult(
+                        kind=SecondaryResourceKind.VIDEO_TRANSCRIPT,
+                        status=(SecondaryResourceLoadStatus.LOADED if transcript else SecondaryResourceLoadStatus.SKIPPED),
+                        position=video.position,
+                        url=video.url,
+                        original_name=video.original_name,
+                    )
+                )
             if transcript:
                 transcripts.append(f"Video {video.position + 1} transcript:\n{transcript}")
 
         return FirstPassVideoSources(
             poster_images=poster_images,
             transcript_text="\n\n".join(transcripts) if transcripts else None,
+            resource_results=resource_results,
         )

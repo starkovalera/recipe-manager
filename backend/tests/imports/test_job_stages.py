@@ -16,6 +16,7 @@ from app.imports.error_codes import (
     InvalidExtractionResult,
     NotARecipeError,
     ResultParseError,
+    SecondaryResourceUploadError,
 )
 from app.imports.job_context import ImportJobContext
 from app.imports.job_stages import extraction_sources as extraction_sources_module
@@ -23,6 +24,13 @@ from app.imports.job_stages.extraction import extract, validate_extraction_resul
 from app.imports.job_stages.extraction_sources import ExtractionContext, build_extraction_context
 from app.imports.job_stages.raw_recipe import build_raw_recipe
 from app.imports.job_stages.raw_sources import RawSource, build_raw_sources
+from app.imports.source_loading.results import (
+    SecondaryResourceKind,
+    SecondaryResourceLoadResult,
+    SecondaryResourceLoadStatus,
+)
+from app.imports.source_loading.url_loaders.types import LoadedRemoteImage, LoadedRemoteVideo, LoadedUrlContent
+from app.imports.source_loading.video_processors.types import FirstPassVideoSources
 from app.models import (
     ImportJob,
     ImportJobSource,
@@ -40,6 +48,11 @@ class MemoryStorage:
     def read(self, storage_key: str) -> bytes:
         return self.files[storage_key]
 
+    def save(self, content: bytes, original_name: str, mime_type: str):
+        stored = type("StoredFile", (), {"storage_key": f"secondary/{original_name}"})()
+        self.files[stored.storage_key] = content
+        return stored
+
 
 class EmptyUrlContentService:
     async def load(self, url: str, max_images: int, max_image_bytes: int):
@@ -49,6 +62,25 @@ class EmptyUrlContentService:
 class EmptyVideoProcessor:
     async def prepare_first_pass_video_sources(self, *, videos, max_image_bytes: int, max_video_bytes: int):
         raise AssertionError("Video processor should not be called")
+
+
+class StaticUrlContentService:
+    def __init__(self, content: LoadedUrlContent | None = None, error: Exception | None = None):
+        self.content = content
+        self.error = error
+
+    async def load(self, url: str, max_images: int, max_image_bytes: int):
+        if self.error is not None:
+            raise self.error
+        return self.content
+
+
+class StaticVideoProcessor:
+    def __init__(self, result: FirstPassVideoSources):
+        self.result = result
+
+    async def prepare_first_pass_video_sources(self, *, videos, max_image_bytes: int, max_video_bytes: int):
+        return self.result
 
 
 class RecipeExtractionProvider:
@@ -122,7 +154,7 @@ def test_build_raw_sources_preserves_manual_text_and_image_order():
         ImportJobSource(type=SourceType.TEXT, text="Manual text", position=1),
     ]
 
-    raw_sources, imported_author_name = build_raw_sources(
+    result = build_raw_sources(
         job,
         MemoryStorage({"images/source.jpg": b"image-bytes"}),
         secondary_storage_keys=[],
@@ -131,14 +163,123 @@ def test_build_raw_sources_preserves_manual_text_and_image_order():
         import_config=import_config(),
     )
 
-    assert imported_author_name is None
-    assert [(source.type, source.source, source.position) for source in raw_sources] == [
+    assert result.imported_author_name is None
+    assert result.secondary_resource_results == []
+    assert [(source.type, source.source, source.position) for source in result.raw_sources] == [
         (SourceType.IMAGE, RecipeResourceOrigin.MANUAL, 0),
         (SourceType.TEXT, RecipeResourceOrigin.MANUAL, 1),
     ]
-    assert raw_sources[0].image_bytes == b"image-bytes"
-    assert raw_sources[0].original_name == "source.jpg"
-    assert raw_sources[1].text == "Manual text"
+    assert result.raw_sources[0].image_bytes == b"image-bytes"
+    assert result.raw_sources[0].original_name == "source.jpg"
+    assert result.raw_sources[1].text == "Manual text"
+
+
+def test_build_raw_sources_keeps_partial_url_content_and_reports_failed_transcript():
+    job = import_job()
+    job.sources = [ImportJobSource(type=SourceType.URL, url="https://example.com/post", position=0)]
+    video = LoadedRemoteVideo(
+        url="https://cdn.example/video.mp4",
+        poster_url="https://cdn.example/poster.jpg",
+        position=0,
+        original_name="video.mp4",
+    )
+    transcript_failure = SecondaryResourceLoadResult(
+        kind=SecondaryResourceKind.VIDEO_TRANSCRIPT,
+        status=SecondaryResourceLoadStatus.FAILED,
+        position=0,
+        url=video.url,
+        original_name=video.original_name,
+        error="RuntimeError('transcription failed')",
+    )
+
+    result = build_raw_sources(
+        job,
+        MemoryStorage({}),
+        secondary_storage_keys=[],
+        url_content_loader=StaticUrlContentService(
+            LoadedUrlContent(
+                url="https://example.com/post",
+                text="Recipe caption",
+                videos=[video],
+            )
+        ),
+        video_processor=StaticVideoProcessor(
+            FirstPassVideoSources(
+                poster_images=[
+                    LoadedRemoteImage(
+                        bytes=b"poster",
+                        mime_type="image/jpeg",
+                        original_name="poster-video.jpg",
+                        url=video.poster_url or "",
+                        position=0,
+                    )
+                ],
+                resource_results=[transcript_failure],
+            )
+        ),
+        import_config=import_config(),
+    )
+
+    assert [(source.type, source.source) for source in result.raw_sources] == [
+        (SourceType.URL, RecipeResourceOrigin.MANUAL),
+        (SourceType.TEXT, RecipeResourceOrigin.URL),
+        (SourceType.IMAGE, RecipeResourceOrigin.URL_VIDEO),
+    ]
+    assert transcript_failure in result.secondary_resource_results
+
+
+def test_build_raw_sources_rejects_sole_url_with_only_video_posters():
+    job = import_job()
+    job.sources = [ImportJobSource(type=SourceType.URL, url="https://example.com/post", position=0)]
+    video = LoadedRemoteVideo(
+        url="https://cdn.example/video.mp4",
+        poster_url="https://cdn.example/poster.jpg",
+        position=0,
+        original_name="video.mp4",
+    )
+
+    with pytest.raises(SecondaryResourceUploadError):
+        build_raw_sources(
+            job,
+            MemoryStorage({}),
+            secondary_storage_keys=[],
+            url_content_loader=StaticUrlContentService(LoadedUrlContent(url="https://example.com/post", text=None, videos=[video])),
+            video_processor=StaticVideoProcessor(
+                FirstPassVideoSources(
+                    poster_images=[
+                        LoadedRemoteImage(
+                            bytes=b"poster",
+                            mime_type="image/jpeg",
+                            original_name="poster-video.jpg",
+                            url=video.poster_url or "",
+                            position=0,
+                        )
+                    ]
+                )
+            ),
+            import_config=import_config(),
+        )
+
+
+def test_build_raw_sources_keeps_manual_evidence_when_url_content_loading_fails():
+    job = import_job()
+    job.sources = [
+        ImportJobSource(type=SourceType.TEXT, text="Manual recipe", position=0),
+        ImportJobSource(type=SourceType.URL, url="https://example.com/post", position=1),
+    ]
+
+    result = build_raw_sources(
+        job,
+        MemoryStorage({}),
+        secondary_storage_keys=[],
+        url_content_loader=StaticUrlContentService(error=RuntimeError("page unavailable")),
+        video_processor=EmptyVideoProcessor(),
+        import_config=import_config(),
+    )
+
+    assert [source.type for source in result.raw_sources] == [SourceType.TEXT, SourceType.URL]
+    assert len(result.failed_secondary_resources) == 1
+    assert result.failed_secondary_resources[0].kind == SecondaryResourceKind.URL_CONTENT
 
 
 def test_build_raw_recipe_preserves_url_parent_child_tree():

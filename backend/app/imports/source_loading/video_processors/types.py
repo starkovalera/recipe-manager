@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Protocol
 
+from app.imports.source_loading.types import SecondaryResourceLoadResult
 from app.imports.source_loading.url_loaders.types import LoadedRemoteImage
 
 
@@ -8,6 +9,7 @@ from app.imports.source_loading.url_loaders.types import LoadedRemoteImage
 class FirstPassVideoSources:
     poster_images: list[LoadedRemoteImage] = field(default_factory=list)
     transcript_text: str | None = None
+    resource_results: list[SecondaryResourceLoadResult] = field(default_factory=list)
 
 
 class VideoSourceProcessor(Protocol):

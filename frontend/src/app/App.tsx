@@ -7,6 +7,7 @@ import { isCurrentUserAdmin } from "../auth/admin";
 import { CollectionDetailPage } from "../pages/CollectionDetailPage";
 import { CollectionsPage } from "../pages/CollectionsPage";
 import { ImportPage } from "../pages/ImportPage";
+import { ImportJobDetailPage } from "../pages/ImportJobDetailPage";
 import { InternalEmbeddingsPage } from "../pages/InternalEmbeddingsPage";
 import { InternalImportJobsPage } from "../pages/InternalImportJobsPage";
 import { InternalSearchDebugPage } from "../pages/InternalSearchDebugPage";
@@ -18,6 +19,7 @@ import { TagsPage } from "../pages/TagsPage";
 type Page =
   | { name: "recipes" }
   | { name: "import" }
+  | { name: "import-job"; jobId: string }
   | { name: "recipe"; recipeId: string }
   | { name: "collections" }
   | { name: "collection"; collectionId: string }
@@ -29,7 +31,7 @@ type Page =
 
 function AppContent() {
   const [page, setPage] = useState<Page>({ name: "recipes" });
-  const activeSection = page.name === "recipe" ? "recipes" : page.name === "collection" ? "collections" : page.name;
+  const activeSection = page.name === "recipe" ? "recipes" : page.name === "collection" ? "collections" : page.name === "import-job" ? "notifications" : page.name;
   const notificationsQuery = useQuery({
     queryKey: ["notifications"],
     queryFn: listNotifications,
@@ -114,7 +116,8 @@ function AppContent() {
       ) : null}
       <div className="layout">
         {page.name === "recipes" ? <RecipeListPage onSelect={(recipeId) => setPage({ name: "recipe", recipeId })} /> : null}
-        {page.name === "import" ? <ImportPage onImported={(recipeId) => setPage({ name: "recipe", recipeId })} /> : null}
+        {page.name === "import" ? <ImportPage /> : null}
+        {page.name === "import-job" ? <ImportJobDetailPage jobId={page.jobId} onOpenRecipe={(recipeId) => setPage({ name: "recipe", recipeId })} /> : null}
         {page.name === "recipe" ? <RecipeDetailPage recipeId={page.recipeId} onDeleted={() => setPage({ name: "recipes" })} /> : null}
         {page.name === "collections" ? (
           <CollectionsPage onSelect={(collectionId) => setPage({ name: "collection", collectionId })} />
@@ -127,10 +130,14 @@ function AppContent() {
           />
         ) : null}
         {page.name === "notifications" ? (
-          <NotificationsPage notifications={notifications} onOpenRecipe={(recipeId) => setPage({ name: "recipe", recipeId })} />
+          <NotificationsPage
+            notifications={notifications}
+            onOpenRecipe={(recipeId) => setPage({ name: "recipe", recipeId })}
+            onOpenImport={(jobId) => setPage({ name: "import-job", jobId })}
+          />
         ) : null}
         {page.name === "tags" ? <TagsPage /> : null}
-        {page.name === "internal-import-jobs" && isAdmin ? <InternalImportJobsPage /> : null}
+        {page.name === "internal-import-jobs" && isAdmin ? <InternalImportJobsPage onOpenRecipe={(recipeId) => setPage({ name: "recipe", recipeId })} /> : null}
         {page.name === "internal-embeddings" && isAdmin ? <InternalEmbeddingsPage /> : null}
         {page.name === "internal-search-debug" && isAdmin ? <InternalSearchDebugPage onOpenRecipe={(recipeId) => setPage({ name: "recipe", recipeId })} /> : null}
       </div>

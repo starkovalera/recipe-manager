@@ -6,6 +6,11 @@ from html import unescape
 from urllib.parse import urlparse
 
 from app.core.logging import log_error, log_info
+from app.imports.source_loading.results import (
+    SecondaryResourceKind,
+    SecondaryResourceLoadResult,
+    SecondaryResourceLoadStatus,
+)
 from app.imports.source_loading.url_loaders.generic import httpx_fetch
 from app.imports.source_loading.url_loaders.types import Fetch, LoadedRemoteImage, LoadedRemoteVideo, LoadedUrlContent
 
@@ -89,6 +94,7 @@ def _visit(value: object, callback) -> None:
 def _extract_post_id(payloads: list[object]) -> str | None:
     post_id: str | None = None
     for payload in payloads:
+
         def capture(node: dict) -> None:
             nonlocal post_id
             if post_id is None and isinstance(node.get("postID"), str):
@@ -115,6 +121,7 @@ def _is_thread_edge(value: object) -> bool:
 def _collect_thread_edge_groups(payloads: list[object]) -> list[list[dict]]:
     groups: list[list[dict]] = []
     for payload in payloads:
+
         def capture(node: dict) -> None:
             for child in node.values():
                 if not isinstance(child, list) or not child:
@@ -166,6 +173,7 @@ def _find_post(payloads: list[object], shortcode: str) -> dict | None:
     fallback: dict | None = None
 
     for payload in payloads:
+
         def capture(node: dict) -> None:
             nonlocal fallback
             if not _is_threads_post(node):
@@ -236,7 +244,9 @@ def _image_descriptors(posts: list[dict], max_images: int) -> list[ImageDescript
         for media in _media_nodes(post):
             if isinstance(media.get("video_versions"), list) and media["video_versions"]:
                 continue
-            candidate = _largest_candidate(media.get("image_versions2", {}).get("candidates") if isinstance(media.get("image_versions2"), dict) else None)
+            candidate = _largest_candidate(
+                media.get("image_versions2", {}).get("candidates") if isinstance(media.get("image_versions2"), dict) else None
+            )
             if not candidate:
                 continue
             descriptors.append(ImageDescriptor(url=str(candidate["url"]), position=len(descriptors)))
@@ -264,7 +274,9 @@ def _video_descriptors(posts: list[dict], max_videos: int) -> list[VideoDescript
             video_url = _first_video_url(media)
             if not video_url:
                 continue
-            poster = _largest_candidate(media.get("image_versions2", {}).get("candidates") if isinstance(media.get("image_versions2"), dict) else None)
+            poster = _largest_candidate(
+                media.get("image_versions2", {}).get("candidates") if isinstance(media.get("image_versions2"), dict) else None
+            )
             descriptors.append(
                 VideoDescriptor(
                     url=video_url,
@@ -334,14 +346,39 @@ class ThreadsUrlContentLoader:
         descriptors = _image_descriptors(posts, max_images)
         video_descriptors = _video_descriptors(posts, max_videos)
         images: list[LoadedRemoteImage] = []
+        resource_results: list[SecondaryResourceLoadResult] = []
         for descriptor in descriptors:
             try:
                 image = await _download_image(descriptor, self.fetch, max_image_bytes)
             except Exception as error:
-                log_error(logger, "[recipes.url.threads] Image download failed", error=repr(error), url=descriptor.url, position=descriptor.position)
-                raise
+                log_error(
+                    logger,
+                    "[recipes.url.threads] Image download failed",
+                    error=repr(error),
+                    url=descriptor.url,
+                    position=descriptor.position,
+                )
+                resource_results.append(
+                    SecondaryResourceLoadResult(
+                        kind=SecondaryResourceKind.IMAGE,
+                        status=SecondaryResourceLoadStatus.FAILED,
+                        position=descriptor.position,
+                        url=descriptor.url,
+                        error=repr(error),
+                    )
+                )
+                continue
             if image is None:
-                raise ValueError(f"Threads image could not be downloaded: {descriptor.url}")
+                resource_results.append(
+                    SecondaryResourceLoadResult(
+                        kind=SecondaryResourceKind.IMAGE,
+                        status=SecondaryResourceLoadStatus.FAILED,
+                        position=descriptor.position,
+                        url=descriptor.url,
+                        error="Threads image could not be downloaded.",
+                    )
+                )
+                continue
             images.append(image)
         text = "\n\n".join(captions) or _meta_content(html, ["og:description", "twitter:description", "description"]) or ""
         log_info(
@@ -356,7 +393,7 @@ class ThreadsUrlContentLoader:
         return LoadedUrlContent(
             url=normalized_url,
             author_name=_author_name(posts),
-            text=text or f"URL: {normalized_url}",
+            text=text or None,
             images=images,
             videos=[
                 LoadedRemoteVideo(
@@ -367,4 +404,5 @@ class ThreadsUrlContentLoader:
                 )
                 for descriptor in video_descriptors
             ],
+            resource_results=resource_results,
         )

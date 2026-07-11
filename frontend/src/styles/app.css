@@ -860,6 +860,92 @@ form button[type="submit"]:hover,
   justify-content: flex-end;
 }
 
+.import-job-detail {
+  display: grid;
+  gap: 18px;
+}
+
+.import-job-detail h3 {
+  margin: 4px 0 0;
+}
+
+.import-status {
+  display: inline-block;
+  margin: 6px 0 0;
+  border-radius: 999px;
+  padding: 5px 10px;
+  background: var(--surface-soft);
+  color: var(--text-soft);
+  font-weight: 700;
+}
+
+.import-status--succeeded,
+.import-status--succeeded_with_flags {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+.import-status--failed,
+.import-status--cancelled {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.import-error {
+  margin: 0;
+  border: 1px solid #f3b8b2;
+  border-radius: 14px;
+  padding: 12px 14px;
+  background: var(--danger-soft);
+}
+
+.import-source-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.import-source {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px;
+  background: var(--surface-soft);
+  overflow-wrap: anywhere;
+}
+
+.import-source img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: 10px;
+  object-fit: cover;
+}
+
+.import-source p {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.debug-event {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: var(--surface-soft);
+}
+
+.debug-event summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.debug-event pre {
+  margin-bottom: 0;
+  overflow-wrap: anywhere;
+}
+
 .collection-list {
   display: grid;
   gap: 10px;

@@ -173,11 +173,15 @@ def test_failed_import_can_be_requeued_without_resetting_attempt_fields(monkeypa
     assert enqueued == [job_id]
     with SessionLocal() as session:
         job = session.get(ImportJob, job_id)
-        started_notifications = session.query(Notification).filter_by(
-            owner_id=job.owner_id,
-            type=NotificationType.IMPORT_STARTED,
-            entity_id=job_id,
-        ).count()
+        started_notifications = (
+            session.query(Notification)
+            .filter_by(
+                owner_id=job.owner_id,
+                type=NotificationType.IMPORT_STARTED,
+                entity_id=job_id,
+            )
+            .count()
+        )
     assert started_notifications == 2
 
 
@@ -256,10 +260,14 @@ def test_retry_publish_error_returns_running_job_when_worker_already_claimed_mes
     assert response.json()["status"] == "running"
     assert response.json()["attemptCount"] == 2
     with SessionLocal() as session:
-        retry_notifications = session.query(Notification).filter_by(
-            type=NotificationType.IMPORT_STARTED,
-            entity_id=job_id,
-        ).count()
+        retry_notifications = (
+            session.query(Notification)
+            .filter_by(
+                type=NotificationType.IMPORT_STARTED,
+                entity_id=job_id,
+            )
+            .count()
+        )
     assert retry_notifications == 2
 
 
@@ -288,6 +296,48 @@ def test_text_import_creates_job_and_polling_returns_recipe():
     assert completed.json()["attemptCount"] == 1
 
 
+def test_public_import_job_returns_only_user_facing_primary_sources():
+    client = client_with_session()
+
+    created = client.post(
+        "/imports",
+        data={
+            "clientImportId": "public-sources",
+            "text": "Tomato soup recipe",
+            "url": "https://example.com/recipe",
+        },
+        files=[("files", ("recipe.jpg", image_bytes(), "image/jpeg"))],
+        headers={"X-Client-Id": "client-1"},
+    )
+
+    assert created.status_code == 202
+    assert created.json()["sources"] == [
+        {
+            "type": "IMAGE",
+            "url": None,
+            "originalName": "recipe.jpg",
+            "mediaUrl": created.json()["sources"][0]["mediaUrl"],
+            "text": None,
+        },
+        {
+            "type": "TEXT",
+            "url": None,
+            "originalName": None,
+            "mediaUrl": None,
+            "text": "Tomato soup recipe",
+        },
+        {
+            "type": "URL",
+            "url": "https://example.com/recipe",
+            "originalName": None,
+            "mediaUrl": None,
+            "text": None,
+        },
+    ]
+    assert created.json()["sources"][0]["mediaUrl"].startswith("/media/")
+    assert set(created.json()["sources"][0]) == {"type", "url", "originalName", "mediaUrl", "text"}
+
+
 def test_import_started_event_records_current_and_max_attempts():
     client, SessionLocal = client_with_session_factory()
     created = client.post(
@@ -299,10 +349,14 @@ def test_import_started_event_records_current_and_max_attempts():
     run_import_worker(client, created.json()["jobId"])
 
     with SessionLocal() as session:
-        event = session.query(JobEvent).filter_by(
-            import_job_id=created.json()["jobId"],
-            event_type=ImportEventType.IMPORT_STARTED,
-        ).one()
+        event = (
+            session.query(JobEvent)
+            .filter_by(
+                import_job_id=created.json()["jobId"],
+                event_type=ImportEventType.IMPORT_STARTED,
+            )
+            .one()
+        )
     assert event.payload["attempt_count"] == 1
     assert event.payload["max_attempts"] == 3
 
@@ -743,7 +797,9 @@ class FakeRegistry:
             author_name="url_author",
             text="URL recipe text",
             images=[
-                LoadedRemoteImage(bytes=image_bytes(), mime_type="image/jpeg", original_name="remote.jpg", url=f"{url}/remote.jpg", position=0)
+                LoadedRemoteImage(
+                    bytes=image_bytes(), mime_type="image/jpeg", original_name="remote.jpg", url=f"{url}/remote.jpg", position=0
+                )
             ][:max_images],
         )
 
@@ -889,8 +945,42 @@ def test_url_secondary_resource_failure_fails_job_with_processing_error():
             "code": "SECONDARY_RESOURCE_UPLOADING_FAILED",
             "message": "Import processing failed due to secondary resource uploading issue.",
         }
-        assert failed_payload["resource_type"] == "URL"
-        assert failed_payload["url"] == "https://example.com/recipe"
+        assert failed_payload["reason"] == "NO_USABLE_SECONDARY_RESOURCES"
+        assert failed_payload["failed_resource_count"] == 1
+
+
+def test_url_secondary_resource_failure_is_audited_when_manual_evidence_can_continue():
+    client, SessionLocal = client_with_session_factory()
+    set_url_content_service(FailingRegistry())
+
+    response = client.post(
+        "/imports",
+        data={
+            "clientImportId": "partial-url-secondary-failure",
+            "text": "Tomato soup recipe",
+            "url": "https://example.com/recipe",
+        },
+        headers={"X-Client-Id": "client-1"},
+    )
+    response = process_import_response(client, response)
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "succeeded"
+    with SessionLocal() as session:
+        job = session.get(ImportJob, response.json()["jobId"])
+        event = next(event for event in job.events if event.event_type == ImportEventType.IMPORT_SECONDARY_RESOURCE_UPLOAD_FAILED)
+        assert event.payload["attempt_count"] == 1
+        assert event.payload["max_attempts"] == 3
+        assert event.payload["resources"] == [
+            {
+                "kind": "URL_CONTENT",
+                "status": "FAILED",
+                "position": None,
+                "url": "https://example.com/recipe",
+                "original_name": None,
+                "error": "RuntimeError('secondary source failed')",
+            }
+        ]
 
 
 class CapturingProvider(FakeRecipeExtractionProvider):

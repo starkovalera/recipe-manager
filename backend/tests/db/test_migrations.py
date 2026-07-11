@@ -24,10 +24,7 @@ def test_import_creation_error_postgres_migration_maps_value_during_enum_cast(mo
     migration.upgrade()
 
     assert not any(statement.startswith("UPDATE import_jobs SET error_code = 'IMPORT_FAILED'") for statement in statements)
-    assert any(
-        "CASE error_code::text WHEN 'IMPORT_CREATION_FAILED' THEN 'IMPORT_FAILED'" in statement
-        for statement in statements
-    )
+    assert any("CASE error_code::text WHEN 'IMPORT_CREATION_FAILED' THEN 'IMPORT_FAILED'" in statement for statement in statements)
 
 
 def test_alembic_upgrade_head_creates_core_tables(tmp_path: Path):
@@ -95,9 +92,7 @@ def test_embedding_lifecycle_migration_converts_existing_values_and_downgrades(t
     command.upgrade(config, "head")
     with engine.connect() as connection:
         embedding_row = connection.execute(text("SELECT status FROM recipe_embeddings WHERE recipe_id = 'recipe-1'")).one()
-        event_row = connection.execute(
-            text("SELECT event_type, status_after FROM embedding_events WHERE id = 'event-1'")
-        ).one()
+        event_row = connection.execute(text("SELECT event_type, status_after FROM embedding_events WHERE id = 'event-1'")).one()
     assert embedding_row.status == "READY"
     assert event_row.event_type == "SAVED"
     assert event_row.status_after == "READY"
@@ -105,9 +100,7 @@ def test_embedding_lifecycle_migration_converts_existing_values_and_downgrades(t
     command.downgrade(config, "20260710_0016")
     with engine.connect() as connection:
         embedding_row = connection.execute(text("SELECT status FROM recipe_embeddings WHERE recipe_id = 'recipe-1'")).one()
-        event_row = connection.execute(
-            text("SELECT event_type, status_after FROM embedding_events WHERE id = 'event-1'")
-        ).one()
+        event_row = connection.execute(text("SELECT event_type, status_after FROM embedding_events WHERE id = 'event-1'")).one()
     assert embedding_row.status == "ready"
     assert event_row.event_type == "saved"
     assert event_row.status_after == "ready"
@@ -174,3 +167,22 @@ def test_import_attempt_count_migration_backfills_existing_jobs_and_downgrades(t
 
     command.downgrade(config, "20260710_0018")
     assert "attempt_count" not in {column["name"] for column in inspect(engine).get_columns("import_jobs")}
+
+
+def test_secondary_resource_failure_event_migration_adds_postgres_enum_value(monkeypatch):
+    migration_path = Path(__file__).resolve().parents[2] / "alembic" / "versions" / "20260711_0020_secondary_resource_failure_event.py"
+    spec = importlib.util.spec_from_file_location("migration_0020", migration_path)
+    assert spec is not None and spec.loader is not None
+    migration = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(migration)
+    statements: list[str] = []
+    fake_op = SimpleNamespace(
+        get_bind=lambda: SimpleNamespace(dialect=SimpleNamespace(name="postgresql")),
+        execute=statements.append,
+        alter_column=lambda *_args, **_kwargs: None,
+    )
+    monkeypatch.setattr(migration, "op", fake_op)
+
+    migration.upgrade()
+
+    assert any("ADD VALUE IF NOT EXISTS 'IMPORT_SECONDARY_RESOURCE_UPLOAD_FAILED'" in statement for statement in statements)

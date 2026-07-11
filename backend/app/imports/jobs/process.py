@@ -161,7 +161,7 @@ def process_import_job(job_id: str) -> None:
         primary_storage_keys = job_context.primary_storage_keys
         log_import_started(job_context)
 
-        raw_sources, imported_author_name = build_raw_sources(
+        raw_sources_result = build_raw_sources(
             job_context,
             storage,
             secondary_storage_keys,
@@ -170,14 +170,27 @@ def process_import_job(job_id: str) -> None:
             import_config,
         )
         with db_session() as session:
+            if raw_sources_result.failed_secondary_resources:
+                build_job_event(
+                    session,
+                    import_job_id=job_context.id,
+                    event_type=ImportEventType.IMPORT_SECONDARY_RESOURCE_UPLOAD_FAILED,
+                    attempt_count=job_context.attempt_count,
+                    max_attempts=import_config.max_import_attempts,
+                    resources=[result.to_dict() for result in raw_sources_result.failed_secondary_resources],
+                )
             build_job_event(
                 session,
                 import_job_id=job_context.id,
                 event_type=ImportEventType.RAW_SOURCES_DOWNLOADED,
-                source_count=len(raw_sources),
+                source_count=len(raw_sources_result.raw_sources),
             )
 
-        recipe, recipe_resources, content_recipe_resources = build_raw_recipe(raw_sources, job_context.owner_id, imported_author_name)
+        recipe, recipe_resources, content_recipe_resources = build_raw_recipe(
+            raw_sources_result.raw_sources,
+            job_context.owner_id,
+            raw_sources_result.imported_author_name,
+        )
 
         extraction_context = build_extraction_context(content_recipe_resources, job_context, storage)
 

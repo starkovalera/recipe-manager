@@ -6,6 +6,18 @@ export type ImportJob = {
   createdRecipeId?: string | null;
   errorCode?: string | null;
   errorMessage?: string | null;
+  attemptCount: number;
+  maxAttempts: number;
+  createdAt?: string | null;
+  startedAt?: string | null;
+  finishedAt?: string | null;
+  sources: Array<{
+    type: "IMAGE" | "TEXT" | "URL";
+    url?: string | null;
+    originalName?: string | null;
+    mediaUrl?: string | null;
+    text?: string | null;
+  }>;
 };
 
 export type Notification = {
@@ -147,6 +159,8 @@ export type InternalImportJobList = {
     createdAt?: string | null;
     startedAt?: string | null;
     finishedAt?: string | null;
+    attemptCount: number;
+    maxAttempts: number;
     statusHistory: Array<{ status: string; changedAt?: string | null }>;
     sources: Array<{ id: string; type: string; status: string; url?: string | null; originalName?: string | null; position: number }>;
     events: Array<{ id: string; eventType: string; payload?: Record<string, unknown> | null; createdAt?: string | null }>;

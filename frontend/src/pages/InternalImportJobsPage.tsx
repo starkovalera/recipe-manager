@@ -1,13 +1,21 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { listInternalImportJobs } from "../api/client";
+import { listInternalImportJobs, retryImportJob } from "../api/client";
 
 function formatDate(value?: string | null) {
   return value ? new Date(value).toLocaleString() : "-";
 }
 
-export function InternalImportJobsPage() {
+export function InternalImportJobsPage({ onOpenRecipe }: { onOpenRecipe: (recipeId: string) => void }) {
+  const queryClient = useQueryClient();
   const query = useQuery({ queryKey: ["internal-import-jobs"], queryFn: listInternalImportJobs });
+  const retryMutation = useMutation({
+    mutationFn: retryImportJob,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["internal-import-jobs"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+    },
+  });
 
   if (query.isLoading) return <section className="panel">Loading import jobs...</section>;
   if (query.error) return <section className="panel" role="alert">{query.error.message}</section>;
@@ -44,7 +52,17 @@ export function InternalImportJobsPage() {
                   <dt>Error</dt>
                   <dd>{job.errorCode ? `${job.errorCode}: ${job.errorMessage ?? ""}` : "-"}</dd>
                 </div>
+                <div>
+                  <dt>Attempts</dt>
+                  <dd>Attempt {job.attemptCount} of {job.maxAttempts}</dd>
+                </div>
               </dl>
+              <div className="button-row">
+                {job.createdRecipeId ? <button type="button" onClick={() => onOpenRecipe(job.createdRecipeId as string)}>Open recipe</button> : null}
+                {job.status === "failed" && job.attemptCount < job.maxAttempts ? (
+                  <button type="button" onClick={() => retryMutation.mutate(job.id)} disabled={retryMutation.isPending}>Retry import</button>
+                ) : null}
+              </div>
               <h4>Status history</h4>
               <ul>
                 {job.statusHistory.map((entry, index) => (
@@ -62,13 +80,20 @@ export function InternalImportJobsPage() {
                 ))}
               </ul>
               <h4>Events</h4>
-              <ul>
-                {job.events.map((event) => (
-                  <li key={event.id}>
-                    {event.eventType} - {formatDate(event.createdAt)}
-                  </li>
-                ))}
-              </ul>
+              <div className="stack">
+                {[...job.events]
+                  .sort((left, right) => {
+                    const leftTimestamp = left.createdAt ? new Date(left.createdAt).getTime() : 0;
+                    const rightTimestamp = right.createdAt ? new Date(right.createdAt).getTime() : 0;
+                    return rightTimestamp - leftTimestamp;
+                  })
+                  .map((event) => (
+                  <details key={event.id} className="debug-event">
+                    <summary>{event.eventType} - {formatDate(event.createdAt)}</summary>
+                    <pre>{JSON.stringify(event.payload ?? {}, null, 2)}</pre>
+                  </details>
+                  ))}
+              </div>
             </article>
           ))
         ) : (

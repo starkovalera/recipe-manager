@@ -4,11 +4,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ImportPage } from "./ImportPage";
 
-function renderPage(onImported?: (recipeId: string) => void) {
+function renderPage() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
-      <ImportPage onImported={onImported} />
+      <ImportPage />
     </QueryClientProvider>,
   );
 }
@@ -23,33 +23,41 @@ describe("ImportPage", () => {
     cleanup();
   });
 
-  it("submits text import and displays succeeded recipe id", async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ jobId: "job-1", status: "pending" }) })
-      .mockResolvedValue({ ok: true, json: async () => ({ jobId: "job-1", status: "succeeded", createdRecipeId: "recipe-1" }) });
+  it("stays on the form and does not poll an accepted import job", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      text: async () => JSON.stringify({ jobId: "job-1", status: "queued" }),
+    });
     vi.stubGlobal("fetch", fetchMock);
 
     renderPage();
     fireEvent.change(screen.getByLabelText("Text"), { target: { value: "Soup recipe" } });
     fireEvent.click(screen.getByRole("button", { name: "Import recipe" }));
 
-    await waitFor(() => expect(screen.getByText(/Created recipe: recipe-1/)).toBeTruthy());
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(String(fetchMock.mock.calls[0][0])).toContain("/imports");
+    expect(screen.queryByText("queued")).toBeNull();
+    expect(screen.queryByText(/Created recipe/)).toBeNull();
   });
 
-  it("treats succeeded with flags as a successful import completion", async () => {
-    const onImported = vi.fn();
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ jobId: "job-1", status: "queued" }) })
-      .mockResolvedValue({ ok: true, json: async () => ({ jobId: "job-1", status: "succeeded_with_flags", createdRecipeId: "recipe-1" }) });
+  it("uses a new client import id for every accepted submission", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      text: async () => JSON.stringify({ jobId: "job-1", status: "queued" }),
+    });
     vi.stubGlobal("fetch", fetchMock);
 
-    renderPage(onImported);
-    fireEvent.change(screen.getByLabelText("Text"), { target: { value: "Soup recipe" } });
+    renderPage();
+    fireEvent.change(screen.getByLabelText("Text"), { target: { value: "First recipe" } });
     fireEvent.click(screen.getByRole("button", { name: "Import recipe" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    fireEvent.change(screen.getByLabelText("Text"), { target: { value: "Second recipe" } });
+    fireEvent.click(screen.getByRole("button", { name: "Import recipe" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
 
-    await waitFor(() => expect(onImported).toHaveBeenCalledWith("recipe-1"));
+    const firstBody = fetchMock.mock.calls[0][1]?.body as FormData;
+    const secondBody = fetchMock.mock.calls[1][1]?.body as FormData;
+    expect(firstBody.get("clientImportId")).not.toBe(secondBody.get("clientImportId"));
   });
 
   it("submits selected image files with the import request", async () => {
@@ -85,7 +93,7 @@ describe("ImportPage", () => {
     fireEvent.change(screen.getByLabelText("Images"), { target: { files: [file] } });
     fireEvent.click(screen.getByRole("button", { name: "Import recipe" }));
 
-    await waitFor(() => expect(screen.getByText("queued")).toBeTruthy());
+    await waitFor(() => expect(fetchMock.mock.calls.filter(([, init]) => init?.method === "POST")).toHaveLength(1));
 
     expect((screen.getByLabelText("Text") as HTMLTextAreaElement).value).toBe("");
     fireEvent.change(screen.getByLabelText("URL"), { target: { value: "https://example.com/recipe" } });

@@ -1,3 +1,4 @@
+from app.imports.source_loading.types import SecondaryResourceKind, SecondaryResourceLoadStatus
 from app.imports.source_loading.url_loaders import GenericUrlContentLoader
 
 
@@ -45,3 +46,22 @@ async def test_generic_loader_does_not_download_images_when_capacity_is_zero():
 
     assert loaded.images == []
     assert calls == ["https://example.com/recipe"]
+
+
+async def test_generic_loader_reports_preview_failure_and_keeps_text():
+    async def fetch(url: str, max_bytes: int) -> FakeResponse:
+        if url.endswith("image.jpg"):
+            raise RuntimeError("image unavailable")
+        return await fake_fetch(url, max_bytes)
+
+    loaded = await GenericUrlContentLoader(fetch=fetch).load(
+        "https://example.com/recipe",
+        max_images=1,
+        max_image_bytes=1000,
+    )
+
+    assert loaded.text == "Soup recipe caption"
+    assert loaded.images == []
+    assert len(loaded.resource_results) == 1
+    assert loaded.resource_results[0].kind == SecondaryResourceKind.IMAGE
+    assert loaded.resource_results[0].status == SecondaryResourceLoadStatus.FAILED

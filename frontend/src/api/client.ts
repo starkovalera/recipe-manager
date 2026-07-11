@@ -202,6 +202,10 @@ export async function getImportJob(jobId: string): Promise<ImportJob> {
   return request<ImportJob>(`/imports/${jobId}`);
 }
 
+export async function retryImportJob(jobId: string): Promise<ImportJob> {
+  return request<ImportJob>(`/imports/${jobId}/retry`, { method: "POST" });
+}
+
 export async function listNotifications(): Promise<NotificationList> {
   return request<NotificationList>("/notifications");
 }

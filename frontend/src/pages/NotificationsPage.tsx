@@ -12,12 +12,19 @@ function recipeIdForNotification(notification: Notification): string | null {
   return null;
 }
 
+function importJobIdForNotification(notification: Notification): string | null {
+  if (notification.entityType === "IMPORT_JOB" && notification.entityId) return notification.entityId;
+  return null;
+}
+
 export function NotificationsPage({
   notifications,
   onOpenRecipe,
+  onOpenImport,
 }: {
   notifications: Notification[];
   onOpenRecipe: (recipeId: string) => void;
+  onOpenImport: (jobId: string) => void;
 }) {
   const queryClient = useQueryClient();
   const newestNotificationId = notifications[0]?.id;
@@ -49,6 +56,7 @@ export function NotificationsPage({
         {notifications.length ? (
           notifications.map((notification) => {
             const recipeId = recipeIdForNotification(notification);
+            const importJobId = importJobIdForNotification(notification);
             const isUnread = notification.status === "unread";
             return (
               <article key={notification.id} className={`notification-card ${isUnread ? "is-unread" : ""}`}>
@@ -64,6 +72,11 @@ export function NotificationsPage({
                   {recipeId ? (
                     <button type="button" onClick={() => onOpenRecipe(recipeId)}>
                       Open recipe
+                    </button>
+                  ) : null}
+                  {importJobId ? (
+                    <button type="button" onClick={() => onOpenImport(importJobId)}>
+                      Open import details
                     </button>
                   ) : null}
                   {isUnread ? (

@@ -164,33 +164,10 @@ describe("App", () => {
     await waitFor(() => expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/collections?limit=24&offset=24"))).toBe(true));
   });
 
-  it("navigates from import success to recipe detail", async () => {
+  it("stays on the import form after a job is accepted", async () => {
     mockFetch({
       "GET /recipes": { items: [] },
-      "POST /imports": { jobId: "job-1", status: "succeeded", createdRecipeId: "recipe-1" },
-      "GET /imports/job-1": { jobId: "job-1", status: "succeeded", createdRecipeId: "recipe-1" },
-      "GET /collections": { items: [] },
-      "GET /recipes/recipe-1": {
-        id: "recipe-1",
-        title: "Soup",
-        sourceName: "MANUAL",
-        tags: [],
-        instructions: ["Cook"],
-        ingredients: [],
-        images: [],
-        coverOptions: [{ kind: "DEFAULT", label: "Default image", selected: true }],
-        collections: [],
-        resources: [],
-        sources: [],
-        debugResources: [],
-        debugSources: [],
-        reviewFlags: [],
-      },
-      "GET /internal/recipes/recipe-1/embedding-input": {
-        recipeId: "recipe-1",
-        input: "soup cook",
-        inputHash: "hash-soup",
-      },
+      "POST /imports": { jobId: "job-1", status: "queued", attemptCount: 0, maxAttempts: 3, sources: [] },
     });
 
     render(<App />);
@@ -198,8 +175,9 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText("Text"), { target: { value: "Soup recipe" } });
     fireEvent.click(screen.getByRole("button", { name: "Import recipe" }));
 
-    await waitFor(() => expect(screen.getByRole("heading", { name: "Soup" })).toBeTruthy());
-    expect(screen.getAllByText("MANUAL").length).toBeGreaterThan(0);
+    await waitFor(() => expect((screen.getByLabelText("Text") as HTMLTextAreaElement).value).toBe(""));
+    expect(screen.getByRole("heading", { name: "Import" })).toBeTruthy();
+    expect((fetch as ReturnType<typeof vi.fn>).mock.calls.some(([url]) => String(url).includes("/imports/job-1"))).toBe(false);
   });
 
   it("shows internal import jobs with status history and events", async () => {
@@ -213,6 +191,8 @@ describe("App", () => {
             clientId: "client-1",
             clientImportId: "import-1",
             status: "succeeded",
+            attemptCount: 1,
+            maxAttempts: 3,
             createdRecipeId: "recipe-1",
             startedAt: "2026-06-27T10:00:00Z",
             finishedAt: "2026-06-27T10:01:00Z",
@@ -222,10 +202,28 @@ describe("App", () => {
               { status: "succeeded", changedAt: "2026-06-27T10:01:00Z" },
             ],
             sources: [{ id: "source-1", type: "URL", status: "ready", url: "https://example.com/post", position: 0 }],
-            events: [{ id: "event-1", eventType: "recipe_created", createdAt: "2026-06-27T10:01:00Z" }],
+            events: [
+              { id: "event-1", eventType: "EXTRACTOR_REQUESTED", payload: {}, createdAt: "2026-06-27T10:00:00Z" },
+              { id: "event-2", eventType: "RECIPE_CREATED", payload: { recipe_id: "recipe-1" }, createdAt: "2026-06-27T10:01:00Z" },
+            ],
+          },
+          {
+            id: "job-2",
+            ownerId: "local-user",
+            clientId: "client-1",
+            clientImportId: "import-2",
+            status: "failed",
+            errorCode: "IMPORT_EXTRACTION_FAILED",
+            errorMessage: "NOT_A_RECIPE",
+            attemptCount: 1,
+            maxAttempts: 3,
+            statusHistory: [{ status: "failed", changedAt: "2026-06-27T10:02:00Z" }],
+            sources: [],
+            events: [],
           },
         ],
       },
+      "POST /imports/job-2/retry": { jobId: "job-2", status: "queued", attemptCount: 1, maxAttempts: 3, sources: [] },
     });
 
     render(<App />);
@@ -233,11 +231,24 @@ describe("App", () => {
 
     await waitFor(() => expect(screen.getByRole("heading", { name: "Import jobs / Job events" })).toBeTruthy());
     expect(screen.getByText("job-1")).toBeTruthy();
-    expect(screen.getByText(/user local-user/)).toBeTruthy();
+    expect(screen.getAllByText(/user local-user/)).toHaveLength(2);
     expect(screen.getByText(/queued/)).toBeTruthy();
     expect(screen.getByText(/running/)).toBeTruthy();
-    expect(screen.getByText(/recipe_created/)).toBeTruthy();
+    expect(screen.getAllByText("Attempt 1 of 3")).toHaveLength(2);
+    expect(screen.getByText(/RECIPE_CREATED/)).toBeTruthy();
+    expect(screen.getAllByText(/EXTRACTOR_REQUESTED|RECIPE_CREATED/).map((item) => item.textContent?.split(" - ")[0])).toEqual([
+      "RECIPE_CREATED",
+      "EXTRACTOR_REQUESTED",
+    ]);
     expect(screen.getByText(/https:\/\/example.com\/post/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Open recipe" })).toBeTruthy();
+    fireEvent.click(screen.getByText(/RECIPE_CREATED/));
+    expect(screen.getByText(/"recipe_id": "recipe-1"/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Retry import" }));
+    await waitFor(() => expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining("/imports/job-2/retry"),
+      expect.objectContaining({ method: "POST" }),
+    ));
   });
 
   it("shows internal recipe embedding status", async () => {
@@ -439,6 +450,39 @@ describe("App", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Open recipe" }));
     await waitFor(() => expect(screen.getByRole("heading", { name: "Soup" })).toBeTruthy());
+  });
+
+  it("opens user-facing import details from an import-job notification", async () => {
+    mockFetch({
+      "GET /recipes": { items: [] },
+      "GET /notifications": {
+        items: [{
+          id: "notification-1",
+          type: "IMPORT_FAILED",
+          status: "unread",
+          title: "Import failed",
+          message: "Recipe import failed.",
+          entityType: "IMPORT_JOB",
+          entityId: "job-1",
+        }],
+      },
+      "GET /imports/job-1": {
+        jobId: "job-1",
+        status: "failed",
+        errorMessage: "RECIPE_TOO_LONG",
+        attemptCount: 3,
+        maxAttempts: 3,
+        sources: [],
+      },
+    });
+
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Notifications" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Open import details" })).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Open import details" }));
+
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Import details" })).toBeTruthy());
+    expect(screen.getByText("The extracted recipe exceeds the supported size limits.")).toBeTruthy();
   });
 
   it("marks all visible unread notifications read through the newest notification cutoff", async () => {

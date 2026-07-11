@@ -5,6 +5,11 @@ from dataclasses import dataclass
 from urllib.parse import urlparse
 
 from app.core.logging import log_error, log_info
+from app.imports.source_loading.results import (
+    SecondaryResourceKind,
+    SecondaryResourceLoadResult,
+    SecondaryResourceLoadStatus,
+)
 from app.imports.source_loading.url_loaders.generic import GenericUrlContentLoader, httpx_fetch
 from app.imports.source_loading.url_loaders.types import Fetch, LoadedRemoteImage, LoadedRemoteVideo, LoadedUrlContent
 
@@ -182,14 +187,39 @@ class InstagramUrlContentLoader:
             log_error(logger, "[recipes.url.instagram] Load fallback", error=repr(error), url=url)
             return await self.fallback.load(url, max_images=max_images, max_image_bytes=max_image_bytes)
         images: list[LoadedRemoteImage] = []
+        resource_results: list[SecondaryResourceLoadResult] = []
         for descriptor in descriptors:
             try:
                 image = await _download_image(descriptor, self.fetch, max_image_bytes)
             except Exception as error:
-                log_error(logger, "[recipes.url.instagram] Image download failed", error=repr(error), url=descriptor.url, position=descriptor.position)
-                raise
+                log_error(
+                    logger,
+                    "[recipes.url.instagram] Image download failed",
+                    error=repr(error),
+                    url=descriptor.url,
+                    position=descriptor.position,
+                )
+                resource_results.append(
+                    SecondaryResourceLoadResult(
+                        kind=SecondaryResourceKind.IMAGE,
+                        status=SecondaryResourceLoadStatus.FAILED,
+                        position=descriptor.position,
+                        url=descriptor.url,
+                        error=repr(error),
+                    )
+                )
+                continue
             if image is None:
-                raise ValueError(f"Instagram image could not be downloaded: {descriptor.url}")
+                resource_results.append(
+                    SecondaryResourceLoadResult(
+                        kind=SecondaryResourceKind.IMAGE,
+                        status=SecondaryResourceLoadStatus.FAILED,
+                        position=descriptor.position,
+                        url=descriptor.url,
+                        error="Instagram image could not be downloaded.",
+                    )
+                )
+                continue
             images.append(image)
         log_info(
             logger,
@@ -211,7 +241,8 @@ class InstagramUrlContentLoader:
         return LoadedUrlContent(
             url=normalized_url,
             author_name=author_name,
-            text=text or f"URL: {normalized_url}",
+            text=text or None,
             images=images,
             videos=videos,
+            resource_results=resource_results,
         )
