@@ -55,6 +55,7 @@ class ImportJobContext:
     finished_at: datetime | None
     created_at: datetime | None
     updated_at: datetime | None
+    attempt_count: int
     recipe_language: str
     sources: tuple[ImportJobSourceContext, ...]
 
@@ -77,12 +78,13 @@ class ImportJobContext:
             finished_at=job.finished_at,
             created_at=job.created_at,
             updated_at=job.updated_at,
+            attempt_count=job.attempt_count or 0,
             recipe_language=language,
             sources=tuple(ImportJobSourceContext.from_source(source) for source in job.sources),
         )
 
     @property
-    def image_storage_keys(self) -> list[str]:
+    def primary_storage_keys(self) -> list[str]:
         return [source.image_storage_key for source in self.sources if source.image_storage_key]
 
     @property
@@ -104,5 +106,5 @@ class ImportJobContext:
             "finished_at": _datetime_to_str(self.finished_at),
             "created_at": _datetime_to_str(self.created_at),
             "updated_at": _datetime_to_str(self.updated_at),
+            "attempt_count": self.attempt_count,
         }
-

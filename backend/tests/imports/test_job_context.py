@@ -10,6 +10,7 @@ def test_import_job_context_captures_job_fields_and_sources() -> None:
         client_import_id="import-1",
         dedupe_key="dedupe-1",
         status=ImportJobStatus.RUNNING,
+        attempt_count=2,
     )
     job.owner = User(id="owner-1", email="owner@example.com", settings=UserSettings(recipe_language="ru"))
     job.sources = [
@@ -37,7 +38,8 @@ def test_import_job_context_captures_job_fields_and_sources() -> None:
     assert context.id == "job-1"
     assert context.owner_id == "owner-1"
     assert context.recipe_language == "ru"
-    assert context.image_storage_keys == ["uploads/image.jpg"]
+    assert context.attempt_count == 2
+    assert context.primary_storage_keys == ["uploads/image.jpg"]
     assert not context.is_single_url_import
     assert [source.id for source in context.sources] == ["source-1", "source-2"]
 
@@ -58,4 +60,5 @@ def test_import_job_context_to_dict_excludes_sources() -> None:
 
     assert payload["id"] == "job-1"
     assert payload["status"] == "queued"
+    assert payload["attempt_count"] == 0
     assert "sources" not in payload

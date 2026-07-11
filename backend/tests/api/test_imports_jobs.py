@@ -1,5 +1,6 @@
 import logging
 from collections.abc import Generator
+from datetime import datetime, timezone
 from io import BytesIO
 
 import pytest
@@ -26,6 +27,7 @@ from app.main import create_app
 from app.models import (
     ImportEventType,
     ImportJob,
+    ImportJobErrorCode,
     ImportJobSource,
     ImportJobStatus,
     Ingredient,
@@ -35,6 +37,7 @@ from app.models import (
     Recipe,
     RecipeEmbeddingEventType,
     RecipeEmbeddingStatus,
+    User,
 )
 from app.storage.base import StoredFile
 from tests.imports.runtime_overrides import (
@@ -53,6 +56,8 @@ def reset_import_dependencies(monkeypatch):
     monkeypatch.setenv("MAX_RECIPE_INSTRUCTION_CHARS", "1000")
     monkeypatch.setenv("MAX_RECIPE_NOTE_CHARS", "500")
     monkeypatch.setenv("MAX_PARALLEL_IMPORTS_PER_CLIENT", "3")
+    monkeypatch.setenv("MAX_IMPORT_ATTEMPTS", "3")
+    monkeypatch.setenv("IMPORT_TASK_MAX_RETRIES", "0")
     get_settings.cache_clear()
     set_recipe_extraction_provider(FakeRecipeExtractionProvider())
     reset_url_content_service()
@@ -133,6 +138,131 @@ def process_import_response(client: TestClient, response):
     return poll_import(client, job_id)
 
 
+def create_failed_import(client: TestClient, SessionLocal, *, client_import_id: str, attempt_count: int = 1) -> str:
+    response = client.post(
+        "/imports",
+        data={"clientImportId": client_import_id, "text": "Tomato soup recipe"},
+        headers={"X-Client-Id": "client-1"},
+    )
+    job_id = response.json()["jobId"]
+    with SessionLocal() as session:
+        job = session.get(ImportJob, job_id)
+        job.status = ImportJobStatus.FAILED
+        job.attempt_count = attempt_count
+        job.error_code = ImportJobErrorCode.IMPORT_FAILED
+        job.error_message = "UNEXPECTED_ERROR"
+        job.finished_at = datetime.now(timezone.utc)
+        session.commit()
+    return job_id
+
+
+def test_failed_import_can_be_requeued_without_resetting_attempt_fields(monkeypatch):
+    client, SessionLocal = client_with_session_factory()
+    job_id = create_failed_import(client, SessionLocal, client_import_id="retry-1")
+    enqueued: list[str] = []
+    monkeypatch.setattr(import_routes, "enqueue_import_job", enqueued.append)
+
+    response = client.post(f"/imports/{job_id}/retry")
+
+    assert response.status_code == 202
+    assert response.json()["status"] == "queued"
+    assert response.json()["attemptCount"] == 1
+    assert response.json()["maxAttempts"] == 3
+    assert response.json()["errorCode"] == "IMPORT_FAILED"
+    assert response.json()["errorMessage"] == "UNEXPECTED_ERROR"
+    assert enqueued == [job_id]
+    with SessionLocal() as session:
+        job = session.get(ImportJob, job_id)
+        started_notifications = session.query(Notification).filter_by(
+            owner_id=job.owner_id,
+            type=NotificationType.IMPORT_STARTED,
+            entity_id=job_id,
+        ).count()
+    assert started_notifications == 2
+
+
+def test_retry_rejects_non_failed_and_exhausted_imports():
+    client, SessionLocal = client_with_session_factory()
+    queued = client.post(
+        "/imports",
+        data={"clientImportId": "queued-retry", "text": "Tomato soup recipe"},
+        headers={"X-Client-Id": "client-1"},
+    )
+    exhausted_job_id = create_failed_import(client, SessionLocal, client_import_id="exhausted-retry", attempt_count=3)
+
+    non_failed = client.post(f"/imports/{queued.json()['jobId']}/retry")
+    exhausted = client.post(f"/imports/{exhausted_job_id}/retry")
+
+    assert non_failed.status_code == 409
+    assert non_failed.json()["errorCode"] == "IMPORT_NOT_RETRYABLE"
+    assert exhausted.status_code == 409
+    assert exhausted.json()["errorCode"] == "IMPORT_ATTEMPTS_EXHAUSTED"
+
+
+def test_second_retry_request_is_rejected_after_first_requeues_job(monkeypatch):
+    client, SessionLocal = client_with_session_factory()
+    job_id = create_failed_import(client, SessionLocal, client_import_id="double-retry")
+    enqueued: list[str] = []
+    monkeypatch.setattr(import_routes, "enqueue_import_job", enqueued.append)
+
+    first = client.post(f"/imports/{job_id}/retry")
+    second = client.post(f"/imports/{job_id}/retry")
+
+    assert first.status_code == 202
+    assert second.status_code == 409
+    assert second.json()["errorCode"] == "IMPORT_NOT_RETRYABLE"
+    assert enqueued == [job_id]
+
+
+def test_retry_publish_failure_restores_failed_status_and_removes_retry_notification(monkeypatch):
+    client, SessionLocal = client_with_session_factory()
+    job_id = create_failed_import(client, SessionLocal, client_import_id="publish-failure")
+    with SessionLocal() as session:
+        initial_notification_count = session.query(Notification).count()
+
+    def fail_publish(import_job_id: str) -> None:
+        raise RuntimeError("redis unavailable")
+
+    monkeypatch.setattr(import_routes, "enqueue_import_job", fail_publish)
+
+    response = client.post(f"/imports/{job_id}/retry")
+
+    assert response.status_code == 500
+    assert response.json()["errorCode"] == "IMPORT_RETRY_FAILED"
+    with SessionLocal() as session:
+        job = session.get(ImportJob, job_id)
+        assert job.status == ImportJobStatus.FAILED
+        assert job.error_code == ImportJobErrorCode.IMPORT_FAILED
+        assert job.error_message == "UNEXPECTED_ERROR"
+        assert session.query(Notification).count() == initial_notification_count
+
+
+def test_retry_publish_error_returns_running_job_when_worker_already_claimed_message(monkeypatch):
+    client, SessionLocal = client_with_session_factory()
+    job_id = create_failed_import(client, SessionLocal, client_import_id="ambiguous-publish")
+
+    def claim_then_fail(import_job_id: str) -> None:
+        with SessionLocal() as session:
+            job = session.get(ImportJob, import_job_id)
+            job.set_running()
+            session.commit()
+        raise RuntimeError("broker acknowledgement failed")
+
+    monkeypatch.setattr(import_routes, "enqueue_import_job", claim_then_fail)
+
+    response = client.post(f"/imports/{job_id}/retry")
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "running"
+    assert response.json()["attemptCount"] == 2
+    with SessionLocal() as session:
+        retry_notifications = session.query(Notification).filter_by(
+            type=NotificationType.IMPORT_STARTED,
+            entity_id=job_id,
+        ).count()
+    assert retry_notifications == 2
+
+
 def test_text_import_creates_job_and_polling_returns_recipe():
     client = client_with_session()
 
@@ -155,6 +285,58 @@ def test_text_import_creates_job_and_polling_returns_recipe():
 
     assert completed.json()["status"] == "succeeded"
     assert completed.json()["createdRecipeId"]
+    assert completed.json()["attemptCount"] == 1
+
+
+def test_import_started_event_records_current_and_max_attempts():
+    client, SessionLocal = client_with_session_factory()
+    created = client.post(
+        "/imports",
+        data={"clientImportId": "attempt-event", "text": "Tomato soup recipe"},
+        headers={"X-Client-Id": "client-1"},
+    )
+
+    run_import_worker(client, created.json()["jobId"])
+
+    with SessionLocal() as session:
+        event = session.query(JobEvent).filter_by(
+            import_job_id=created.json()["jobId"],
+            event_type=ImportEventType.IMPORT_STARTED,
+        ).one()
+    assert event.payload["attempt_count"] == 1
+    assert event.payload["max_attempts"] == 3
+
+
+def test_retry_respects_owner_scope_and_active_import_limit():
+    client, SessionLocal = client_with_session_factory()
+    failed_job_id = create_failed_import(client, SessionLocal, client_import_id="limited-retry")
+    with SessionLocal() as session:
+        other_owner = User(id="other-user", email="other@example.com")
+        foreign_job = ImportJob(
+            owner=other_owner,
+            client_id="client-2",
+            status=ImportJobStatus.FAILED,
+            attempt_count=1,
+        )
+        session.add(foreign_job)
+        session.commit()
+        foreign_job_id = foreign_job.id
+
+    for index in range(3):
+        response = client.post(
+            "/imports",
+            data={"clientImportId": f"active-{index}", "text": "Tomato soup recipe"},
+            headers={"X-Client-Id": "client-1"},
+        )
+        assert response.status_code == 202
+
+    foreign = client.post(f"/imports/{foreign_job_id}/retry")
+    limited = client.post(f"/imports/{failed_job_id}/retry")
+
+    assert foreign.status_code == 404
+    assert foreign.json()["errorCode"] == "IMPORT_NOT_FOUND"
+    assert limited.status_code == 400
+    assert limited.json()["errorCode"] == "ACTIVE_IMPORT_EXISTS"
 
 
 def test_text_import_sets_ingredient_search_name():

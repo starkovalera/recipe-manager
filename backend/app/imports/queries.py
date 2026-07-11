@@ -1,7 +1,7 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from app.models import ImportJob
+from app.models import ImportJob, ImportJobStatus
 
 
 def list_internal_import_jobs(session: Session) -> list[ImportJob]:
@@ -14,6 +14,24 @@ def list_internal_import_jobs(session: Session) -> list[ImportJob]:
 
 def get_import_job(session: Session, job_id: str, owner_id: str) -> ImportJob | None:
     return session.scalar(select(ImportJob).where(ImportJob.id == job_id, ImportJob.owner_id == owner_id))
+
+
+def get_import_job_for_update(session: Session, job_id: str, owner_id: str) -> ImportJob | None:
+    return session.scalar(
+        select(ImportJob)
+        .where(ImportJob.id == job_id, ImportJob.owner_id == owner_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+
+
+def get_queued_import_job_for_update(session: Session, job_id: str) -> ImportJob | None:
+    return session.scalar(
+        select(ImportJob)
+        .where(ImportJob.id == job_id, ImportJob.status == ImportJobStatus.QUEUED)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
 
 
 def get_import_job_by_dedupe_key(session: Session, owner_id: str, dedupe_key: str) -> ImportJob | None:

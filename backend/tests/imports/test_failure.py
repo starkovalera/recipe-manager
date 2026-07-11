@@ -31,7 +31,7 @@ def create_session() -> Session:
     return Session(engine)
 
 
-def create_job(session: Session) -> ImportJob:
+def create_job(session: Session, *, attempt_count: int = 1) -> ImportJob:
     user = ensure_default_user(session)
     job = ImportJob(
         owner_id=user.id,
@@ -39,6 +39,7 @@ def create_job(session: Session) -> ImportJob:
         client_import_id="import-1",
         dedupe_key="import-1",
         status=ImportJobStatus.RUNNING,
+        attempt_count=attempt_count,
     )
     session.add(job)
     session.commit()
@@ -55,12 +56,13 @@ def test_process_import_failure_sets_job_status_event_and_notification() -> None
     process_import_failure(
         job.id,
         storage,
-        ["upload-1"],
-        SecondaryResourceUploadError(resource_type="URL", url="https://example.com"),
-        cleanup_storage=True,
+        primary_storage_keys=["primary-1"],
+        secondary_storage_keys=["secondary-1"],
+        max_import_attempts=3,
+        error=SecondaryResourceUploadError(resource_type="URL", url="https://example.com"),
     )
 
-    assert storage.deleted_keys == ["upload-1"]
+    assert storage.deleted_keys == ["secondary-1"]
     session.refresh(job)
     assert job.status == ImportJobStatus.FAILED
     assert job.error_code == ImportJobErrorCode.IMPORT_PROCESSING_FAILED
@@ -74,6 +76,8 @@ def test_process_import_failure_sets_job_status_event_and_notification() -> None
         },
         "resource_type": "URL",
         "url": "https://example.com",
+        "attempt_count": 1,
+        "max_attempts": 3,
     }
     assert job.owner.notifications[-1].type == NotificationType.IMPORT_FAILED
 
@@ -96,8 +100,10 @@ def test_process_import_failure_can_keep_storage_on_processing_failures() -> Non
     process_import_failure(
         job.id,
         storage,
-        ["upload-1"],
-        ValueError("unexpected"),
+        primary_storage_keys=["primary-1"],
+        secondary_storage_keys=["secondary-1"],
+        max_import_attempts=3,
+        error=ValueError("unexpected"),
         cleanup_storage=False,
     )
 
@@ -122,7 +128,9 @@ def test_process_import_failure_handles_missing_error() -> None:
     process_import_failure(
         job.id,
         storage,
-        ["upload-1"],
+        primary_storage_keys=["primary-1"],
+        secondary_storage_keys=["secondary-1"],
+        max_import_attempts=3,
         error=None,
         cleanup_storage=False,
     )
@@ -151,8 +159,10 @@ def test_process_import_failure_does_not_overwrite_terminal_job() -> None:
     process_import_failure(
         job.id,
         storage,
-        ["upload-1"],
-        ValueError("unexpected"),
+        primary_storage_keys=["primary-1"],
+        secondary_storage_keys=["secondary-1"],
+        max_import_attempts=3,
+        error=ValueError("unexpected"),
         cleanup_storage=False,
     )
 
@@ -160,3 +170,50 @@ def test_process_import_failure_does_not_overwrite_terminal_job() -> None:
     assert job.status == ImportJobStatus.SUCCEEDED
     assert job.error_code is None
     assert job.events == []
+
+
+def test_process_import_failure_deletes_primary_storage_after_final_attempt() -> None:
+    session = create_session()
+    job = create_job(session, attempt_count=3)
+    storage = FakeStorage()
+    SessionLocal = sessionmaker(bind=session.get_bind(), expire_on_commit=False)
+    session_module.SessionLocal = SessionLocal
+
+    process_import_failure(
+        job.id,
+        storage,
+        primary_storage_keys=["primary-1"],
+        secondary_storage_keys=["secondary-1"],
+        max_import_attempts=3,
+        error=ValueError("unexpected"),
+    )
+
+    assert storage.deleted_keys == ["secondary-1", "primary-1"]
+
+
+def test_process_import_failure_commits_when_failure_logging_raises(monkeypatch) -> None:
+    session = create_session()
+    job = create_job(session)
+    storage = FakeStorage()
+    SessionLocal = sessionmaker(bind=session.get_bind(), expire_on_commit=False)
+    session_module.SessionLocal = SessionLocal
+
+    def raise_broken_pipe(*args, **kwargs):
+        raise BrokenPipeError(232, "The pipe is being closed")
+
+    monkeypatch.setattr("app.imports.job_stages.failure.log_import_failed", raise_broken_pipe)
+
+    process_import_failure(
+        job.id,
+        storage,
+        primary_storage_keys=["primary-1"],
+        secondary_storage_keys=["secondary-1"],
+        max_import_attempts=3,
+        error=ValueError("unexpected"),
+    )
+
+    session.expire_all()
+    assert job.status == ImportJobStatus.FAILED
+    assert job.events[-1].event_type == ImportEventType.IMPORT_FAILED
+    assert job.owner.notifications[-1].type == NotificationType.IMPORT_FAILED
+    assert storage.deleted_keys == ["secondary-1"]

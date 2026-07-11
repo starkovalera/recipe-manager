@@ -43,7 +43,7 @@ def build_cover_image(
     content_recipe_resources: list[RecipeResource],
     extraction_id_by_resource: dict[RecipeResource, str],
     storage: StorageService,
-    saved_storage_keys: list[str],
+    secondary_storage_keys: list[str],
 ) -> RecipeImage | None:
     image_by_ref: dict[str, RecipeImage] = {
         extraction_id_by_resource[resource]: resource.image for resource in content_recipe_resources if resource.image is not None
@@ -71,7 +71,7 @@ def build_cover_image(
 
     source_image = image_by_ref[chosen.source_ref]
     cover_file = create_cover_image(storage, source_image.storage_key, chosen.crop, auto_crop_full_image=True)
-    saved_storage_keys.append(cover_file.storage_key)
+    secondary_storage_keys.append(cover_file.storage_key)
     cover_image = RecipeImage(
         storage_key=cover_file.storage_key,
         original_name=cover_file.original_name,

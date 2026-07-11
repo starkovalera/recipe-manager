@@ -15,6 +15,9 @@ class ApiErrorCode(str, Enum):
     FILE_TOO_LARGE = "FILE_TOO_LARGE"
     ACTIVE_IMPORT_EXISTS = "ACTIVE_IMPORT_EXISTS"
     IMPORT_CREATION_FAILED = "IMPORT_CREATION_FAILED"
+    IMPORT_ATTEMPTS_EXHAUSTED = "IMPORT_ATTEMPTS_EXHAUSTED"
+    IMPORT_NOT_RETRYABLE = "IMPORT_NOT_RETRYABLE"
+    IMPORT_RETRY_FAILED = "IMPORT_RETRY_FAILED"
     INVALID_INGREDIENT = "INVALID_INGREDIENT"
     IMPORT_NOT_FOUND = "IMPORT_NOT_FOUND"
     NOTIFICATION_NOT_FOUND = "NOTIFICATION_NOT_FOUND"
@@ -127,6 +130,22 @@ class ImportCreationError(ApiError):
     status_code = 500
     error_code = ApiErrorCode.IMPORT_CREATION_FAILED
     message = "Failed to create import. Please try again."
+
+
+class ImportAttemptsExhaustedError(ApiConflictError):
+    error_code = ApiErrorCode.IMPORT_ATTEMPTS_EXHAUSTED
+    message = "Import retry attempts are exhausted."
+
+
+class ImportNotRetryableError(ApiConflictError):
+    error_code = ApiErrorCode.IMPORT_NOT_RETRYABLE
+    message = "Import is not available for retry."
+
+
+class ImportRetryFailedError(ApiError):
+    status_code = 500
+    error_code = ApiErrorCode.IMPORT_RETRY_FAILED
+    message = "Failed to retry import. Please try again."
 
 
 class InvalidIngredientError(ApiValidationError):

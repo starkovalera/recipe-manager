@@ -28,3 +28,13 @@ def test_recipe_language_defaults_to_ru_and_can_be_configured():
 
     assert default_settings.recipe_language == "ru"
     assert custom_settings.recipe_language == "en"
+
+
+def test_import_retry_settings_have_safe_defaults_and_can_be_configured():
+    default_settings = Settings(app_env="test")
+    custom_settings = Settings(app_env="test", max_import_attempts=5, import_task_max_retries=2)
+
+    assert default_settings.max_import_attempts == 3
+    assert default_settings.import_task_max_retries == 0
+    assert custom_settings.max_import_attempts == 5
+    assert custom_settings.import_task_max_retries == 2

@@ -125,7 +125,7 @@ def test_build_raw_sources_preserves_manual_text_and_image_order():
     raw_sources, imported_author_name = build_raw_sources(
         job,
         MemoryStorage({"images/source.jpg": b"image-bytes"}),
-        saved_storage_keys=[],
+        secondary_storage_keys=[],
         url_content_loader=EmptyUrlContentService(),
         video_processor=EmptyVideoProcessor(),
         import_config=import_config(),

@@ -11,10 +11,7 @@ from app.db.session import db_session
 from app.embeddings.planning import prepare_recipe_embedding
 from app.embeddings.queue import enqueue_recipe_embedding
 from app.imports.config import ImportConfig
-from app.imports.constants import (
-    IMPORT_LOG_COMPONENT,
-    TERMINAL_IMPORT_STATUSES,
-)
+from app.imports.constants import IMPORT_LOG_COMPONENT
 from app.imports.events import build_job_event
 from app.imports.job_context import ImportJobContext
 from app.imports.job_stages.cover_generation import build_cover_image
@@ -28,7 +25,10 @@ from app.imports.job_stages.raw_sources import build_raw_sources
 from app.imports.job_stages.recipe_building import build_recipe
 from app.imports.job_stages.recipe_resource_building import build_recipe_resources
 from app.imports.logging import log_import_started, log_recipe_created
-from app.imports.queries import get_import_job as query_import_job
+from app.imports.queries import (
+    get_import_job as query_import_job,
+    get_queued_import_job_for_update,
+)
 from app.imports.runtime import get_recipe_extraction_provider, get_url_content_service, get_video_processor
 from app.models import (
     ImportEventType,
@@ -57,13 +57,20 @@ class ImportResult:
     enqueue_embedding: bool
 
 
-def start_import_job(session: Session, job_id: str) -> ImportJob | None:
-    job: ImportJob | None = session.get(ImportJob, job_id)
-    if job is None or job.status in TERMINAL_IMPORT_STATUSES:
+def start_import_job(session: Session, job_id: str, import_config: ImportConfig) -> ImportJob | None:
+    job = get_queued_import_job_for_update(session, job_id)
+    if job is None:
         return None
 
     job.set_running()
-    build_job_event(session, import_job_id=job.id, event_type=ImportEventType.IMPORT_STARTED, status=job.status.value)
+    build_job_event(
+        session,
+        import_job_id=job.id,
+        event_type=ImportEventType.IMPORT_STARTED,
+        status=job.status.value,
+        attempt_count=job.attempt_count,
+        max_attempts=import_config.max_import_attempts,
+    )
     session.flush()
     session.refresh(job)
     return job
@@ -80,7 +87,7 @@ def save_import(
     extracted_recipe: ExtractedRecipe,
     import_config: ImportConfig,
     storage: StorageService,
-    saved_storage_keys: list[str],
+    secondary_storage_keys: list[str],
 ) -> ImportResult:
     job: ImportJob | None = session.get(ImportJob, job_context.id)
     if job is None:
@@ -94,7 +101,7 @@ def save_import(
         content_recipe_resources,
         extraction_context.extraction_id_by_resource,
         storage,
-        saved_storage_keys,
+        secondary_storage_keys,
     )
     has_ignored_primary_resource = build_recipe_resources(
         recipe,
@@ -140,23 +147,24 @@ def process_import_job(job_id: str) -> None:
     settings = get_settings()
     storage = LocalStorageService(settings.upload_dir)
     import_config = ImportConfig.from_settings(settings)
-    saved_storage_keys: list[str] = []
+    primary_storage_keys: list[str] = []
+    secondary_storage_keys: list[str] = []
 
     try:
         with db_session() as session:
-            job = start_import_job(session, job_id)
+            job = start_import_job(session, job_id, import_config)
             if job is None:
                 logger.info(f"{IMPORT_LOG_COMPONENT} Import job id={job_id} is not found or can't be started.")
                 return
             job_context = ImportJobContext.from_job(job)
 
-        saved_storage_keys = job_context.image_storage_keys
+        primary_storage_keys = job_context.primary_storage_keys
         log_import_started(job_context)
 
         raw_sources, imported_author_name = build_raw_sources(
             job_context,
             storage,
-            saved_storage_keys,
+            secondary_storage_keys,
             get_url_content_service(),
             get_video_processor(),
             import_config,
@@ -207,7 +215,7 @@ def process_import_job(job_id: str) -> None:
                 extracted_recipe=extracted_recipe,
                 import_config=import_config,
                 storage=storage,
-                saved_storage_keys=saved_storage_keys,
+                secondary_storage_keys=secondary_storage_keys,
             )
 
         log_recipe_created(import_result.job)
@@ -215,7 +223,15 @@ def process_import_job(job_id: str) -> None:
         if import_result.enqueue_embedding:
             enqueue_recipe_embedding(import_result.recipe_id, job_context.owner_id)
     except Exception as error:
-        process_import_failure(job_id, storage, saved_storage_keys, error, cleanup_storage=True)
+        process_import_failure(
+            job_id,
+            storage,
+            primary_storage_keys,
+            secondary_storage_keys,
+            import_config.max_import_attempts,
+            error,
+            cleanup_storage=True,
+        )
         return
 
 

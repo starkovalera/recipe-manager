@@ -5,6 +5,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field, computed_field, field_serializer
 
+from app.core.config import get_settings
 from app.models import (
     ImportEventType,
     ImportJobSource,
@@ -82,6 +83,8 @@ class InternalImportJobOut(CamelModel):
     created_at: datetime | None = None
     started_at: datetime | None = None
     finished_at: datetime | None = None
+    attempt_count: int
+    max_attempts: int = Field(default_factory=lambda: get_settings().max_import_attempts)
     updated_at: datetime | None = Field(default=None, exclude=True)
     source_items: list[ImportJobSource] = Field(default_factory=list, validation_alias="sources", exclude=True)
     event_items: list[JobEvent] = Field(default_factory=list, validation_alias="events", exclude=True)

@@ -37,7 +37,7 @@ class RawSource:
 class RawSourceBuildContext:
     job: ImportJobContext
     storage: StorageService
-    saved_storage_keys: list[str]
+    secondary_storage_keys: list[str]
     url_content_loader: UrlContentService
     video_processor: VideoSourceProcessor
     config: ImportConfig
@@ -46,7 +46,7 @@ class RawSourceBuildContext:
 def build_raw_sources(
     job: ImportJobContext,
     storage: StorageService,
-    saved_storage_keys: list[str],
+    secondary_storage_keys: list[str],
     url_content_loader: UrlContentService,
     video_processor: VideoSourceProcessor,
     import_config: ImportConfig,
@@ -54,7 +54,7 @@ def build_raw_sources(
     context = RawSourceBuildContext(
         job=job,
         storage=storage,
-        saved_storage_keys=saved_storage_keys,
+        secondary_storage_keys=secondary_storage_keys,
         url_content_loader=url_content_loader,
         video_processor=video_processor,
         config=import_config,
@@ -147,7 +147,7 @@ def _append_url_raw_sources(
                 original_name=remote_image.original_name,
                 mime_type=remote_image.mime_type,
             ) from error
-        context.saved_storage_keys.append(saved.storage_key)
+        context.secondary_storage_keys.append(saved.storage_key)
         raw_sources.append(
             RawSource(
                 type=SourceType.IMAGE,
@@ -233,7 +233,7 @@ def _append_url_video_raw_sources(
                 original_name=poster.original_name,
                 mime_type=poster.mime_type,
             ) from error
-        context.saved_storage_keys.append(saved.storage_key)
+        context.secondary_storage_keys.append(saved.storage_key)
         raw_sources.append(
             RawSource(
                 type=SourceType.IMAGE,

@@ -151,6 +151,12 @@ This checklist applies to every phase. Any phase that touches import, resources,
 - Extraction detail codes are `AI_PARSE_FAILED`, `INVALID_EXTRACTION_RESULT`, `NOT_A_RECIPE`, `AI_UNAVAILABLE`, and `RECIPE_TOO_LONG`.
 - `MIXED_SOURCE_PLATFORMS` is diagnostic log text only; it is not an API error code and not an import-job error code.
 - Import failed `JobEvent.payload` includes the high-level `errorCode`, optional detailed `errorMessage`/`detailCode`, stage, and diagnostic payload fields useful for debugging.
+- Import retry is manual and owner-scoped. It is allowed only for `FAILED` jobs while persisted `attempt_count` is below the current runtime `MAX_IMPORT_ATTEMPTS`; the configured maximum is not snapshotted into the job.
+- `ImportJob.attempt_count` counts worker attempts that actually started. It increments only when the worker atomically claims `QUEUED -> RUNNING`; that transition clears previous failure/result fields and refreshes attempt timestamps.
+- Every failed attempt cleans files created during that processing attempt. Original primary uploads remain available after intermediate failures and are cleaned only when the current attempt exhausts the current configured maximum.
+- Retry queue-publish compensation may restore `QUEUED -> FAILED` and remove the retry-start notification only while the job is still `QUEUED`. It must not overwrite a worker or terminal transition that already occurred.
+- `IMPORT_STARTED` and `IMPORT_FAILED` events include the current `attempt_count` and effective `max_attempts` for audit/debugging.
+- Logging and other diagnostic output are best-effort side effects. Logging failures must not roll back domain state, failure events, notifications, or storage-cleanup decisions, and must not change a background job outcome.
 - Review flag creation rules are preserved.
 - Review flag management behavior is preserved.
 - `source_name` derivation from non-ignored primary resources is preserved.
@@ -2351,7 +2357,7 @@ Goal: persist an `ImportJob` only when its complete primary-source creation scop
 
 ### Subphase: Manual Import Retry
 
-Status: backend design agreed; backend implementation awaits explicit start approval. Frontend requirements remain deferred for a separate review.
+Status: backend implementation completed and verified. Frontend requirements remain deferred for a separate review.
 
 Goal: allow the owner to manually restart a failed background import without recreating its successfully persisted primary inputs.
 

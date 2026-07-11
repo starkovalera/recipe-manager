@@ -10,6 +10,7 @@ class ImportConfig:
     max_recipe_instruction_chars: int
     import_min_confidence: float
     import_warn_confidence: float
+    max_import_attempts: int
 
     def __init__(
         self,
@@ -21,6 +22,7 @@ class ImportConfig:
         max_recipe_instruction_chars: int,
         import_min_confidence: float,
         import_warn_confidence: float,
+        max_import_attempts: int = 3,
     ) -> None:
         self.max_import_images = max_import_images
         self.max_import_videos = max_import_videos
@@ -30,6 +32,7 @@ class ImportConfig:
         self.max_recipe_instruction_chars = max_recipe_instruction_chars
         self.import_min_confidence = import_min_confidence
         self.import_warn_confidence = import_warn_confidence
+        self.max_import_attempts = max_import_attempts
 
     @classmethod
     def from_settings(cls, settings: Settings) -> "ImportConfig":
@@ -42,4 +45,5 @@ class ImportConfig:
             settings.max_recipe_instruction_chars,
             settings.import_min_confidence,
             settings.import_warn_confidence,
+            settings.max_import_attempts,
         )

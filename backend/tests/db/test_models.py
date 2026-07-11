@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 import pytest
 from sqlalchemy import create_engine, insert
 from sqlalchemy.exc import IntegrityError
@@ -63,6 +65,29 @@ def test_ensure_default_user_does_not_leave_an_implicit_transaction_open():
 
 def test_import_job_error_codes_do_not_include_creation_failures():
     assert "IMPORT_CREATION_FAILED" not in {error_code.value for error_code in ImportJobErrorCode}
+
+
+def test_import_job_starts_next_attempt_and_clears_previous_result_fields():
+    job = ImportJob(
+        owner_id="owner-1",
+        client_id="client-1",
+        status=ImportJobStatus.QUEUED,
+        attempt_count=1,
+        error_code=ImportJobErrorCode.IMPORT_FAILED,
+        error_message="UNEXPECTED_ERROR",
+        created_recipe_id="recipe-1",
+        finished_at=datetime.now(timezone.utc),
+    )
+
+    job.set_running()
+
+    assert job.status == ImportJobStatus.RUNNING
+    assert job.attempt_count == 2
+    assert job.error_code is None
+    assert job.error_message is None
+    assert job.created_recipe_id is None
+    assert job.finished_at is None
+    assert job.started_at is not None
 
 
 def test_ensure_default_user_creates_settings_and_default_tags_idempotently():

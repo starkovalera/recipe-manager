@@ -145,3 +145,32 @@ def test_import_creation_error_migration_maps_existing_rows_and_does_not_restore
     with engine.connect() as connection:
         error_code = connection.execute(text("SELECT error_code FROM import_jobs WHERE id = 'job-1'")).scalar_one()
     assert error_code == "IMPORT_FAILED"
+
+
+def test_import_attempt_count_migration_backfills_existing_jobs_and_downgrades(tmp_path: Path):
+    db_path = tmp_path / "import-attempt-count-migration.db"
+    backend_root = Path(__file__).resolve().parents[2]
+    config = Config(str(backend_root / "alembic.ini"))
+    config.set_main_option("sqlalchemy.url", f"sqlite:///{db_path}")
+    config.set_main_option("script_location", str(backend_root / "alembic"))
+
+    command.upgrade(config, "20260710_0018")
+    engine = create_engine(f"sqlite:///{db_path}")
+    with engine.begin() as connection:
+        connection.execute(text("INSERT INTO users (id, email) VALUES ('user-1', 'user@example.com')"))
+        connection.execute(
+            text(
+                """
+                INSERT INTO import_jobs (id, owner_id, client_id, status)
+                VALUES ('job-1', 'user-1', 'client-1', 'FAILED')
+                """
+            )
+        )
+
+    command.upgrade(config, "head")
+    with engine.connect() as connection:
+        attempt_count = connection.execute(text("SELECT attempt_count FROM import_jobs WHERE id = 'job-1'")).scalar_one()
+    assert attempt_count == 0
+
+    command.downgrade(config, "20260710_0018")
+    assert "attempt_count" not in {column["name"] for column in inspect(engine).get_columns("import_jobs")}

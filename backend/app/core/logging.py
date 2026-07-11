@@ -43,14 +43,23 @@ def _safe_value(value: Any) -> Any:
 
 def log_info(logger: logging.Logger, message: str, **meta: Any) -> None:
     text = _format_log_message(message, meta)
-    logger.info(text)
-    _print_fallback("INFO", logger.name, text)
+    _emit_log(logger, logging.INFO, text)
 
 
 def log_error(logger: logging.Logger, message: str, **meta: Any) -> None:
     text = _format_log_message(message, meta)
-    logger.error(text)
-    _print_fallback("ERROR", logger.name, text)
+    _emit_log(logger, logging.ERROR, text)
+
+
+def _emit_log(logger: logging.Logger, level: int, text: str) -> None:
+    try:
+        logger.log(level, text)
+    except Exception:
+        pass
+    try:
+        _print_fallback(logging.getLevelName(level), logger.name, text)
+    except Exception:
+        pass
 
 
 def _format_log_message(message: str, meta: Mapping[str, Any]) -> str:

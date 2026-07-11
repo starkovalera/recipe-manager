@@ -413,6 +413,7 @@ class ImportJob(TimestampMixin, Base):
     created_recipe_id: Mapped[str | None] = mapped_column(ForeignKey("recipes.id", ondelete="NO ACTION"))
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    attempt_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
 
     owner: Mapped[User] = relationship(back_populates="import_jobs")
     created_recipe: Mapped[Recipe | None] = relationship(back_populates="import_jobs")
@@ -432,6 +433,7 @@ class ImportJob(TimestampMixin, Base):
             "created_recipe_id": self.created_recipe_id,
             "started_at": self.started_at.isoformat() if self.started_at else None,
             "finished_at": self.finished_at.isoformat() if self.finished_at else None,
+            "attempt_count": self.attempt_count,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
@@ -444,6 +446,11 @@ class ImportJob(TimestampMixin, Base):
 
     def set_running(self) -> None:
         self.status = ImportJobStatus.RUNNING
+        self.attempt_count += 1
+        self.error_code = None
+        self.error_message = None
+        self.created_recipe_id = None
+        self.finished_at = None
         self.started_at = datetime.now(timezone.utc)
 
     def set_recipe_created(self, recipe_id: str, status: ImportJobStatus = ImportJobStatus.SUCCEEDED) -> None:

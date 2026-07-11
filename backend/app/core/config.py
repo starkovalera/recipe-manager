@@ -47,6 +47,8 @@ class Settings(BaseSettings):
     import_min_confidence: float = 0
     import_warn_confidence: float = 0.75
     max_parallel_imports_per_client: int = 3
+    max_import_attempts: int = Field(default=3, ge=1)
+    import_task_max_retries: int = Field(default=0, ge=0)
     stale_import_minutes: int = 30
     redis_url: str = "redis://127.0.0.1:6379/0"
 

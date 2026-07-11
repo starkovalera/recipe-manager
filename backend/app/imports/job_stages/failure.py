@@ -20,13 +20,12 @@ def _parse_error(error: Exception | None) -> tuple[ImportJobErrorCode, str, str,
 def process_import_failure(
     job_id: str,
     storage: StorageService,
-    saved_storage_keys: list[str],
+    primary_storage_keys: list[str],
+    secondary_storage_keys: list[str],
+    max_import_attempts: int,
     error: Exception | None = None,
     cleanup_storage: bool = True,
 ) -> None:
-    if cleanup_storage:
-        cleanup_import_storage(storage, saved_storage_keys)
-
     with db_session() as session:
         job = session.get(ImportJob, job_id)
         if job is None or job.status in TERMINAL_IMPORT_STATUSES:
@@ -45,6 +44,8 @@ def process_import_failure(
             import_job_id=job.id,
             event_type=ImportEventType.IMPORT_FAILED,
             error=error_dict,
+            attempt_count=job.attempt_count,
+            max_attempts=max_import_attempts,
             **error_extra,
         )
         build_notification(
@@ -56,4 +57,12 @@ def process_import_failure(
         session.flush()
         session.refresh(job)
 
+    try:
         log_import_failed(job, error=error_dict, **error_extra)
+    except Exception:
+        pass
+
+    if cleanup_storage:
+        cleanup_import_storage(storage, secondary_storage_keys)
+        if job.attempt_count >= max_import_attempts:
+            cleanup_import_storage(storage, primary_storage_keys)
