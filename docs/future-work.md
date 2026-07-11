@@ -14,6 +14,9 @@ After each completed phase or subphase, review the finished work and propose can
 - After the final failed import attempt deletes primary files, `ImportJobSource` rows currently remain unchanged and may point to missing storage objects. Consider cleaning or reconciling these records in a separate background maintenance job.
 - Manual retry is initially allowed for every `FAILED` import, including failures such as `NOT_A_RECIPE` and `RECIPE_TOO_LONG`. Revisit whether some failure details should become explicitly non-retryable.
 - During the authentication/users phase, distinguish user-triggered and admin-triggered import retries and define notification policy for each case. A user-triggered retry creates an `IMPORT_STARTED` notification; an admin-triggered retry may require different recipient, visibility, and audit behavior.
+- Consider explicitly associating each import `JobEvent` with a concrete attempt number so admin diagnostics can group lifecycle events by attempt without inferring boundaries from timestamps and `IMPORT_STARTED` events.
+- Distinguish silent video from genuine transcription failure. Preferred option: inspect the downloaded media for an audio stream with PyAV before calling the transcription provider. Lower-confidence fallback: classify known provider errors such as `Audio file processing failed`. Until then, both cases are recorded as failed transcript resources while the staged loader continues with any usable content.
+- Define the review behavior for a URL that was not the sole primary source but produced no successfully loaded secondary resources. The extractor receives no child evidence for that URL, so it cannot mark the primary URL as ignored through `ignoredSourceRefs`. Consider explicitly marking the URL resource as `IGNORED` from the staged loading result so the recipe receives a review flag.
 
 ## Tags
 

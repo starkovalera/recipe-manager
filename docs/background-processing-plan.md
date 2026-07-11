@@ -138,25 +138,30 @@ This checklist applies to every phase. Any phase that touches import, resources,
 - Internal search debugging surfaces are admin-only. Until real Phase 6 auth/permissions exist, temporary frontend admin visibility is only a UI guard; backend `/internal` admin dependencies remain authoritative.
 - `POST /internal/search/explain` uses the public `SearchRequest` shape, applies selected chips as hard filters, uses only `READY` same-model embeddings for semantic candidates, and does not persist search debug snapshots. It returns effective filters, provider, query embedding model, distance metric, candidate count, returned count, pagination fields, `snapshot_persisted=false`, and ranked items with recipe id/title, rank, distance, similarity, embedding status, embedding model, input hash, embedding input preview, and match reasons. Semantic match reasons include a similarity `score`; selected chips are returned as individual match reasons.
 - `GET /internal/recipes/{recipeId}/embedding-input` returns the same current embedding input text and input hash produced by the embedding input builder.
-- URL source status aggregation is preserved.
-- Final and primary resource status mapping is preserved.
+- Final resource statuses are derived from extractor `primarySourceRefs` and `ignoredSourceRefs`. A primary URL resource is `USED` when any child is `USED`, `IGNORED` when all children are `IGNORED`, and `UNKNOWN` otherwise. The unresolved case where a non-sole URL produces no child resources remains tracked in future work and is not yet an invariant.
 - Public API errors use `ApiErrorCode`; import-job persisted failure categories use `ImportJobErrorCode`. These enums are separate and must not be mixed.
 - `ImportJob.error_code` is always one of `ImportJobErrorCode.value`: `IMPORT_FAILED`, `IMPORT_PROCESSING_FAILED`, or `IMPORT_EXTRACTION_FAILED`.
-- Detailed import failure reasons are stored in `ImportJob.error_message` and failed `JobEvent.payload.detailCode` when available; they are not stored in `ImportJob.error_code`.
+- Detailed import failure reasons are stored in `ImportJob.error_message` when available; they are not stored in `ImportJob.error_code`. Failed import events use a nested `error` payload with `import_job_code`, `code`, and `message`, plus arbitrary structured diagnostic fields when available.
 - Empty import requests fail preflight validation with API error `NO_IMPORT_SOURCES`; no `ImportJob` is created.
 - Import job creation is atomic across the database state: if an `ImportJob` exists, all requested primary `ImportJobSource` rows, the `IMPORT_CREATED` event, and the import-started notification were persisted successfully.
 - Import creation validation failures create no `ImportJob`. Storage, database, event, notification, or other unexpected creation failures roll back all database changes, clean up files saved by the failed request, return API error `IMPORT_CREATION_FAILED`, and create no failed job/event/notification.
-- Secondary URL/media/video resource loading failures fail the job with `IMPORT_PROCESSING_FAILED`, detail `SECONDARY_RESOURCE_UPLOADING_FAILED`, create failed event/notification, and do not clean up already persisted job resources.
+- URL loaders never synthesize `URL: <url>` text as extractor evidence when a URL has no usable text content.
+- Secondary URL/media/video resources are loaded independently. A failed resource does not stop attempts to load the remaining resources, and failed secondary resources do not create `RecipeResource` rows.
+- URL loaders and video processors report each secondary resource as `LOADED`, `FAILED`, or `SKIPPED`; only `build_raw_sources` decides whether the aggregated result is fatal. `SKIPPED` represents an expected absence and does not create a failure event.
+- A sole primary URL fails with `IMPORT_PROCESSING_FAILED` and detail `SECONDARY_RESOURCE_UPLOADING_FAILED` when it yields no useful secondary resources or only one or more video posters. Otherwise processing continues and failed secondary resources are recorded in `IMPORT_SECONDARY_RESOURCE_UPLOAD_FAILED` with structured diagnostics.
+- Until audio-stream detection is implemented, both a silent video and a transcription-provider failure are represented as a failed `VIDEO_TRANSCRIPT` secondary resource while other usable content continues through the pipeline.
 - Extraction-stage failures fail the job with `IMPORT_EXTRACTION_FAILED`, store extraction detail code in `error_message`, create failed event/notification, and clean up storage created for the import.
-- Extraction detail codes are `AI_PARSE_FAILED`, `INVALID_EXTRACTION_RESULT`, `NOT_A_RECIPE`, `AI_UNAVAILABLE`, and `RECIPE_TOO_LONG`.
+- Extraction detail codes are `RESULT_PARSE_FAILED`, `INVALID_EXTRACTION_RESULT`, `NOT_A_RECIPE`, `EXTRACTOR_UNAVAILABLE`, and `RECIPE_TOO_LONG`.
 - `MIXED_SOURCE_PLATFORMS` is diagnostic log text only; it is not an API error code and not an import-job error code.
-- Import failed `JobEvent.payload` includes the high-level `errorCode`, optional detailed `errorMessage`/`detailCode`, stage, and diagnostic payload fields useful for debugging.
 - Import retry is manual and owner-scoped. It is allowed only for `FAILED` jobs while persisted `attempt_count` is below the current runtime `MAX_IMPORT_ATTEMPTS`; the configured maximum is not snapshotted into the job.
 - `ImportJob.attempt_count` counts worker attempts that actually started. It increments only when the worker atomically claims `QUEUED -> RUNNING`; that transition clears previous failure/result fields and refreshes attempt timestamps.
 - Every failed attempt cleans files created during that processing attempt. Original primary uploads remain available after intermediate failures and are cleaned only when the current attempt exhausts the current configured maximum.
 - Retry queue-publish compensation may restore `QUEUED -> FAILED` and remove the retry-start notification only while the job is still `QUEUED`. It must not overwrite a worker or terminal transition that already occurred.
 - `IMPORT_STARTED` and `IMPORT_FAILED` events include the current `attempt_count` and effective `max_attempts` for audit/debugging.
 - Logging and other diagnostic output are best-effort side effects. Logging failures must not roll back domain state, failure events, notifications, or storage-cleanup decisions, and must not change a background job outcome.
+- A successfully accepted import ends the import form's responsibility for that job: the form clears and remains open without polling the job or redirecting to a completed recipe. Completion and failure remain visible through notifications.
+- Public import-job detail exposes only user-safe status, error, timestamps, attempt/retry information, and primary resources. Technical lifecycle events and their payloads remain on the admin-only Import Jobs surface.
+- Notifications whose entity type is `IMPORT_JOB` navigate to public import-job detail; recipe notifications navigate to recipe detail.
 - Review flag creation rules are preserved.
 - Review flag management behavior is preserved.
 - `source_name` derivation from non-ignored primary resources is preserved.
@@ -2269,13 +2274,13 @@ flowchart TD
   - processing and extraction detail codes for `ImportJob.error_message` and failed event payloads.
 - Changed empty import preflight failure from API `NOT_A_RECIPE` to `NO_IMPORT_SOURCES`; no job is created for this validation failure.
 - Implemented atomic creation semantics: creation-stage failures are synchronous API failures, not failed background jobs.
-- Added processing failure handling for secondary URL/media/video failures:
-  - high-level `IMPORT_PROCESSING_FAILED`;
-  - detail `SECONDARY_RESOURCE_UPLOADING_FAILED`;
-  - no cleanup of already persisted job resources.
+- Added staged secondary URL/media/video loading:
+  - individual resources report `LOADED`, `FAILED`, or `SKIPPED` without stopping sibling loads;
+  - a sole URL fails with high-level `IMPORT_PROCESSING_FAILED` and detail `SECONDARY_RESOURCE_UPLOADING_FAILED` only when no useful secondary evidence was loaded or the result contains video posters only;
+  - non-fatal failures are recorded in `IMPORT_SECONDARY_RESOURCE_UPLOAD_FAILED` and processing continues with usable evidence.
 - Added extraction failure handling:
   - high-level `IMPORT_EXTRACTION_FAILED`;
-  - detail codes including `AI_PARSE_FAILED`, `INVALID_EXTRACTION_RESULT`, `NOT_A_RECIPE`, `AI_UNAVAILABLE`, and `RECIPE_TOO_LONG`;
+  - detail codes including `RESULT_PARSE_FAILED`, `INVALID_EXTRACTION_RESULT`, `NOT_A_RECIPE`, `EXTRACTOR_UNAVAILABLE`, and `RECIPE_TOO_LONG`;
   - storage cleanup for extraction failures.
 - Kept `MIXED_SOURCE_PLATFORMS` as a log string only, not a persisted or API error code.
 - Added/updated migration and tests for `ImportJob.error_code` enum persistence.
@@ -2297,7 +2302,6 @@ flowchart TD
 ### Remaining Work / Follow-Up Candidates
 
 - Review user-facing failure messages for the new high-level/detail error split.
-- Decide whether platform loaders should expose more granular secondary failure payload fields for images, video poster, and transcription.
 - Keep broader notification UX, import history UI, and visual design work in the following phases.
 
 ### Subphase: Atomic Import Job Creation
@@ -2455,19 +2459,38 @@ Goal: allow the owner to manually restart a failed background import without rec
    - owner, exhausted, non-failed, active-limit, concurrent request, publish compensation, and ambiguous-delivery API tests;
    - full backend lint/tests and PostgreSQL migration smoke test.
 
-#### Deferred Frontend Requirements
+#### Frontend Import Retry and Job Detail
 
-Frontend retry work is not part of the backend implementation subphase and requires a separate requirements/design review before implementation.
-
-Ideas already fixed for that future review:
+Status: implemented, pending review.
 
 - Do not add Retry to the current import form page's status block.
+- After job creation, the import form resets and remains independent from that job: it does not poll job state, show processing/extraction failures, or redirect when a recipe is created. It shows only synchronous job-creation/API errors and lets the user submit another import immediately.
 - Add a user-facing ImportJob detail page representing one concrete import job; it is distinct from both the import form and the admin ImportJobs page.
-- A failed-import notification should navigate to that user-facing ImportJob detail page.
-- The user-facing ImportJob detail page should show import details and offer Retry only when the backend reports that retry is currently allowed.
-- The existing admin ImportJobs page should also expose a Retry action.
+- Import-job notifications navigate to that user-facing ImportJob detail page; recipe notifications continue to navigate directly to recipes.
+- The user-facing ImportJob detail page is deliberately non-technical. It shows a friendly status, mapped known error details with `Unexpected error.` fallback, timestamps, current/max attempts, primary submitted resources, Retry when available, and Open recipe after success. It does not show internal IDs, event history/payloads, owner/client/dedupe fields, storage keys, or internal source status/error fields.
+- Public ImportJob output exposes only safe source fields needed by this page: source type plus URL, original image name/media URL, or submitted text.
+- The admin ImportJobs page shows attempt metadata, exposes Retry when available, links successful jobs to their created recipe, and renders each event payload in an expandable diagnostic block.
 - User-triggered and admin-triggered retry permissions, notification recipients, and audit semantics must be revisited during the authentication/users phase before real multi-user access is enabled.
-- Frontend visibility, pending-state, exhausted-attempt, concurrency/race, and API-error behavior must be designed and tested when this frontend scope starts.
+- Frontend tests cover form decoupling, unique client import IDs, creation errors, notification navigation, public detail polling/retry/error mapping, admin retry, and event payload expansion.
+
+#### Staged Secondary Resource Loading
+
+Status: implemented, pending review.
+
+- Secondary resource loading is tolerant at the individual-resource boundary. A failed URL image, video poster, video download, or transcription is recorded as a typed result instead of immediately aborting `_append_url_raw_sources`.
+- Add typed `SecondaryResourceLoadResult` records with `LOADED`, `FAILED`, and `SKIPPED` statuses and diagnostic resource kinds for URL content, text, image, video poster, and video transcript.
+- Successful content continues through the existing `RawSource` and `RecipeResource` flow. Failed or skipped content never creates a `RecipeResource`.
+- Instagram, Threads, generic URL loading, video processing, and local secondary-file persistence report partial successes and failures without discarding already loaded resources.
+- Remove the synthetic `URL: <normalized_url>` text fallback. Missing real caption/description is a skipped text result and is not recipe evidence.
+- For the current implementation, both a video without usable audio and a transcription/provider failure are recorded as `VIDEO_TRANSCRIPT/FAILED`; neither fails the import at the video processor boundary.
+- `build_raw_sources` is the only layer that decides whether secondary loading is fatal:
+  - when the sole primary source is one URL, fail with `SecondaryResourceUploadError` if it produced no successfully loaded secondary resources;
+  - also fail if every successfully loaded secondary resource is a video poster, regardless of poster count;
+  - otherwise continue with all successful resources.
+- If processing continues and at least one secondary resource is `FAILED`, write `IMPORT_SECONDARY_RESOURCE_UPLOAD_FAILED` with attempt metadata and a structured list of failed resource diagnostics.
+- `SKIPPED` results are written only to structured logs and are not included in the failure event.
+- Failed secondary resources are represented only in the event payload. They are not persisted as `RecipeResource` rows.
+- Preserve attachments-first image capacity, platform-specific source extraction, video poster/transcript roles, source ordering, AI input/output contracts, resource-status aggregation, review flags, cover generation, and cleanup rules.
 
 ### Checkpoints
 

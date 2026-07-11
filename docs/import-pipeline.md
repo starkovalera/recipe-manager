@@ -2,8 +2,9 @@
 
 This is the current backend queue-first implementation state. The API creates
 `ImportJob(status=queued)`, enqueues Dramatiq work, and the worker runs the
-existing synchronous import pipeline in the background. Frontend polling UX is
-implemented in Phase 1d.
+existing synchronous import pipeline in the background. The import form submits
+jobs without polling or redirecting; completion and failure are surfaced through
+notifications and public import-job detail.
 
 ```mermaid
 flowchart TD
@@ -27,10 +28,10 @@ flowchart TD
   remaining --> loader["Loader registry<br/>Instagram -> Threads -> Generic"]
   loader --> loadedUrl["Create URL primary row<br/>URL + source=MANUAL"]
   loadedUrl --> children["Create final URL children<br/>TEXT/IMAGE + source=URL<br/>transcript/poster + source=URL_VIDEO"]
-  children --> ai["RecipeExtractionProvider.extract<br/>final sources only, type != URL"]
+  children --> extractor["RecipeExtractionProvider.extract<br/>final sources only, type != URL"]
 
-  ai -->|"not recipe"| failJob["Mark ImportJob failed<br/>cleanup saved files"]
-  ai --> quality{"confidence <= IMPORT_MIN_CONFIDENCE?"}
+  extractor -->|"not recipe"| failJob["Mark ImportJob failed<br/>cleanup saved files"]
+  extractor --> quality{"confidence <= IMPORT_MIN_CONFIDENCE?"}
   quality -->|"yes"| lowConfidence["Mark ImportJob failed<br/>cleanup saved files"]
   quality -->|"no"| sources["Map primarySourceRefs / ignoredSourceRefs<br/>to final RecipeResource statuses"]
   sources --> singleUrl["Normalize single URL recipe-level quality"]
@@ -44,11 +45,11 @@ flowchart TD
   warn -->|"yes"| flag["Create CONTENT_WARNING flag"]
   warn -->|"no"| success
   flag --> flagged["Mark ImportJob succeeded_with_flags<br/>createdRecipeId set"]
-  flagged --> poll
-  success["Mark ImportJob succeeded<br/>createdRecipeId set<br/>record completion notification"] --> poll["Frontend polls GET /imports/{jobId}<br/>until terminal status"]
-  failJob --> poll
-  lowConfidence --> poll
-  poll --> detail["GET /recipes/{id}<br/>returns sources, images, cover, flags"]
+  flagged --> notify
+  success["Mark ImportJob succeeded<br/>createdRecipeId set<br/>record completion notification"] --> notify["Frontend receives notification"]
+  failJob --> notify
+  lowConfidence --> notify
+  notify --> detail["Open recipe or import-job detail<br/>from notification entity"]
 
   classDef fail fill:#ffe0e0,stroke:#b91c1c,color:#111;
   classDef decision fill:#f3f4f6,stroke:#555,color:#111;
@@ -58,7 +59,7 @@ flowchart TD
   class fail400,failText,failFiles,failJob,lowConfidence fail;
   class validate,dedupe,url,quality,cover,warn decision;
   class persist,write,success db;
-  class ai ai;
+  class extractor ai;
 ```
 
 ## Implemented Rules
@@ -66,26 +67,30 @@ flowchart TD
 - `clientImportId` deduplicates imports for the default local user through `ImportJob.dedupe_key`; `Idempotency-Key` can be used as an HTTP-level alias.
 - `POST /imports` returns `202 Accepted` for a new queued job; duplicate dedupe keys return the existing job.
 - Dramatiq workers execute the existing synchronous import pipeline.
-- Import processing records `JobEvent` rows and persisted user `Notification` rows, but notification polling API remains deferred.
+- Import processing records `JobEvent` rows and persisted user `Notification` rows. The frontend polls notifications, while the import form itself does not poll individual jobs or redirect on completion.
 - Text input participates as recipe evidence.
 - Attachments are accepted before URL images and occupy `MAX_IMPORT_IMAGES` capacity.
 - URL images are loaded only within the remaining image capacity.
 - URL loader order is Instagram, Threads, then generic fallback.
 - `RecipeResource.source` records origin: `MANUAL`, `URL`, `URL_VIDEO`, or `GENERATED`.
 - URL imports create a parent URL source plus child final sources for URL text, URL images, video transcript, and video poster.
-- AI receives final sources only: all `RecipeResource` rows where `type != URL`, labeled with short request-local ids such as `source_1`.
-- The backend keeps an in-memory mapping from each request-local AI id back to its `RecipeResource` object for status and cover processing.
-- Final recipe source statuses are derived from AI `primarySourceRefs` and `ignoredSourceRefs` before any single URL recipe-level quality normalization.
+- URL loaders do not synthesize URL-only fallback text when no usable content was loaded.
+- Secondary resources are attempted independently and reported as `LOADED`, `FAILED`, or `SKIPPED`. Failed resources do not create `RecipeResource` rows.
+- A sole URL fails when it yields no useful secondary resources or video posters only. Non-fatal failed secondary resources create `IMPORT_SECONDARY_RESOURCE_UPLOAD_FAILED`, and processing continues with the successfully loaded evidence.
+- The extractor receives final sources only: all `RecipeResource` rows where `type != URL`, labeled with short request-local ids such as `source_1`.
+- The backend keeps an in-memory mapping from each request-local extractor id back to its `RecipeResource` object for status and cover processing.
+- Final recipe source statuses are derived from extractor `primarySourceRefs` and `ignoredSourceRefs` before any single URL recipe-level quality normalization.
 - Primary URL source status is aggregated from children: used if any child is used, ignored if all children are ignored, otherwise unknown.
 - Single URL import treats ignored/conflicting child resources inside the only URL as internal diagnostics. Child resource statuses are still persisted, but recipe-level `quality.hasConflicts`, `quality.hasIgnored`, and `ignoredSourceRefs` are normalized to `false`, `false`, and `[]`.
 - `quality.confidence <= IMPORT_MIN_CONFIDENCE` fails the import and cleans saved files.
 - Warning flags for single URL imports are created only when `quality.confidence <= IMPORT_WARN_CONFIDENCE`.
 - Warning flags for multi-primary imports are created when `quality.hasConflicts`, any primary source is ignored, or `quality.confidence <= IMPORT_WARN_CONFIDENCE`.
-- AI `coverCandidate` generates a separate cover derivative when it references an accepted image source.
+- Extractor `coverCandidate` generates a separate cover derivative when it references an accepted image source.
 - Cover candidate guard logic is isolated in `backend/app/imports/cover_guard.py` and remains default-off.
 
 ## Current Deferrals
 
-- Frontend polling and notification UX are Phase 1d.
 - Full live Instagram/Threads scraping resilience. Current platform loaders are isolated and fixture-tested.
+- Reliable distinction between silent videos and transcription-provider failures.
+- Review/status behavior for a non-sole URL that yields no successfully loaded secondary resources.
 - Cloud storage, auth, mobile-specific flows, and generated frontend API types.
