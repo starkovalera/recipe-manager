@@ -7,11 +7,23 @@ After each completed phase or subphase, review the finished work and propose can
 ## AI and Import Pipeline
 
 - Remove `sourcePosition` and `crop` from the Pydantic AI response schema for `coverCandidate`. They are currently kept as `None`-only legacy compatibility fields after the OpenAI response schema was narrowed to `sourceRef` and `confidence`.
+- Consider generated covers: when extraction cannot select a sufficiently convincing source image, generate a cover image from the extracted recipe. Define quality thresholds, cost controls, user visibility, storage lifecycle, and provenance before implementation.
+- Align the extraction prompt with configured ingredient-count and instruction-length limits. Any prompt change still requires explicit review and approval, and backend validation remains authoritative.
+- Consider extracting additional recipe recommendations into `Recipe.note`. This requires an explicitly approved prompt change, AI output-schema migration, and rules for distinguishing source-authored recommendations from generated content.
+- Preserve an author profile URL when `author_name` is derived from a supported platform URL. Build it from the platform's canonical profile prefix and account name, expose it separately from the display name, and render it as a link on recipe detail. Manually entered names without a URL remain plain text.
+- Add Telegram import support after defining supported Telegram URL/content types and access constraints.
+- Verify and harden import behavior for Instagram Reels and YouTube Shorts, including captions, images/posters, video download, and transcript behavior.
 
 ## Background Processing
 
 - Add a transactional outbox for embedding scheduling so persisted embedding lifecycle state and broker publishing are durably coordinated. Publishing is currently best-effort and intentionally secondary to completed user operations.
-- After the final failed import attempt deletes primary files, `ImportJobSource` rows currently remain unchanged and may point to missing storage objects. Consider cleaning or reconciling these records in a separate background maintenance job.
+- Move failed-import primary-file cleanup out of `process_import_job` and retry handling into a scheduled background cleanup lifecycle:
+  - `process_import_job` and `retry_import_job` must not delete original primary files, including after the last allowed attempt. Per-attempt secondary files may still be cleaned immediately.
+  - Add a scheduled background job that finds import jobs which have remained `FAILED` longer than a configured retention period. The retention period must come from an environment-backed setting and must be evaluated using the current runtime value rather than snapshotted on each job.
+  - The cleanup job deletes media files referenced by the failed job's primary `ImportJobSource` rows, marks the corresponding sources with a new `DELETED` status, and leaves non-file primary sources such as text and URLs intact unless a separate retention rule is approved.
+  - After cleanup succeeds, move the import job to the new non-retryable terminal status `FAILED_FINALIZED`. The status preserves the failed outcome and explicitly indicates that failure cleanup/lifecycle finalization has completed.
+  - Retry must be rejected for `FAILED_FINALIZED` regardless of `attempt_count` or the current maximum-attempt setting. The frontend must hide Retry for this status.
+  - Make cleanup idempotent and safe under concurrent scheduler/worker execution. Define row-locking/claim behavior, partial storage-deletion handling, cleanup events and diagnostics, and whether a job remains `FAILED` when any referenced file could not be deleted.
 - Manual retry is initially allowed for every `FAILED` import, including failures such as `NOT_A_RECIPE` and `RECIPE_TOO_LONG`. Revisit whether some failure details should become explicitly non-retryable.
 - During the authentication/users phase, distinguish user-triggered and admin-triggered import retries and define notification policy for each case. A user-triggered retry creates an `IMPORT_STARTED` notification; an admin-triggered retry may require different recipient, visibility, and audit behavior.
 - Consider explicitly associating each import `JobEvent` with a concrete attempt number so admin diagnostics can group lifecycle events by attempt without inferring boundaries from timestamps and `IMPORT_STARTED` events.
@@ -21,8 +33,8 @@ After each completed phase or subphase, review the finished work and propose can
 ## Tags
 
 - Validate tag name and tag description length on both frontend and backend.
-- Show user-facing errors when creating a duplicate tag or exceeding the configured tag limit.
-- Show a recipe-count badge/counter next to each tag.
+- Surface existing backend `DUPLICATE_TAG` and `TAG_LIMIT_EXCEEDED` errors on the Tags page instead of leaving mutation failures invisible.
+- Show a persistent recipe-count badge/counter next to each tag. The existing tag-usage endpoint and delete confirmation already expose this count on demand.
 - Add a way to navigate from a tag to the list of recipes containing that tag.
 - Add tag sorting options.
 - Add quick tag search/autocomplete by tag name.
@@ -30,11 +42,25 @@ After each completed phase or subphase, review the finished work and propose can
 
 ## Ingredients
 
-- Validate ingredient field lengths on both frontend and backend when editing recipes.
+- Add frontend and backend length limits for ingredient `name`, `quantity`, `unit`, and `note`. Ingredient count and required-name validation already exist.
+- Insert a newly added ingredient at the top of the editable ingredient list.
+- Add ingredient reordering controls. Ingredient `position` is already persisted from the frontend array order; only the user-facing reordering interaction is missing.
+- Add an ingredient calculator that scales quantities by the selected number of servings. The recipe `servings` field already exists in the model and API but is not yet exposed as a scaling workflow.
+- Investigate semantically close ingredient terms such as `сахарозаменитель` and `подсластитель`: evaluate whether the current vector search handles them adequately before adding synonym normalization or query expansion.
+
+## Recipes and Manual Content
+
+- Add aligned frontend and backend length limits for every remaining editable recipe field, including title and author name. Ingredient count, instruction length, note length, and required ingredient names are already validated; backend validation remains authoritative.
+- Normalize recipe-title formatting and casing using an explicitly defined locale-aware rule without corrupting brands, abbreviations, or proper names.
+- Support fully manual recipes and standalone manual notes that can be added to collections alongside imported recipes. Clarify whether notes share a common collection-item abstraction with recipes or remain a separate entity.
+
+## Notifications
+
+- Add distinct colors and icons for different notification types while preserving accessible text/status cues.
 
 ## Pagination and Lists
 
-- Adapt frontend flows more fully to paginated recipe and collection responses where any remaining list usage still assumes full result sets.
+- Finish pagination-aware selectors on recipe detail. The main Recipes, Collections, and Tags pages already have pagination controls, but recipe detail still loads collections without paging controls and loads only the first 100 tags.
 - Add sorting and filters for collections on backend and frontend.
 
 ## Улучшение серча
@@ -46,8 +72,8 @@ After each completed phase or subphase, review the finished work and propose can
 - При добавлении derived labels обновить правила invalidation/recompute: title, `ingredients.search_name`, instructions, `nutrition_estimate`, `cook_time_minutes`, версия правил derived labels.
 - Позже рассмотреть строгие numeric filters: `maxCookTimeMinutes`, `maxCalories`, `minProteinGrams`, `maxCarbsGrams`. Не реализовывать до решения UX.
 - До AI query parser добавить lightweight query concept suggestions: например `быстро` -> tag `быстрое` или будущий фильтр `до 20 минут`; `низкокалорийное` -> tag или будущий calorie filter.
-- Не менять vector metric как попытку улучшить качество без evidence. Текущая предпочтительная метрика: pgvector cosine distance (`<=>`), сортировка по distance ascending, debug similarity = `1 - distance`.
 - Перед настройкой ranking собрать небольшой ручной evaluation set с query, expected good recipe ids и expected bad recipe ids.
 - Query expansion и hybrid ranking boosts оставить на более поздний этап после Search Debug, embedding input preview, derived labels и evaluation set.
 - Возможный будущий hybrid score: semantic similarity + title match boost + ingredient query boost + tag match boost + derived property boost + recency/favorite boost. Не добавлять до понимания базового semantic behavior.
 - Add pagination controls to Search Debug; currently it uses `limit=20`, `offset=0`.
+- When autocomplete suggests one concrete recipe, selecting that recipe chip should navigate directly to recipe detail instead of adding a search filter.
