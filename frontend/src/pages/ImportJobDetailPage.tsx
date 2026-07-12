@@ -4,6 +4,7 @@ import { getImportJob, mediaUrl, retryImportJob } from "../api/client";
 import type { ImportJob } from "../api/types";
 
 const ACTIVE_STATUSES = new Set<ImportJob["status"]>(["queued", "running"]);
+const SUCCESS_STATUSES = new Set<ImportJob["status"]>(["succeeded", "succeeded_with_flags"]);
 
 const STATUS_LABELS: Record<ImportJob["status"], string> = {
   queued: "Queued",
@@ -59,6 +60,7 @@ export function ImportJobDetailPage({
   if (!job) return null;
 
   const canRetry = job.status === "failed" && job.attemptCount < job.maxAttempts && !retryMutation.isPending;
+  const recipeWasDeleted = SUCCESS_STATUSES.has(job.status) && !job.createdRecipeId;
 
   return (
     <section className="panel import-job-detail">
@@ -74,6 +76,7 @@ export function ImportJobDetailPage({
       </div>
 
       {job.status === "failed" ? <p className="import-error" role="alert">{importErrorMessage(job.errorMessage)}</p> : null}
+      {recipeWasDeleted ? <p className="import-error" role="status">Recipe not found. It may have been deleted.</p> : null}
       {retryMutation.error ? <p className="import-error" role="alert">{retryMutation.error.message}</p> : null}
 
       <dl className="debug-grid import-summary">

@@ -13,7 +13,11 @@ from app.db.init import ensure_default_user
 from app.db.session import get_session
 from app.main import create_app
 from app.models import (
+    ImportEventType,
+    ImportJob,
+    ImportJobStatus,
     Ingredient,
+    JobEvent,
     Recipe,
     RecipeEmbeddingEventType,
     RecipeEmbeddingStatus,
@@ -130,6 +134,60 @@ def seed_recipe(SessionLocal):
         session.add(recipe)
         session.commit()
         return recipe.id, recipe.review_flags[0].id
+
+
+def test_delete_recipe_preserves_import_history_and_deletes_recipe_media(tmp_path, monkeypatch):
+    monkeypatch.setenv("UPLOAD_DIR", str(tmp_path))
+    get_settings.cache_clear()
+    client, SessionLocal = client_with_session()
+    recipe_id, _ = seed_recipe(SessionLocal)
+    (tmp_path / "source.jpg").write_bytes(b"recipe image")
+
+    with SessionLocal() as session:
+        user = ensure_default_user(session)
+        job = ImportJob(
+            owner_id=user.id,
+            client_id="test-client",
+            client_import_id="delete-recipe-import",
+            dedupe_key="delete-recipe-import",
+            status=ImportJobStatus.SUCCEEDED,
+            created_recipe_id=recipe_id,
+        )
+        job.events.append(JobEvent(event_type=ImportEventType.RECIPE_CREATED, payload={"recipe_id": recipe_id}))
+        session.add(job)
+        session.commit()
+        job_id = job.id
+
+    response = client.delete(f"/recipes/{recipe_id}")
+
+    assert response.status_code == 204
+    assert not (tmp_path / "source.jpg").exists()
+    with SessionLocal() as session:
+        job = session.get(ImportJob, job_id)
+        assert job is not None
+        assert job.created_recipe_id is None
+        assert [event.event_type for event in job.events] == [ImportEventType.RECIPE_CREATED]
+
+
+def test_delete_recipe_succeeds_when_media_cleanup_fails(tmp_path, monkeypatch):
+    monkeypatch.setenv("UPLOAD_DIR", str(tmp_path))
+    get_settings.cache_clear()
+    client, SessionLocal = client_with_session()
+    recipe_id, _ = seed_recipe(SessionLocal)
+    attempted_keys: list[str] = []
+
+    def fail_delete(_storage, storage_key: str) -> None:
+        attempted_keys.append(storage_key)
+        raise OSError("storage unavailable")
+
+    monkeypatch.setattr("app.services.recipes.LocalStorageService.delete", fail_delete)
+
+    response = client.delete(f"/recipes/{recipe_id}")
+
+    assert response.status_code == 204
+    assert attempted_keys == ["source.jpg"]
+    with SessionLocal() as session:
+        assert session.get(Recipe, recipe_id) is None
 
 
 def test_recipe_list_and_detail_include_sources_and_flags():

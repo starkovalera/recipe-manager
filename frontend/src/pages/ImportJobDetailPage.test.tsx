@@ -101,4 +101,24 @@ describe("ImportJobDetailPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Open recipe" }));
     expect(onOpenRecipe).toHaveBeenCalledWith("recipe-1");
   });
+
+  it("explains that a successful import recipe may have been deleted", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify({
+        jobId: "job-1",
+        status: "succeeded",
+        createdRecipeId: null,
+        attemptCount: 1,
+        maxAttempts: 3,
+        sources: [],
+      }),
+    }));
+
+    renderPage();
+
+    await waitFor(() => expect(screen.getByText("Recipe not found. It may have been deleted.")).toBeTruthy());
+    expect(screen.queryByRole("button", { name: "Open recipe" })).toBeNull();
+  });
 });

@@ -411,7 +411,13 @@ class ImportJob(TimestampMixin, Base):
     status: Mapped[ImportJobStatus] = mapped_column(Enum(ImportJobStatus), default=ImportJobStatus.QUEUED, nullable=False)
     error_code: Mapped[ImportJobErrorCode | None] = mapped_column(Enum(ImportJobErrorCode))
     error_message: Mapped[str | None] = mapped_column(Text)
-    created_recipe_id: Mapped[str | None] = mapped_column(ForeignKey("recipes.id", ondelete="NO ACTION"))
+    created_recipe_id: Mapped[str | None] = mapped_column(
+        ForeignKey(
+            "recipes.id",
+            name="fk_import_jobs_created_recipe_id_recipes",
+            ondelete="SET NULL",
+        )
+    )
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     attempt_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)

@@ -47,6 +47,13 @@ def test_alembic_upgrade_head_creates_core_tables(tmp_path: Path):
         and foreign_key["options"].get("ondelete") == "SET NULL"
         for foreign_key in inspector.get_foreign_keys("recipes")
     )
+    assert any(
+        foreign_key["constrained_columns"] == ["created_recipe_id"]
+        and foreign_key["referred_table"] == "recipes"
+        and foreign_key["referred_columns"] == ["id"]
+        and foreign_key["options"].get("ondelete") == "SET NULL"
+        for foreign_key in inspector.get_foreign_keys("import_jobs")
+    )
 
 
 def test_alembic_cli_uses_database_url_env(monkeypatch, tmp_path: Path):

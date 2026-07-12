@@ -123,6 +123,50 @@ describe("RecipeDetailPage", () => {
     expect(screen.getByAltText("Source image")).toBeTruthy();
   });
 
+  it("explains that a missing recipe may have been deleted", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+      const url = input.toString();
+      if (url.includes("/recipes/recipe-1") && !url.includes("/internal/")) {
+        return {
+          ok: false,
+          status: 404,
+          text: async () => JSON.stringify({ errorCode: "RECIPE_NOT_FOUND", message: "Recipe not found." }),
+        };
+      }
+      return { ok: true, status: 200, text: async () => JSON.stringify({ items: [] }) };
+    }));
+
+    renderPage();
+
+    await waitFor(() => expect(screen.getByText("Recipe not found. It may have been deleted.")).toBeTruthy());
+  });
+
+  it("does not render cached recipe content after a not-found refetch", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+      const url = input.toString();
+      if (url.includes("/recipes/recipe-1") && !url.includes("/internal/")) {
+        return {
+          ok: false,
+          status: 404,
+          text: async () => JSON.stringify({ errorCode: "RECIPE_NOT_FOUND", message: "Recipe not found." }),
+        };
+      }
+      return { ok: true, status: 200, text: async () => JSON.stringify({ items: [] }) };
+    }));
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    client.setQueryData(["recipe", "recipe-1"], recipeDetail);
+
+    render(
+      <QueryClientProvider client={client}>
+        <RecipeDetailPage recipeId="recipe-1" onDeleted={() => undefined} />
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByText("Recipe not found. It may have been deleted.")).toBeTruthy());
+    expect(screen.queryByRole("heading", { name: "Soup" })).toBeNull();
+    expect(screen.queryByText("Tomato")).toBeNull();
+  });
+
   it("shows an open review warning and resolves it", async () => {
     const fetchMock = stubRecipeFetch();
 

@@ -13,6 +13,14 @@ def get_recipe(session: Session, recipe_id: str, owner_id: str) -> Recipe | None
     return session.scalar(select(Recipe).where(Recipe.id == recipe_id, Recipe.owner_id == owner_id))
 
 
+def get_recipe_for_deletion(session: Session, recipe_id: str, owner_id: str) -> Recipe | None:
+    return session.scalar(
+        select(Recipe)
+        .where(Recipe.id == recipe_id, Recipe.owner_id == owner_id)
+        .options(selectinload(Recipe.images))
+    )
+
+
 def apply_recipe_list_filters(query: Select[Any], filters: RecipeListFilters) -> Select[Any]:
     if filters.tag_id is not None:
         query = query.where(Recipe.tags.any(Tag.id == filters.tag_id))

@@ -1,7 +1,9 @@
+import logging
 from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.core.errors import (
     CoverImageNotFoundError,
     CurrentCoverResourceDeleteError,
@@ -13,6 +15,7 @@ from app.core.errors import (
     ReviewFlagNotFoundError,
     UnsupportedSourceStatusError,
 )
+from app.core.logging import bind_logger
 from app.embeddings.planning import prepare_recipe_embedding
 from app.embeddings.queue import enqueue_recipe_embedding
 from app.models import (
@@ -30,6 +33,7 @@ from app.recipes.queries import (
     count_recipes,
     get_recipe as query_recipe,
     get_recipe_detail as query_recipe_detail,
+    get_recipe_for_deletion,
     get_recipe_for_resource_mutation as query_recipe_for_resource_mutation,
     get_recipe_image,
     get_recipe_review_flag,
@@ -38,7 +42,10 @@ from app.recipes.queries import (
 from app.schemas.recipes import RecipePatchIn
 from app.services.recipe_limits import validate_recipe_note, validate_recipe_size
 from app.services.search_text import build_ingredient_search_name, refresh_recipe_search_text
+from app.storage.local import LocalStorageService
 from app.tags.queries import list_active_tags_by_ids
+
+logger = bind_logger(logging.getLogger(__name__), component="recipes.recipes")
 
 
 def _clean_optional(value: str | None) -> str | None:
@@ -175,11 +182,24 @@ def patch_recipe(session: Session, recipe_id: str, owner_id: str, patch: RecipeP
 
 
 def delete_recipe(session: Session, recipe_id: str, owner_id: str) -> None:
-    recipe = query_recipe(session, recipe_id, owner_id)
+    recipe = get_recipe_for_deletion(session, recipe_id, owner_id)
     if recipe is None:
         raise RecipeNotFoundError()
+    storage_keys = sorted({image.storage_key for image in recipe.images})
     session.delete(recipe)
     session.commit()
+
+    storage = LocalStorageService(get_settings().upload_dir)
+    for storage_key in storage_keys:
+        try:
+            storage.delete(storage_key)
+        except Exception as error:
+            logger.error(
+                "Recipe media cleanup failed.",
+                recipe_id=recipe_id,
+                storage_key=storage_key,
+                error=repr(error),
+            )
 
 
 def set_review_flag_status(session: Session, recipe_id: str, owner_id: str, flag_id: str, status: str) -> RecipeReviewFlag:

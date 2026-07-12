@@ -2,6 +2,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { listInternalImportJobs, retryImportJob } from "../api/client";
 
+const SUCCESS_STATUSES = new Set(["succeeded", "succeeded_with_flags"]);
+
 function formatDate(value?: string | null) {
   return value ? new Date(value).toLocaleString() : "-";
 }
@@ -46,7 +48,7 @@ export function InternalImportJobsPage({ onOpenRecipe }: { onOpenRecipe: (recipe
                 </div>
                 <div>
                   <dt>Recipe</dt>
-                  <dd>{job.createdRecipeId ?? "-"}</dd>
+                  <dd>{job.createdRecipeId ?? (SUCCESS_STATUSES.has(job.status) ? "Recipe not found. It may have been deleted." : "-")}</dd>
                 </div>
                 <div>
                   <dt>Error</dt>

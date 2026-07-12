@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import defaultRecipeImage from "../assets/default-recipe.svg";
 import {
+  ApiError,
   addRecipeToCollection,
   deleteRecipe,
   getInternalEmbeddingInputPreview,
@@ -115,7 +116,8 @@ export function RecipeDetailPage({ recipeId, onDeleted }: { recipeId: string; on
   });
   const collectionsQuery = useQuery({ queryKey: ["collections"], queryFn: () => listCollections() });
   const tagsQuery = useQuery({ queryKey: ["tags", { limit: 100, offset: 0 }], queryFn: () => listTags({ limit: 100, offset: 0 }) });
-  const recipe = query.data;
+  const recipeNotFound = query.error instanceof ApiError && query.error.errorCode === "RECIPE_NOT_FOUND";
+  const recipe = recipeNotFound ? undefined : query.data;
 
   const [title, setTitle] = useState("");
   const [sourceName, setSourceName] = useState("MANUAL");
@@ -203,6 +205,7 @@ export function RecipeDetailPage({ recipeId, onDeleted }: { recipeId: string; on
   const deleteMutation = useMutation({
     mutationFn: () => deleteRecipe(recipeId),
     onSuccess: () => {
+      queryClient.removeQueries({ queryKey: ["recipe", recipeId], exact: true });
       queryClient.invalidateQueries({ queryKey: ["recipes"] });
       queryClient.invalidateQueries({ queryKey: ["collections"] });
       onDeleted();
@@ -267,7 +270,13 @@ export function RecipeDetailPage({ recipeId, onDeleted }: { recipeId: string; on
   return (
     <section className="panel">
       {query.isLoading ? <p>Loading...</p> : null}
-      {query.error ? <p role="alert">{query.error.message}</p> : null}
+      {query.error ? (
+        <p role="alert">
+          {recipeNotFound
+            ? "Recipe not found. It may have been deleted."
+            : query.error.message}
+        </p>
+      ) : null}
       {recipe ? (
         <div className="stack">
           <div className="recipe-hero">
