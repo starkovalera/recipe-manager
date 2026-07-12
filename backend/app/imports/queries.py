@@ -4,12 +4,17 @@ from sqlalchemy.orm import Session, selectinload
 from app.models import ImportJob, ImportJobStatus
 
 
-def list_internal_import_jobs(session: Session) -> list[ImportJob]:
-    return session.scalars(
-        select(ImportJob)
-        .options(selectinload(ImportJob.sources), selectinload(ImportJob.events))
-        .order_by(ImportJob.created_at.desc())
-    ).all()
+def list_internal_import_jobs(session: Session, *, owner_id: str | None = None) -> list[ImportJob]:
+    statement = (
+        select(ImportJob).options(selectinload(ImportJob.sources), selectinload(ImportJob.events)).order_by(ImportJob.created_at.desc())
+    )
+    if owner_id is not None:
+        statement = statement.where(ImportJob.owner_id == owner_id)
+    return list(session.scalars(statement))
+
+
+def get_import_job_unscoped(session: Session, job_id: str) -> ImportJob | None:
+    return session.get(ImportJob, job_id)
 
 
 def get_import_job(session: Session, job_id: str, owner_id: str) -> ImportJob | None:

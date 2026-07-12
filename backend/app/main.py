@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.routes.access import router as access_router
 from app.api.routes.collections import router as collections_router
 from app.api.routes.health import router as health_router
 from app.api.routes.imports import router as imports_router
@@ -14,6 +15,7 @@ from app.api.routes.notifications import router as notifications_router
 from app.api.routes.recipes import router as recipes_router
 from app.api.routes.search import router as search_router
 from app.api.routes.tags import router as tags_router
+from app.api.routes.users import router as users_router
 from app.core.config import get_settings
 from app.core.errors import install_error_handlers
 from app.core.logging import configure_logging, log_error, log_info
@@ -90,6 +92,7 @@ def create_app() -> FastAPI:
 
     install_error_handlers(app)
     app.include_router(health_router)
+    app.include_router(access_router)
     app.include_router(collections_router)
     app.include_router(imports_router)
     app.include_router(internal_router)
@@ -98,6 +101,7 @@ def create_app() -> FastAPI:
     app.include_router(recipes_router)
     app.include_router(search_router)
     app.include_router(tags_router)
+    app.include_router(users_router)
     return app
 
 

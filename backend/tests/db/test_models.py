@@ -5,6 +5,7 @@ from sqlalchemy import create_engine, insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.access.constants import UserRole
 from app.db.base import Base
 from app.db.defaults import DEFAULT_RECIPE_LANGUAGE, DEFAULT_TAG_NAMES, DEFAULT_USER_ID
 from app.db.init import ensure_default_user
@@ -34,6 +35,7 @@ from app.models import (
     SourceName,
     SourceType,
     Tag,
+    UserRoleAssignment,
     UserSettings,
 )
 
@@ -53,6 +55,39 @@ def test_ensure_default_user_is_idempotent():
     assert first.id == DEFAULT_USER_ID
     assert second.id == DEFAULT_USER_ID
     assert session.query(type(first)).count() == 1
+    assert first.roles == {UserRole.DEBUG, UserRole.SUPERADMIN}
+
+
+def test_default_user_roles_are_not_restored_after_revocation():
+    session = create_session()
+    user = ensure_default_user(session)
+    assignment = session.get(UserRoleAssignment, (user.id, UserRole.DEBUG))
+    session.delete(assignment)
+    session.commit()
+
+    user = ensure_default_user(session)
+
+    assert user.roles == {UserRole.SUPERADMIN}
+
+
+def test_user_supports_multiple_unique_role_assignments():
+    session = create_session()
+    account = ensure_default_user(session)
+
+    assert account.roles == {UserRole.DEBUG, UserRole.SUPERADMIN}
+    session.expunge_all()
+    session.add(UserRoleAssignment(user_id=account.id, role=UserRole.DEBUG))
+    with pytest.raises(IntegrityError):
+        session.commit()
+
+
+def test_deleting_user_deletes_role_assignments():
+    session = create_session()
+    account = ensure_default_user(session)
+    session.delete(account)
+    session.commit()
+
+    assert session.query(UserRoleAssignment).count() == 0
 
 
 def test_ensure_default_user_does_not_leave_an_implicit_transaction_open():

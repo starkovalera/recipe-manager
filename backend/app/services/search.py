@@ -6,16 +6,13 @@ from collections.abc import Iterable
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.core.errors import RecipeNotFoundError
 from app.core.logging import bind_logger
 from app.embeddings.input import build_recipe_embedding_input
 from app.embeddings.runtime import get_embedding_provider
 from app.models import Recipe, SourceName
 from app.recipes.filters import RecipeListFilters
-from app.recipes.queries import get_recipe_for_embedding_input_preview
 from app.schemas.recipes import RecipeImageOut
 from app.schemas.search import (
-    EmbeddingInputPreviewOut,
     MatchReasonOut,
     SearchChipIn,
     SearchExplainDebugOut,
@@ -65,7 +62,9 @@ def _append_unique_value_suggestion(
     suggestions.append(SearchSuggestionOut(type=suggestion_type, value=value, label=value))
 
 
-def list_search_suggestions(session: Session, owner_id: str, *, query: str, limit: int = DEFAULT_SEARCH_SUGGESTION_LIMIT) -> list[SearchSuggestionOut]:
+def list_search_suggestions(
+    session: Session, owner_id: str, *, query: str, limit: int = DEFAULT_SEARCH_SUGGESTION_LIMIT
+) -> list[SearchSuggestionOut]:
     normalized_query = query.strip().casefold()
     if not normalized_query:
         return []
@@ -222,6 +221,7 @@ def _to_search_explain_result(
     distance: float | None,
     similarity: float | None,
     match_reasons: list[MatchReasonOut],
+    current_user_id: str,
 ) -> SearchExplainResultOut:
     embedding = recipe.embedding
     return SearchExplainResultOut(
@@ -231,6 +231,7 @@ def _to_search_explain_result(
         cover_image=_cover_image(recipe),
         has_open_review_flags=any(flag.status == "open" for flag in recipe.review_flags),
         match_reasons=match_reasons,
+        can_open_recipe=recipe.owner_id == current_user_id,
         debug=SearchExplainDebugOut(
             rank=rank,
             distance=distance,
@@ -245,7 +246,7 @@ def _to_search_explain_result(
 
 def _semantic_search_recipes(
     session: Session,
-    owner_id: str,
+    owner_id: str | None,
     *,
     filters: RecipeListFilters,
     query_embedding: list[float],
@@ -270,9 +271,11 @@ def _semantic_search_recipes(
     candidates = list_semantic_recipe_candidates(session, owner_id, filters=filters, embedding_model=embedding_model)
     ranked = sorted(
         candidates,
-        key=lambda recipe: (_embedding_distance(recipe.embedding.embedding, query_embedding, distance_metric), recipe.id)
-        if recipe.embedding is not None
-        else (float("inf"), recipe.id),
+        key=lambda recipe: (
+            (_embedding_distance(recipe.embedding.embedding, query_embedding, distance_metric), recipe.id)
+            if recipe.embedding is not None
+            else (float("inf"), recipe.id)
+        ),
     )
     return ranked[offset : offset + limit_plus_one]
 
@@ -342,7 +345,13 @@ def search_recipes(session: Session, owner_id: str, request: SearchRequestIn) ->
     )
 
 
-def explain_search(session: Session, owner_id: str, request: SearchRequestIn) -> SearchExplainResponseOut:
+def explain_search(
+    session: Session,
+    owner_id: str | None,
+    request: SearchRequestIn,
+    *,
+    current_user_id: str,
+) -> SearchExplainResponseOut:
     started_at = time.perf_counter()
     filters = _filters_from_selected_chips(request.selected)
     text = (request.text or "").strip()
@@ -377,6 +386,7 @@ def explain_search(session: Session, owner_id: str, request: SearchRequestIn) ->
                     *_selected_match_reasons(request.selected),
                     _semantic_match_reason(round(_similarity_from_distance(distance, distance_metric), 6)),
                 ],
+                current_user_id=current_user_id,
             )
             for index, (recipe, distance) in enumerate(page_pairs[: request.limit])
         ]
@@ -391,6 +401,7 @@ def explain_search(session: Session, owner_id: str, request: SearchRequestIn) ->
                 distance=None,
                 similarity=None,
                 match_reasons=_selected_match_reasons(request.selected),
+                current_user_id=current_user_id,
             )
             for index, recipe in enumerate(recipes[: request.limit])
         ]
@@ -427,16 +438,4 @@ def explain_search(session: Session, owner_id: str, request: SearchRequestIn) ->
         has_more=has_more,
         snapshot_persisted=False,
         items=items,
-    )
-
-
-def get_embedding_input_preview(session: Session, recipe_id: str) -> EmbeddingInputPreviewOut:
-    recipe = get_recipe_for_embedding_input_preview(session, recipe_id)
-    if recipe is None:
-        raise RecipeNotFoundError()
-    embedding_input = build_recipe_embedding_input(recipe)
-    return EmbeddingInputPreviewOut(
-        recipe_id=recipe.id,
-        input=embedding_input.text,
-        input_hash=embedding_input.input_hash,
     )

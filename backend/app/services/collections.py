@@ -12,7 +12,9 @@ def list_collections(session: Session, owner_id: str, *, limit: int, offset: int
 
 
 def create_collection(session: Session, owner_id: str, payload: CollectionIn) -> Collection:
-    collection = Collection(owner_id=owner_id, name=payload.name.strip(), description=payload.description.strip() if payload.description else None)
+    collection = Collection(
+        owner_id=owner_id, name=payload.name.strip(), description=payload.description.strip() if payload.description else None
+    )
     session.add(collection)
     session.commit()
     return get_collection_detail(session, collection.id, owner_id)

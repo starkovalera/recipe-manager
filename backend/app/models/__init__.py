@@ -22,6 +22,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.access.constants import UserRole
 from app.db.base import Base
 from app.services.search_text import build_ingredient_search_name
 
@@ -166,6 +167,27 @@ class User(TimestampMixin, Base):
         cascade="all, delete-orphan",
         uselist=False,
     )
+    role_assignments: Mapped[list[UserRoleAssignment]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+
+    @property
+    def roles(self) -> set[UserRole]:
+        return {assignment.role for assignment in self.role_assignments}
+
+
+class UserRoleAssignment(Base):
+    __tablename__ = "user_role_assignments"
+
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    role: Mapped[UserRole] = mapped_column(
+        Enum(UserRole, name="user_role", values_callable=lambda enum_type: [item.value for item in enum_type]),
+        primary_key=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    user: Mapped[User] = relationship(back_populates="role_assignments")
 
 
 class UserSettings(TimestampMixin, Base):

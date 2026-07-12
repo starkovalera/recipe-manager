@@ -1,21 +1,29 @@
-﻿from pathlib import Path
+from pathlib import Path
 
 from alembic.config import Config
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
 
 from alembic import command
+from app.access.constants import UserRole
 from app.core.config import get_settings
 from app.db.base import Base
 from app.db.defaults import DEFAULT_TAG_NAMES, DEFAULT_USER_EMAIL, DEFAULT_USER_ID
-from app.models import Tag, User, UserSettings
+from app.models import Tag, User, UserRoleAssignment, UserSettings
 
 
 def ensure_default_user(session: Session, recipe_language: str | None = None) -> User:
     recipe_language = recipe_language or get_settings().recipe_language
     user = session.get(User, DEFAULT_USER_ID)
     if user is None:
-        user = User(id=DEFAULT_USER_ID, email=DEFAULT_USER_EMAIL)
+        user = User(
+            id=DEFAULT_USER_ID,
+            email=DEFAULT_USER_EMAIL,
+            role_assignments=[
+                UserRoleAssignment(role=UserRole.DEBUG),
+                UserRoleAssignment(role=UserRole.SUPERADMIN),
+            ],
+        )
         session.add(user)
         session.flush()
 
@@ -24,10 +32,7 @@ def ensure_default_user(session: Session, recipe_language: str | None = None) ->
     elif user.settings.recipe_language != recipe_language:
         user.settings.recipe_language = recipe_language
 
-    existing_tag_names = {
-        tag.name
-        for tag in session.query(Tag).filter_by(owner_id=user.id).all()
-    }
+    existing_tag_names = {tag.name for tag in session.query(Tag).filter_by(owner_id=user.id).all()}
     for tag_name in DEFAULT_TAG_NAMES:
         if tag_name not in existing_tag_names:
             session.add(Tag(owner_id=user.id, name=tag_name))

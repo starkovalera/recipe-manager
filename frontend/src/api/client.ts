@@ -2,7 +2,9 @@ import { getClientId } from "./clientId";
 import type {
   CollectionDetail,
   CollectionList,
-  EmbeddingInputPreview,
+  AccessUser,
+  AccessUserList,
+  CurrentUser,
   ImportJob,
   InternalImportJobList,
   InternalRecipeEmbeddingList,
@@ -139,8 +141,8 @@ export async function explainInternalSearch(input: SearchRequest): Promise<Searc
   });
 }
 
-export async function getInternalEmbeddingInputPreview(recipeId: string): Promise<EmbeddingInputPreview> {
-  return request<EmbeddingInputPreview>(`/internal/recipes/${recipeId}/embedding-input`);
+export async function getCurrentUser(): Promise<CurrentUser> {
+  return request<CurrentUser>("/me");
 }
 
 export async function getRecipe(recipeId: string): Promise<RecipeDetail> {
@@ -206,6 +208,10 @@ export async function retryImportJob(jobId: string): Promise<ImportJob> {
   return request<ImportJob>(`/imports/${jobId}/retry`, { method: "POST" });
 }
 
+export async function retryInternalImportJob(jobId: string): Promise<ImportJob> {
+  return request<ImportJob>(`/internal/import-jobs/${encodeURIComponent(jobId)}/retry`, { method: "POST" });
+}
+
 export async function listNotifications(): Promise<NotificationList> {
   return request<NotificationList>("/notifications");
 }
@@ -242,6 +248,18 @@ export async function listInternalRecipeEmbeddings(): Promise<InternalRecipeEmbe
 
 export async function retryInternalRecipeEmbedding(recipeId: string): Promise<void> {
   await request<void>(`/internal/embeddings/${recipeId}/retry`, { method: "POST" });
+}
+
+export async function listAccessUsers(): Promise<AccessUserList> {
+  return request<AccessUserList>("/internal/access/users");
+}
+
+export async function assignUserRole(userId: string, role: string): Promise<AccessUser> {
+  return request<AccessUser>(`/internal/access/users/${encodeURIComponent(userId)}/roles/${encodeURIComponent(role)}`, { method: "PUT" });
+}
+
+export async function revokeUserRole(userId: string, role: string): Promise<AccessUser> {
+  return request<AccessUser>(`/internal/access/users/${encodeURIComponent(userId)}/roles/${encodeURIComponent(role)}`, { method: "DELETE" });
 }
 
 export async function listTags(params?: TagListParams): Promise<TagList> {

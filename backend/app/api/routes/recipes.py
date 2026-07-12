@@ -2,11 +2,14 @@ from typing import Annotated
 
 from fastapi import APIRouter, Query, Response
 
+from app.access.constants import UserRole
+from app.access.rules import has_role
 from app.api.deps import CurrentUserDep, SessionDep
 from app.core.pagination import DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT
 from app.embeddings.service import retry_recipe_embedding
 from app.models import Recipe, RecipeEmbedding, RecipeReviewFlag, SourceName
 from app.recipes.filters import RecipeListFilters
+from app.recipes.presentation import build_recipe_detail_response
 from app.schemas.recipes import (
     RecipeDetailOut,
     RecipeEmbeddingOut,
@@ -52,8 +55,9 @@ def get_recipes(
 
 
 @router.get("/{recipe_id}", response_model=RecipeDetailOut)
-def get_recipe(recipe_id: str, session: SessionDep, current_user: CurrentUserDep) -> Recipe:
-    return get_recipe_detail(session, recipe_id, current_user.id)
+def get_recipe(recipe_id: str, session: SessionDep, current_user: CurrentUserDep) -> RecipeDetailOut:
+    recipe = get_recipe_detail(session, recipe_id, current_user.id)
+    return build_recipe_detail_response(recipe, include_debug=has_role(current_user, UserRole.DEBUG))
 
 
 @router.patch("/{recipe_id}", response_model=RecipeDetailOut)
@@ -62,8 +66,9 @@ def update_recipe(
     patch: RecipePatchIn,
     session: SessionDep,
     current_user: CurrentUserDep,
-) -> Recipe:
-    return patch_recipe(session, recipe_id, current_user.id, patch)
+) -> RecipeDetailOut:
+    recipe = patch_recipe(session, recipe_id, current_user.id, patch)
+    return build_recipe_detail_response(recipe, include_debug=has_role(current_user, UserRole.DEBUG))
 
 
 @router.delete("/{recipe_id}", status_code=204)
@@ -96,5 +101,6 @@ def update_recipe_resource(
     patch: RecipeResourcePatchIn,
     session: SessionDep,
     current_user: CurrentUserDep,
-) -> Recipe:
-    return patch_recipe_resource_status(session, recipe_id, current_user.id, resource_id, patch.status)
+) -> RecipeDetailOut:
+    recipe = patch_recipe_resource_status(session, recipe_id, current_user.id, resource_id, patch.status)
+    return build_recipe_detail_response(recipe, include_debug=has_role(current_user, UserRole.DEBUG))

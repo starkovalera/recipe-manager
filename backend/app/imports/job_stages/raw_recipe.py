@@ -3,9 +3,7 @@ from app.models import Recipe, RecipeImage, RecipeResource, RecipeResourceRole, 
 
 
 def build_raw_recipe(
-        raw_sources: list[RawSource],
-        owner_id: str,
-        imported_author_name: str | None = None
+    raw_sources: list[RawSource], owner_id: str, imported_author_name: str | None = None
 ) -> tuple[Recipe, list[RecipeResource], list[RecipeResource]]:
     recipe = Recipe(
         owner_id=owner_id,
@@ -50,4 +48,3 @@ def build_raw_recipe(
     # preliminary recipe resources associated with a real content (text, images, etc.)
     content_recipe_resources = [resource for resource in recipe_resources if resource.type != SourceType.URL]
     return recipe, recipe_resources, content_recipe_resources
-

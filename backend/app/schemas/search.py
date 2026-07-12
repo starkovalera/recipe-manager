@@ -83,6 +83,7 @@ class SearchExplainDebugOut(CamelModel):
 
 class SearchExplainResultOut(SearchResultOut):
     debug: SearchExplainDebugOut
+    can_open_recipe: bool
 
 
 class SearchExplainResponseOut(CamelModel):
@@ -98,9 +99,3 @@ class SearchExplainResponseOut(CamelModel):
     has_more: bool
     snapshot_persisted: bool = False
     items: list[SearchExplainResultOut]
-
-
-class EmbeddingInputPreviewOut(CamelModel):
-    recipe_id: str
-    input: str
-    input_hash: str

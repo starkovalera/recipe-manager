@@ -12,9 +12,7 @@ def get_notification(session: Session, notification_id: str, owner_id: str) -> N
 
 def list_notifications(session: Session, owner_id: str) -> list[Notification]:
     return session.scalars(
-        select(Notification)
-        .where(Notification.owner_id == owner_id)
-        .order_by(Notification.created_at.desc(), Notification.id.desc())
+        select(Notification).where(Notification.owner_id == owner_id).order_by(Notification.created_at.desc(), Notification.id.desc())
     ).all()
 
 

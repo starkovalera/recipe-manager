@@ -10,33 +10,23 @@ EmbeddingDistanceMetric = str
 
 
 def list_active_tag_suggestion_rows(session: Session, owner_id: str) -> list[Tag]:
-    return session.scalars(
-        select(Tag)
-        .where(Tag.owner_id == owner_id, Tag.deleted_at.is_(None))
-        .order_by(Tag.name, Tag.id)
-    ).all()
+    return session.scalars(select(Tag).where(Tag.owner_id == owner_id, Tag.deleted_at.is_(None)).order_by(Tag.name, Tag.id)).all()
 
 
 def list_recipe_suggestion_rows(session: Session, owner_id: str) -> list[Recipe]:
-    return session.scalars(
-        select(Recipe)
-        .where(Recipe.owner_id == owner_id)
-        .order_by(Recipe.title, Recipe.id)
-    ).all()
+    return session.scalars(select(Recipe).where(Recipe.owner_id == owner_id).order_by(Recipe.title, Recipe.id)).all()
 
 
-def base_search_query(owner_id: str, filters: RecipeListFilters) -> Select[tuple[Recipe]]:
-    query = (
-        select(Recipe)
-        .where(Recipe.owner_id == owner_id)
-        .options(selectinload(Recipe.cover_image), selectinload(Recipe.ingredients), selectinload(Recipe.review_flags))
-    )
+def base_search_query(owner_id: str | None, filters: RecipeListFilters) -> Select[tuple[Recipe]]:
+    query = select(Recipe).options(selectinload(Recipe.cover_image), selectinload(Recipe.ingredients), selectinload(Recipe.review_flags))
+    if owner_id is not None:
+        query = query.where(Recipe.owner_id == owner_id)
     return apply_recipe_list_filters(query, filters)
 
 
 def list_filtered_recipes(
     session: Session,
-    owner_id: str,
+    owner_id: str | None,
     *,
     filters: RecipeListFilters,
     limit: int,
@@ -48,7 +38,7 @@ def list_filtered_recipes(
 
 def list_semantic_recipe_candidates(
     session: Session,
-    owner_id: str,
+    owner_id: str | None,
     *,
     filters: RecipeListFilters,
     embedding_model: str,
@@ -68,7 +58,7 @@ def list_semantic_recipe_candidates(
 
 def list_semantic_recipes_by_pgvector(
     session: Session,
-    owner_id: str,
+    owner_id: str | None,
     *,
     filters: RecipeListFilters,
     query_embedding: list[float],

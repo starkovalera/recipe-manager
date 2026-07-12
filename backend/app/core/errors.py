@@ -28,6 +28,8 @@ class ApiErrorCode(str, Enum):
     TAG_LIMIT_EXCEEDED = "TAG_LIMIT_EXCEEDED"
     INVALID_TAG = "INVALID_TAG"
     FORBIDDEN = "FORBIDDEN"
+    ACCESS_USER_NOT_FOUND = "ACCESS_USER_NOT_FOUND"
+    LAST_SUPERADMIN = "LAST_SUPERADMIN"
 
 
 class ApiError(Exception):
@@ -84,6 +86,16 @@ class ForbiddenError(ApiError):
     status_code = 403
     error_code = ApiErrorCode.FORBIDDEN
     message = "Admin access is required."
+
+
+class AccessUserNotFoundError(ApiNotFoundError):
+    error_code = ApiErrorCode.ACCESS_USER_NOT_FOUND
+    message = "User not found."
+
+
+class LastSuperadminError(ApiConflictError):
+    error_code = ApiErrorCode.LAST_SUPERADMIN
+    message = "The last superadmin role cannot be removed."
 
 
 class InvalidUrlError(ApiValidationError):

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { listInternalImportJobs, retryImportJob } from "../api/client";
+import { listInternalImportJobs, retryInternalImportJob } from "../api/client";
 
 const SUCCESS_STATUSES = new Set(["succeeded", "succeeded_with_flags"]);
 
@@ -12,7 +12,7 @@ export function InternalImportJobsPage({ onOpenRecipe }: { onOpenRecipe: (recipe
   const queryClient = useQueryClient();
   const query = useQuery({ queryKey: ["internal-import-jobs"], queryFn: listInternalImportJobs });
   const retryMutation = useMutation({
-    mutationFn: retryImportJob,
+    mutationFn: retryInternalImportJob,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["internal-import-jobs"] });
       queryClient.invalidateQueries({ queryKey: ["notifications"] });

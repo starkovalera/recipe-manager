@@ -12,9 +12,7 @@ from app.imports.source_loading.video_processors.generic import VideoProcessor
 
 class DefaultUrlContentService:
     def __init__(self):
-        self.registry = UrlContentLoaderRegistry(
-            [InstagramUrlContentLoader(), ThreadsUrlContentLoader(), GenericUrlContentLoader()]
-        )
+        self.registry = UrlContentLoaderRegistry([InstagramUrlContentLoader(), ThreadsUrlContentLoader(), GenericUrlContentLoader()])
 
     async def load(self, url: str, max_images: int, max_image_bytes: int) -> LoadedUrlContent:
         return await self.registry.loader_for(url).load(

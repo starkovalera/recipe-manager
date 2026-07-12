@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import ConfigDict, Field, computed_field
+from pydantic import ConfigDict, Field, SerializerFunctionWrapHandler, computed_field, model_serializer
 
 from app.models import (
     Collection,
@@ -178,6 +180,7 @@ class RecipeDetailOut(RecipeListItemOut):
     ingredient_items: list[Ingredient] = Field(default_factory=list, validation_alias="ingredients", exclude=True)
     resource_items: list[RecipeResource] = Field(default_factory=list, validation_alias="resources", exclude=True)
     collection_items: list[Collection] = Field(default_factory=list, validation_alias="collections", exclude=True)
+    debug: RecipeDebugOut | None = None
 
     @computed_field
     @property
@@ -198,11 +201,7 @@ class RecipeDetailOut(RecipeListItemOut):
     @computed_field
     @property
     def images(self) -> list[RecipeImageOut]:
-        return [
-            RecipeImageOut.model_validate(resource.image)
-            for resource in _visible_image_resources(self)
-            if resource.image is not None
-        ]
+        return [RecipeImageOut.model_validate(resource.image) for resource in _visible_image_resources(self) if resource.image is not None]
 
     @computed_field
     @property
@@ -225,20 +224,17 @@ class RecipeDetailOut(RecipeListItemOut):
     def sources(self) -> list[RecipeResourceOut]:
         return self.resources
 
-    @computed_field(alias="debugResources")
-    @property
-    def debug_resources(self) -> list[RecipeResourceOut]:
-        return [RecipeResourceOut.model_validate(resource) for resource in sorted(self.resource_items, key=_resource_sort_key)]
-
-    @computed_field(alias="debugSources")
-    @property
-    def debug_sources(self) -> list[RecipeResourceOut]:
-        return self.debug_resources
-
     @computed_field(alias="reviewFlags")
     @property
     def review_flags(self) -> list[ReviewFlagOut]:
         return [ReviewFlagOut.model_validate(flag) for flag in self.review_flag_items]
+
+    @model_serializer(mode="wrap")
+    def serialize_detail(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        data = handler(self)
+        if self.debug is None:
+            data.pop("debug", None)
+        return data
 
 
 class RecipePatchIn(CamelModel):
@@ -272,3 +268,15 @@ class RecipeEmbeddingOut(CamelModel):
     input_hash: str | None = None
     failed_attempts: int
     error_message: str | None = None
+
+
+class EmbeddingInputPreviewOut(CamelModel):
+    recipe_id: str
+    input: str
+    input_hash: str
+
+
+class RecipeDebugOut(CamelModel):
+    resources: list[RecipeResourceOut]
+    embedding: RecipeEmbeddingOut | None = None
+    embedding_input: EmbeddingInputPreviewOut | None = None

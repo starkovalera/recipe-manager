@@ -17,14 +17,16 @@ def get_recipe_for_embedding(session: Session, recipe_id: str, *, owner_id: str 
     )
 
 
-def list_internal_recipe_embeddings(session: Session) -> list[RecipeEmbedding]:
-    return list(
-        session.scalars(
-            select(RecipeEmbedding)
-            .options(selectinload(RecipeEmbedding.recipe), selectinload(RecipeEmbedding.events))
-            .order_by(RecipeEmbedding.updated_at.desc(), RecipeEmbedding.created_at.desc())
-        )
+def list_internal_recipe_embeddings(session: Session, *, owner_id: str | None = None) -> list[RecipeEmbedding]:
+    statement = (
+        select(RecipeEmbedding)
+        .join(Recipe)
+        .options(selectinload(RecipeEmbedding.recipe), selectinload(RecipeEmbedding.events))
+        .order_by(RecipeEmbedding.updated_at.desc(), RecipeEmbedding.created_at.desc())
     )
+    if owner_id is not None:
+        statement = statement.where(Recipe.owner_id == owner_id)
+    return list(session.scalars(statement))
 
 
 def get_recipe_embedding(session: Session, recipe_id: str) -> RecipeEmbedding | None:
@@ -32,11 +34,7 @@ def get_recipe_embedding(session: Session, recipe_id: str) -> RecipeEmbedding | 
 
 
 def get_recipe_embedding_with_recipe(session: Session, recipe_id: str) -> RecipeEmbedding | None:
-    query = (
-        select(RecipeEmbedding)
-        .where(RecipeEmbedding.recipe_id == recipe_id)
-        .options(selectinload(RecipeEmbedding.recipe))
-    )
+    query = select(RecipeEmbedding).where(RecipeEmbedding.recipe_id == recipe_id).options(selectinload(RecipeEmbedding.recipe))
     return session.scalar(query)
 
 

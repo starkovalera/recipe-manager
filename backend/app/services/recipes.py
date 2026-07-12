@@ -55,7 +55,9 @@ def _clean_optional(value: str | None) -> str | None:
     return cleaned or None
 
 
-def _apply_ingredient_fields(ingredient: Ingredient, name: str, quantity: str | None, unit: str | None, note: str | None, position: int) -> None:
+def _apply_ingredient_fields(
+    ingredient: Ingredient, name: str, quantity: str | None, unit: str | None, note: str | None, position: int
+) -> None:
     cleaned_name = name.strip()
     ingredient.name = cleaned_name
     ingredient.search_name = build_ingredient_search_name(cleaned_name)

@@ -14,11 +14,7 @@ def get_recipe(session: Session, recipe_id: str, owner_id: str) -> Recipe | None
 
 
 def get_recipe_for_deletion(session: Session, recipe_id: str, owner_id: str) -> Recipe | None:
-    return session.scalar(
-        select(Recipe)
-        .where(Recipe.id == recipe_id, Recipe.owner_id == owner_id)
-        .options(selectinload(Recipe.images))
-    )
+    return session.scalar(select(Recipe).where(Recipe.id == recipe_id, Recipe.owner_id == owner_id).options(selectinload(Recipe.images)))
 
 
 def apply_recipe_list_filters(query: Select[Any], filters: RecipeListFilters) -> Select[Any]:
@@ -74,15 +70,8 @@ def get_recipe_detail(session: Session, recipe_id: str, owner_id: str) -> Recipe
             selectinload(Recipe.review_flags),
             selectinload(Recipe.tags),
             selectinload(Recipe.collections),
+            selectinload(Recipe.embedding),
         )
-    )
-
-
-def get_recipe_for_embedding_input_preview(session: Session, recipe_id: str) -> Recipe | None:
-    return session.scalar(
-        select(Recipe)
-        .where(Recipe.id == recipe_id)
-        .options(selectinload(Recipe.ingredients))
     )
 
 
@@ -97,6 +86,7 @@ def get_recipe_for_resource_mutation(session: Session, recipe_id: str, owner_id:
             selectinload(Recipe.review_flags),
             selectinload(Recipe.tags),
             selectinload(Recipe.collections),
+            selectinload(Recipe.embedding),
         )
     )
 

@@ -9,7 +9,6 @@ from app.api.deps import get_current_user
 from app.db.base import Base
 from app.db.init import ensure_default_user
 from app.db.session import get_session
-from app.embeddings.input import build_recipe_embedding_input
 from app.imports.events import build_job_event
 from app.main import create_app
 from app.models import (
@@ -72,15 +71,6 @@ def test_internal_search_explain_requires_admin_user():
     client.app.dependency_overrides[get_current_user] = lambda: User(id="regular-user", email="regular@example.test")
 
     response = client.post("/internal/search/explain", json={"text": "soup"})
-
-    assert response.status_code == 403
-
-
-def test_internal_embedding_input_preview_requires_admin_user():
-    client, _ = client_with_session()
-    client.app.dependency_overrides[get_current_user] = lambda: User(id="regular-user", email="regular@example.test")
-
-    response = client.get("/internal/recipes/recipe-1/embedding-input")
 
     assert response.status_code == 403
 
@@ -262,7 +252,7 @@ def test_internal_search_explain_applies_filters_and_ready_embeddings(monkeypatc
     ]
     assert payload["snapshotPersisted"] is False
     message = next(line for line in capsys.readouterr().out.splitlines() if "Semantic search explained" in line)
-    assert '"owner_id": "local-user"' in message
+    assert '"owner_id": null' in message
     assert '"text_present": true' in message
     assert '"selected_chip_count": 2' in message
     assert '"provider_name": "test"' in message
@@ -270,24 +260,3 @@ def test_internal_search_explain_applies_filters_and_ready_embeddings(monkeypatc
     assert '"returned_count": 1' in message
     assert '"duration_ms"' in message
     assert '"candidateCount"' not in message
-
-
-def test_internal_embedding_input_preview_returns_current_input_and_hash():
-    client, SessionLocal = client_with_session()
-    with SessionLocal() as session:
-        user = ensure_default_user(session)
-        recipe = Recipe(owner_id=user.id, title="Soup", instructions=["Heat water"], cook_time_minutes=10)
-        recipe.ingredients.append(Ingredient(name="Water", search_name="water", position=0))
-        session.add(recipe)
-        session.commit()
-        recipe_id = recipe.id
-        expected_input = build_recipe_embedding_input(recipe)
-
-    response = client.get(f"/internal/recipes/{recipe_id}/embedding-input")
-
-    assert response.status_code == 200
-    assert response.json() == {
-        "recipeId": recipe_id,
-        "input": expected_input.text,
-        "inputHash": expected_input.input_hash,
-    }

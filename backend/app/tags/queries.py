@@ -23,11 +23,14 @@ def count_active_tags(session: Session, owner_id: str) -> int:
 
 
 def count_recipes_for_tag(session: Session, owner_id: str, tag_id: str) -> int:
-    return session.scalar(
-        select(func.count(RecipeTag.recipe_id))
-        .join(Tag, Tag.id == RecipeTag.tag_id)
-        .where(Tag.owner_id == owner_id, RecipeTag.tag_id == tag_id)
-    ) or 0
+    return (
+        session.scalar(
+            select(func.count(RecipeTag.recipe_id))
+            .join(Tag, Tag.id == RecipeTag.tag_id)
+            .where(Tag.owner_id == owner_id, RecipeTag.tag_id == tag_id)
+        )
+        or 0
+    )
 
 
 def list_active_tags_by_ids(session: Session, owner_id: str, tag_ids: list[str]) -> list[Tag]:

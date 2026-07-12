@@ -39,7 +39,14 @@ def test_alembic_upgrade_head_creates_core_tables(tmp_path: Path):
     engine = create_engine(f"sqlite:///{db_path}")
     inspector = inspect(engine)
     tables = set(inspector.get_table_names())
-    assert {"users", "user_settings", "recipes", "import_jobs", "recipe_resources", "recipe_review_flags"}.issubset(tables)
+    assert {"users", "user_settings", "user_role_assignments", "recipes", "import_jobs", "recipe_resources", "recipe_review_flags"}.issubset(tables)
+    assert set(inspector.get_pk_constraint("user_role_assignments")["constrained_columns"]) == {"user_id", "role"}
+    assert any(
+        foreign_key["constrained_columns"] == ["user_id"]
+        and foreign_key["referred_table"] == "users"
+        and foreign_key["options"].get("ondelete") == "CASCADE"
+        for foreign_key in inspector.get_foreign_keys("user_role_assignments")
+    )
     assert any(
         foreign_key["constrained_columns"] == ["cover_image_id"]
         and foreign_key["referred_table"] == "recipe_images"
@@ -67,6 +74,26 @@ def test_alembic_cli_uses_database_url_env(monkeypatch, tmp_path: Path):
 
     engine = create_engine(f"sqlite:///{db_path}")
     assert {"users", "recipes", "import_jobs"}.issubset(set(inspect(engine).get_table_names()))
+
+
+def test_user_roles_migration_seeds_existing_local_user(tmp_path: Path):
+    db_path = tmp_path / "user-roles-migration.db"
+    backend_root = Path(__file__).resolve().parents[2]
+    config = Config(str(backend_root / "alembic.ini"))
+    config.set_main_option("sqlalchemy.url", f"sqlite:///{db_path}")
+    config.set_main_option("script_location", str(backend_root / "alembic"))
+    command.upgrade(config, "20260712_0021")
+    engine = create_engine(f"sqlite:///{db_path}")
+    with engine.begin() as connection:
+        connection.execute(text("INSERT INTO users (id, email) VALUES ('local-user', 'local@example.test')"))
+
+    command.upgrade(config, "head")
+
+    with engine.connect() as connection:
+        roles = connection.execute(
+            text("SELECT role FROM user_role_assignments WHERE user_id = 'local-user' ORDER BY role")
+        ).scalars().all()
+    assert roles == ["debug", "superadmin"]
 
 
 def test_embedding_lifecycle_migration_converts_existing_values_and_downgrades(tmp_path: Path):

@@ -1,5 +1,20 @@
 export type RecipeImage = { id: string; mediaUrl: string };
 
+export type CurrentUser = {
+  id: string;
+  email: string;
+  features: {
+    showAdminPages: boolean;
+    showRoleManagement: boolean;
+    showRecipeDebug: boolean;
+  };
+};
+
+export type AvailableRole = { value: string; label: string };
+export type RoleStatistic = { role: string; userCount: number };
+export type AccessUser = { id: string; email: string; roles: string[]; createdAt?: string | null };
+export type AccessUserList = { availableRoles: AvailableRole[]; statistics: RoleStatistic[]; items: AccessUser[] };
+
 export type ImportJob = {
   jobId: string;
   status: "queued" | "running" | "succeeded" | "succeeded_with_flags" | "failed" | "cancelled";
@@ -122,6 +137,7 @@ export type SearchExplainResponse = {
       inputHash?: string | null;
       embeddingInputPreview?: string | null;
     };
+    canOpenRecipe: boolean;
   }>;
 };
 
@@ -252,8 +268,18 @@ export type RecipeDetail = RecipeList["items"][number] & {
   collections: Array<{ id: string; name: string }>;
   resources: RecipeResource[];
   sources: RecipeResource[];
-  debugResources?: RecipeResource[];
-  debugSources?: RecipeResource[];
+  debug?: {
+    resources: RecipeResource[];
+    embedding?: {
+      recipeId: string;
+      status: RecipeEmbeddingStatus;
+      model: string;
+      inputHash?: string | null;
+      failedAttempts: number;
+      errorMessage?: string | null;
+    } | null;
+    embeddingInput?: EmbeddingInputPreview | null;
+  };
   reviewFlags: ReviewFlag[];
 };
 

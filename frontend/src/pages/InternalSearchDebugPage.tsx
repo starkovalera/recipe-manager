@@ -103,9 +103,11 @@ export function InternalSearchDebugPage({ onOpenRecipe }: { onOpenRecipe: (recip
                       <h4>{item.title}</h4>
                     </div>
                     <div className="actions-row">
-                      <button type="button" onClick={() => onOpenRecipe(item.id)}>
-                        Open recipe
-                      </button>
+                      {item.canOpenRecipe ? (
+                        <button type="button" onClick={() => onOpenRecipe(item.id)}>
+                          Open recipe
+                        </button>
+                      ) : null}
                     </div>
                   </header>
                   <div className="search-candidate-card__body">

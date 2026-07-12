@@ -2572,7 +2572,21 @@ Debug/admin views can expose:
 
 Goal: replace the current local default/admin user assumption with real authentication and authorization before the product design pass and mobile work.
 
-This phase starts with requirements clarification. Do not implement auth before decisions are made.
+This phase is split into incremental subphases. The fixed-role authorization boundary is implemented first; real user authentication and session management still require a dedicated requirements checkpoint before implementation.
+
+### Subphase 5a: Minimal User Roles - Completed
+
+- Added fixed code-defined `DEBUG` and `SUPERADMIN` roles with multiple role assignments per user.
+- Centralized reusable access rules while keeping `CurrentUserDep` as the only route dependency for the current user.
+- Kept ordinary product APIs owner-scoped. `SUPERADMIN` broadens only approved internal diagnostics and retry operations, not access to foreign recipes or other product data.
+- Protected Import Jobs, Embeddings, Search Debug, internal retries, role management, and recipe debug data according to the approved role matrix.
+- Added `/me` capability output so the frontend consumes backend-derived features instead of reproducing role logic.
+- Replaced separate internal navigation entries with one capability-gated Admin area and added role assignment management.
+- Added migration `20260712_0022`; existing `local-user` rows are seeded once and fresh preview users receive both roles without restoring deliberately revoked roles on later startup.
+- Removed the old standalone embedding-input debug endpoint and made recipe debug output response-driven and available only to `DEBUG` users.
+- Added backend and frontend isolation, retry, capability, role-management, and debug-visibility tests.
+
+Remaining Phase 5 work starts with authentication requirements clarification and replaces only the implementation behind `get_current_user()` while preserving the authorization boundary established in this subphase.
 
 ```mermaid
 flowchart TD

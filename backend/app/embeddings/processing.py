@@ -46,11 +46,7 @@ def start_recipe_embedding(
 
     embedding_input = build_recipe_embedding_input(recipe)
     embedding = get_or_create_recipe_embedding(session, recipe.id, model=model)
-    if (
-        embedding.status == RecipeEmbeddingStatus.READY
-        and embedding.input_hash == embedding_input.input_hash
-        and embedding.model == model
-    ):
+    if embedding.status == RecipeEmbeddingStatus.READY and embedding.input_hash == embedding_input.input_hash and embedding.model == model:
         add_embedding_event(
             session,
             embedding=embedding,

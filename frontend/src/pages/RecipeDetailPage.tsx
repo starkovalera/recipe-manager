@@ -6,7 +6,6 @@ import {
   ApiError,
   addRecipeToCollection,
   deleteRecipe,
-  getInternalEmbeddingInputPreview,
   getRecipe,
   listCollections,
   listTags,
@@ -17,7 +16,6 @@ import {
   removeRecipeFromCollection,
 } from "../api/client";
 import type { RecipeDetail, RecipeImage, RecipeResource, ReviewFlag, Tag } from "../api/types";
-import { isCurrentUserAdmin } from "../auth/admin";
 
 type CoverChoice = { kind: "DEFAULT" | "IMAGE"; imageId?: string | null };
 type EditableIngredient = { id?: string; name: string; quantity: string; unit: string; note: string };
@@ -107,13 +105,7 @@ function validateEditableRecipe(ingredients: EditableIngredient[], instructions:
 
 export function RecipeDetailPage({ recipeId, onDeleted }: { recipeId: string; onDeleted: () => void }) {
   const queryClient = useQueryClient();
-  const isAdmin = isCurrentUserAdmin();
   const query = useQuery({ queryKey: ["recipe", recipeId], queryFn: () => getRecipe(recipeId) });
-  const embeddingInputQuery = useQuery({
-    queryKey: ["internal-embedding-input", recipeId],
-    queryFn: () => getInternalEmbeddingInputPreview(recipeId),
-    enabled: isAdmin,
-  });
   const collectionsQuery = useQuery({ queryKey: ["collections"], queryFn: () => listCollections() });
   const tagsQuery = useQuery({ queryKey: ["tags", { limit: 100, offset: 0 }], queryFn: () => listTags({ limit: 100, offset: 0 }) });
   const recipeNotFound = query.error instanceof ApiError && query.error.errorCode === "RECIPE_NOT_FOUND";
@@ -601,29 +593,33 @@ export function RecipeDetailPage({ recipeId, onDeleted }: { recipeId: string; on
             )}
           </section>
 
-          <section>
-            <h3>Debug resources</h3>
-            <ul>
-              {(recipe.debugResources ?? recipe.resources).map((source) => (
-                <li key={source.id}>
-                  {source.source}/{source.type}: {source.status}
-                  {source.parentResourceId ? " (from URL)" : ""}
-                </li>
-              ))}
-            </ul>
-          </section>
+          {recipe.debug?.resources.length ? (
+            <section>
+              <h3>Debug resources</h3>
+              <ul>
+                {recipe.debug.resources.map((source) => (
+                  <li key={source.id}>
+                    {source.source}/{source.type}: {source.status}
+                    {source.parentResourceId ? " (from URL)" : ""}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
 
-          {isAdmin ? (
+          {recipe.debug?.embedding ? (
+            <section className="debug-card">
+              <h3>Embedding</h3>
+              <p>Status: {recipe.debug.embedding.status}</p>
+              <p>Model: {recipe.debug.embedding.model}</p>
+            </section>
+          ) : null}
+
+          {recipe.debug?.embeddingInput ? (
             <section className="debug-card">
               <h3>Embedding input preview</h3>
-              {embeddingInputQuery.isLoading ? <p>Loading embedding input...</p> : null}
-              {embeddingInputQuery.error ? <p role="alert">{embeddingInputQuery.error.message}</p> : null}
-              {embeddingInputQuery.data ? (
-                <>
-                  <p>Hash {embeddingInputQuery.data.inputHash}</p>
-                  <pre>{embeddingInputQuery.data.input}</pre>
-                </>
-              ) : null}
+              <p>Hash {recipe.debug.embeddingInput.inputHash}</p>
+              <pre>{recipe.debug.embeddingInput.input}</pre>
             </section>
           ) : null}
 

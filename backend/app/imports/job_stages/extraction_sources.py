@@ -51,10 +51,7 @@ def build_extraction_context(
         active_tags = list_active_tags(session, job_context.owner_id)
         tag_names = [tag.name for tag in active_tags]
 
-    extraction_id_by_resource = {
-        resource: f"source_{index}"
-        for index, resource in enumerate(content_recipe_resources, start=1)
-    }
+    extraction_id_by_resource = {resource: f"source_{index}" for index, resource in enumerate(content_recipe_resources, start=1)}
     return ExtractionContext(
         extraction_sources=_build_extraction_sources(
             content_recipe_resources,

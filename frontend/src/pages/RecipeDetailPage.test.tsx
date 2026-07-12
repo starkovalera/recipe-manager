@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { RecipeDetailPage } from "./RecipeDetailPage";
+import type { RecipeDetail } from "../api/types";
 
 
 function renderPage(recipeId = "recipe-1") {
@@ -23,7 +24,7 @@ describe("RecipeDetailPage", () => {
     cleanup();
   });
 
-  const recipeDetail = {
+  const recipeDetail: RecipeDetail = {
     id: "recipe-1",
     title: "Soup",
     note: null,
@@ -69,8 +70,6 @@ describe("RecipeDetailPage", () => {
       },
     ],
     sources: [],
-    debugResources: [],
-    debugSources: [],
     reviewFlags: [
       {
         id: "flag-1",
@@ -83,7 +82,7 @@ describe("RecipeDetailPage", () => {
     ],
   };
 
-  function stubRecipeFetch(detail = recipeDetail) {
+  function stubRecipeFetch(detail: RecipeDetail = recipeDetail) {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
       const url = input.toString();
       if (url.includes("/collections")) {
@@ -100,9 +99,6 @@ describe("RecipeDetailPage", () => {
           }),
         };
       }
-      if (url.includes("/internal/recipes/recipe-1/embedding-input")) {
-        return { ok: true, json: async () => ({ recipeId: "recipe-1", input: "soup tomato cook", inputHash: "hash-soup" }) };
-      }
       if (url.includes("/recipes/recipe-1")) {
         return { ok: true, json: async () => detail };
       }
@@ -113,7 +109,7 @@ describe("RecipeDetailPage", () => {
   }
 
   it("renders cover and source images", async () => {
-    stubRecipeFetch();
+    const fetchMock = stubRecipeFetch();
 
     renderPage();
 
@@ -121,6 +117,24 @@ describe("RecipeDetailPage", () => {
     expect(screen.getByAltText("Current cover")).toBeTruthy();
     expect(screen.getByRole("button", { name: /Open Current cover/i })).toBeTruthy();
     expect(screen.getByAltText("Source image")).toBeTruthy();
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/embedding-input"))).toBe(false);
+  });
+
+  it("renders recipe debug sections only when backend includes debug data", async () => {
+    stubRecipeFetch({
+      ...recipeDetail,
+      debug: {
+        resources: recipeDetail.resources,
+        embedding: { recipeId: "recipe-1", status: "READY", model: "test-embedding", failedAttempts: 0 },
+        embeddingInput: { recipeId: "recipe-1", input: "soup tomato cook", inputHash: "hash-1" },
+      },
+    });
+
+    renderPage();
+
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Debug resources" })).toBeTruthy());
+    expect(screen.getByRole("heading", { name: "Embedding" })).toBeTruthy();
+    expect(screen.getByText("soup tomato cook")).toBeTruthy();
   });
 
   it("explains that a missing recipe may have been deleted", async () => {

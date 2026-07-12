@@ -15,7 +15,14 @@ function mockFetch(payloads: Record<string, unknown>) {
       const payload =
         payloads[key] ??
         payloads[`GET ${path}`] ??
-        (path === "/notifications" || path === "/tags" ? { items: [] } : undefined);
+        (path === "/me"
+          ? {
+              id: "local-user",
+              email: "local@example.test",
+              features: { showAdminPages: true, showRoleManagement: true, showRecipeDebug: true },
+            }
+          : undefined) ??
+        (path === "/notifications" || path === "/tags" || path === "/internal/import-jobs" ? { items: [] } : undefined);
       return {
         ok: true,
         status: init?.method === "DELETE" || init?.method === "PUT" ? 204 : 200,
@@ -35,6 +42,22 @@ describe("App", () => {
   afterEach(() => {
     cleanup();
     queryClient.clear();
+  });
+
+  it("hides Admin navigation when current user has no admin capability", async () => {
+    mockFetch({
+      "GET /recipes": { items: [], total: 0, limit: 24, offset: 0 },
+      "GET /me": {
+        id: "regular-user",
+        email: "regular@example.test",
+        features: { showAdminPages: false, showRoleManagement: false, showRecipeDebug: false },
+      },
+    });
+
+    render(<App />);
+
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Recipes" })).toBeTruthy());
+    expect(screen.queryByRole("button", { name: "Admin" })).toBeNull();
   });
 
   it("opens on recipe grid with cover previews", async () => {
@@ -227,7 +250,8 @@ describe("App", () => {
     });
 
     render(<App />);
-    fireEvent.click(screen.getByRole("button", { name: "Import jobs" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Admin" })).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Admin" }));
 
     await waitFor(() => expect(screen.getByRole("heading", { name: "Import jobs / Job events" })).toBeTruthy());
     expect(screen.getByText("job-1")).toBeTruthy();
@@ -246,7 +270,7 @@ describe("App", () => {
     expect(screen.getByText(/"recipe_id": "recipe-1"/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Retry import" }));
     await waitFor(() => expect(fetch).toHaveBeenCalledWith(
-      expect.stringContaining("/imports/job-2/retry"),
+      expect.stringContaining("/internal/import-jobs/job-2/retry"),
       expect.objectContaining({ method: "POST" }),
     ));
   });
@@ -282,6 +306,8 @@ describe("App", () => {
     });
 
     render(<App />);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Admin" })).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Admin" }));
     fireEvent.click(screen.getByRole("button", { name: "Embeddings" }));
 
     await waitFor(() => expect(screen.getByRole("heading", { name: "Recipe embeddings" })).toBeTruthy());
@@ -305,6 +331,11 @@ describe("App", () => {
       const payloads: Record<string, unknown> = {
         "GET /recipes": { items: [] },
         "GET /notifications": { items: [] },
+        "GET /me": {
+          id: "local-user",
+          email: "local@example.test",
+          features: { showAdminPages: true, showRoleManagement: true, showRecipeDebug: true },
+        },
         "POST /internal/search/explain": {
           textPresent: true,
           filters: { tagId: null, ingredientQueries: ["apple"], sourceName: null, authorName: null, titleRecipeId: null },
@@ -336,13 +367,9 @@ describe("App", () => {
                 inputHash: "abcdef1234567890",
                 embeddingInputPreview: "apple cake apple bake",
               },
+              canOpenRecipe: true,
             },
           ],
-        },
-        "GET /internal/recipes/recipe-1/embedding-input": {
-          recipeId: "recipe-1",
-          input: "apple cake apple bake",
-          inputHash: "abcdef1234567890",
         },
       };
       const payload = payloads[`${method} ${path}`] ?? payloads[`GET ${path}`];
@@ -355,6 +382,8 @@ describe("App", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     render(<App />);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Admin" })).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Admin" }));
     fireEvent.click(screen.getByRole("button", { name: "Search Debug" }));
 
     await waitFor(() => expect(screen.getByRole("heading", { name: "Search Debug" })).toBeTruthy());
@@ -411,14 +440,11 @@ describe("App", () => {
           collections: [],
           resources: [],
           sources: [],
-          debugResources: [],
-          debugSources: [],
+          debug: {
+            resources: [],
+            embeddingInput: { recipeId: "recipe-1", input: "soup cook", inputHash: "hash-soup" },
+          },
           reviewFlags: [],
-        },
-        "GET /internal/recipes/recipe-1/embedding-input": {
-          recipeId: "recipe-1",
-          input: "soup cook",
-          inputHash: "hash-soup",
         },
         "GET /collections": { items: [] },
       };

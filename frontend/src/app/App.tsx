@@ -2,15 +2,12 @@ import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { queryClient } from "./queryClient";
-import { listNotifications } from "../api/client";
-import { isCurrentUserAdmin } from "../auth/admin";
+import { getCurrentUser, listNotifications } from "../api/client";
+import { AdminPage } from "../pages/AdminPage";
 import { CollectionDetailPage } from "../pages/CollectionDetailPage";
 import { CollectionsPage } from "../pages/CollectionsPage";
 import { ImportPage } from "../pages/ImportPage";
 import { ImportJobDetailPage } from "../pages/ImportJobDetailPage";
-import { InternalEmbeddingsPage } from "../pages/InternalEmbeddingsPage";
-import { InternalImportJobsPage } from "../pages/InternalImportJobsPage";
-import { InternalSearchDebugPage } from "../pages/InternalSearchDebugPage";
 import { NotificationsPage } from "../pages/NotificationsPage";
 import { RecipeDetailPage } from "../pages/RecipeDetailPage";
 import { RecipeListPage } from "../pages/RecipeListPage";
@@ -24,9 +21,7 @@ type Page =
   | { name: "collections" }
   | { name: "collection"; collectionId: string }
   | { name: "notifications" }
-  | { name: "internal-import-jobs" }
-  | { name: "internal-embeddings" }
-  | { name: "internal-search-debug" }
+  | { name: "admin" }
   | { name: "tags" };
 
 function AppContent() {
@@ -37,9 +32,10 @@ function AppContent() {
     queryFn: listNotifications,
     refetchInterval: 5000,
   });
+  const currentUserQuery = useQuery({ queryKey: ["current-user"], queryFn: getCurrentUser });
   const notifications = notificationsQuery.data?.items ?? [];
   const latestUnreadNotification = notifications.find((notification) => notification.status === "unread");
-  const isAdmin = isCurrentUserAdmin();
+  const currentUser = currentUserQuery.data;
 
   return (
     <main className="app-shell">
@@ -81,30 +77,14 @@ function AppContent() {
             >
               Tags
             </button>
-            {isAdmin ? (
-              <>
-                <button
-                  type="button"
-                  className={activeSection === "internal-import-jobs" ? "is-active" : undefined}
-                  onClick={() => setPage({ name: "internal-import-jobs" })}
-                >
-                  Import jobs
-                </button>
-                <button
-                  type="button"
-                  className={activeSection === "internal-embeddings" ? "is-active" : undefined}
-                  onClick={() => setPage({ name: "internal-embeddings" })}
-                >
-                  Embeddings
-                </button>
-                <button
-                  type="button"
-                  className={activeSection === "internal-search-debug" ? "is-active" : undefined}
-                  onClick={() => setPage({ name: "internal-search-debug" })}
-                >
-                  Search Debug
-                </button>
-              </>
+            {currentUser?.features?.showAdminPages ? (
+              <button
+                type="button"
+                className={activeSection === "admin" ? "is-active" : undefined}
+                onClick={() => setPage({ name: "admin" })}
+              >
+                Admin
+              </button>
             ) : null}
         </nav>
       </header>
@@ -137,9 +117,9 @@ function AppContent() {
           />
         ) : null}
         {page.name === "tags" ? <TagsPage /> : null}
-        {page.name === "internal-import-jobs" && isAdmin ? <InternalImportJobsPage onOpenRecipe={(recipeId) => setPage({ name: "recipe", recipeId })} /> : null}
-        {page.name === "internal-embeddings" && isAdmin ? <InternalEmbeddingsPage /> : null}
-        {page.name === "internal-search-debug" && isAdmin ? <InternalSearchDebugPage onOpenRecipe={(recipeId) => setPage({ name: "recipe", recipeId })} /> : null}
+        {page.name === "admin" && currentUser?.features?.showAdminPages ? (
+          <AdminPage currentUser={currentUser} onOpenRecipe={(recipeId) => setPage({ name: "recipe", recipeId })} />
+        ) : null}
       </div>
     </main>
   );
