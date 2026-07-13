@@ -482,7 +482,7 @@ pnpm dev
 - Create `frontend/src/app/App.tsx`
 - Tests under `frontend/src/api/*.test.ts`
 
-- [ ] Implement API base URL from `VITE_API_BASE_URL`, default `http://localhost:8000`.
+- [x] Implement API base URL from `VITE_API_BASE_URL`, default `http://127.0.0.1:8081` through the local KrakenD compatibility gateway.
 - [ ] Implement stable local `clientId` in localStorage and include it as `X-Client-Id`.
 - [ ] Implement typed client functions: list recipes, get recipe, patch recipe, delete recipe, create import, get import job, resolve review flag.
 - [ ] Implement API error parsing into a frontend error type with `errorCode` and `message`.

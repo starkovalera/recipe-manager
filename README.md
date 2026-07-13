@@ -2,13 +2,69 @@
 
 Greenfield rewrite of the recipe MVP with a FastAPI backend and React/Vite frontend.
 
-## Backend
+## Local Startup
 
-Start local infrastructure first:
+### Terminal 1 - Infrastructure and Gateway
 
 ```powershell
 cd C:\Users\stark\Documents\recipe-manager
-docker compose up -d postgres redis
+docker compose up -d --build postgres redis krakend
+```
+
+### Terminal 2 - FastAPI Upstream
+
+```powershell
+cd C:\Users\stark\Documents\recipe-manager\backend
+uv sync
+uv run fastapi dev app/main.py --host 127.0.0.1 --port 8010
+```
+
+For destructive preview data, set `$env:APP_ENV="preview"` before starting FastAPI.
+
+### Terminal 3 - Worker
+
+```powershell
+cd C:\Users\stark\Documents\recipe-manager\backend
+uv run dramatiq app.worker
+```
+
+### Terminal 4 - Frontend
+
+The ignored local `frontend/.env` must contain:
+
+```dotenv
+VITE_API_BASE_URL=http://127.0.0.1:8081
+VITE_DEBUG_API=true
+```
+
+Then start Vite:
+
+```powershell
+cd C:\Users\stark\Documents\recipe-manager\frontend
+pnpm install
+pnpm dev
+```
+
+The frontend sends API and media requests to KrakenD on `8081`. KrakenD forwards them to the directly reachable FastAPI upstream on `8010`.
+
+Gateway diagnostics:
+
+```powershell
+curl.exe http://127.0.0.1:8081/__health
+curl.exe http://127.0.0.1:8081/health
+docker compose logs -f krakend
+docker compose build krakend
+```
+
+`/__health` checks KrakenD itself. `/health` is proxied to FastAPI and fails when the upstream is unavailable.
+
+## Backend
+
+Start local infrastructure and the gateway first:
+
+```powershell
+cd C:\Users\stark\Documents\recipe-manager
+docker compose up -d --build postgres redis krakend
 ```
 
 Put your AI key in `backend/.env`:
@@ -54,7 +110,7 @@ notification UX are still Phase 1d.
 Frontend API URL is in `frontend/.env`:
 
 ```dotenv
-VITE_API_BASE_URL=http://127.0.0.1:8010
+VITE_API_BASE_URL=http://127.0.0.1:8081
 VITE_DEBUG_API=true
 ```
 
@@ -64,7 +120,7 @@ pnpm install
 pnpm dev
 ```
 
-Set `VITE_API_BASE_URL` if the backend is not running at `http://127.0.0.1:8010`.
+The local `.env` file is ignored by Git and must be updated manually. Direct FastAPI access at `http://127.0.0.1:8010` remains available for upstream diagnostics.
 
 ## Database Dashboard
 
@@ -113,10 +169,10 @@ The old SQLite dashboard command is only useful for test/smoke databases and sho
 
 ```powershell
 cd C:\Users\stark\Documents\recipe-manager\backend
-uv run sqlite_web storage\dev\app.db --host 127.0.0.1 --port 8081
+uv run sqlite_web storage\dev\app.db --host 127.0.0.1 --port 8082
 ```
 
-Open `http://127.0.0.1:8081` when using a SQLite database explicitly.
+Open `http://127.0.0.1:8082` when using a SQLite database explicitly.
 
 Current import processing is background-first: `POST /imports` creates an
 `ImportJob(status=queued)`, records job events and notifications, enqueues

@@ -132,7 +132,7 @@ Initial backend settings:
 
 Frontend configuration should be independent:
 
-- `VITE_API_BASE_URL`, default `http://localhost:8000`.
+- `VITE_API_BASE_URL`, default `http://127.0.0.1:8081` for the local KrakenD gateway. FastAPI remains directly reachable on `http://127.0.0.1:8010` for upstream diagnostics during the compatibility phase.
 
 Local storage directories should be environment-specific to avoid preview/dev data collisions, for example:
 

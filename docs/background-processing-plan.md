@@ -169,6 +169,9 @@ This checklist applies to every phase. Any phase that touches import, resources,
 - Generated cover persistence is preserved.
 - User resource deletion behavior is preserved.
 - Local storage cleanup on failed processing/extraction and failed atomic import creation is preserved.
+- In local development and preview, frontend API and media requests use the loopback KrakenD gateway at `http://127.0.0.1:8081`; FastAPI remains directly reachable at `http://127.0.0.1:8010` only as the upstream and for diagnostics during this compatibility phase.
+- The static KrakenD contract must remain in route/method parity with the FastAPI OpenAPI contract. Every application route uses one matching upstream backend with `no-op` request/response handling; the current `input_query_strings: ["*"]` policy is a temporary local compatibility rule, not a production query policy.
+- KrakenD does not own authentication, authorization, owner scoping, validation, or business decisions in the local pass-through phase. FastAPI remains authoritative for all application behavior, and direct FastAPI access must not differ semantically from gateway access.
 
 ## Phase Start and Completion Checkpoints
 
@@ -2587,6 +2590,20 @@ This phase is split into incremental subphases. The fixed-role authorization bou
 - Added backend and frontend isolation, retry, capability, role-management, and debug-visibility tests.
 
 Remaining Phase 5 work starts with authentication requirements clarification and replaces only the implementation behind `get_current_user()` while preserving the authorization boundary established in this subphase.
+
+### Subphase 5b: Local KrakenD Pass-Through - Completed
+
+Goal: put a Dockerized KrakenD Community Edition pass-through gateway in front of the existing host-run FastAPI application without changing authentication, authorization, API contracts, queueing, or business logic.
+
+- Pin KrakenD Community Edition to `2.13.8` and validate its immutable static configuration during the image build.
+- Bind the local gateway to `127.0.0.1:8081` and proxy to host FastAPI on `127.0.0.1:8010` through `host.docker.internal`.
+- Explicitly declare every current FastAPI route/method pair plus FastAPI documentation routes using `no-op` request/response handling.
+- Forward existing query parameters and compatibility headers, including multipart uploads, range requests, `X-Client-Id`, and `Idempotency-Key`.
+- Move the frontend API and media base to KrakenD while leaving FastAPI directly reachable for diagnostics.
+- Add automated OpenAPI/config parity checks, Docker config validation, local startup documentation, and an authoritative manual cross-component testing checklist.
+- Keep FastAPI CORS and the Phase 5a role system unchanged. Clerk/JWT, trusted identity headers, rate limiting, TLS, production networking, and FastAPI containerization remain outside this subphase.
+
+Completion stops at the local compatibility gateway. Real authentication requirements clarification remains the next Phase 5 authorization step.
 
 ```mermaid
 flowchart TD

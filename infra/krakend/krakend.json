@@ -1,0 +1,1276 @@
+{
+  "$schema": "https://www.krakend.io/schema/v2.13/krakend.json",
+  "version": 3,
+  "name": "Recipe Manager Local Gateway",
+  "port": 8080,
+  "timeout": "120s",
+  "extra_config": {
+    "router": {
+      "auto_options": true,
+      "logger_skip_paths": [
+        "/__health"
+      ]
+    },
+    "security/cors": {
+      "allow_origins": [
+        "http://127.0.0.1:5173",
+        "http://localhost:5173"
+      ],
+      "allow_methods": [
+        "GET",
+        "HEAD",
+        "POST",
+        "PUT",
+        "PATCH",
+        "DELETE",
+        "OPTIONS"
+      ],
+      "allow_headers": [
+        "Accept",
+        "Authorization",
+        "Content-Type",
+        "Idempotency-Key",
+        "Range",
+        "X-Client-Id",
+        "*"
+      ],
+      "expose_headers": [
+        "Accept-Ranges",
+        "Content-Disposition",
+        "Content-Length",
+        "Content-Range",
+        "Content-Type",
+        "ETag",
+        "Last-Modified"
+      ],
+      "allow_credentials": true,
+      "max_age": "12h",
+      "debug": false
+    },
+    "telemetry/logging": {
+      "level": "INFO",
+      "prefix": "[KRAKEND]",
+      "stdout": true
+    }
+  },
+  "endpoints": [
+    {
+      "endpoint": "/health",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "input_query_strings": [
+        "*"
+      ],
+      "input_headers": [
+        "Accept",
+        "Authorization",
+        "Content-Type",
+        "Idempotency-Key",
+        "If-Modified-Since",
+        "If-None-Match",
+        "Range",
+        "User-Agent",
+        "X-Client-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://host.docker.internal:8010"
+          ],
+          "url_pattern": "/health",
+          "method": "GET",
+          "encoding": "no-op"
+        }
+      ]
+    },
+    {
+      "endpoint": "/internal/access/users",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "input_query_strings": [
+        "*"
+      ],
+      "input_headers": [
+        "Accept",
+        "Authorization",
+        "Content-Type",
+        "Idempotency-Key",
+        "If-Modified-Since",
+        "If-None-Match",
+        "Range",
+        "User-Agent",
+        "X-Client-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://host.docker.internal:8010"
+          ],
+          "url_pattern": "/internal/access/users",
+          "method": "GET",
+          "encoding": "no-op"
+        }
+      ]
+    },
+    {
+      "endpoint": "/internal/access/users/{user_id}/roles/{role}",
+      "method": "PUT",
+      "output_encoding": "no-op",
+      "input_query_strings": [
+        "*"
+      ],
+      "input_headers": [
+        "Accept",
+        "Authorization",
+        "Content-Type",
+        "Idempotency-Key",
+        "If-Modified-Since",
+        "If-None-Match",
+        "Range",
+        "User-Agent",
+        "X-Client-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://host.docker.internal:8010"
+          ],
+          "url_pattern": "/internal/access/users/{user_id}/roles/{role}",
+          "method": "PUT",
+          "encoding": "no-op"
+        }
+      ]
+    },
+    {
+      "endpoint": "/internal/access/users/{user_id}/roles/{role}",
+      "method": "DELETE",
+      "output_encoding": "no-op",
+      "input_query_strings": [
+        "*"
+      ],
+      "input_headers": [
+        "Accept",
+        "Authorization",
+        "Content-Type",
+        "Idempotency-Key",
+        "If-Modified-Since",
+        "If-None-Match",
+        "Range",
+        "User-Agent",
+        "X-Client-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://host.docker.internal:8010"
+          ],
+          "url_pattern": "/internal/access/users/{user_id}/roles/{role}",
+          "method": "DELETE",
+          "encoding": "no-op"
+        }
+      ]
+    },
+    {
+      "endpoint": "/collections",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "input_query_strings": [
+        "*"
+      ],
+      "input_headers": [
+        "Accept",
+        "Authorization",
+        "Content-Type",
+        "Idempotency-Key",
+        "If-Modified-Since",
+        "If-None-Match",
+        "Range",
+        "User-Agent",
+        "X-Client-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://host.docker.internal:8010"
+          ],
+          "url_pattern": "/collections",
+          "method": "GET",
+          "encoding": "no-op"
+        }
+      ]
+    },
+    {
+      "endpoint": "/collections",
+      "method": "POST",
+      "output_encoding": "no-op",
+      "input_query_strings": [
+        "*"
+      ],
+      "input_headers": [
+        "Accept",
+        "Authorization",
+        "Content-Type",
+        "Idempotency-Key",
+        "If-Modified-Since",
+        "If-None-Match",
+        "Range",
+        "User-Agent",
+        "X-Client-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://host.docker.internal:8010"
+          ],
+          "url_pattern": "/collections",
+          "method": "POST",
+          "encoding": "no-op"
+        }
+      ]
+    },
+    {
+      "endpoint": "/collections/{collection_id}",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "input_query_strings": [
+        "*"
+      ],
+      "input_headers": [
+        "Accept",
+        "Authorization",
+        "Content-Type",
+        "Idempotency-Key",
+        "If-Modified-Since",
+        "If-None-Match",
+        "Range",
+        "User-Agent",
+        "X-Client-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://host.docker.internal:8010"
+          ],
+          "url_pattern": "/collections/{collection_id}",
+          "method": "GET",
+          "encoding": "no-op"
+        }
+      ]
+    },
+    {
+      "endpoint": "/collections/{collection_id}",
+      "method": "DELETE",
+      "output_encoding": "no-op",
+      "input_query_strings": [
+        "*"
+      ],
+      "input_headers": [
+        "Accept",
+        "Authorization",
+        "Content-Type",
+        "Idempotency-Key",
+        "If-Modified-Since",
+        "If-None-Match",
+        "Range",
+        "User-Agent",
+        "X-Client-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://host.docker.internal:8010"
+          ],
+          "url_pattern": "/collections/{collection_id}",
+          "method": "DELETE",
+          "encoding": "no-op"
+        }
+      ]
+    },
+    {
+      "endpoint": "/collections/{collection_id}/recipes/{recipe_id}",
+      "method": "PUT",
+      "output_encoding": "no-op",
+      "input_query_strings": [
+        "*"
+      ],
+      "input_headers": [
+        "Accept",
+        "Authorization",
+        "Content-Type",
+        "Idempotency-Key",
+        "If-Modified-Since",
+        "If-None-Match",
+        "Range",
+        "User-Agent",
+        "X-Client-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://host.docker.internal:8010"
+          ],
+          "url_pattern": "/collections/{collection_id}/recipes/{recipe_id}",
+          "method": "PUT",
+          "encoding": "no-op"
+        }
+      ]
+    },
+    {
+      "endpoint": "/collections/{collection_id}/recipes/{recipe_id}",
+      "method": "DELETE",
+      "output_encoding": "no-op",
+      "input_query_strings": [
+        "*"
+      ],
+      "input_headers": [
+        "Accept",
+        "Authorization",
+        "Content-Type",
+        "Idempotency-Key",
+        "If-Modified-Since",
+        "If-None-Match",
+        "Range",
+        "User-Agent",
+        "X-Client-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://host.docker.internal:8010"
+          ],
+          "url_pattern": "/collections/{collection_id}/recipes/{recipe_id}",
+          "method": "DELETE",
+          "encoding": "no-op"
+        }
+      ]
+    },
+    {
+      "endpoint": "/imports",
+      "method": "POST",
+      "output_encoding": "no-op",
+      "input_query_strings": [
+        "*"
+      ],
+      "input_headers": [
+        "Accept",
+        "Authorization",
+        "Content-Type",
+        "Idempotency-Key",
+        "If-Modified-Since",
+        "If-None-Match",
+        "Range",
+        "User-Agent",
+        "X-Client-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://host.docker.internal:8010"
+          ],
+          "url_pattern": "/imports",
+          "method": "POST",
+          "encoding": "no-op"
+        }
+      ]
+    },
+    {
+      "endpoint": "/imports/{job_id}",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "input_query_strings": [
+        "*"
+      ],
+      "input_headers": [
+        "Accept",
+        "Authorization",
+        "Content-Type",
+        "Idempotency-Key",
+        "If-Modified-Since",
+        "If-None-Match",
+        "Range",
+        "User-Agent",
+        "X-Client-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://host.docker.internal:8010"
+          ],
+          "url_pattern": "/imports/{job_id}",
+          "method": "GET",
+          "encoding": "no-op"
+        }
+      ]
+    },
+    {
+      "endpoint": "/imports/{job_id}/retry",
+      "method": "POST",
+      "output_encoding": "no-op",
+      "input_query_strings": [
+        "*"
+      ],
+      "input_headers": [
+        "Accept",
+        "Authorization",
+        "Content-Type",
+        "Idempotency-Key",
+        "If-Modified-Since",
+        "If-None-Match",
+        "Range",
+        "User-Agent",
+        "X-Client-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://host.docker.internal:8010"
+          ],
+          "url_pattern": "/imports/{job_id}/retry",
+          "method": "POST",
+          "encoding": "no-op"
+        }
+      ]
+    },
+    {
+      "endpoint": "/internal/import-jobs",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "input_query_strings": [
+        "*"
+      ],
+      "input_headers": [
+        "Accept",
+        "Authorization",
+        "Content-Type",
+        "Idempotency-Key",
+        "If-Modified-Since",
+        "If-None-Match",
+        "Range",
+        "User-Agent",
+        "X-Client-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://host.docker.internal:8010"
+          ],
+          "url_pattern": "/internal/import-jobs",
+          "method": "GET",
+          "encoding": "no-op"
+        }
+      ]
+    },
+    {
+      "endpoint": "/internal/embeddings",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "input_query_strings": [
+        "*"
+      ],
+      "input_headers": [
+        "Accept",
+        "Authorization",
+        "Content-Type",
+        "Idempotency-Key",
+        "If-Modified-Since",
+        "If-None-Match",
+        "Range",
+        "User-Agent",
+        "X-Client-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://host.docker.internal:8010"
+          ],
+          "url_pattern": "/internal/embeddings",
+          "method": "GET",
+          "encoding": "no-op"
+        }
+      ]
+    },
+    {
+      "endpoint": "/internal/import-jobs/{job_id}/retry",
+      "method": "POST",
+      "output_encoding": "no-op",
+      "input_query_strings": [
+        "*"
+      ],
+      "input_headers": [
+        "Accept",
+        "Authorization",
+        "Content-Type",
+        "Idempotency-Key",
+        "If-Modified-Since",
+        "If-None-Match",
+        "Range",
+        "User-Agent",
+        "X-Client-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://host.docker.internal:8010"
+          ],
+          "url_pattern": "/internal/import-jobs/{job_id}/retry",
+          "method": "POST",
+          "encoding": "no-op"
+        }
+      ]
+    },
+    {
+      "endpoint": "/internal/embeddings/{recipe_id}/retry",
+      "method": "POST",
+      "output_encoding": "no-op",
+      "input_query_strings": [
+        "*"
+      ],
+      "input_headers": [
+        "Accept",
+        "Authorization",
+        "Content-Type",
+        "Idempotency-Key",
+        "If-Modified-Since",
+        "If-None-Match",
+        "Range",
+        "User-Agent",
+        "X-Client-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://host.docker.internal:8010"
+          ],
+          "url_pattern": "/internal/embeddings/{recipe_id}/retry",
+          "method": "POST",
+          "encoding": "no-op"
+        }
+      ]
+    },
+    {
+      "endpoint": "/internal/search/explain",
+      "method": "POST",
+      "output_encoding": "no-op",
+      "input_query_strings": [
+        "*"
+      ],
+      "input_headers": [
+        "Accept",
+        "Authorization",
+        "Content-Type",
+        "Idempotency-Key",
+        "If-Modified-Since",
+        "If-None-Match",
+        "Range",
+        "User-Agent",
+        "X-Client-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://host.docker.internal:8010"
+          ],
+          "url_pattern": "/internal/search/explain",
+          "method": "POST",
+          "encoding": "no-op"
+        }
+      ]
+    },
+    {
+      "endpoint": "/media/{storage_key}",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "input_query_strings": [
+        "*"
+      ],
+      "input_headers": [
+        "Accept",
+        "Authorization",
+        "Content-Type",
+        "Idempotency-Key",
+        "If-Modified-Since",
+        "If-None-Match",
+        "Range",
+        "User-Agent",
+        "X-Client-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://host.docker.internal:8010"
+          ],
+          "url_pattern": "/media/{storage_key}",
+          "method": "GET",
+          "encoding": "no-op"
+        }
+      ]
+    },
+    {
+      "endpoint": "/notifications",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "input_query_strings": [
+        "*"
+      ],
+      "input_headers": [
+        "Accept",
+        "Authorization",
+        "Content-Type",
+        "Idempotency-Key",
+        "If-Modified-Since",
+        "If-None-Match",
+        "Range",
+        "User-Agent",
+        "X-Client-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://host.docker.internal:8010"
+          ],
+          "url_pattern": "/notifications",
+          "method": "GET",
+          "encoding": "no-op"
+        }
+      ]
+    },
+    {
+      "endpoint": "/notifications/read-all",
+      "method": "PATCH",
+      "output_encoding": "no-op",
+      "input_query_strings": [
+        "*"
+      ],
+      "input_headers": [
+        "Accept",
+        "Authorization",
+        "Content-Type",
+        "Idempotency-Key",
+        "If-Modified-Since",
+        "If-None-Match",
+        "Range",
+        "User-Agent",
+        "X-Client-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://host.docker.internal:8010"
+          ],
+          "url_pattern": "/notifications/read-all",
+          "method": "PATCH",
+          "encoding": "no-op"
+        }
+      ]
+    },
+    {
+      "endpoint": "/notifications/{notification_id}",
+      "method": "PATCH",
+      "output_encoding": "no-op",
+      "input_query_strings": [
+        "*"
+      ],
+      "input_headers": [
+        "Accept",
+        "Authorization",
+        "Content-Type",
+        "Idempotency-Key",
+        "If-Modified-Since",
+        "If-None-Match",
+        "Range",
+        "User-Agent",
+        "X-Client-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://host.docker.internal:8010"
+          ],
+          "url_pattern": "/notifications/{notification_id}",
+          "method": "PATCH",
+          "encoding": "no-op"
+        }
+      ]
+    },
+    {
+      "endpoint": "/recipes",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "input_query_strings": [
+        "*"
+      ],
+      "input_headers": [
+        "Accept",
+        "Authorization",
+        "Content-Type",
+        "Idempotency-Key",
+        "If-Modified-Since",
+        "If-None-Match",
+        "Range",
+        "User-Agent",
+        "X-Client-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://host.docker.internal:8010"
+          ],
+          "url_pattern": "/recipes",
+          "method": "GET",
+          "encoding": "no-op"
+        }
+      ]
+    },
+    {
+      "endpoint": "/recipes/{recipe_id}",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "input_query_strings": [
+        "*"
+      ],
+      "input_headers": [
+        "Accept",
+        "Authorization",
+        "Content-Type",
+        "Idempotency-Key",
+        "If-Modified-Since",
+        "If-None-Match",
+        "Range",
+        "User-Agent",
+        "X-Client-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://host.docker.internal:8010"
+          ],
+          "url_pattern": "/recipes/{recipe_id}",
+          "method": "GET",
+          "encoding": "no-op"
+        }
+      ]
+    },
+    {
+      "endpoint": "/recipes/{recipe_id}",
+      "method": "PATCH",
+      "output_encoding": "no-op",
+      "input_query_strings": [
+        "*"
+      ],
+      "input_headers": [
+        "Accept",
+        "Authorization",
+        "Content-Type",
+        "Idempotency-Key",
+        "If-Modified-Since",
+        "If-None-Match",
+        "Range",
+        "User-Agent",
+        "X-Client-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://host.docker.internal:8010"
+          ],
+          "url_pattern": "/recipes/{recipe_id}",
+          "method": "PATCH",
+          "encoding": "no-op"
+        }
+      ]
+    },
+    {
+      "endpoint": "/recipes/{recipe_id}",
+      "method": "DELETE",
+      "output_encoding": "no-op",
+      "input_query_strings": [
+        "*"
+      ],
+      "input_headers": [
+        "Accept",
+        "Authorization",
+        "Content-Type",
+        "Idempotency-Key",
+        "If-Modified-Since",
+        "If-None-Match",
+        "Range",
+        "User-Agent",
+        "X-Client-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://host.docker.internal:8010"
+          ],
+          "url_pattern": "/recipes/{recipe_id}",
+          "method": "DELETE",
+          "encoding": "no-op"
+        }
+      ]
+    },
+    {
+      "endpoint": "/recipes/{recipe_id}/review-flags/{flag_id}",
+      "method": "PATCH",
+      "output_encoding": "no-op",
+      "input_query_strings": [
+        "*"
+      ],
+      "input_headers": [
+        "Accept",
+        "Authorization",
+        "Content-Type",
+        "Idempotency-Key",
+        "If-Modified-Since",
+        "If-None-Match",
+        "Range",
+        "User-Agent",
+        "X-Client-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://host.docker.internal:8010"
+          ],
+          "url_pattern": "/recipes/{recipe_id}/review-flags/{flag_id}",
+          "method": "PATCH",
+          "encoding": "no-op"
+        }
+      ]
+    },
+    {
+      "endpoint": "/recipes/{recipe_id}/embedding/retry",
+      "method": "POST",
+      "output_encoding": "no-op",
+      "input_query_strings": [
+        "*"
+      ],
+      "input_headers": [
+        "Accept",
+        "Authorization",
+        "Content-Type",
+        "Idempotency-Key",
+        "If-Modified-Since",
+        "If-None-Match",
+        "Range",
+        "User-Agent",
+        "X-Client-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://host.docker.internal:8010"
+          ],
+          "url_pattern": "/recipes/{recipe_id}/embedding/retry",
+          "method": "POST",
+          "encoding": "no-op"
+        }
+      ]
+    },
+    {
+      "endpoint": "/recipes/{recipe_id}/sources/{resource_id}",
+      "method": "PATCH",
+      "output_encoding": "no-op",
+      "input_query_strings": [
+        "*"
+      ],
+      "input_headers": [
+        "Accept",
+        "Authorization",
+        "Content-Type",
+        "Idempotency-Key",
+        "If-Modified-Since",
+        "If-None-Match",
+        "Range",
+        "User-Agent",
+        "X-Client-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://host.docker.internal:8010"
+          ],
+          "url_pattern": "/recipes/{recipe_id}/sources/{resource_id}",
+          "method": "PATCH",
+          "encoding": "no-op"
+        }
+      ]
+    },
+    {
+      "endpoint": "/recipes/{recipe_id}/resources/{resource_id}",
+      "method": "PATCH",
+      "output_encoding": "no-op",
+      "input_query_strings": [
+        "*"
+      ],
+      "input_headers": [
+        "Accept",
+        "Authorization",
+        "Content-Type",
+        "Idempotency-Key",
+        "If-Modified-Since",
+        "If-None-Match",
+        "Range",
+        "User-Agent",
+        "X-Client-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://host.docker.internal:8010"
+          ],
+          "url_pattern": "/recipes/{recipe_id}/resources/{resource_id}",
+          "method": "PATCH",
+          "encoding": "no-op"
+        }
+      ]
+    },
+    {
+      "endpoint": "/search/suggestions",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "input_query_strings": [
+        "*"
+      ],
+      "input_headers": [
+        "Accept",
+        "Authorization",
+        "Content-Type",
+        "Idempotency-Key",
+        "If-Modified-Since",
+        "If-None-Match",
+        "Range",
+        "User-Agent",
+        "X-Client-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://host.docker.internal:8010"
+          ],
+          "url_pattern": "/search/suggestions",
+          "method": "GET",
+          "encoding": "no-op"
+        }
+      ]
+    },
+    {
+      "endpoint": "/search",
+      "method": "POST",
+      "output_encoding": "no-op",
+      "input_query_strings": [
+        "*"
+      ],
+      "input_headers": [
+        "Accept",
+        "Authorization",
+        "Content-Type",
+        "Idempotency-Key",
+        "If-Modified-Since",
+        "If-None-Match",
+        "Range",
+        "User-Agent",
+        "X-Client-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://host.docker.internal:8010"
+          ],
+          "url_pattern": "/search",
+          "method": "POST",
+          "encoding": "no-op"
+        }
+      ]
+    },
+    {
+      "endpoint": "/tags",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "input_query_strings": [
+        "*"
+      ],
+      "input_headers": [
+        "Accept",
+        "Authorization",
+        "Content-Type",
+        "Idempotency-Key",
+        "If-Modified-Since",
+        "If-None-Match",
+        "Range",
+        "User-Agent",
+        "X-Client-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://host.docker.internal:8010"
+          ],
+          "url_pattern": "/tags",
+          "method": "GET",
+          "encoding": "no-op"
+        }
+      ]
+    },
+    {
+      "endpoint": "/tags",
+      "method": "POST",
+      "output_encoding": "no-op",
+      "input_query_strings": [
+        "*"
+      ],
+      "input_headers": [
+        "Accept",
+        "Authorization",
+        "Content-Type",
+        "Idempotency-Key",
+        "If-Modified-Since",
+        "If-None-Match",
+        "Range",
+        "User-Agent",
+        "X-Client-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://host.docker.internal:8010"
+          ],
+          "url_pattern": "/tags",
+          "method": "POST",
+          "encoding": "no-op"
+        }
+      ]
+    },
+    {
+      "endpoint": "/tags/{tag_id}",
+      "method": "PATCH",
+      "output_encoding": "no-op",
+      "input_query_strings": [
+        "*"
+      ],
+      "input_headers": [
+        "Accept",
+        "Authorization",
+        "Content-Type",
+        "Idempotency-Key",
+        "If-Modified-Since",
+        "If-None-Match",
+        "Range",
+        "User-Agent",
+        "X-Client-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://host.docker.internal:8010"
+          ],
+          "url_pattern": "/tags/{tag_id}",
+          "method": "PATCH",
+          "encoding": "no-op"
+        }
+      ]
+    },
+    {
+      "endpoint": "/tags/{tag_id}",
+      "method": "DELETE",
+      "output_encoding": "no-op",
+      "input_query_strings": [
+        "*"
+      ],
+      "input_headers": [
+        "Accept",
+        "Authorization",
+        "Content-Type",
+        "Idempotency-Key",
+        "If-Modified-Since",
+        "If-None-Match",
+        "Range",
+        "User-Agent",
+        "X-Client-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://host.docker.internal:8010"
+          ],
+          "url_pattern": "/tags/{tag_id}",
+          "method": "DELETE",
+          "encoding": "no-op"
+        }
+      ]
+    },
+    {
+      "endpoint": "/tags/{tag_id}/usage",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "input_query_strings": [
+        "*"
+      ],
+      "input_headers": [
+        "Accept",
+        "Authorization",
+        "Content-Type",
+        "Idempotency-Key",
+        "If-Modified-Since",
+        "If-None-Match",
+        "Range",
+        "User-Agent",
+        "X-Client-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://host.docker.internal:8010"
+          ],
+          "url_pattern": "/tags/{tag_id}/usage",
+          "method": "GET",
+          "encoding": "no-op"
+        }
+      ]
+    },
+    {
+      "endpoint": "/me",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "input_query_strings": [
+        "*"
+      ],
+      "input_headers": [
+        "Accept",
+        "Authorization",
+        "Content-Type",
+        "Idempotency-Key",
+        "If-Modified-Since",
+        "If-None-Match",
+        "Range",
+        "User-Agent",
+        "X-Client-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://host.docker.internal:8010"
+          ],
+          "url_pattern": "/me",
+          "method": "GET",
+          "encoding": "no-op"
+        }
+      ]
+    },
+    {
+      "endpoint": "/openapi.json",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "input_query_strings": [
+        "*"
+      ],
+      "input_headers": [
+        "Accept",
+        "Authorization",
+        "Content-Type",
+        "Idempotency-Key",
+        "If-Modified-Since",
+        "If-None-Match",
+        "Range",
+        "User-Agent",
+        "X-Client-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://host.docker.internal:8010"
+          ],
+          "url_pattern": "/openapi.json",
+          "method": "GET",
+          "encoding": "no-op"
+        }
+      ]
+    },
+    {
+      "endpoint": "/docs",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "input_query_strings": [
+        "*"
+      ],
+      "input_headers": [
+        "Accept",
+        "Authorization",
+        "Content-Type",
+        "Idempotency-Key",
+        "If-Modified-Since",
+        "If-None-Match",
+        "Range",
+        "User-Agent",
+        "X-Client-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://host.docker.internal:8010"
+          ],
+          "url_pattern": "/docs",
+          "method": "GET",
+          "encoding": "no-op"
+        }
+      ]
+    },
+    {
+      "endpoint": "/docs/oauth2-redirect",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "input_query_strings": [
+        "*"
+      ],
+      "input_headers": [
+        "Accept",
+        "Authorization",
+        "Content-Type",
+        "Idempotency-Key",
+        "If-Modified-Since",
+        "If-None-Match",
+        "Range",
+        "User-Agent",
+        "X-Client-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://host.docker.internal:8010"
+          ],
+          "url_pattern": "/docs/oauth2-redirect",
+          "method": "GET",
+          "encoding": "no-op"
+        }
+      ]
+    },
+    {
+      "endpoint": "/redoc",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "input_query_strings": [
+        "*"
+      ],
+      "input_headers": [
+        "Accept",
+        "Authorization",
+        "Content-Type",
+        "Idempotency-Key",
+        "If-Modified-Since",
+        "If-None-Match",
+        "Range",
+        "User-Agent",
+        "X-Client-Id"
+      ],
+      "backend": [
+        {
+          "host": [
+            "http://host.docker.internal:8010"
+          ],
+          "url_pattern": "/redoc",
+          "method": "GET",
+          "encoding": "no-op"
+        }
+      ]
+    }
+  ]
+}

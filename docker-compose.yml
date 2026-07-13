@@ -36,6 +36,14 @@ services:
     ports:
       - "8080:8080"
 
+  krakend:
+    build:
+      context: ./infra/krakend
+    ports:
+      - "127.0.0.1:8081:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
 volumes:
   recipe_manager_pgdata:
   recipe_manager_redisdata:

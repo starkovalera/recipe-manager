@@ -1,6 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { ApiError, deleteRecipe, createImport, listRecipes, setApiDebugLoggingForTests } from "./client";
+import {
+  ApiError,
+  DEFAULT_API_BASE_URL,
+  deleteRecipe,
+  createImport,
+  listRecipes,
+  mediaUrl,
+  setApiDebugLoggingForTests,
+} from "./client";
 
 describe("api client", () => {
   beforeEach(() => {
@@ -86,5 +94,13 @@ describe("api client", () => {
     );
 
     await expect(deleteRecipe("recipe-1")).resolves.toBeUndefined();
+  });
+
+  it("routes local media through the gateway base", () => {
+    const configuredBase = import.meta.env.VITE_API_BASE_URL ?? DEFAULT_API_BASE_URL;
+
+    expect(DEFAULT_API_BASE_URL).toBe("http://127.0.0.1:8081");
+    expect(mediaUrl("/media/image-key")).toBe(`${configuredBase}/media/image-key`);
+    expect(mediaUrl("https://cdn.example.test/image.jpg")).toBe("https://cdn.example.test/image.jpg");
   });
 });

@@ -25,7 +25,8 @@ import type {
   TagUsage,
 } from "./types";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+export const DEFAULT_API_BASE_URL = "http://127.0.0.1:8081";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? DEFAULT_API_BASE_URL;
 let debugApiLogging = import.meta.env.VITE_DEBUG_API === "true";
 
 export function setApiDebugLoggingForTests(enabled: boolean) {

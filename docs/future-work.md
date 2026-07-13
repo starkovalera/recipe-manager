@@ -32,6 +32,12 @@ After each completed phase or subphase, review the finished work and propose can
 - Add an environment-backed maximum duration for video audio tracks. When an audio track exceeds the configured limit, do not send it for transcription; record and handle the corresponding secondary resource as failed through the existing staged secondary-resource failure flow.
 - Define the review behavior for a URL that was not the sole primary source but produced no successfully loaded secondary resources. The extractor receives no child evidence for that URL, so it cannot mark the primary URL as ignored through `ignoredSourceRefs`. Consider explicitly marking the URL resource as `IGNORED` from the staged loading result so the recipe receives a review flag.
 
+## Gateway and Deployment
+
+- Replace KrakenD `input_query_strings: ["*"]` with explicit per-endpoint production query allowlists after the public API contract and deployment topology are finalized. Preserve repeated query parameters where the API supports them.
+- Reassess and remove the local KrakenD `2.13.8` CORS `allow_headers` wildcard workaround before using the gateway configuration outside loopback development. Verify multi-header browser preflights against the selected production KrakenD version and use the narrowest working allowlist.
+- If the FastAPI surface grows enough that maintaining the static KrakenD route list becomes error-prone, generate the static route objects from the OpenAPI contract in a build-time tool. Keep the committed config deterministic and retain the OpenAPI/config parity test as the enforcement boundary.
+
 ## Tags
 
 - Validate tag name and tag description length on both frontend and backend.
