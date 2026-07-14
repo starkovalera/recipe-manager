@@ -191,6 +191,11 @@
                       "public":  false
                   },
                   {
+                      "endpoint":  "/me/provision",
+                      "method":  "POST",
+                      "public":  false
+                  },
+                  {
                       "endpoint":  "/openapi.json",
                       "method":  "GET",
                       "public":  true

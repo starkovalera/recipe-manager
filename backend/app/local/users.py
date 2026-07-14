@@ -12,9 +12,8 @@ from app.access.queries import assign_user_role
 from app.auth.constants import AuthProviderType
 from app.core.config import get_settings
 from app.core.errors import AccessUserNotFoundError
-from app.db.defaults import DEFAULT_TAG_NAMES
-from app.db.init import ensure_user_defaults
-from app.models import Tag, User, UserRoleAssignment, UserSettings, UserStatus
+from app.models import User, UserRoleAssignment, UserStatus
+from app.users.provisioning import create_user, initialize_user_defaults
 
 LOCAL_USER_ID = "local-user"
 LOCAL_USER_EMAIL = "local@example.test"
@@ -34,18 +33,21 @@ def ensure_default_user(session: Session, recipe_language: str | None = None) ->
     recipe_language = recipe_language or get_settings().recipe_language
     user = session.get(User, LOCAL_USER_ID)
     if user is None:
-        user = User(
-            id=LOCAL_USER_ID,
+        user = create_user(
+            session,
+            user_id=LOCAL_USER_ID,
             email=LOCAL_USER_EMAIL,
-            role_assignments=[
+            recipe_language=recipe_language,
+        )
+        user.role_assignments.extend(
+            [
                 UserRoleAssignment(role=UserRole.DEBUG),
                 UserRoleAssignment(role=UserRole.SUPERADMIN),
-            ],
+            ]
         )
-        session.add(user)
-        session.flush()
+    else:
+        initialize_user_defaults(user, recipe_language=recipe_language)
 
-    ensure_user_defaults(session, user, recipe_language=recipe_language)
     session.commit()
     return user
 
@@ -161,8 +163,14 @@ def seed_preview_users(session: Session, path: Path, *, recipe_language: str) ->
     for seed in seeds:
         user = session.get(User, seed.id)
         if user is None:
-            user = User(id=seed.id, email=seed.email)
-            session.add(user)
+            user = create_user(
+                session,
+                user_id=seed.id,
+                auth_provider=seed.auth_provider,
+                auth_user_id=seed.auth_user_id,
+                email=seed.email,
+                recipe_language=recipe_language,
+            )
         user.auth_provider = seed.auth_provider
         user.auth_user_id = seed.auth_user_id
         user.email = seed.email
@@ -177,12 +185,7 @@ def seed_preview_users(session: Session, path: Path, *, recipe_language: str) ->
         for role in seed.roles - existing_roles.keys():
             user.role_assignments.append(UserRoleAssignment(role=role))
 
-        if user.settings is None:
-            user.settings = UserSettings(recipe_language=recipe_language)
-        else:
-            user.settings.recipe_language = recipe_language
-        existing_tags = {tag.name for tag in user.tags}
-        user.tags.extend(Tag(name=name) for name in DEFAULT_TAG_NAMES if name not in existing_tags)
+        initialize_user_defaults(user, recipe_language=recipe_language)
 
     session.flush()
     return len(seeds)

@@ -13,6 +13,7 @@ After each completed phase or subphase, review the finished work and propose can
 - Preserve an author profile URL when `author_name` is derived from a supported platform URL. Build it from the platform's canonical profile prefix and account name, expose it separately from the display name, and render it as a link on recipe detail. Manually entered names without a URL remain plain text.
 - Add Telegram import support after defining supported Telegram URL/content types and access constraints.
 - Verify and harden import behavior for Instagram Reels and YouTube Shorts, including captions, images/posters, video download, and transcript behavior.
+- Validate import URLs by platform prefix before creating an import job. Accept only explicitly supported platform URLs; reject all other URL platforms with a dedicated user-facing `platform not supported` error.
 
 ## Background Processing
 
@@ -38,9 +39,13 @@ After each completed phase or subphase, review the finished work and propose can
 - Reassess and remove the local KrakenD `2.13.8` CORS `allow_headers` wildcard workaround before using the gateway configuration outside loopback development. Verify multi-header browser preflights against the selected production KrakenD version and use the narrowest working allowlist.
 - If the FastAPI surface grows enough that maintaining the static KrakenD route list becomes error-prone, generate the static route objects from the OpenAPI contract in a build-time tool. Keep the committed config deterministic and retain the OpenAPI/config parity test as the enforcement boundary.
 
+## Users and Account Onboarding
+
+- Expand the Admin page's current `Roles` tab into a `Users` tab. Add search by email, internal user ID, and authentication-provider user ID; filtering by roles and lifecycle statuses; include users of every status by default rather than only active users; and add pagination.
+- Add mandatory first-login account onboarding for newly provisioned users. Before entering the product, the user must choose exactly one immutable recipe language: English or Russian. Persist the selection in `UserSettings`, prevent later language changes, provide translated English and Russian default-tag sets, and create the matching tags only after the language is selected. Until selection succeeds, the account page is the only accessible product page.
+
 ## Tags
 
-- Move default-tag initialization into the single new-user creation use case so every newly created user receives the default tag set. Once all user creation paths use that flow, remove reliance on separate follow-up seeding/reconciliation for new users.
 - Validate tag name and tag description length on both frontend and backend.
 - Surface existing backend `DUPLICATE_TAG` and `TAG_LIMIT_EXCEEDED` errors on the Tags page instead of leaving mutation failures invisible.
 - Show a persistent recipe-count badge/counter next to each tag. The existing tag-usage endpoint and delete confirmation already expose this count on demand.

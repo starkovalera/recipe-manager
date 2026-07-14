@@ -15,3 +15,7 @@ def get_user_by_auth_identity(
         .where(User.auth_provider == auth_provider, User.auth_user_id == auth_user_id)
         .options(selectinload(User.role_assignments), selectinload(User.settings))
     )
+
+
+def get_user_by_email(session: Session, email: str) -> User | None:
+    return session.scalar(select(User).where(User.email == email))

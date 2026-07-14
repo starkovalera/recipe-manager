@@ -58,7 +58,7 @@ The repository contains newer approved decisions that supersede provider-specifi
 ### Not yet implemented
 
 - [x] Authenticated identity dependency and `USER_NOT_PROVISIONED` behavior.
-- [ ] `POST /me/provision`.
+- [x] `POST /me/provision`.
 - [ ] Clerk webhooks and webhook idempotency storage.
 - [ ] Invitations persistence, API, and UI.
 - [ ] User activation/deactivation administration.
@@ -107,7 +107,6 @@ CurrentUserDep
 **Files:**
 - Create: `backend/app/users/queries.py`
 - Create: `backend/app/users/provisioning.py`
-- Create: `backend/app/users/presentation.py`
 - Create: `backend/app/users/__init__.py`
 - Modify: `backend/app/api/routes/users.py`
 - Modify: `backend/app/schemas/users.py`
@@ -126,17 +125,17 @@ GET  /me
 POST /me/provision
 ```
 
-- [ ] Write failing tests for the sequence `GET /me -> 409`, first provision `-> 201`, subsequent `GET /me -> 200`, repeated provision `-> 200`.
-- [ ] Test that provisioning accepts no identity body fields and derives identity only from `AuthenticatedIdentityDep`.
-- [ ] Extract one new-user creation use case that creates `User`, `UserSettings`, and default tags atomically with `ACTIVE` status and no roles.
-- [ ] Move default-tag initialization into that use case; PREVIEW seeding may reuse the same initialization behavior without changing configured IDs or exact roles.
-- [ ] Implement fast-path provisioning for an existing active user without a Clerk API call or settings/role changes.
-- [ ] For a missing user, call `get_auth_provider().get_user()` outside the database transaction, then create the local user atomically.
-- [ ] Handle concurrent provision calls and webhook races using the unique auth identity/email constraints plus explicit `IntegrityError` recovery.
-- [ ] Reject an email collision with a different identity using `409 EMAIL_ALREADY_LINKED`; never auto-link by email.
-- [ ] Centralize construction of the current-user response so `GET /me` and provisioning return the same capabilities shape.
-- [ ] Add `POST /me/provision` to protected KrakenD route metadata.
-- [ ] Run focused API/domain/migration/gateway tests and Ruff, then stop for review.
+- [x] Write failing tests for the sequence `GET /me -> 409`, first provision `-> 201`, subsequent `GET /me -> 200`, repeated provision `-> 200`.
+- [x] Test that provisioning accepts no identity body fields and derives identity only from `AuthenticatedIdentityDep`.
+- [x] Extract one new-user creation use case that creates `User`, `UserSettings`, and default tags atomically with `ACTIVE` status and no roles.
+- [x] Move default-tag initialization into that use case; PREVIEW seeding may reuse the same initialization behavior without changing configured IDs or exact roles.
+- [x] Implement fast-path provisioning for an existing active user without a Clerk API call or settings/role changes.
+- [x] For a missing user, call `get_auth_provider().get_user()` outside the database transaction, then create the local user atomically.
+- [x] Handle concurrent provision calls and webhook races using the unique auth identity/email constraints plus explicit `IntegrityError` recovery.
+- [x] Reject an email collision with a different identity using `409 EMAIL_ALREADY_LINKED`; never auto-link by email.
+- [x] Centralize construction of the current-user response in the Pydantic output schema so `GET /me` and provisioning return the same capabilities shape.
+- [x] Add `POST /me/provision` to protected KrakenD route metadata.
+- [x] Run focused API/domain/gateway tests and Ruff, then stop for review. No migration was required for this iteration.
 
 ## Iteration C: Frontend Provisioning Bootstrap
 
