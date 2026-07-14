@@ -40,6 +40,7 @@ After each completed phase or subphase, review the finished work and propose can
 
 ## Tags
 
+- Move default-tag initialization into the single new-user creation use case so every newly created user receives the default tag set. Once all user creation paths use that flow, remove reliance on separate follow-up seeding/reconciliation for new users.
 - Validate tag name and tag description length on both frontend and backend.
 - Surface existing backend `DUPLICATE_TAG` and `TAG_LIMIT_EXCEEDED` errors on the Tags page instead of leaving mutation failures invisible.
 - Show a persistent recipe-count badge/counter next to each tag. The existing tag-usage endpoint and delete confirmation already expose this count on demand.
@@ -58,6 +59,7 @@ After each completed phase or subphase, review the finished work and propose can
 
 ## Recipes and Manual Content
 
+- Expose shared recipe-editing domain limits through a backend-owned API/capabilities response instead of configuring them independently in the frontend. Replace `VITE_MAX_RECIPE_INGREDIENTS`, `VITE_MAX_RECIPE_INSTRUCTION_CHARS`, and `VITE_MAX_RECIPE_NOTE_CHARS` with values derived from the same backend settings that enforce these limits.
 - Add aligned frontend and backend length limits for every remaining editable recipe field, including title and author name. Ingredient count, instruction length, note length, and required ingredient names are already validated; backend validation remains authoritative.
 - Normalize recipe-title formatting and casing using an explicitly defined locale-aware rule without corrupting brands, abbreviations, or proper names.
 - Support fully manual recipes and standalone manual notes that can be added to collections alongside imported recipes. Clarify whether notes share a common collection-item abstraction with recipes or remain a separate entity.

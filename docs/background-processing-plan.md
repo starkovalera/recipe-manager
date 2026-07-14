@@ -2605,6 +2605,22 @@ Goal: put a Dockerized KrakenD Community Edition pass-through gateway in front o
 
 Completion stops at the local compatibility gateway. Real authentication requirements clarification remains the next Phase 5 authorization step.
 
+### Subphase 5c: Clerk Authentication, Invitations, and Account Lifecycle - In Progress
+
+Goal: replace the local default-user identity with Clerk authentication while preserving the fixed local role model, `CurrentUserDep`, ordinary owner scoping, and the existing FastAPI/frontend boundary.
+
+- Add Clerk React authentication and a centralized per-request Bearer-token provider without persisting raw tokens.
+- Replace the static KrakenD route file with Flexible Configuration and validate Clerk JWTs at the gateway. Only verified subject and issuer headers cross the gateway boundary; browser-supplied identity headers are not accepted.
+- Resolve verified Clerk subjects to internal users, provision new active users through the Clerk Backend API, and keep fixed `DEBUG` / `SUPERADMIN` assignments exclusively in PostgreSQL.
+- Replace the preview default-user shortcut with an explicit, validated, local-only preview user seed file and bootstrap CLI.
+- Add invite-only user administration, Clerk webhook reconciliation, active/deactivated/deletion-pending account states, and user-initiated asynchronous account deletion.
+- Add signed-out/signed-in frontend shells, invitation handling, account lifecycle screens, and Admin invitation/status controls.
+- Preserve owner-scoped product APIs, worker ownership through persisted ids, and backend-authoritative authorization.
+
+Detailed execution plan: `docs/superpowers/plans/2026-07-13-clerk-auth-invitations-account-lifecycle.md`.
+
+The former requirements checkpoint below is resolved by this subphase specification. The remaining user-settings and broader admin/UI design items stay in later approved work.
+
 ```mermaid
 flowchart TD
   requirements["Requirements clarification"] --> authChoice["Choose auth approach"]
