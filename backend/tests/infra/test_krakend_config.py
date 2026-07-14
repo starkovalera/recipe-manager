@@ -10,26 +10,19 @@ EXTRA_GATEWAY_ROUTES = {
     ("/docs/oauth2-redirect", "GET"),
     ("/redoc", "GET"),
 }
-UPSTREAM_HOST = "http://host.docker.internal:8010"
-REQUIRED_CORS_HEADERS = {
-    "accept",
-    "authorization",
-    "content-type",
-    "idempotency-key",
-    "range",
-    "x-client-id",
-}
-REQUIRED_INPUT_HEADERS = REQUIRED_CORS_HEADERS | {
-    "if-modified-since",
-    "if-none-match",
-    "user-agent",
-}
+PUBLIC_ROUTES = EXTRA_GATEWAY_ROUTES | {("/health", "GET")}
 
 
-def _load_gateway_config() -> dict:
-    project_root = Path(__file__).resolve().parents[3]
-    with (project_root / "infra" / "krakend" / "krakend.json").open(encoding="utf-8") as config_file:
-        return json.load(config_file)
+def _krakend_root() -> Path:
+    return Path(__file__).resolve().parents[3] / "infra" / "krakend"
+
+
+def _repository_root() -> Path:
+    return Path(__file__).resolve().parents[3]
+
+
+def _routes() -> list[dict]:
+    return json.loads((_krakend_root() / "config" / "endpoints.json").read_text(encoding="utf-8"))["items"]
 
 
 def _openapi_routes() -> set[tuple[str, str]]:
@@ -41,38 +34,48 @@ def _openapi_routes() -> set[tuple[str, str]]:
     }
 
 
-def test_krakend_routes_cover_the_complete_fastapi_contract():
-    config = _load_gateway_config()
-    configured_routes = [(endpoint["endpoint"], endpoint["method"]) for endpoint in config["endpoints"]]
+def test_flexible_config_routes_cover_fastapi_contract_once():
+    configured = [(route["endpoint"], route["method"]) for route in _routes()]
 
-    assert len(configured_routes) == len(set(configured_routes))
-    assert set(configured_routes) == _openapi_routes() | EXTRA_GATEWAY_ROUTES
-
-
-def test_krakend_routes_are_transparent_single_backend_proxies():
-    config = _load_gateway_config()
-
-    for endpoint in config["endpoints"]:
-        assert endpoint["output_encoding"] == "no-op"
-        assert endpoint["input_query_strings"] == ["*"]
-        assert REQUIRED_INPUT_HEADERS <= {header.lower() for header in endpoint["input_headers"]}
-        assert len(endpoint["backend"]) == 1
-
-        backend = endpoint["backend"][0]
-        assert backend["encoding"] == "no-op"
-        assert UPSTREAM_HOST in backend["host"]
-        assert backend["method"] == endpoint["method"]
-        assert backend["url_pattern"] == endpoint["endpoint"]
+    assert len(configured) == len(set(configured))
+    assert set(configured) == _openapi_routes() | EXTRA_GATEWAY_ROUTES
+    assert {
+        pair for pair in configured if next(route for route in _routes() if (route["endpoint"], route["method"]) == pair)["public"]
+    } == PUBLIC_ROUTES
 
 
-def test_krakend_service_and_cors_settings_match_local_topology():
-    config = _load_gateway_config()
-    extra_config = config["extra_config"]
-    cors = extra_config["security/cors"]
+def test_flexible_config_enforces_jwt_without_forwarding_authorization():
+    template = (_krakend_root() / "krakend.tmpl").read_text(encoding="utf-8")
 
-    assert config["version"] == 3
-    assert config["port"] == 8080
-    assert extra_config["router"]["auto_options"] is True
-    assert {"http://127.0.0.1:5173", "http://localhost:5173"} <= set(cors["allow_origins"])
-    assert REQUIRED_CORS_HEADERS <= {header.lower() for header in cors["allow_headers"]}
-    assert "*" in cors["allow_headers"]
+    assert '"auth/validator"' in template
+    assert 'env "CLERK_JWKS_URL"' in template
+    assert 'env "CLERK_ISSUER"' in template
+    assert '["sub", {{ marshal $.auth.subject_header }}]' in template
+    assert 'propagate_claims": [["sub", {{ marshal $.auth.subject_header }}]]' in template
+    assert "issuer_header" not in template
+    input_headers = template.split('"input_headers": [', 1)[1].split("]", 1)[0]
+    assert "Authorization" not in input_headers
+
+
+def test_identity_headers_are_not_browser_controlled_cors_headers():
+    template = (_krakend_root() / "krakend.tmpl").read_text(encoding="utf-8")
+    cors_headers = template.split('"allow_headers": [', 1)[1].split("]", 1)[0]
+
+    assert "X-Authenticated-Subject" not in cors_headers
+    assert '"Authorization"' in cors_headers
+
+
+def test_static_gateway_config_was_removed():
+    assert not (_krakend_root() / "krakend.json").exists()
+
+
+def test_compose_diagnostics_do_not_require_clerk_but_gateway_startup_does():
+    compose = (_repository_root() / "docker-compose.yml").read_text(encoding="utf-8")
+    entrypoint = (_krakend_root() / "entrypoint.sh").read_text(encoding="utf-8")
+
+    assert "CLERK_ISSUER: ${CLERK_ISSUER:-}" in compose
+    assert "CLERK_JWKS_URL: ${CLERK_JWKS_URL:-}" in compose
+    assert "${CLERK_ISSUER:?" not in compose
+    assert "${CLERK_JWKS_URL:?" not in compose
+    assert "${CLERK_ISSUER:?" in entrypoint
+    assert "${CLERK_JWKS_URL:?" in entrypoint
