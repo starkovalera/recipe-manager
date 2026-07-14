@@ -39,7 +39,21 @@ def test_alembic_upgrade_head_creates_core_tables(tmp_path: Path):
     engine = create_engine(f"sqlite:///{db_path}")
     inspector = inspect(engine)
     tables = set(inspector.get_table_names())
-    assert {"users", "user_settings", "user_role_assignments", "recipes", "import_jobs", "recipe_resources", "recipe_review_flags"}.issubset(tables)
+    assert {
+        "users",
+        "user_settings",
+        "user_role_assignments",
+        "recipes",
+        "import_jobs",
+        "recipe_resources",
+        "recipe_review_flags",
+    }.issubset(tables)
+    user_columns = {column["name"]: column for column in inspector.get_columns("users")}
+    assert {"auth_provider", "auth_user_id", "status", "deletion_requested_at"} <= set(user_columns)
+    assert user_columns["auth_provider"]["nullable"] is False
+    assert user_columns["auth_user_id"]["nullable"] is True
+    assert user_columns["status"]["nullable"] is False
+    assert any(index["column_names"] == ["auth_provider", "auth_user_id"] and index["unique"] for index in inspector.get_indexes("users"))
     assert set(inspector.get_pk_constraint("user_role_assignments")["constrained_columns"]) == {"user_id", "role"}
     assert any(
         foreign_key["constrained_columns"] == ["user_id"]
@@ -61,6 +75,32 @@ def test_alembic_upgrade_head_creates_core_tables(tmp_path: Path):
         and foreign_key["options"].get("ondelete") == "SET NULL"
         for foreign_key in inspector.get_foreign_keys("import_jobs")
     )
+
+
+def test_generic_auth_identity_migration_preserves_existing_provider_user_id(tmp_path: Path):
+    db_path = tmp_path / "migration.db"
+    backend_root = Path(__file__).resolve().parents[2]
+    config = Config(str(backend_root / "alembic.ini"))
+    config.set_main_option("sqlalchemy.url", f"sqlite:///{db_path}")
+    config.set_main_option("script_location", str(backend_root / "alembic"))
+
+    command.upgrade(config, "20260713_0023")
+    engine = create_engine(f"sqlite:///{db_path}")
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "INSERT INTO users (id, email, clerk_user_id, status) "
+                "VALUES ('internal-1', 'person@example.test', 'provider-user-1', 'active')"
+            )
+        )
+
+    command.upgrade(config, "head")
+
+    with engine.connect() as connection:
+        row = connection.execute(text("SELECT auth_provider, auth_user_id, status FROM users WHERE id = 'internal-1'")).one()
+    assert row.auth_provider == "CLERK"
+    assert row.auth_user_id == "provider-user-1"
+    assert row.status == "ACTIVE"
 
 
 def test_alembic_cli_uses_database_url_env(monkeypatch, tmp_path: Path):
@@ -90,10 +130,10 @@ def test_user_roles_migration_seeds_existing_local_user(tmp_path: Path):
     command.upgrade(config, "head")
 
     with engine.connect() as connection:
-        roles = connection.execute(
-            text("SELECT role FROM user_role_assignments WHERE user_id = 'local-user' ORDER BY role")
-        ).scalars().all()
-    assert roles == ["debug", "superadmin"]
+        roles = (
+            connection.execute(text("SELECT role FROM user_role_assignments WHERE user_id = 'local-user' ORDER BY role")).scalars().all()
+        )
+    assert roles == ["DEBUG", "SUPERADMIN"]
 
 
 def test_embedding_lifecycle_migration_converts_existing_values_and_downgrades(tmp_path: Path):

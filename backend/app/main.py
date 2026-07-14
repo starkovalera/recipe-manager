@@ -16,12 +16,13 @@ from app.api.routes.recipes import router as recipes_router
 from app.api.routes.search import router as search_router
 from app.api.routes.tags import router as tags_router
 from app.api.routes.users import router as users_router
-from app.core.config import get_settings
+from app.core.config import AppEnv, get_settings
 from app.core.errors import install_error_handlers
 from app.core.logging import configure_logging, log_error, log_info
 from app.core.runtime import prepare_runtime
-from app.db.init import ensure_default_user, reset_database_schema, run_migrations
+from app.db.init import reset_database_schema, run_migrations
 from app.db.session import SessionLocal
+from app.local.users import seed_preview_users
 
 logger = logging.getLogger(__name__)
 
@@ -39,9 +40,10 @@ async def lifespan(app: FastAPI):
     )
     prepare_runtime(settings, reset_database=reset_database_schema)
     run_migrations(settings.database_url)
-    with SessionLocal() as session:
-        user = ensure_default_user(session)
-        log_info(logger, "[recipes.runtime] Default user ensured", pid=os.getpid(), userId=user.id)
+    if settings.app_env is AppEnv.PREVIEW:
+        with SessionLocal.begin() as session:
+            count = seed_preview_users(session, settings.preview_users_file, recipe_language=settings.recipe_language)
+        log_info(logger, "[recipes.runtime] Preview users seeded", pid=os.getpid(), user_count=count)
     yield
     log_info(logger, "[recipes.runtime] Application shutdown", pid=os.getpid(), appEnv=settings.app_env)
 

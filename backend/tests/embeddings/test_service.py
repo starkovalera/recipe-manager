@@ -3,8 +3,8 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.db.base import Base
-from app.db.init import ensure_default_user
 from app.embeddings.service import retry_recipe_embedding
+from app.local.users import ensure_default_user
 from app.models import (
     Ingredient,
     Recipe,

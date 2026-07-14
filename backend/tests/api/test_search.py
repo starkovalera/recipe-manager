@@ -8,11 +8,12 @@ from sqlalchemy.pool import StaticPool
 
 from app.core.config import get_settings
 from app.db.base import Base
-from app.db.init import ensure_default_user
 from app.db.session import get_session
+from app.local.users import ensure_default_user
 from app.main import create_app
 from app.models import Ingredient, Recipe, RecipeEmbedding, RecipeEmbeddingStatus, SourceName, Tag, User
 from app.services.search import _cosine_distance
+from tests.api.support import install_local_user_override
 
 
 class StaticEmbeddingProvider:
@@ -60,6 +61,7 @@ def client_with_session():
 
     app = create_app()
     app.dependency_overrides[get_session] = override_session
+    install_local_user_override(app, SessionLocal)
     return TestClient(app), SessionLocal
 
 

@@ -3,10 +3,10 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.db import session as session_module
 from app.db.base import Base
-from app.db.init import ensure_default_user
 from app.imports.error_codes import SecondaryResourceUploadError
 from app.imports.job_stages.failure import process_import_failure
 from app.imports.storage_cleanup import cleanup_import_storage
+from app.local.users import ensure_default_user
 from app.models import ImportEventType, ImportJob, ImportJobErrorCode, ImportJobStatus, NotificationType
 
 

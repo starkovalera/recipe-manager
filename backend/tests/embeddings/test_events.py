@@ -3,8 +3,8 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.db.base import Base
-from app.db.init import ensure_default_user
 from app.embeddings.events import add_embedding_event
+from app.local.users import ensure_default_user
 from app.models import Recipe, RecipeEmbedding, RecipeEmbeddingEvent, RecipeEmbeddingEventType, RecipeEmbeddingStatus
 
 

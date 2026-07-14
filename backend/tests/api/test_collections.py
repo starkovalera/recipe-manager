@@ -7,10 +7,11 @@ from sqlalchemy.pool import StaticPool
 
 from app.collections.queries import list_collections as query_collections
 from app.db.base import Base
-from app.db.init import ensure_default_user
 from app.db.session import get_session
+from app.local.users import ensure_default_user
 from app.main import create_app
 from app.models import Collection, Recipe, User
+from tests.api.support import install_local_user_override
 
 
 def client_with_session():
@@ -27,6 +28,7 @@ def client_with_session():
 
     app = create_app()
     app.dependency_overrides[get_session] = override_session
+    install_local_user_override(app, SessionLocal)
     return TestClient(app), SessionLocal
 
 
@@ -101,7 +103,9 @@ def test_collection_endpoints_are_scoped_to_current_user():
     listed = client.get("/collections")
     other_detail = client.get(f"/collections/{other_collection_id}")
     other_delete = client.delete(f"/collections/{other_collection_id}")
-    add_other_recipe = client.put(f"/collections/{client.post('/collections', json={'name': 'Mine'}).json()['id']}/recipes/{other_recipe_id}")
+    add_other_recipe = client.put(
+        f"/collections/{client.post('/collections', json={'name': 'Mine'}).json()['id']}/recipes/{other_recipe_id}"
+    )
 
     assert listed.json()["items"] == []
     assert other_detail.status_code == 404

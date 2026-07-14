@@ -7,10 +7,11 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.db.base import Base
-from app.db.init import ensure_default_user
 from app.db.session import get_session
+from app.local.users import ensure_default_user
 from app.main import create_app
 from app.models import Notification, NotificationEntityType, NotificationType, User
+from tests.api.support import install_local_user_override
 
 
 def client_with_session_factory():
@@ -27,6 +28,7 @@ def client_with_session_factory():
 
     app = create_app()
     app.dependency_overrides[get_session] = override_session
+    install_local_user_override(app, SessionLocal)
     return TestClient(app), SessionLocal
 
 

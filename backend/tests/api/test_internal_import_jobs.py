@@ -7,9 +7,9 @@ from sqlalchemy.pool import StaticPool
 
 from app.api.deps import get_current_user
 from app.db.base import Base
-from app.db.init import ensure_default_user
 from app.db.session import get_session
 from app.imports.events import build_job_event
+from app.local.users import ensure_default_user
 from app.main import create_app
 from app.models import (
     ImportEventType,
@@ -27,6 +27,7 @@ from app.models import (
     Tag,
     User,
 )
+from tests.api.support import install_local_user_override
 
 
 class StaticEmbeddingProvider:
@@ -53,6 +54,7 @@ def client_with_session():
 
     app = create_app()
     app.dependency_overrides[get_session] = override_session
+    install_local_user_override(app, SessionLocal)
     return TestClient(app), SessionLocal
 
 
@@ -202,7 +204,9 @@ def test_internal_search_explain_applies_filters_and_ready_embeddings(monkeypatc
         session.add(dessert)
         cake = Recipe(owner_id=user.id, title="Apple Cake", instructions=["Bake"], tags=[dessert])
         cake.ingredients.append(Ingredient(name="Apple", search_name="apple", position=0))
-        cake.embedding = RecipeEmbedding(model="test-embedding", status=RecipeEmbeddingStatus.READY, embedding=[1.0, 0.0], input_hash="hash-cake")
+        cake.embedding = RecipeEmbedding(
+            model="test-embedding", status=RecipeEmbeddingStatus.READY, embedding=[1.0, 0.0], input_hash="hash-cake"
+        )
         soup = Recipe(owner_id=user.id, title="Apple Soup", instructions=["Boil"], tags=[dessert])
         soup.ingredients.append(Ingredient(name="Apple", search_name="apple", position=0))
         soup.embedding = RecipeEmbedding(
@@ -213,7 +217,9 @@ def test_internal_search_explain_applies_filters_and_ready_embeddings(monkeypatc
         )
         other = Recipe(owner_id=user.id, title="Berry Cake", instructions=["Bake"], tags=[dessert])
         other.ingredients.append(Ingredient(name="Berry", search_name="berry", position=0))
-        other.embedding = RecipeEmbedding(model="test-embedding", status=RecipeEmbeddingStatus.READY, embedding=[0.0, 1.0], input_hash="hash-berry")
+        other.embedding = RecipeEmbedding(
+            model="test-embedding", status=RecipeEmbeddingStatus.READY, embedding=[0.0, 1.0], input_hash="hash-berry"
+        )
         session.add_all([cake, soup, other])
         session.commit()
         dessert_id = dessert.id

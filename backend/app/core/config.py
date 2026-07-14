@@ -1,30 +1,38 @@
+from enum import StrEnum
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
 
 
-def _default_database_url(app_env: str) -> str:
-    if app_env == "dev":
+class AppEnv(StrEnum):
+    PROD = "PROD"
+    PREVIEW = "PREVIEW"
+    DEV = "DEV"
+    TEST = "TEST"
+
+
+def _default_database_url(app_env: AppEnv) -> str:
+    if app_env is AppEnv.DEV:
         return "postgresql+psycopg://recipe_manager:recipe_manager@127.0.0.1:5432/recipe_manager_dev"
-    if app_env == "preview":
+    if app_env is AppEnv.PREVIEW:
         return "postgresql+psycopg://recipe_manager:recipe_manager@127.0.0.1:5432/recipe_manager_preview"
-    return f"sqlite:///{BACKEND_ROOT / 'storage' / app_env / 'app.db'}"
+    return f"sqlite:///{BACKEND_ROOT / 'storage' / app_env.value.lower() / 'app.db'}"
 
 
-def _default_upload_dir(app_env: str) -> Path:
-    return BACKEND_ROOT / "storage" / app_env / "uploads"
+def _default_upload_dir(app_env: AppEnv) -> Path:
+    return BACKEND_ROOT / "storage" / app_env.value.lower() / "uploads"
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    app_env: Literal["dev", "preview", "test"] = "dev"
+    app_env: AppEnv = AppEnv.PROD
     database_url: str | None = None
     upload_dir: Path | None = None
     cors_origins: list[str] = Field(
@@ -51,6 +59,12 @@ class Settings(BaseSettings):
     import_task_max_retries: int = Field(default=0, ge=0)
     stale_import_minutes: int = 30
     redis_url: str = "redis://127.0.0.1:6379/0"
+    account_deletion_task_max_retries: int = Field(default=3, ge=0)
+
+    clerk_secret_key: str | None = None
+    clerk_api_url: str = "https://api.clerk.com"
+    clerk_webhook_signing_secret: str | None = None
+    preview_users_file: Path = BACKEND_ROOT / "config" / "preview-users.local.toml"
 
     ai_provider: Literal["auto", "fake", "openai"] = "auto"
     openai_api_key: str | None = None
@@ -70,14 +84,20 @@ class Settings(BaseSettings):
     def default_database_url(cls, value: str | None, info):
         if value:
             return value
-        return _default_database_url(info.data.get("app_env", "dev"))
+        return _default_database_url(info.data.get("app_env", AppEnv.PROD))
 
     @field_validator("upload_dir", mode="before")
     @classmethod
     def default_upload_dir(cls, value: str | Path | None, info):
         if value:
             return Path(value)
-        return _default_upload_dir(info.data.get("app_env", "dev"))
+        return _default_upload_dir(info.data.get("app_env", AppEnv.PROD))
+
+    @model_validator(mode="after")
+    def validate_clerk_identity_configuration(self):
+        if self.app_env is not AppEnv.TEST and not self.clerk_secret_key:
+            raise ValueError("Clerk identity configuration is required outside TEST.")
+        return self
 
 
 @lru_cache

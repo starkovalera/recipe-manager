@@ -1,0 +1,10 @@
+# Clerk development test email verification code for +clerk_test users: 424242
+# Copy this file to preview-users.local.toml and replace Clerk user IDs.
+
+[[users]]
+id = "local-user"
+auth_provider = "CLERK"
+auth_user_id = "user_replace_me"
+email = "admin+clerk_test@example.com"
+status = "ACTIVE"
+roles = ["DEBUG", "SUPERADMIN"]

@@ -5,9 +5,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from app.db.base import Base
-from app.db.init import ensure_default_user
 from app.embeddings.input import build_recipe_embedding_input
 from app.embeddings.planning import prepare_recipe_embedding
+from app.local.users import ensure_default_user
 from app.models import (
     Ingredient,
     Recipe,

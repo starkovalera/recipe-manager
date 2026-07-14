@@ -6,8 +6,8 @@ from sqlalchemy.pool import StaticPool
 
 from app.db import session as session_module
 from app.db.base import Base
-from app.db.init import ensure_default_user
 from app.embeddings.queue import enqueue_recipe_embedding
+from app.local.users import ensure_default_user
 from app.models import (
     Recipe,
     RecipeEmbedding,

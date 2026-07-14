@@ -7,9 +7,9 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.db.base import Base
-from app.db.init import ensure_default_user
 from app.embeddings.input import build_recipe_embedding_input
 from app.embeddings.processing import process_recipe_embedding, start_recipe_embedding
+from app.local.users import ensure_default_user
 from app.models import (
     Ingredient,
     Recipe,

@@ -13,16 +13,17 @@ from sqlalchemy.pool import StaticPool
 from app.ai.fake_provider import FakeRecipeExtractionProvider
 from app.ai.schemas import CoverCandidate, ExtractedRecipe, ExtractionQuality, ExtractionResult
 from app.api.routes import imports as import_routes
+from app.auth.constants import TRUSTED_SUBJECT_HEADER, AuthProviderType
 from app.core.config import get_settings
 from app.db import session as session_module
 from app.db.base import Base
-from app.db.init import ensure_default_user
 from app.db.session import get_session
 from app.imports.jobs import (
     create as import_create,
     process_import_job,
 )
 from app.imports.source_loading.url_loaders.types import LoadedRemoteImage, LoadedRemoteVideo, LoadedUrlContent
+from app.local.users import ensure_default_user
 from app.main import create_app
 from app.models import (
     ImportEventType,
@@ -40,6 +41,7 @@ from app.models import (
     User,
 )
 from app.storage.base import StoredFile
+from tests.api.support import install_local_user_override
 from tests.imports.runtime_overrides import (
     reset_url_content_service,
     reset_video_processor,
@@ -85,6 +87,7 @@ def client_with_session_factory():
 
     app = create_app()
     app.dependency_overrides[get_session] = override_session
+    install_local_user_override(app, SessionLocal)
     app.state.SessionLocal = SessionLocal
     return TestClient(app), SessionLocal
 
@@ -92,6 +95,45 @@ def client_with_session_factory():
 def client_with_session():
     client, _ = client_with_session_factory()
     return client
+
+
+def test_existing_authenticated_user_can_create_import_without_transaction_conflict(monkeypatch):
+    monkeypatch.setenv("CLERK_SECRET_KEY", "test-secret")
+    get_settings.cache_clear()
+    engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    Base.metadata.create_all(engine)
+    SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
+    session_module.SessionLocal = SessionLocal
+    session_count = 0
+
+    def override_session() -> Generator[Session, None, None]:
+        nonlocal session_count
+        session_count += 1
+        with SessionLocal() as session:
+            yield session
+
+    with SessionLocal() as session:
+        session.add(
+            User(
+                id="authenticated-user",
+                auth_provider=AuthProviderType.CLERK,
+                auth_user_id="provider-user",
+                email="authenticated@example.test",
+            )
+        )
+        session.commit()
+
+    app = create_app()
+    app.dependency_overrides[get_session] = override_session
+    response = TestClient(app).post(
+        "/imports",
+        headers={TRUSTED_SUBJECT_HEADER: "provider-user"},
+        data={"clientImportId": "authenticated-import", "text": "Tomato soup recipe"},
+    )
+
+    assert response.status_code == 202
+    assert response.json()["status"] == "queued"
+    assert session_count == 1
 
 
 def image_bytes() -> bytes:

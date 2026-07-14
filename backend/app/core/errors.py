@@ -30,6 +30,14 @@ class ApiErrorCode(str, Enum):
     FORBIDDEN = "FORBIDDEN"
     ACCESS_USER_NOT_FOUND = "ACCESS_USER_NOT_FOUND"
     LAST_SUPERADMIN = "LAST_SUPERADMIN"
+    AUTHENTICATION_REQUIRED = "AUTHENTICATION_REQUIRED"
+    INVALID_TRUSTED_IDENTITY = "INVALID_TRUSTED_IDENTITY"
+    USER_NOT_PROVISIONED = "USER_NOT_PROVISIONED"
+    AUTH_USER_LOOKUP_FAILED = "AUTH_USER_LOOKUP_FAILED"
+    ACCOUNT_DEACTIVATED = "ACCOUNT_DEACTIVATED"
+    ACCOUNT_DELETION_PENDING = "ACCOUNT_DELETION_PENDING"
+    ACCOUNT_DELETION_FAILED = "ACCOUNT_DELETION_FAILED"
+    EMAIL_ALREADY_LINKED = "EMAIL_ALREADY_LINKED"
 
 
 class ApiError(Exception):
@@ -82,6 +90,14 @@ class ApiConflictError(ApiError):
     status_code = 409
 
 
+class ApiAuthenticationError(ApiError):
+    status_code = 401
+
+
+class ApiUpstreamError(ApiError):
+    status_code = 502
+
+
 class ForbiddenError(ApiError):
     status_code = 403
     error_code = ApiErrorCode.FORBIDDEN
@@ -96,6 +112,47 @@ class AccessUserNotFoundError(ApiNotFoundError):
 class LastSuperadminError(ApiConflictError):
     error_code = ApiErrorCode.LAST_SUPERADMIN
     message = "The last superadmin role cannot be removed."
+
+
+class AuthenticationRequiredError(ApiAuthenticationError):
+    error_code = ApiErrorCode.AUTHENTICATION_REQUIRED
+    message = "Authentication is required."
+
+
+class InvalidTrustedIdentityError(ApiAuthenticationError):
+    error_code = ApiErrorCode.INVALID_TRUSTED_IDENTITY
+    message = "Authenticated identity is invalid."
+
+
+class UserNotProvisionedError(ApiConflictError):
+    error_code = ApiErrorCode.USER_NOT_PROVISIONED
+    message = "The authenticated user has not been provisioned."
+
+
+class AuthUserLookupError(ApiUpstreamError):
+    error_code = ApiErrorCode.AUTH_USER_LOOKUP_FAILED
+    message = "Unable to resolve the authenticated user."
+
+
+class AccountDeactivatedError(ForbiddenError):
+    error_code = ApiErrorCode.ACCOUNT_DEACTIVATED
+    message = "This account is deactivated."
+
+
+class AccountDeletionPendingError(ForbiddenError):
+    error_code = ApiErrorCode.ACCOUNT_DELETION_PENDING
+    message = "Account deletion is in progress."
+
+
+class AccountDeletionFailedError(ApiError):
+    status_code = 500
+    error_code = ApiErrorCode.ACCOUNT_DELETION_FAILED
+    message = "Account deletion could not be started."
+
+
+class EmailAlreadyLinkedError(ApiConflictError):
+    error_code = ApiErrorCode.EMAIL_ALREADY_LINKED
+    message = "This email is already linked to another account."
 
 
 class InvalidUrlError(ApiValidationError):

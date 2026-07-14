@@ -5,40 +5,19 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
 
 from alembic import command
-from app.access.constants import UserRole
-from app.core.config import get_settings
 from app.db.base import Base
-from app.db.defaults import DEFAULT_TAG_NAMES, DEFAULT_USER_EMAIL, DEFAULT_USER_ID
-from app.models import Tag, User, UserRoleAssignment, UserSettings
+from app.db.defaults import DEFAULT_TAG_NAMES
+from app.models import Tag, User, UserSettings
 
 
-def ensure_default_user(session: Session, recipe_language: str | None = None) -> User:
-    recipe_language = recipe_language or get_settings().recipe_language
-    user = session.get(User, DEFAULT_USER_ID)
-    if user is None:
-        user = User(
-            id=DEFAULT_USER_ID,
-            email=DEFAULT_USER_EMAIL,
-            role_assignments=[
-                UserRoleAssignment(role=UserRole.DEBUG),
-                UserRoleAssignment(role=UserRole.SUPERADMIN),
-            ],
-        )
-        session.add(user)
-        session.flush()
-
+def ensure_user_defaults(session: Session, user: User, *, recipe_language: str) -> None:
     if user.settings is None:
         user.settings = UserSettings(recipe_language=recipe_language)
     elif user.settings.recipe_language != recipe_language:
         user.settings.recipe_language = recipe_language
 
-    existing_tag_names = {tag.name for tag in session.query(Tag).filter_by(owner_id=user.id).all()}
-    for tag_name in DEFAULT_TAG_NAMES:
-        if tag_name not in existing_tag_names:
-            session.add(Tag(owner_id=user.id, name=tag_name))
-
-    session.commit()
-    return user
+    existing_tag_names = {tag.name for tag in user.tags}
+    user.tags.extend(Tag(name=tag_name) for tag_name in DEFAULT_TAG_NAMES if tag_name not in existing_tag_names)
 
 
 def run_migrations(database_url: str) -> None:

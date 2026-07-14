@@ -23,6 +23,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.access.constants import UserRole
+from app.auth.constants import AuthProviderType
 from app.db.base import Base
 from app.services.search_text import build_ingredient_search_name
 
@@ -149,11 +150,32 @@ class TimestampMixin:
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
 
+class UserStatus(str, enum.Enum):
+    ACTIVE = "ACTIVE"
+    DEACTIVATED = "DEACTIVATED"
+    DELETION_PENDING = "DELETION_PENDING"
+
+
 class User(TimestampMixin, Base):
     __tablename__ = "users"
+    __table_args__ = (Index("ix_users_auth_identity", "auth_provider", "auth_user_id", unique=True),)
 
     id: Mapped[str] = mapped_column(String, primary_key=True)
+    auth_provider: Mapped[AuthProviderType] = mapped_column(
+        Enum(AuthProviderType, name="auth_provider"),
+        default=AuthProviderType.CLERK,
+        server_default=AuthProviderType.CLERK.value,
+        nullable=False,
+    )
+    auth_user_id: Mapped[str | None] = mapped_column(String)
     email: Mapped[str] = mapped_column(String, unique=True, nullable=False)
+    status: Mapped[UserStatus] = mapped_column(
+        Enum(UserStatus, name="user_status"),
+        default=UserStatus.ACTIVE,
+        server_default=UserStatus.ACTIVE.value,
+        nullable=False,
+    )
+    deletion_requested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     recipes: Mapped[list[Recipe]] = relationship(back_populates="owner", cascade="all, delete-orphan")
     tags: Mapped[list[Tag]] = relationship(back_populates="owner", cascade="all, delete-orphan")
@@ -182,7 +204,7 @@ class UserRoleAssignment(Base):
 
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
     role: Mapped[UserRole] = mapped_column(
-        Enum(UserRole, name="user_role", values_callable=lambda enum_type: [item.value for item in enum_type]),
+        Enum(UserRole, name="user_role"),
         primary_key=True,
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)

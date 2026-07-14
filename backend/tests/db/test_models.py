@@ -6,9 +6,10 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.access.constants import UserRole
+from app.auth.constants import AuthProviderType
 from app.db.base import Base
-from app.db.defaults import DEFAULT_RECIPE_LANGUAGE, DEFAULT_TAG_NAMES, DEFAULT_USER_ID
-from app.db.init import ensure_default_user
+from app.db.defaults import DEFAULT_RECIPE_LANGUAGE, DEFAULT_TAG_NAMES
+from app.local.users import LOCAL_USER_ID, ensure_default_user
 from app.models import (
     ImportEventType,
     ImportJob,
@@ -35,8 +36,10 @@ from app.models import (
     SourceName,
     SourceType,
     Tag,
+    User,
     UserRoleAssignment,
     UserSettings,
+    UserStatus,
 )
 
 
@@ -52,8 +55,8 @@ def test_ensure_default_user_is_idempotent():
     first = ensure_default_user(session)
     second = ensure_default_user(session)
 
-    assert first.id == DEFAULT_USER_ID
-    assert second.id == DEFAULT_USER_ID
+    assert first.id == LOCAL_USER_ID
+    assert second.id == LOCAL_USER_ID
     assert session.query(type(first)).count() == 1
     assert first.roles == {UserRole.DEBUG, UserRole.SUPERADMIN}
 
@@ -88,6 +91,21 @@ def test_deleting_user_deletes_role_assignments():
     session.commit()
 
     assert session.query(UserRoleAssignment).count() == 0
+
+
+def test_user_auth_identity_and_lifecycle_defaults():
+    session = create_session()
+    user = User(id="user-1", auth_user_id="provider-user-1", email="person@example.test")
+    session.add(user)
+    session.commit()
+
+    assert user.status is UserStatus.ACTIVE
+    assert user.deletion_requested_at is None
+    assert user.auth_provider is AuthProviderType.CLERK
+
+    session.add(User(id="user-2", auth_user_id="provider-user-1", email="other@example.test"))
+    with pytest.raises(IntegrityError):
+        session.commit()
 
 
 def test_ensure_default_user_does_not_leave_an_implicit_transaction_open():
@@ -229,7 +247,7 @@ def test_recipe_graph_persists_core_import_entities():
 
     saved = session.query(Recipe).filter_by(title="Tomato Pasta").one()
 
-    assert saved.owner.id == DEFAULT_USER_ID
+    assert saved.owner.id == LOCAL_USER_ID
     assert saved.ingredients[0].name == "Pasta"
     assert saved.tags[0].name == "dinner"
     assert saved.images[0].storage_key == "dev/source.jpg"

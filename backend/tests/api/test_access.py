@@ -8,8 +8,8 @@ from sqlalchemy.pool import StaticPool
 from app.access.constants import UserRole
 from app.api.deps import get_current_user
 from app.db.base import Base
-from app.db.init import ensure_default_user
 from app.db.session import get_session
+from app.local.users import ensure_default_user
 from app.main import create_app
 from app.models import User, UserRoleAssignment
 
@@ -54,13 +54,13 @@ def test_superadmin_assigns_and_revokes_role_idempotently():
         session.commit()
         client.app.dependency_overrides[get_current_user] = lambda: superadmin
 
-    first = client.put("/internal/access/users/target/roles/debug")
-    second = client.put("/internal/access/users/target/roles/debug")
-    revoked = client.delete("/internal/access/users/target/roles/debug")
-    revoked_again = client.delete("/internal/access/users/target/roles/debug")
+    first = client.put("/internal/access/users/target/roles/DEBUG")
+    second = client.put("/internal/access/users/target/roles/DEBUG")
+    revoked = client.delete("/internal/access/users/target/roles/DEBUG")
+    revoked_again = client.delete("/internal/access/users/target/roles/DEBUG")
 
     assert first.status_code == second.status_code == revoked.status_code == revoked_again.status_code == 200
-    assert first.json()["roles"] == ["debug"]
+    assert first.json()["roles"] == ["DEBUG"]
     assert revoked_again.json()["roles"] == []
 
 
@@ -79,7 +79,7 @@ def test_role_management_rejects_non_superadmin_and_last_superadmin_removal():
 
     assert client.get("/internal/access/users").status_code == 403
     client.app.dependency_overrides[get_current_user] = lambda: superadmin
-    response = client.delete("/internal/access/users/local-user/roles/superadmin")
+    response = client.delete("/internal/access/users/local-user/roles/SUPERADMIN")
     assert response.status_code == 409
     assert response.json()["errorCode"] == "LAST_SUPERADMIN"
 
@@ -91,4 +91,4 @@ def test_role_management_rejects_invalid_role_and_unknown_user():
         client.app.dependency_overrides[get_current_user] = lambda: superadmin
 
     assert client.put("/internal/access/users/local-user/roles/owner").status_code == 422
-    assert client.put("/internal/access/users/missing/roles/debug").status_code == 404
+    assert client.put("/internal/access/users/missing/roles/DEBUG").status_code == 404

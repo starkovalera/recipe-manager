@@ -2,8 +2,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from app.db.base import Base
-from app.db.init import ensure_default_user
 from app.embeddings.queries import get_recipe_for_embedding
+from app.local.users import ensure_default_user
 from app.models import Recipe, User
 
 

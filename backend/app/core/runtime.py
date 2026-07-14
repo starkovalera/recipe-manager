@@ -3,7 +3,7 @@ import shutil
 from collections.abc import Callable
 from pathlib import Path
 
-from app.core.config import Settings
+from app.core.config import AppEnv, Settings
 from app.core.logging import log_info
 
 logger = logging.getLogger(__name__)
@@ -50,7 +50,7 @@ def prepare_runtime(settings: Settings, reset_database: Callable[[str], None] | 
         databaseKind="postgresql" if is_postgres else "sqlite" if db_path else "other",
         uploadDir=str(upload_dir),
     )
-    if settings.app_env == "preview":
+    if settings.app_env is AppEnv.PREVIEW:
         root = _preview_root_for(upload_dir)
         _ensure_under(upload_dir, root)
         deleted_db = False
