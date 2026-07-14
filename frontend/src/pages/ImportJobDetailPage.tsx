@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { getImportJob, mediaUrl, retryImportJob } from "../api/client";
 import type { ImportJob } from "../api/types";
+import { AuthenticatedImage } from "../components/AuthenticatedImage";
 
 const ACTIVE_STATUSES = new Set<ImportJob["status"]>(["queued", "running"]);
 const SUCCESS_STATUSES = new Set<ImportJob["status"]>(["succeeded", "succeeded_with_flags"]);
@@ -91,7 +92,7 @@ export function ImportJobDetailPage({
         {job.sources.length ? job.sources.map((source, index) => {
           if (source.type === "IMAGE" && source.mediaUrl) {
             const label = source.originalName || `Image ${index + 1}`;
-            return <figure key={`${source.type}-${index}`} className="import-source"><img src={mediaUrl(source.mediaUrl)} alt={label} /><figcaption>{label}</figcaption></figure>;
+            return <figure key={`${source.type}-${index}`} className="import-source"><AuthenticatedImage src={mediaUrl(source.mediaUrl)} alt={label} /><figcaption>{label}</figcaption></figure>;
           }
           if (source.type === "URL" && source.url) {
             return <div key={`${source.type}-${index}`} className="import-source"><strong>Link</strong><a href={source.url} target="_blank" rel="noreferrer">{source.url}</a></div>;

@@ -1,6 +1,7 @@
 import defaultRecipeImage from "../assets/default-recipe.svg";
 import { mediaUrl } from "../api/client";
 import type { RecipeList } from "../api/types";
+import { AuthenticatedImage } from "./AuthenticatedImage";
 
 type RecipeListItem = RecipeList["items"][number];
 
@@ -22,7 +23,7 @@ export function RecipeGrid({ recipes, onSelect }: { recipes: RecipeListItem[]; o
               !
             </span>
           ) : null}
-          <img src={getRecipePreviewUrl(recipe)} alt={`${recipe.title} cover`} />
+          <AuthenticatedImage src={getRecipePreviewUrl(recipe)} alt={`${recipe.title} cover`} />
           <span>{recipe.title}</span>
         </button>
       ))}

@@ -5,9 +5,11 @@ import {
   DEFAULT_API_BASE_URL,
   deleteRecipe,
   createImport,
+  getMediaBlob,
   listRecipes,
   mediaUrl,
   setApiDebugLoggingForTests,
+  setApiTokenProvider,
 } from "./client";
 
 describe("api client", () => {
@@ -15,6 +17,7 @@ describe("api client", () => {
     localStorage.clear();
     vi.restoreAllMocks();
     setApiDebugLoggingForTests(false);
+    setApiTokenProvider(null);
   });
 
   it("sends import form data with a stable client id", async () => {
@@ -28,8 +31,34 @@ describe("api client", () => {
 
     expect(fetchMock).toHaveBeenCalledOnce();
     const [, init] = fetchMock.mock.calls[0];
-    expect(init.headers["X-Client-Id"]).toMatch(/^local_/);
+    expect(new Headers(init.headers).get("X-Client-Id")).toMatch(/^local_/);
     expect(init.body).toBeInstanceOf(FormData);
+  });
+
+  it("requests a fresh bearer token for every API request", async () => {
+    const tokens = ["token-one", "token-two"];
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, text: async () => JSON.stringify({ items: [] }) });
+    vi.stubGlobal("fetch", fetchMock);
+    setApiTokenProvider(async () => tokens.shift() ?? null);
+
+    await listRecipes();
+    await listRecipes();
+
+    expect(new Headers(fetchMock.mock.calls[0][1].headers).get("Authorization")).toBe("Bearer token-one");
+    expect(new Headers(fetchMock.mock.calls[1][1].headers).get("Authorization")).toBe("Bearer token-two");
+  });
+
+  it("loads protected media with a bearer token", async () => {
+    const blob = new Blob(["image"], { type: "image/jpeg" });
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, blob: async () => blob });
+    vi.stubGlobal("fetch", fetchMock);
+    setApiTokenProvider(async () => "media-token");
+
+    await expect(getMediaBlob("/media/image-key")).resolves.toBe(blob);
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(fetchMock.mock.calls[0][0]).toBe(`${DEFAULT_API_BASE_URL}/media/image-key`);
+    expect(new Headers(fetchMock.mock.calls[0][1].headers).get("Authorization")).toBe("Bearer media-token");
   });
 
   it("throws ApiError for backend error payloads", async () => {

@@ -28,6 +28,12 @@ import type {
 export const DEFAULT_API_BASE_URL = "http://127.0.0.1:8081";
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? DEFAULT_API_BASE_URL;
 let debugApiLogging = import.meta.env.VITE_DEBUG_API === "true";
+export type ApiTokenProvider = () => Promise<string | null>;
+let apiTokenProvider: ApiTokenProvider | null = null;
+
+export function setApiTokenProvider(provider: ApiTokenProvider | null) {
+  apiTokenProvider = provider;
+}
 
 export function setApiDebugLoggingForTests(enabled: boolean) {
   debugApiLogging = enabled;
@@ -46,6 +52,10 @@ function writeApiLog(level: "info" | "error", message: string, meta: Record<stri
 
 export function mediaUrl(url: string): string {
   return url.startsWith("http://") || url.startsWith("https://") ? url : `${API_BASE_URL}${url}`;
+}
+
+export function isApiMediaUrl(url: string): boolean {
+  return url.startsWith("/media/") || url.startsWith(`${API_BASE_URL}/media/`);
 }
 
 export class ApiError extends Error {
@@ -67,7 +77,11 @@ async function parseResponse<T>(response: Response): Promise<T> {
   return payload as T;
 }
 
-async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+async function performRequest<T>(
+  path: string,
+  init: RequestInit,
+  readResponse: (response: Response) => Promise<T>,
+): Promise<T> {
   const method = init.method ?? "GET";
   const startedAt = performance.now();
   const url = `${API_BASE_URL}${path}`;
@@ -75,7 +89,10 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     writeApiLog("info", "[recipes.frontend.api] request", { method, path, baseUrl: API_BASE_URL, url });
   }
   try {
-    const response = await fetch(url, init);
+    const headers = new Headers(init.headers);
+    const token = apiTokenProvider ? await apiTokenProvider() : null;
+    if (token) headers.set("Authorization", `Bearer ${token}`);
+    const response = await fetch(url, { ...init, headers });
     if (debugApiLogging) {
       writeApiLog("info", "[recipes.frontend.api] response", {
         method,
@@ -86,7 +103,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
         durationMs: Math.round(performance.now() - startedAt),
       });
     }
-    return parseResponse<T>(response);
+    return readResponse(response);
   } catch (error) {
     if (debugApiLogging) {
       writeApiLog("error", "[recipes.frontend.api] error", {
@@ -100,6 +117,20 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     }
     throw error;
   }
+}
+
+async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  return performRequest(path, init, parseResponse<T>);
+}
+
+export async function getMediaBlob(url: string): Promise<Blob> {
+  const path = url.startsWith(API_BASE_URL) ? url.slice(API_BASE_URL.length) : url;
+  return performRequest(path, {}, async (response) => {
+    if (!response.ok) {
+      return parseResponse<never>(response);
+    }
+    return response.blob();
+  });
 }
 
 function withQuery(path: string, params?: Record<string, string | number | string[] | undefined>): string {

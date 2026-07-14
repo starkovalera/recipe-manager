@@ -16,6 +16,7 @@ import {
   removeRecipeFromCollection,
 } from "../api/client";
 import type { RecipeDetail, RecipeImage, RecipeResource, ReviewFlag, Tag } from "../api/types";
+import { AuthenticatedImage } from "../components/AuthenticatedImage";
 
 type CoverChoice = { kind: "DEFAULT" | "IMAGE"; imageId?: string | null };
 type EditableIngredient = { id?: string; name: string; quantity: string; unit: string; note: string };
@@ -280,7 +281,7 @@ export function RecipeDetailPage({ recipeId, onDeleted }: { recipeId: string; on
               </div>
               <h2>{recipe.title}</h2>
             </div>
-            <img
+            <AuthenticatedImage
               className="hero-cover"
               src={recipe.coverImage ? mediaUrl(recipe.coverImage.mediaUrl) : defaultRecipeImage}
               alt={`${recipe.title} cover`}
@@ -524,7 +525,7 @@ export function RecipeDetailPage({ recipeId, onDeleted }: { recipeId: string; on
                       aria-label={`Open ${option.label}`}
                       onClick={() => setPreviewImage({ label: option.label, url: imageUrl(optionImage) })}
                     >
-                      <img src={imageUrl(optionImage)} alt={option.label} />
+                      <AuthenticatedImage src={imageUrl(optionImage)} alt={option.label} />
                     </button>
                     <div className="source-image-meta">
                       <strong>{option.label}</strong>
@@ -565,7 +566,7 @@ export function RecipeDetailPage({ recipeId, onDeleted }: { recipeId: string; on
             <div className="image-modal-backdrop" role="presentation" onClick={() => setPreviewImage(null)}>
               <div className="image-modal" role="dialog" aria-label={previewImage.label} onClick={(event) => event.stopPropagation()}>
                 <button type="button" onClick={() => setPreviewImage(null)}>Close</button>
-                <img src={previewImage.url} alt={previewImage.label} />
+                <AuthenticatedImage src={previewImage.url} alt={previewImage.label} />
               </div>
             </div>
           ) : null}

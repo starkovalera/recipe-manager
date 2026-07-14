@@ -1,4 +1,5 @@
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
+import type { ReactNode } from "react";
 import { useState } from "react";
 
 import { queryClient } from "./queryClient";
@@ -24,7 +25,7 @@ type Page =
   | { name: "admin" }
   | { name: "tags" };
 
-function AppContent() {
+function AppContent({ accountControl }: { accountControl?: ReactNode }) {
   const [page, setPage] = useState<Page>({ name: "recipes" });
   const activeSection = page.name === "recipe" ? "recipes" : page.name === "collection" ? "collections" : page.name === "import-job" ? "notifications" : page.name;
   const notificationsQuery = useQuery({
@@ -87,6 +88,7 @@ function AppContent() {
               </button>
             ) : null}
         </nav>
+        {accountControl}
       </header>
       {latestUnreadNotification ? (
         <div className="notification-toast" role="status">
@@ -125,10 +127,10 @@ function AppContent() {
   );
 }
 
-export function App() {
+export function App({ accountControl }: { accountControl?: ReactNode } = {}) {
   return (
     <QueryClientProvider client={queryClient}>
-      <AppContent />
+      <AppContent accountControl={accountControl} />
     </QueryClientProvider>
   );
 }
