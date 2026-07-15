@@ -25,6 +25,7 @@ from app.models import (
     RecipeResourceStatus,
     RecipeReviewFlag,
     RecipeReviewFlagStatus,
+    RecipeStatus,
     SourceName,
     SourceType,
 )
@@ -184,24 +185,49 @@ def patch_recipe(session: Session, recipe_id: str, owner_id: str, patch: RecipeP
 
 
 def delete_recipe(session: Session, recipe_id: str, owner_id: str) -> None:
-    recipe = get_recipe_for_deletion(session, recipe_id, owner_id)
+    recipe = get_recipe_for_deletion(session, recipe_id, owner_id, for_update=True)
     if recipe is None:
         raise RecipeNotFoundError()
     storage_keys = sorted({image.storage_key for image in recipe.images})
-    session.delete(recipe)
+    recipe.status = RecipeStatus.DELETION_PENDING
     session.commit()
 
     storage = LocalStorageService(get_settings().upload_dir)
+    cleanup_failed = False
     for storage_key in storage_keys:
         try:
             storage.delete(storage_key)
         except Exception as error:
+            cleanup_failed = True
             logger.error(
                 "Recipe media cleanup failed.",
                 recipe_id=recipe_id,
                 storage_key=storage_key,
                 error=repr(error),
             )
+
+    if cleanup_failed:
+        return
+
+    recipe = get_recipe_for_deletion(
+        session,
+        recipe_id,
+        owner_id,
+        status=RecipeStatus.DELETION_PENDING,
+        for_update=True,
+    )
+    if recipe is None:
+        return
+    session.delete(recipe)
+    try:
+        session.commit()
+    except Exception as error:
+        session.rollback()
+        logger.error(
+            "Recipe database deletion failed.",
+            recipe_id=recipe_id,
+            error=repr(error),
+        )
 
 
 def set_review_flag_status(session: Session, recipe_id: str, owner_id: str, flag_id: str, status: str) -> RecipeReviewFlag:

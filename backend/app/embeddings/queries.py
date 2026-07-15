@@ -1,13 +1,21 @@
 from sqlalchemy import exists, select
 from sqlalchemy.orm import Session, selectinload
 
-from app.models import Recipe, RecipeEmbedding, RecipeEmbeddingStatus, RecipeReviewFlag, RecipeReviewFlagStatus
+from app.models import Recipe, RecipeEmbedding, RecipeEmbeddingStatus, RecipeReviewFlag, RecipeReviewFlagStatus, RecipeStatus
 
 
-def get_recipe_for_embedding(session: Session, recipe_id: str, *, owner_id: str | None = None) -> Recipe | None:
+def get_recipe_for_embedding(
+    session: Session,
+    recipe_id: str,
+    *,
+    owner_id: str | None = None,
+    status: RecipeStatus | None = RecipeStatus.ACTIVE,
+) -> Recipe | None:
     query = select(Recipe).where(Recipe.id == recipe_id)
     if owner_id is not None:
         query = query.where(Recipe.owner_id == owner_id)
+    if status is not None:
+        query = query.where(Recipe.status == status)
     return session.scalar(
         query.options(
             selectinload(Recipe.ingredients),
@@ -17,7 +25,12 @@ def get_recipe_for_embedding(session: Session, recipe_id: str, *, owner_id: str 
     )
 
 
-def list_internal_recipe_embeddings(session: Session, *, owner_id: str | None = None) -> list[RecipeEmbedding]:
+def list_internal_recipe_embeddings(
+    session: Session,
+    *,
+    owner_id: str | None = None,
+    status: RecipeStatus | None = RecipeStatus.ACTIVE,
+) -> list[RecipeEmbedding]:
     statement = (
         select(RecipeEmbedding)
         .join(Recipe)
@@ -26,6 +39,8 @@ def list_internal_recipe_embeddings(session: Session, *, owner_id: str | None = 
     )
     if owner_id is not None:
         statement = statement.where(Recipe.owner_id == owner_id)
+    if status is not None:
+        statement = statement.where(Recipe.status == status)
     return list(session.scalars(statement))
 
 
@@ -33,8 +48,20 @@ def get_recipe_embedding(session: Session, recipe_id: str) -> RecipeEmbedding | 
     return session.get(RecipeEmbedding, recipe_id)
 
 
-def get_recipe_embedding_with_recipe(session: Session, recipe_id: str) -> RecipeEmbedding | None:
-    query = select(RecipeEmbedding).where(RecipeEmbedding.recipe_id == recipe_id).options(selectinload(RecipeEmbedding.recipe))
+def get_recipe_embedding_with_recipe(
+    session: Session,
+    recipe_id: str,
+    *,
+    status: RecipeStatus | None = RecipeStatus.ACTIVE,
+) -> RecipeEmbedding | None:
+    query = (
+        select(RecipeEmbedding)
+        .join(Recipe, Recipe.id == RecipeEmbedding.recipe_id)
+        .where(RecipeEmbedding.recipe_id == recipe_id)
+        .options(selectinload(RecipeEmbedding.recipe))
+    )
+    if status is not None:
+        query = query.where(Recipe.status == status)
     return session.scalar(query)
 
 

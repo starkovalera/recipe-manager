@@ -133,6 +133,11 @@ class RecipeEmbeddingStatus(str, enum.Enum):
     SKIPPED_DUE_TO_FLAGS = "SKIPPED_DUE_TO_FLAGS"
 
 
+class RecipeStatus(str, enum.Enum):
+    ACTIVE = "ACTIVE"
+    DELETION_PENDING = "DELETION_PENDING"
+
+
 class RecipeEmbeddingEventType(str, enum.Enum):
     SCHEDULED = "SCHEDULED"
     ENQUEUED = "ENQUEUED"
@@ -256,6 +261,12 @@ class Recipe(TimestampMixin, Base):
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
     owner_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    status: Mapped[RecipeStatus] = mapped_column(
+        Enum(RecipeStatus, name="recipe_status"),
+        default=RecipeStatus.ACTIVE,
+        server_default=RecipeStatus.ACTIVE.value,
+        nullable=False,
+    )
     title: Mapped[str] = mapped_column(String, nullable=False)
     servings: Mapped[int | None] = mapped_column(Integer)
     cook_time_minutes: Mapped[int | None] = mapped_column(Integer)

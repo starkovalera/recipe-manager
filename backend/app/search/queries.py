@@ -2,9 +2,9 @@ from sqlalchemy import Select, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.db.query_utils import list_scalars_with_optional_pagination
-from app.models import Recipe, RecipeEmbedding, RecipeEmbeddingStatus, Tag
+from app.models import Recipe, RecipeEmbedding, RecipeEmbeddingStatus, RecipeStatus, Tag
 from app.recipes.filters import RecipeListFilters
-from app.recipes.queries import apply_recipe_list_filters
+from app.recipes.queries import apply_recipe_list_filters, apply_recipe_status_filter
 
 EmbeddingDistanceMetric = str
 
@@ -13,14 +13,26 @@ def list_active_tag_suggestion_rows(session: Session, owner_id: str) -> list[Tag
     return session.scalars(select(Tag).where(Tag.owner_id == owner_id, Tag.deleted_at.is_(None)).order_by(Tag.name, Tag.id)).all()
 
 
-def list_recipe_suggestion_rows(session: Session, owner_id: str) -> list[Recipe]:
-    return session.scalars(select(Recipe).where(Recipe.owner_id == owner_id).order_by(Recipe.title, Recipe.id)).all()
+def list_recipe_suggestion_rows(
+    session: Session,
+    owner_id: str,
+    *,
+    status: RecipeStatus | None = RecipeStatus.ACTIVE,
+) -> list[Recipe]:
+    query = select(Recipe).where(Recipe.owner_id == owner_id).order_by(Recipe.title, Recipe.id)
+    return session.scalars(apply_recipe_status_filter(query, status)).all()
 
 
-def base_search_query(owner_id: str | None, filters: RecipeListFilters) -> Select[tuple[Recipe]]:
+def base_search_query(
+    owner_id: str | None,
+    filters: RecipeListFilters,
+    *,
+    status: RecipeStatus | None = RecipeStatus.ACTIVE,
+) -> Select[tuple[Recipe]]:
     query = select(Recipe).options(selectinload(Recipe.cover_image), selectinload(Recipe.ingredients), selectinload(Recipe.review_flags))
     if owner_id is not None:
         query = query.where(Recipe.owner_id == owner_id)
+    query = apply_recipe_status_filter(query, status)
     return apply_recipe_list_filters(query, filters)
 
 

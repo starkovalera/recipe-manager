@@ -10,7 +10,7 @@ from app.db.base import Base
 from app.db.session import get_session
 from app.local.users import ensure_default_user
 from app.main import create_app
-from app.models import Collection, Recipe, User
+from app.models import Collection, Recipe, RecipeStatus, User
 from tests.api.support import install_local_user_override
 
 
@@ -112,3 +112,30 @@ def test_collection_endpoints_are_scoped_to_current_user():
     assert other_delete.status_code == 404
     assert add_other_recipe.status_code == 404
     assert client.get(f"/recipes/{recipe_id}").status_code == 200
+
+
+def test_collection_responses_exclude_pending_recipes():
+    client, SessionLocal = client_with_session()
+    with SessionLocal() as session:
+        user = ensure_default_user(session)
+        collection = Collection(owner_id=user.id, name="Saved")
+        collection.recipes.extend(
+            [
+                Recipe(owner_id=user.id, title="Active", instructions=["Cook"]),
+                Recipe(
+                    owner_id=user.id,
+                    title="Pending",
+                    instructions=["Cook"],
+                    status=RecipeStatus.DELETION_PENDING,
+                ),
+            ]
+        )
+        session.add(collection)
+        session.commit()
+        collection_id = collection.id
+
+    detail = client.get(f"/collections/{collection_id}")
+    listed = client.get("/collections")
+
+    assert [recipe["title"] for recipe in detail.json()["recipes"]] == ["Active"]
+    assert listed.json()["items"][0]["recipeCount"] == 1

@@ -12,7 +12,7 @@ from app.db.base import Base
 from app.db.session import get_session
 from app.local.users import ensure_default_user
 from app.main import create_app
-from app.models import Ingredient, Recipe, SourceName, Tag, User
+from app.models import Ingredient, Recipe, RecipeStatus, SourceName, Tag, User
 from app.tags.queries import list_active_tags as query_tags
 from tests.api.support import install_local_user_override
 
@@ -153,6 +153,32 @@ def test_tag_patch_usage_and_soft_delete_preserves_recipe_links():
         assert saved is not None
         assert saved.deleted_at is not None
         assert len(saved.recipes) == 1
+
+
+def test_tag_usage_excludes_pending_recipes():
+    client, SessionLocal = client_with_session()
+    with SessionLocal() as session:
+        user = ensure_default_user(session)
+        tag = Tag(owner_id=user.id, name="quick")
+        session.add_all(
+            [
+                Recipe(owner_id=user.id, title="Active", instructions=["Cook"], tags=[tag]),
+                Recipe(
+                    owner_id=user.id,
+                    title="Pending",
+                    instructions=["Cook"],
+                    tags=[tag],
+                    status=RecipeStatus.DELETION_PENDING,
+                ),
+            ]
+        )
+        session.commit()
+        tag_id = tag.id
+
+    response = client.get(f"/tags/{tag_id}/usage")
+
+    assert response.status_code == 200
+    assert response.json()["recipeCount"] == 1
 
 
 def test_tag_patch_name_without_description_preserves_description():

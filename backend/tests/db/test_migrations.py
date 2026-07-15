@@ -51,10 +51,12 @@ def test_alembic_upgrade_head_creates_core_tables(tmp_path: Path):
         "recipe_review_flags",
     }.issubset(tables)
     user_columns = {column["name"]: column for column in inspector.get_columns("users")}
+    recipe_columns = {column["name"]: column for column in inspector.get_columns("recipes")}
     assert {"auth_provider", "auth_user_id", "status", "deletion_requested_at"} <= set(user_columns)
     assert user_columns["auth_provider"]["nullable"] is False
     assert user_columns["auth_user_id"]["nullable"] is True
     assert user_columns["status"]["nullable"] is False
+    assert recipe_columns["status"]["nullable"] is False
     assert any(index["column_names"] == ["auth_provider", "auth_user_id"] and index["unique"] for index in inspector.get_indexes("users"))
     assert set(inspector.get_pk_constraint("user_role_assignments")["constrained_columns"]) == {"user_id", "role"}
     assert inspector.get_pk_constraint("clerk_webhook_events")["constrained_columns"] == ["event_id"]
@@ -136,6 +138,31 @@ def test_invitation_migration_upgrades_previous_revision_to_head(tmp_path: Path)
     inspector = inspect(engine)
     assert "invitations" in inspector.get_table_names()
     assert inspector.get_pk_constraint("invitations")["constrained_columns"] == ["id"]
+
+
+def test_recipe_status_migration_backfills_existing_recipes(tmp_path: Path):
+    db_path = tmp_path / "recipe-status-migration.db"
+    backend_root = Path(__file__).resolve().parents[2]
+    config = Config(str(backend_root / "alembic.ini"))
+    config.set_main_option("sqlalchemy.url", f"sqlite:///{db_path}")
+    config.set_main_option("script_location", str(backend_root / "alembic"))
+
+    command.upgrade(config, "20260715_0027")
+    engine = create_engine(f"sqlite:///{db_path}")
+    with engine.begin() as connection:
+        connection.execute(text("INSERT INTO users (id, email) VALUES ('user-1', 'user@example.test')"))
+        connection.execute(
+            text(
+                "INSERT INTO recipes (id, owner_id, title, instructions, source_name) "
+                "VALUES ('recipe-1', 'user-1', 'Toast', '[]', 'MANUAL')"
+            )
+        )
+
+    command.upgrade(config, "head")
+
+    with engine.connect() as connection:
+        status = connection.execute(text("SELECT status FROM recipes WHERE id = 'recipe-1'")).scalar_one()
+    assert status == "ACTIVE"
 
 
 def test_generic_auth_identity_migration_preserves_existing_provider_user_id(tmp_path: Path):

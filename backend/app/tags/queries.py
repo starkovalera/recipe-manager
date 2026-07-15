@@ -2,7 +2,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.db.query_utils import list_scalars_with_optional_pagination
-from app.models import RecipeTag, Tag
+from app.models import Recipe, RecipeStatus, RecipeTag, Tag
 
 
 def get_tag(session: Session, tag_id: str, owner_id: str) -> Tag | None:
@@ -22,15 +22,22 @@ def count_active_tags(session: Session, owner_id: str) -> int:
     return session.scalar(select(func.count(Tag.id)).where(Tag.owner_id == owner_id, Tag.deleted_at.is_(None))) or 0
 
 
-def count_recipes_for_tag(session: Session, owner_id: str, tag_id: str) -> int:
-    return (
-        session.scalar(
-            select(func.count(RecipeTag.recipe_id))
-            .join(Tag, Tag.id == RecipeTag.tag_id)
-            .where(Tag.owner_id == owner_id, RecipeTag.tag_id == tag_id)
-        )
-        or 0
+def count_recipes_for_tag(
+    session: Session,
+    owner_id: str,
+    tag_id: str,
+    *,
+    status: RecipeStatus | None = RecipeStatus.ACTIVE,
+) -> int:
+    query = (
+        select(func.count(RecipeTag.recipe_id))
+        .join(Tag, Tag.id == RecipeTag.tag_id)
+        .join(Recipe, Recipe.id == RecipeTag.recipe_id)
+        .where(Tag.owner_id == owner_id, RecipeTag.tag_id == tag_id)
     )
+    if status is not None:
+        query = query.where(Recipe.status == status)
+    return session.scalar(query) or 0
 
 
 def list_active_tags_by_ids(session: Session, owner_id: str, tag_ids: list[str]) -> list[Tag]:

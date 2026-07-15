@@ -11,7 +11,7 @@ from app.db.base import Base
 from app.db.session import get_session
 from app.local.users import ensure_default_user
 from app.main import create_app
-from app.models import Ingredient, Recipe, RecipeEmbedding, RecipeEmbeddingStatus, SourceName, Tag, User
+from app.models import Ingredient, Recipe, RecipeEmbedding, RecipeEmbeddingStatus, RecipeStatus, SourceName, Tag, User
 from app.services.search import _cosine_distance
 from tests.api.support import install_local_user_override
 
@@ -118,6 +118,24 @@ def test_semantic_search_ranks_ready_embeddings_and_is_owner_scoped(monkeypatch,
     assert '"returned_count": 2' in message
     assert '"duration_ms"' in message
     assert '"ownerId"' not in message
+
+
+def test_search_and_suggestions_exclude_pending_recipes(monkeypatch):
+    client, SessionLocal = client_with_session()
+    with SessionLocal() as session:
+        user = ensure_default_user(session)
+        add_recipe(session, owner_id=user.id, title="Active Soup", vector=[1.0, 0.0])
+        pending = add_recipe(session, owner_id=user.id, title="Pending Soup", vector=[1.0, 0.0])
+        pending.status = RecipeStatus.DELETION_PENDING
+        session.commit()
+    monkeypatch.setattr("app.services.search.get_embedding_provider", lambda: ("test", StaticEmbeddingProvider([1.0, 0.0])))
+
+    search_response = client.post("/search", json={"text": "soup", "limit": 10, "offset": 0})
+    suggestions_response = client.get("/search/suggestions?q=soup")
+
+    assert [item["title"] for item in search_response.json()["items"]] == ["Active Soup"]
+    title_suggestions = [item["label"] for item in suggestions_response.json()["items"] if item["type"] == "title"]
+    assert title_suggestions == ["Active Soup"]
 
 
 def test_cosine_distance_handles_vector_like_database_values():

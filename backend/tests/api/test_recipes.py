@@ -29,6 +29,7 @@ from app.models import (
     RecipeReviewFlag,
     RecipeReviewFlagStatus,
     RecipeReviewFlagType,
+    RecipeStatus,
     SourceName,
     SourceType,
     Tag,
@@ -138,6 +139,27 @@ def seed_recipe(SessionLocal):
         return recipe.id, recipe.review_flags[0].id
 
 
+def test_pending_recipe_is_hidden_from_recipe_queries_and_api():
+    client, SessionLocal = client_with_session()
+    with SessionLocal() as session:
+        user = ensure_default_user(session)
+        active = Recipe(owner_id=user.id, title="Active", instructions=["Cook"])
+        pending = Recipe(
+            owner_id=user.id,
+            title="Pending",
+            instructions=["Cook"],
+            status=RecipeStatus.DELETION_PENDING,
+        )
+        session.add_all([active, pending])
+        session.commit()
+        pending_id = pending.id
+        assert [recipe.id for recipe in query_recipes(session, user.id)] == [active.id]
+
+    assert [recipe["id"] for recipe in client.get("/recipes").json()["items"]] == [active.id]
+    assert client.get(f"/recipes/{pending_id}").status_code == 404
+    assert client.patch(f"/recipes/{pending_id}", json={"title": "Changed"}).status_code == 404
+
+
 def test_delete_recipe_preserves_import_history_and_deletes_recipe_media(tmp_path, monkeypatch):
     monkeypatch.setenv("UPLOAD_DIR", str(tmp_path))
     get_settings.cache_clear()
@@ -176,20 +198,63 @@ def test_delete_recipe_succeeds_when_media_cleanup_fails(tmp_path, monkeypatch):
     get_settings.cache_clear()
     client, SessionLocal = client_with_session()
     recipe_id, _ = seed_recipe(SessionLocal)
+    with SessionLocal() as session:
+        recipe = session.get(Recipe, recipe_id)
+        assert recipe is not None
+        recipe.images.append(
+            RecipeImage(
+                storage_key="second.jpg",
+                original_name="second.jpg",
+                mime_type="image/jpeg",
+                size_bytes=10,
+                position=1,
+            )
+        )
+        session.commit()
     attempted_keys: list[str] = []
 
     def fail_delete(_storage, storage_key: str) -> None:
         attempted_keys.append(storage_key)
-        raise OSError("storage unavailable")
+        if storage_key == "source.jpg":
+            raise OSError("storage unavailable")
 
     monkeypatch.setattr("app.services.recipes.LocalStorageService.delete", fail_delete)
 
     response = client.delete(f"/recipes/{recipe_id}")
 
     assert response.status_code == 204
-    assert attempted_keys == ["source.jpg"]
+    assert attempted_keys == ["second.jpg", "source.jpg"]
     with SessionLocal() as session:
-        assert session.get(Recipe, recipe_id) is None
+        recipe = session.get(Recipe, recipe_id)
+        assert recipe is not None
+        assert recipe.status == RecipeStatus.DELETION_PENDING
+    assert client.get(f"/recipes/{recipe_id}").status_code == 404
+    assert client.get("/recipes").json()["items"] == []
+
+
+def test_delete_recipe_keeps_pending_status_when_final_database_delete_fails(tmp_path, monkeypatch):
+    monkeypatch.setenv("UPLOAD_DIR", str(tmp_path))
+    get_settings.cache_clear()
+    client, SessionLocal = client_with_session()
+    recipe_id, _ = seed_recipe(SessionLocal)
+    (tmp_path / "source.jpg").write_bytes(b"recipe image")
+    original_commit = Session.commit
+
+    def fail_final_commit(session: Session) -> None:
+        if any(isinstance(item, Recipe) for item in session.deleted):
+            raise RuntimeError("database unavailable")
+        original_commit(session)
+
+    monkeypatch.setattr(Session, "commit", fail_final_commit)
+
+    response = client.delete(f"/recipes/{recipe_id}")
+
+    assert response.status_code == 204
+    assert not (tmp_path / "source.jpg").exists()
+    with SessionLocal() as session:
+        recipe = session.get(Recipe, recipe_id)
+        assert recipe is not None
+        assert recipe.status == RecipeStatus.DELETION_PENDING
 
 
 def test_recipe_list_and_detail_include_sources_and_flags():

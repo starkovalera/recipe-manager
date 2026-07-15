@@ -5,6 +5,7 @@ from sqlalchemy import create_engine, insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app import models
 from app.access.constants import UserRole
 from app.auth.constants import AuthProviderType
 from app.db.base import Base
@@ -274,6 +275,16 @@ def test_recipe_cover_image_is_nullable_relationship():
 
     assert saved is not None
     assert saved.cover_image is None
+
+
+def test_recipe_defaults_to_active_status():
+    session = create_session()
+    user = ensure_default_user(session)
+    recipe = Recipe(owner_id=user.id, title="Toast", instructions=["Toast bread"])
+    session.add(recipe)
+    session.commit()
+
+    assert recipe.status is models.RecipeStatus.ACTIVE
 
 
 def test_deleting_recipe_with_cover_image_deletes_image_graph():

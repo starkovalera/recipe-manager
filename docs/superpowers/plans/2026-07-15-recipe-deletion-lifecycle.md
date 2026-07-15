@@ -25,10 +25,10 @@
 - Create: next migration under `backend/alembic/versions/`
 - Modify: `backend/tests/db/test_migrations.py`
 
-- [ ] Add failing model and migration assertions for `ACTIVE` default and the typed status column.
-- [ ] Run focused tests and verify the expected failure.
-- [ ] Add `RecipeStatus`, `Recipe.status`, and the PostgreSQL/SQLite-compatible migration.
-- [ ] Run focused tests and verify they pass.
+- [x] Add failing model and migration assertions for `ACTIVE` default and the typed status column.
+- [x] Run focused tests and verify the expected failure.
+- [x] Add `RecipeStatus`, `Recipe.status`, and the PostgreSQL/SQLite-compatible migration.
+- [x] Run focused tests and verify they pass.
 
 ### Task 2: Active Recipe Query Boundary
 
@@ -40,10 +40,10 @@
 - Modify: `backend/app/embeddings/queries.py`
 - Modify focused query/API tests in the matching `backend/tests/` domains.
 
-- [ ] Add failing tests showing pending recipes are absent from recipe APIs, collections, tag counts, search/autocomplete, Search Debug, and embeddings.
-- [ ] Run focused tests and verify the expected failures.
-- [ ] Add explicit `RecipeStatus | None = RecipeStatus.ACTIVE` filters at the query boundary.
-- [ ] Run focused tests and verify they pass.
+- [x] Add failing tests showing pending recipes are absent from recipe APIs, collections, tag counts, search/autocomplete, Search Debug, and embeddings.
+- [x] Run focused tests and verify the expected failures.
+- [x] Add explicit `RecipeStatus | None = RecipeStatus.ACTIVE` filters at the query boundary.
+- [x] Run focused tests and verify they pass.
 
 ### Task 3: Two-Stage Recipe Deletion
 
@@ -52,11 +52,11 @@
 - Modify: `backend/app/recipes/queries.py`
 - Modify: `backend/tests/api/test_recipes.py`
 
-- [ ] Add failing tests for durable pending transition, successful cleanup/final delete, partial storage failure, and final database failure.
-- [ ] Run focused tests and verify the expected failures.
-- [ ] Implement row-locked active-to-pending transition, out-of-transaction media cleanup, and a separate pending-row delete transaction.
-- [ ] Keep cleanup failures logged and return normally after the pending transition.
-- [ ] Run focused tests and verify they pass.
+- [x] Add failing tests for durable pending transition, successful cleanup/final delete, partial storage failure, and final database failure.
+- [x] Run focused tests and verify the expected failures.
+- [x] Implement row-locked active-to-pending transition, out-of-transaction media cleanup, and a separate pending-row delete transaction.
+- [x] Keep cleanup failures logged and return normally after the pending transition.
+- [x] Run focused tests and verify they pass.
 
 ### Task 4: Documentation And Verification
 
@@ -64,9 +64,9 @@
 - Modify: `docs/future-work.md`
 - Propose updates to `docs/background-processing-plan.md` after implementation review.
 
-- [ ] Add the scheduled stale pending-recipe cleanup job to future work.
-- [ ] Run `uv run ruff check app tests`.
-- [ ] Run Ruff format checks for every changed Python file.
-- [ ] Run full `uv run pytest -q`.
-- [ ] Run `git diff --check` and review against `docs/refactoring-guidelines.md`.
+- [x] Add the scheduled stale pending-recipe cleanup job to future work.
+- [x] Run `uv run ruff check app tests`.
+- [x] Run Ruff format checks for every changed Python file.
+- [x] Run full `uv run pytest -q`.
+- [x] Run `git diff --check` and review against `docs/refactoring-guidelines.md`.
 - [ ] Propose invariant updates and stop for user review before committing implementation.
