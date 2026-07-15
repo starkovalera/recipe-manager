@@ -5,12 +5,13 @@ Revises: 20260629_0007
 Create Date: 2026-06-29
 """
 
-from alembic import op
 import hashlib
 import json
 import re
+
 import sqlalchemy as sa
 
+from alembic import op
 
 revision = "20260629_0008"
 down_revision = "20260629_0007"
@@ -46,9 +47,7 @@ def _backfill_existing_recipes() -> None:
             """
         )
     ).mappings()
-    ingredient_rows = connection.execute(
-        sa.text("SELECT recipe_id, search_name FROM ingredients ORDER BY position, id")
-    ).mappings()
+    ingredient_rows = connection.execute(sa.text("SELECT recipe_id, search_name FROM ingredients ORDER BY position, id")).mappings()
     ingredients_by_recipe: dict[str, list[str]] = {}
     for ingredient in ingredient_rows:
         ingredients_by_recipe.setdefault(ingredient["recipe_id"], []).append(ingredient["search_name"] or "")

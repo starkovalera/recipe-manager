@@ -5,8 +5,9 @@ Revises: 20260629_0008
 Create Date: 2026-07-02
 """
 
-from alembic import op
 import sqlalchemy as sa
+
+from alembic import op
 
 try:
     from pgvector.sqlalchemy import Vector

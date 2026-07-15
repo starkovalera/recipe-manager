@@ -43,10 +43,7 @@ def upgrade() -> None:
     if bind.dialect.name != "postgresql":
         return
 
-    op.execute(
-        "ALTER TYPE importeventtype "
-        "ADD VALUE IF NOT EXISTS 'IMPORT_SECONDARY_RESOURCE_UPLOAD_FAILED'"
-    )
+    op.execute("ALTER TYPE importeventtype ADD VALUE IF NOT EXISTS 'IMPORT_SECONDARY_RESOURCE_UPLOAD_FAILED'")
 
 
 def downgrade() -> None:
@@ -62,11 +59,7 @@ def downgrade() -> None:
         postgresql_using="event_type::text",
         existing_nullable=False,
     )
-    op.execute(
-        "UPDATE job_events "
-        "SET event_type = 'RAW_SOURCES_DOWNLOADED' "
-        "WHERE event_type = 'IMPORT_SECONDARY_RESOURCE_UPLOAD_FAILED'"
-    )
+    op.execute("UPDATE job_events SET event_type = 'RAW_SOURCES_DOWNLOADED' WHERE event_type = 'IMPORT_SECONDARY_RESOURCE_UPLOAD_FAILED'")
     IMPORT_EVENT_TYPE_ENUM.drop(bind, checkfirst=True)
     OLD_IMPORT_EVENT_TYPE_ENUM.create(bind, checkfirst=True)
     op.alter_column(

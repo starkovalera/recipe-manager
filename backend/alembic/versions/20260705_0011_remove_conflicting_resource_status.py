@@ -7,7 +7,6 @@ Create Date: 2026-07-05
 
 from alembic import op
 
-
 revision = "20260705_0011"
 down_revision = "20260703_0010"
 branch_labels = None
@@ -24,10 +23,7 @@ def _replace_postgres_enum(values: tuple[str, ...]) -> None:
     op.execute("UPDATE recipe_resources SET status = 'UNKNOWN' WHERE status::text = 'CONFLICTING'")
     op.execute(f"ALTER TYPE {OLD_ENUM} RENAME TO {OLD_ENUM}_old")
     op.execute(f"CREATE TYPE {NEW_ENUM} AS ENUM ({', '.join(repr(value) for value in values)})")
-    op.execute(
-        f"ALTER TABLE recipe_resources ALTER COLUMN status TYPE {NEW_ENUM} "
-        f"USING status::text::{NEW_ENUM}"
-    )
+    op.execute(f"ALTER TABLE recipe_resources ALTER COLUMN status TYPE {NEW_ENUM} USING status::text::{NEW_ENUM}")
     op.execute(f"DROP TYPE {OLD_ENUM}_old")
     op.execute(f"ALTER TYPE {NEW_ENUM} RENAME TO {OLD_ENUM}")
 

@@ -7,6 +7,24 @@ Current implemented API surface.
 - `GET /health`
   - Response: `{ "status": "ok" }`
 
+## Authentication and Current User
+
+All routes except health, Clerk webhooks, and FastAPI documentation are protected by Clerk JWT validation at KrakenD. FastAPI receives only the verified provider subject and remains authoritative for internal-user status, roles, owner scoping, and business authorization.
+
+- `POST /me/provision`
+  - Explicitly resolves or creates the internal user for the verified subject.
+  - Returns `201` when a new user, settings, and default tags are created atomically; repeated/existing-user calls return `200`.
+  - Accepts no identity fields in the request body.
+- `GET /me`
+  - Requires an already provisioned active internal user.
+  - Returns `{ id, email, features }`; features are backend-derived capabilities and roles are not exposed.
+- `POST /me/deletion`
+  - Atomically changes the current user to `DELETION_PENDING` and returns `202` before publishing asynchronous deletion work.
+  - The final active superadmin cannot request deletion.
+- `POST /webhooks/clerk`
+  - Public at KrakenD, but requires a valid Svix signature over the raw body.
+  - Idempotently processes `user.created`, `user.updated`, and `user.deleted` events.
+
 ## Recipes
 
 - `GET /recipes?limit=24&offset=0`
@@ -113,32 +131,49 @@ Current implemented API surface.
 ## Internal
 
 - `GET /internal/import-jobs`
-  - Internal diagnostics endpoint for the current local/admin workflow.
+  - Requires `DEBUG` or `SUPERADMIN`.
   - Returns import jobs with owner/client ids, sources, status history, and job events.
-  - Real admin-only authorization is deferred to Phase 5.
+  - `DEBUG` sees owned jobs; `SUPERADMIN` sees all jobs.
 - `GET /internal/embeddings`
-  - Internal diagnostics endpoint for the current local/admin workflow.
+  - Requires `DEBUG` or `SUPERADMIN`.
   - Returns one row per existing `RecipeEmbedding`.
   - Rows include recipe embedding status, model, input hash, attempts, errors, timestamps, owner id, recipe title, and embedding event history.
   - Recipes without a `RecipeEmbedding` row are not returned.
   - Event history is internal audit/debug data only; current embedding status is read from `RecipeEmbedding.status`, not computed from events.
-  - Real admin-only authorization is deferred to Phase 5.
+  - `DEBUG` sees owned recipe embeddings; `SUPERADMIN` sees all embeddings.
 - `POST /internal/embeddings/{recipeId}/retry`
-  - Internal diagnostics action for the current local/admin workflow.
+  - Requires `DEBUG` or `SUPERADMIN`; retry is allowed for an owned embedding or any embedding for `SUPERADMIN`.
   - Requests manual embedding retry for an existing `RecipeEmbedding` row.
   - Writes `retry_requested`, `scheduled`, and, if queueing succeeds, `enqueued` embedding events.
-  - Real admin-only authorization is deferred to Phase 5.
+- `POST /internal/import-jobs/{jobId}/retry`
+  - Requires `DEBUG` or `SUPERADMIN`; retry is allowed for an owned job or any job for `SUPERADMIN`.
+  - Reuses the ordinary retry business flow and enqueue compensation.
 - `POST /internal/search/explain`
-  - Admin-only diagnostics endpoint for semantic search debugging.
+  - Requires `DEBUG` or `SUPERADMIN`.
   - Accepts the same body shape as `POST /search`.
   - Returns effective filters, provider/model, candidate/result counts, ranked results, and debug distance/hash data where available.
   - Does not persist search debug snapshots.
-- `GET /internal/recipes/{recipeId}/embedding-input`
-  - Admin-only diagnostics endpoint.
-  - Returns the current embedding input text and hash for one recipe.
-  - Uses the same embedding input builder that embedding jobs use.
+  - `DEBUG` is owner-filtered; `SUPERADMIN` may inspect cross-user search results, but cannot open foreign ordinary recipe details.
+- `GET /internal/access/users`
+  - `SUPERADMIN` only. Returns users, lifecycle status, fixed available roles, and role statistics.
+- `PUT /internal/access/users/{userId}/roles/{role}`
+  - `SUPERADMIN` only. Idempotently assigns a fixed role.
+- `DELETE /internal/access/users/{userId}/roles/{role}`
+  - `SUPERADMIN` only. Idempotently revokes a role except the final `SUPERADMIN` assignment.
+- `PATCH /internal/access/users/{userId}/status`
+  - `SUPERADMIN` only. Supports `ACTIVE` and `DEACTIVATED`; generic administration cannot set `DELETION_PENDING`.
+- `GET /internal/invitations`
+  - `SUPERADMIN` only. Returns sanitized local invitation history.
+- `POST /internal/invitations`
+  - `SUPERADMIN` only. Creates a Clerk invitation and stores sanitized metadata after provider success.
+- `POST /internal/invitations/{invitationId}/revoke`
+  - `SUPERADMIN` only. Idempotently revokes a pending invitation.
 
-## Current Deferrals
+Recipe debug resources, embedding metadata, and embedding input are included only in owned recipe detail responses for users with `DEBUG`. The former standalone internal embedding-input endpoint has been removed.
 
-- Dedicated multi-user authorization is deferred to Phase 5.
-- Internal/admin pages are visible in the local/admin workflow until Phase 5 role checks are implemented.
+## Authorization Boundary
+
+- Ordinary recipes, media, collections, tags, notifications, imports, and search stay owner-scoped for every role.
+- `SUPERADMIN` broadens explicitly approved internal diagnostics and administration only.
+- `DEBUG` alone does not grant cross-user access.
+- Frontend capability visibility is UX only; every backend endpoint enforces its own role and owner checks.

@@ -1,6 +1,6 @@
-# KrakenD Local Gateway
+# KrakenD Local Authenticated Gateway
 
-KrakenD Community Edition `2.13.8` is the local pass-through gateway for the Recipe Manager frontend.
+KrakenD Community Edition `2.13.8` is the local browser ingress and Clerk JWT validation boundary.
 
 ```text
 React/Vite :5173
@@ -9,40 +9,78 @@ React/Vite :5173
     -> PostgreSQL :5432 / Redis :6379
 ```
 
-FastAPI intentionally remains outside Docker and directly reachable on `127.0.0.1:8010` during this compatibility phase. The gateway has no Compose dependency on FastAPI, PostgreSQL, or Redis.
+FastAPI remains directly reachable on `127.0.0.1:8010` for upstream diagnostics. It must not be exposed as a production ingress because direct access bypasses JWT validation.
 
-## Pass-Through Contract
+## Authentication Boundary
 
-Every current FastAPI method/path pair is declared explicitly in `krakend.json`. Both endpoint and backend use `no-op` encoding so KrakenD preserves multipart and JSON request bodies, binary media, backend status codes, response headers, JSON error bodies, and empty `204` responses.
+Protected browser requests carry a Clerk Bearer token to KrakenD. The Flexible Configuration template:
 
-`input_query_strings: ["*"]` temporarily forwards all existing query parameters, including repeated values. This is a local compatibility policy, not the intended production allowlist.
+- validates RS256 signature, `CLERK_ISSUER`, and `CLERK_JWKS_URL`;
+- caches JWKS data;
+- propagates the verified `sub` claim as `X-Authenticated-Subject`;
+- does not forward the browser `Authorization` header;
+- does not allow the browser to provide the trusted subject header through CORS.
 
-FastAPI CORS remains enabled. KrakenD also handles local browser CORS for Vite origins on ports `5173`.
+FastAPI trusts the propagated subject as an authenticated identity, then performs internal-user status, role, owner, and domain checks. Gateway authentication never replaces backend authorization.
 
-The CORS header allowlist also contains `*` as a local KrakenD `2.13.8` compatibility workaround. Without it, the pinned runtime accepts each configured custom header separately but rejects a browser preflight that requests multiple allowed headers together. Origins remain restricted to the two local Vite URLs, and the gateway remains bound to loopback. Reassess this workaround before using the configuration outside local development.
+Public routes are limited to health, Clerk webhooks, and FastAPI documentation routes. `POST /webhooks/clerk` is public because provider webhooks have no end-user session; FastAPI verifies its raw body with Svix signature headers.
+
+## Route Contract
+
+Every FastAPI method/path pair is declared in `config/endpoints.json`. The template uses `no-op` encoding to preserve multipart and JSON bodies, binary media, backend status codes, response headers, JSON errors, and empty `204` responses.
+
+`input_query_strings: ["*"]` temporarily forwards all query parameters, including repeated values. This is a local compatibility policy, not the intended production allowlist.
+
+`backend/tests/infra/test_krakend_config.py` enforces:
+
+- exact OpenAPI/gateway route parity;
+- unique route entries;
+- the complete public-route allowlist;
+- JWT validation and trusted-subject propagation;
+- no upstream Authorization forwarding;
+- required Svix headers on the webhook route.
+
+## Local Configuration
+
+Create an ignored root `.env`:
+
+```dotenv
+CLERK_ISSUER=https://<instance>.clerk.accounts.dev
+CLERK_JWKS_URL=https://<instance>.clerk.accounts.dev/.well-known/jwks.json
+```
+
+The Compose file permits config-only diagnostics without values, but `entrypoint.sh` refuses to start KrakenD until both variables are non-empty.
+
+## CORS
+
+KrakenD permits local Vite origins on ports `5173`, Bearer authentication, multipart uploads, mutation methods, and the existing client/idempotency headers. FastAPI CORS remains enabled for direct diagnostics.
+
+The local configuration is bound to loopback. Before production, verify the narrowest working headers/origins against the selected KrakenD version and replace the wildcard query forwarding with explicit endpoint allowlists.
 
 ## Validation and Runtime
 
-Validate the static config in the pinned image:
+Validate the Flexible Configuration render in the pinned image:
 
 ```powershell
 docker build --target validator -t recipe-manager-krakend-check ./infra/krakend
+docker compose build krakend
 ```
 
-Build and start the gateway:
+Build and start:
 
 ```powershell
 docker compose up -d --build krakend
 curl.exe http://127.0.0.1:8081/__health
+curl.exe http://127.0.0.1:8081/health
 ```
 
-Inspect logs or stop the gateway:
+Inspect or stop:
 
 ```powershell
 docker compose logs -f krakend
 docker compose stop krakend
 ```
 
-`/__health` checks KrakenD itself. `/health` is an explicitly configured pass-through route and requires FastAPI to be running on port `8010`.
+`/__health` checks KrakenD itself. `/health` is public but proxied to FastAPI and fails when the upstream is unavailable.
 
-Clerk/JWT validation, trusted identity headers, rate limits, TLS, production networking, FastAPI containerization, plugins, templates, and response transformations are deferred.
+For a complete browser and API checklist, use `docs/manual-testing/krakend-pass-through.md` and `docs/manual-testing/clerk-lifecycle.md`.

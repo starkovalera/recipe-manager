@@ -64,7 +64,7 @@ The repository contains newer approved decisions that supersede provider-specifi
 - [x] User activation/deactivation frontend controls and backend administration.
 - [x] `POST /me/deletion`, background user deletion, and reconciliation command.
 - [x] Dedicated frontend account-deletion interaction, provisioning, and account-state screens.
-- [ ] Final documentation and full verification.
+- [x] Final documentation and full verification.
 
 ---
 
@@ -265,6 +265,8 @@ POST /me/provision
 
 ## Iteration H: Documentation, Reconciliation, And Closeout
 
+Status: completed and approved.
+
 **Files:**
 - Modify: `README.md`
 - Modify: `backend/.env.example`
@@ -274,24 +276,22 @@ POST /me/provision
 - Create or modify: `docs/manual-testing/` Clerk lifecycle instructions
 - Create: `docs/authentication-and-authorization.md`
 - Modify: `docs/background-processing-plan.md`
-- Modify: `docs/invariants.md`
 - Modify: `docs/future-work.md`
 - Update this plan's final statuses
 
-- [ ] Document Clerk CLI setup, env names, invite-only flow, startup order, webhook relay, role bootstrap, explicit provisioning, PREVIEW seed behavior, deletion worker, and direct-FastAPI local limitation without real keys.
-- [ ] Create a complete authentication and authorization architecture document covering identity ownership, trust boundaries, token flow, KrakenD validation, FastAPI identity resolution, local user provisioning, roles, owner scoping, account lifecycle, storage, workers, and failure handling.
-- [ ] Document detailed end-to-end scenarios for ordinary login, first login through an invitation, account deletion, password changes, and email changes, including expected UI states, backend/provider calls, database transitions, webhook ordering, retries, and exceptional cases.
-- [ ] Add visually readable Mermaid component, sequence, state, and data-flow diagrams for the overall architecture and every documented lifecycle scenario. Verify that every diagram renders without syntax errors.
-- [ ] Run full backend pytest, Ruff check/format, frontend tests/typecheck/build, migration tests, `docker compose config`, and KrakenD build/render validation.
-- [ ] Reconcile every FastAPI route/method with gateway metadata and verify public/protected classification.
-- [ ] Re-check owner isolation, local roles, no-token persistence, import invariants, and `docs/refactoring-guidelines.md`.
-- [ ] Review relevant future-work items and move only actually completed items out of `docs/future-work.md`.
-- [ ] Report manual Clerk checks still required; do not claim real email, webhook, sign-in, invitation, or deletion success without user verification.
-- [ ] Propose invariant and future-work updates, wait for approval, update documents, and stop for subphase review.
+- [x] Document Clerk CLI setup, env names, invite-only flow, startup order, webhook relay, role bootstrap, explicit provisioning, PREVIEW seed behavior, deletion worker, and direct-FastAPI local limitation without real keys.
+- [x] Create a complete authentication and authorization architecture document covering identity ownership, trust boundaries, token flow, KrakenD validation, FastAPI identity resolution, local user provisioning, roles, owner scoping, account lifecycle, storage, workers, and failure handling.
+- [x] Document detailed end-to-end scenarios for ordinary login, first login through an invitation, account deletion, password changes, and email changes, including expected UI states, backend/provider calls, database transitions, webhook ordering, retries, and exceptional cases.
+- [x] Add visually readable Mermaid component, sequence, state, and data-flow diagrams for the overall architecture and every documented lifecycle scenario. Verify that every diagram renders without syntax errors.
+- [x] Run full backend pytest, Ruff check/format, frontend tests/typecheck/build, migration tests, `docker compose config`, and KrakenD build/render validation.
+- [x] Reconcile every FastAPI route/method with gateway metadata and verify public/protected classification.
+- [x] Re-check owner isolation, local roles, no-token persistence, import invariants, and `docs/refactoring-guidelines.md`.
+- [x] Review relevant future-work items and move only actually completed items out of `docs/future-work.md`.
+- [x] Report manual Clerk checks still required; do not claim real email, webhook, sign-in, invitation, or deletion success without user verification.
+- [x] Propose invariant and future-work updates, wait for approval, update documents, and stop for subphase review.
 
 ## Relevant Existing Future Work
 
-- Move default-tag initialization into the single new-user creation use case. This is included in Iteration B.
 - Distinguish user-triggered and admin-triggered import retries and define notification/audit behavior. Authentication enables this distinction, but changing import retry semantics is not included in this subphase unless separately approved.
 - Expose backend-owned recipe editing limits instead of independent frontend environment values. This belongs to user settings/capabilities work but is not required by Clerk Phase A.
 - Scheduled failed-import/orphan-media cleanup remains separate from account deletion. The deletion actor must still clean media owned by the deleted user.

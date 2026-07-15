@@ -11,6 +11,8 @@ Use this checklist after the automated gateway checks pass.
 - [ ] Dramatiq worker is running.
 - [ ] Frontend is running on `127.0.0.1:5173`.
 - [ ] `frontend/.env` contains `VITE_API_BASE_URL=http://127.0.0.1:8081`.
+- [ ] Root `.env` contains the Clerk issuer and JWKS URL used by the frontend instance.
+- [ ] A real Clerk development session is available for protected browser checks.
 
 ## Reachability
 
@@ -21,6 +23,10 @@ Use this checklist after the automated gateway checks pass.
 
 ## User and Admin
 
+- [ ] A protected route without a Bearer token is rejected by KrakenD.
+- [ ] A valid Clerk JWT reaches FastAPI as the verified subject and the Authorization header is not forwarded upstream.
+- [ ] A browser-supplied trusted subject header cannot override identity.
+- [ ] `POST /me/provision` succeeds before the product mounts.
 - [ ] `/me` loads through KrakenD.
 - [ ] Admin visibility matches the capabilities returned for the current user.
 - [ ] Role management loads and a non-final role can be assigned and revoked.
@@ -67,7 +73,7 @@ Use this checklist after the automated gateway checks pass.
 
 ## Direct Comparison
 
-Compare representative requests through both URLs:
+Compare public requests through both URLs. For protected direct FastAPI diagnostics, explicitly provide the same trusted subject header that KrakenD derives from the validated JWT; this bypass is local diagnostics only.
 
 ```text
 http://127.0.0.1:8010/<path>

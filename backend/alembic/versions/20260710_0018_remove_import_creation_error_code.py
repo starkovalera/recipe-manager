@@ -36,10 +36,7 @@ def _replace_postgres_enum(values: tuple[str, ...], value_mapping: dict[str, str
 
     op.execute(f"ALTER TYPE {ENUM_NAME} RENAME TO {ENUM_NAME}_old")
     op.execute(f"CREATE TYPE {TEMP_ENUM_NAME} AS ENUM ({', '.join(repr(value) for value in values)})")
-    op.execute(
-        f"ALTER TABLE import_jobs ALTER COLUMN error_code TYPE {TEMP_ENUM_NAME} "
-        f"USING ({value_expression})::{TEMP_ENUM_NAME}"
-    )
+    op.execute(f"ALTER TABLE import_jobs ALTER COLUMN error_code TYPE {TEMP_ENUM_NAME} USING ({value_expression})::{TEMP_ENUM_NAME}")
     op.execute(f"DROP TYPE {ENUM_NAME}_old")
     op.execute(f"ALTER TYPE {TEMP_ENUM_NAME} RENAME TO {ENUM_NAME}")
 
@@ -53,10 +50,7 @@ def upgrade() -> None:
         )
         return
 
-    op.execute(
-        "UPDATE import_jobs SET error_code = 'IMPORT_FAILED' "
-        "WHERE error_code = 'IMPORT_CREATION_FAILED'"
-    )
+    op.execute("UPDATE import_jobs SET error_code = 'IMPORT_FAILED' WHERE error_code = 'IMPORT_CREATION_FAILED'")
 
 
 def downgrade() -> None:

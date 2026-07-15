@@ -54,7 +54,9 @@ def test_import_job_context_to_dict_excludes_sources() -> None:
         status=ImportJobStatus.QUEUED,
     )
     job.owner = User(id="owner-1", email="owner@example.com", settings=UserSettings(recipe_language="ru"))
-    job.sources = [ImportJobSource(id="source-1", type=SourceType.URL, status=ImportSourceStatus.READY, url="https://example.com", position=0)]
+    job.sources = [
+        ImportJobSource(id="source-1", type=SourceType.URL, status=ImportSourceStatus.READY, url="https://example.com", position=0)
+    ]
 
     payload = ImportJobContext.from_job(job).to_dict()
 

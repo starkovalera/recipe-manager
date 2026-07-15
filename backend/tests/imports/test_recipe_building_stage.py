@@ -43,7 +43,10 @@ def test_build_recipe_applies_fields_tags_and_ingredients():
     assert recipe.cook_time_minutes == 25
     assert recipe.author_name == "ai_author"
     assert [tag.name for tag in recipe.tags] == ["quick"]
-    assert [(ingredient.name, ingredient.search_name, ingredient.quantity, ingredient.unit, ingredient.note) for ingredient in recipe.ingredients] == [
+    assert [
+        (ingredient.name, ingredient.search_name, ingredient.quantity, ingredient.unit, ingredient.note)
+        for ingredient in recipe.ingredients
+    ] == [
         ("Cottage Cheese", "cottage cheese", "200", "g", "soft"),
         ("Egg", "egg", None, None, None),
     ]

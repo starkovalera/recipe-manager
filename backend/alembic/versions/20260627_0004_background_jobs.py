@@ -5,9 +5,9 @@ Revises: 20260626_0003
 Create Date: 2026-06-27
 """
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 revision = "20260627_0004"
 down_revision = "20260626_0003"
@@ -26,10 +26,7 @@ def upgrade() -> None:
 
     if _is_postgresql():
         op.execute("ALTER TYPE importjobstatus RENAME TO importjobstatus_old")
-        op.execute(
-            "CREATE TYPE importjobstatus AS ENUM "
-            "('QUEUED', 'RUNNING', 'SUCCEEDED', 'SUCCEEDED_WITH_FLAGS', 'FAILED', 'CANCELLED')"
-        )
+        op.execute("CREATE TYPE importjobstatus AS ENUM ('QUEUED', 'RUNNING', 'SUCCEEDED', 'SUCCEEDED_WITH_FLAGS', 'FAILED', 'CANCELLED')")
         op.execute(
             """
             ALTER TABLE import_jobs

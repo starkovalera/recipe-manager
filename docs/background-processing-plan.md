@@ -121,6 +121,7 @@ This checklist applies to every phase. Any phase that touches import, resources,
 - Current AI `coverCandidate` output schema expects only `sourceRef` and `confidence`; the Python parsing layer keeps legacy `sourcePosition`, `crop`, and `reason` fields as `None` for compatibility with internal code/tests.
 - Current AI prompt text remains unchanged unless a separate prompt migration is explicitly approved.
 - External authentication identities are represented generically by `(auth_provider, auth_user_id)`. Raw JWTs, Bearer tokens, refresh tokens, session cookies, and invitation tickets are never persisted. KrakenD validates Clerk JWT issuer/JWKS data and forwards only the trusted subject; FastAPI does not repeat issuer validation.
+- Clerk Restricted mode is a required deployment setting whenever registration must be invite-only. Creating provider/local invitation records alone does not prevent uninvited public sign-up.
 - `AuthenticatedIdentityDep` derives identity only from the trusted gateway subject header and performs no database or provider work. `CurrentUserDep` uses the same request `SessionDep` as the handler, performs one short read-only transaction, never provisions or mutates a user, returns `USER_NOT_PROVISIONED` for a missing mapping, and rejects inactive account statuses with their dedicated errors.
 - `POST /me/provision` is the only synchronous interactive-user provisioning path. It accepts no client-selected identity or email, is idempotent, does not call the auth provider or change settings/roles for an existing active user, and never auto-links an identity by email. A missing user is resolved through the cached auth provider outside a database transaction and then created atomically; uniqueness races are recovered by re-reading the committed identity or returning `EMAIL_ALREADY_LINKED`.
 - Until mandatory account-language onboarding is implemented, every newly provisioned user is created `ACTIVE` with no roles, one `UserSettings` row using the current backend recipe language, and the matching current default tag set in the same transaction. PREVIEW seeding reuses this initialization while preserving configured internal IDs and synchronizing the configured role set exactly.
@@ -137,6 +138,8 @@ This checklist applies to every phase. Any phase that touches import, resources,
 - Clerk webhook processing is idempotent by provider event id. The user lifecycle mutation and `ClerkWebhookEvent` idempotency row are committed atomically; an event is not marked processed when validation or domain synchronization fails.
 - Clerk `user.created` and `user.updated` synchronize users only by `(auth_provider, auth_user_id)`. Webhook-first and explicit-provision-first delivery converge to one internal user with one settings/default-tag set and no role changes. Accounts are never auto-linked by email.
 - A webhook email collision returns `EMAIL_ALREADY_LINKED` with HTTP `409`, rolls back the user mutation, and leaves the webhook event unprocessed so Svix may redeliver it after the conflict is resolved.
+- Clerk webhooks are asynchronous reconciliation and are never a synchronous login dependency. Interactive login readiness is established through idempotent `POST /me/provision`; delayed, duplicated, or temporarily unavailable webhooks must not prevent an otherwise valid user from entering the product after provisioning succeeds.
+- Password credentials and password-change behavior belong entirely to the authentication provider and never enter application persistence. The application synchronizes only the provider's verified primary email; an email collision never auto-links different external identities.
 - Account deletion begins with an atomic durable transition from `ACTIVE` to `DELETION_PENDING`; the protected request then publishes an id-only deletion worker and returns `202`. Repeating the request for an already-pending account is idempotent and republishes the worker. A broker publish failure never rolls the account back to `ACTIVE`; manual reconciliation can republish all pending accounts, and stale scheduled reconciliation remains future work.
 - User-initiated account deletion requires explicit irreversible confirmation. Once `POST /me/deletion` is accepted, the frontend clears its in-memory API token provider and query cache, permanently unmounts the product for that application session, requests Clerk sign-out, and shows a neutral deletion-requested screen; a later sign-out failure must not remount product data for an account already accepted for deletion.
 - The final active `SUPERADMIN` cannot request deletion. The transition serializes concurrent active-superadmin checks so two concurrent requests cannot remove every active superadmin.
@@ -197,6 +200,7 @@ This checklist applies to every phase. Any phase that touches import, resources,
 - In local development and preview, frontend API and media requests use the loopback KrakenD gateway at `http://127.0.0.1:8081`; FastAPI remains directly reachable at `http://127.0.0.1:8010` only as the upstream and for diagnostics during this compatibility phase.
 - Committed KrakenD route metadata must remain in route/method parity with the FastAPI OpenAPI contract. Flexible Configuration renders every application route to one matching upstream backend with `no-op` request/response handling; the current `input_query_strings: ["*"]` policy is a temporary local compatibility rule, not a production query policy.
 - KrakenD is the Clerk JWT authentication boundary: it validates signature, issuer, and JWKS data, removes the browser Authorization header before proxying, and injects only the verified subject header on protected routes. FastAPI remains authoritative for internal-user resolution, lifecycle status, authorization, owner scoping, validation, and business behavior. Direct FastAPI access is diagnostics-only and must provide a trusted identity header itself.
+- KrakenD public routes are limited to health, the Svix-verified Clerk webhook, and FastAPI documentation endpoints. Every product, current-user, media, and internal/admin route requires gateway JWT validation; committed route metadata and its public/protected classification must remain in parity with FastAPI OpenAPI.
 
 ## Phase Start and Completion Checkpoints
 
@@ -2630,7 +2634,7 @@ Goal: put a Dockerized KrakenD Community Edition pass-through gateway in front o
 
 Completion stops at the local compatibility gateway. Real authentication requirements clarification remains the next Phase 5 authorization step.
 
-### Subphase 5c: Clerk Authentication, Invitations, and Account Lifecycle - In Progress
+### Subphase 5c: Clerk Authentication, Invitations, and Account Lifecycle - Completed and Approved
 
 Goal: replace the local default-user identity with Clerk authentication while preserving the fixed local role model, `CurrentUserDep`, ordinary owner scoping, and the existing FastAPI/frontend boundary.
 
@@ -2643,6 +2647,8 @@ Goal: replace the local default-user identity with Clerk authentication while pr
 - Preserve owner-scoped product APIs, worker ownership through persisted ids, and backend-authoritative authorization.
 
 Detailed execution plan: `docs/superpowers/plans/2026-07-13-clerk-auth-invitations-account-lifecycle.md`.
+
+Canonical architecture and operations documentation: `docs/authentication-and-authorization.md` and `docs/manual-testing/clerk-lifecycle.md`.
 
 The former requirements checkpoint below is resolved by this subphase specification. The remaining user-settings and broader admin/UI design items stay in later approved work.
 
