@@ -18,6 +18,8 @@ After each completed phase or subphase, review the finished work and propose can
 ## Background Processing
 
 - Add a transactional outbox for embedding scheduling so persisted embedding lifecycle state and broker publishing are durably coordinated. Publishing is currently best-effort and intentionally secondary to completed user operations.
+- In the background-jobs phase immediately after authentication work is complete, add scheduled invitation-expiration reconciliation. Find local invitations still marked `PENDING` whose `expires_at` is in the past and idempotently move them to `EXPIRED`, even when no `user.created` webhook arrives. Define batching, scheduling, concurrent-run protection, and diagnostics together with the other scheduled maintenance jobs.
+- In the same background-jobs phase, add durable provider/local invitation reconciliation. Cover both divergence directions: the provider invitation remains active after local persistence and compensating revoke both fail, or the provider revoke succeeds while the local `PENDING -> REVOKED` update fails. Decide whether to reconcile through provider status/list APIs, a transactional operation/outbox record, or both; keep retries idempotent and record sanitized diagnostics without persisting invitation tickets or URLs.
 - Move failed-import primary-file cleanup out of `process_import_job` and retry handling into a scheduled background cleanup lifecycle:
   - `process_import_job` and `retry_import_job` must not delete original primary files, including after the last allowed attempt. Per-attempt secondary files may still be cleaned immediately.
   - Add a scheduled background job that finds import jobs which have remained `FAILED` longer than a configured retention period. The retention period must come from an environment-backed setting and must be evaluated using the current runtime value rather than snapshotted on each job.
@@ -41,6 +43,9 @@ After each completed phase or subphase, review the finished work and propose can
 
 ## Users and Account Onboarding
 
+- Add a durable webhook-conflict lifecycle and reconciliation workflow. Consider `PROCESSED` / `CONFLICT` states, sanitized conflict diagnostics, admin visibility, and an explicit replay operation instead of relying indefinitely on provider redelivery for persistent email collisions.
+- Protect user synchronization from out-of-order `user.updated` webhook delivery. Store and compare a provider event timestamp or monotonic provider version before applying mutable identity fields so an older event cannot restore a previous email address.
+- Optionally send the user a confirmation email only after asynchronous account cleanup has successfully removed all application-owned data. Define the sender, template, retry/idempotency behavior, and what happens when email delivery fails after deletion has already completed.
 - Expand the Admin page's current `Roles` tab into a `Users` tab. Add search by email, internal user ID, and authentication-provider user ID; filtering by roles and lifecycle statuses; include users of every status by default rather than only active users; and add pagination.
 - Add mandatory first-login account onboarding for newly provisioned users. Before entering the product, the user must choose exactly one immutable recipe language: English or Russian. Persist the selection in `UserSettings`, prevent later language changes, provide translated English and Russian default-tag sets, and create the matching tags only after the language is selected. Until selection succeeds, the account page is the only accessible product page.
 
@@ -65,6 +70,7 @@ After each completed phase or subphase, review the finished work and propose can
 ## Recipes and Manual Content
 
 - Expose shared recipe-editing domain limits through a backend-owned API/capabilities response instead of configuring them independently in the frontend. Replace `VITE_MAX_RECIPE_INGREDIENTS`, `VITE_MAX_RECIPE_INSTRUCTION_CHARS`, and `VITE_MAX_RECIPE_NOTE_CHARS` with values derived from the same backend settings that enforce these limits.
+- Let users upload additional images to an existing recipe. Persist each accepted image through the existing `RecipeImage`/`RecipeResource` relationship as a recipe-owned image resource, resize or recompress images that exceed the configured maximum dimensions or byte size, and enforce a backend-owned per-recipe maximum for resources of each applicable type. Define validation, frontend feedback, cover-selection behavior, deletion/storage cleanup, and concurrent-upload handling before implementation.
 - Add aligned frontend and backend length limits for every remaining editable recipe field, including title and author name. Ingredient count, instruction length, note length, and required ingredient names are already validated; backend validation remains authoritative.
 - Normalize recipe-title formatting and casing using an explicitly defined locale-aware rule without corrupting brands, abbreviations, or proper names.
 - Support fully manual recipes and standalone manual notes that can be added to collections alongside imported recipes. Clarify whether notes share a common collection-item abstraction with recipes or remain a separate entity.
@@ -72,6 +78,14 @@ After each completed phase or subphase, review the finished work and propose can
 ## Notifications
 
 - Add distinct colors and icons for different notification types while preserving accessible text/status cues.
+
+## Authors
+
+- Replace the free-form `Recipe.author_name` field with an owner-scoped `Author` entity. Store at least `owner_id` and `name`, enforce uniqueness of the normalized name within an owner, and support one or more optional author links. Relate recipes to authors through an explicit recipe-author association.
+- During import, resolve a parsed author name against the importing user's existing authors and create a new author only when no match exists. Define normalization carefully so casing or harmless whitespace does not create duplicates while genuinely different authors remain distinct.
+- In recipe editing, let the user select an existing author from a dropdown/search autocomplete or enter a new name. A new name creates an owner-scoped author and links it to the recipe as part of the save workflow.
+- Add an Authors page with search/list navigation and an author detail page showing editable name, editable links, and linked recipes.
+- Support merging multiple authors into one canonical author while preserving every recipe association and resolving duplicate links safely. The merge must be transactional, owner-scoped, and explicit about which author record survives.
 
 ## Flags and Review UX
 

@@ -64,6 +64,7 @@ class Settings(BaseSettings):
     clerk_secret_key: str | None = None
     clerk_api_url: str = "https://api.clerk.com"
     clerk_webhook_signing_secret: str | None = None
+    frontend_invitation_url: str = "http://127.0.0.1:5173/sign-up"
     preview_users_file: Path = BACKEND_ROOT / "config" / "preview-users.local.toml"
 
     ai_provider: Literal["auto", "fake", "openai"] = "auto"

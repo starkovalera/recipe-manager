@@ -11,7 +11,7 @@ from app.db.base import Base
 from app.db.session import get_session
 from app.local.users import ensure_default_user
 from app.main import create_app
-from app.models import User, UserRoleAssignment
+from app.models import User, UserRoleAssignment, UserStatus
 
 
 def client_with_session():
@@ -92,3 +92,36 @@ def test_role_management_rejects_invalid_role_and_unknown_user():
 
     assert client.put("/internal/access/users/local-user/roles/owner").status_code == 422
     assert client.put("/internal/access/users/missing/roles/DEBUG").status_code == 404
+
+
+def test_superadmin_deactivates_and_reactivates_user():
+    client, session_factory = client_with_session()
+    with session_factory() as session:
+        superadmin = ensure_default_user(session)
+        session.add(User(id="target", email="target@example.test"))
+        session.commit()
+        client.app.dependency_overrides[get_current_user] = lambda: superadmin
+
+    deactivated = client.patch("/internal/access/users/target/status", json={"status": "DEACTIVATED"})
+    reactivated = client.patch("/internal/access/users/target/status", json={"status": "ACTIVE"})
+
+    assert deactivated.status_code == 200
+    assert deactivated.json()["status"] == "DEACTIVATED"
+    assert reactivated.status_code == 200
+    assert reactivated.json()["status"] == "ACTIVE"
+
+
+def test_status_management_rejects_deletion_pending_and_last_active_superadmin_deactivation():
+    client, session_factory = client_with_session()
+    with session_factory() as session:
+        superadmin = ensure_default_user(session)
+        client.app.dependency_overrides[get_current_user] = lambda: superadmin
+
+    invalid = client.patch("/internal/access/users/local-user/status", json={"status": "DELETION_PENDING"})
+    last_superadmin = client.patch("/internal/access/users/local-user/status", json={"status": "DEACTIVATED"})
+
+    assert invalid.status_code == 422
+    assert last_superadmin.status_code == 409
+    assert last_superadmin.json()["errorCode"] == "LAST_ACTIVE_SUPERADMIN"
+    with session_factory() as session:
+        assert session.get(User, "local-user").status is UserStatus.ACTIVE

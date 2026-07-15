@@ -43,6 +43,8 @@ def test_alembic_upgrade_head_creates_core_tables(tmp_path: Path):
         "users",
         "user_settings",
         "user_role_assignments",
+        "clerk_webhook_events",
+        "invitations",
         "recipes",
         "import_jobs",
         "recipe_resources",
@@ -55,6 +57,29 @@ def test_alembic_upgrade_head_creates_core_tables(tmp_path: Path):
     assert user_columns["status"]["nullable"] is False
     assert any(index["column_names"] == ["auth_provider", "auth_user_id"] and index["unique"] for index in inspector.get_indexes("users"))
     assert set(inspector.get_pk_constraint("user_role_assignments")["constrained_columns"]) == {"user_id", "role"}
+    assert inspector.get_pk_constraint("clerk_webhook_events")["constrained_columns"] == ["event_id"]
+    webhook_columns = {column["name"]: column for column in inspector.get_columns("clerk_webhook_events")}
+    assert set(webhook_columns) == {"event_id", "event_type", "processed_at"}
+    assert webhook_columns["processed_at"]["nullable"] is False
+    invitation_columns = {column["name"] for column in inspector.get_columns("invitations")}
+    assert {
+        "id",
+        "auth_provider",
+        "auth_invitation_id",
+        "email",
+        "status",
+        "created_by_user_id",
+        "expires_at",
+        "accepted_at",
+        "created_at",
+        "updated_at",
+    } == invitation_columns
+    assert any(
+        foreign_key["constrained_columns"] == ["created_by_user_id"]
+        and foreign_key["referred_table"] == "users"
+        and foreign_key["options"].get("ondelete") == "SET NULL"
+        for foreign_key in inspector.get_foreign_keys("invitations")
+    )
     assert any(
         foreign_key["constrained_columns"] == ["user_id"]
         and foreign_key["referred_table"] == "users"
@@ -75,6 +100,42 @@ def test_alembic_upgrade_head_creates_core_tables(tmp_path: Path):
         and foreign_key["options"].get("ondelete") == "SET NULL"
         for foreign_key in inspector.get_foreign_keys("import_jobs")
     )
+
+
+def test_clerk_webhook_event_migration_upgrades_previous_revision_to_head(tmp_path: Path):
+    db_path = tmp_path / "clerk-webhook-migration.db"
+    backend_root = Path(__file__).resolve().parents[2]
+    config = Config(str(backend_root / "alembic.ini"))
+    config.set_main_option("sqlalchemy.url", f"sqlite:///{db_path}")
+    config.set_main_option("script_location", str(backend_root / "alembic"))
+
+    command.upgrade(config, "20260714_0025")
+    engine = create_engine(f"sqlite:///{db_path}")
+    assert "clerk_webhook_events" not in inspect(engine).get_table_names()
+
+    command.upgrade(config, "head")
+
+    inspector = inspect(engine)
+    assert "clerk_webhook_events" in inspector.get_table_names()
+    assert inspector.get_pk_constraint("clerk_webhook_events")["constrained_columns"] == ["event_id"]
+
+
+def test_invitation_migration_upgrades_previous_revision_to_head(tmp_path: Path):
+    db_path = tmp_path / "invitation-migration.db"
+    backend_root = Path(__file__).resolve().parents[2]
+    config = Config(str(backend_root / "alembic.ini"))
+    config.set_main_option("sqlalchemy.url", f"sqlite:///{db_path}")
+    config.set_main_option("script_location", str(backend_root / "alembic"))
+
+    command.upgrade(config, "20260714_0026")
+    engine = create_engine(f"sqlite:///{db_path}")
+    assert "invitations" not in inspect(engine).get_table_names()
+
+    command.upgrade(config, "head")
+
+    inspector = inspect(engine)
+    assert "invitations" in inspector.get_table_names()
+    assert inspector.get_pk_constraint("invitations")["constrained_columns"] == ["id"]
 
 
 def test_generic_auth_identity_migration_preserves_existing_provider_user_id(tmp_path: Path):

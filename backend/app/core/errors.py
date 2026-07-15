@@ -38,6 +38,11 @@ class ApiErrorCode(str, Enum):
     ACCOUNT_DELETION_PENDING = "ACCOUNT_DELETION_PENDING"
     ACCOUNT_DELETION_FAILED = "ACCOUNT_DELETION_FAILED"
     EMAIL_ALREADY_LINKED = "EMAIL_ALREADY_LINKED"
+    INVALID_WEBHOOK = "INVALID_WEBHOOK"
+    INVITATION_NOT_FOUND = "INVITATION_NOT_FOUND"
+    INVITATION_CREATE_FAILED = "INVITATION_CREATE_FAILED"
+    INVITATION_REVOKE_FAILED = "INVITATION_REVOKE_FAILED"
+    LAST_ACTIVE_SUPERADMIN = "LAST_ACTIVE_SUPERADMIN"
 
 
 class ApiError(Exception):
@@ -114,6 +119,11 @@ class LastSuperadminError(ApiConflictError):
     message = "The last superadmin role cannot be removed."
 
 
+class LastActiveSuperadminError(ApiConflictError):
+    error_code = ApiErrorCode.LAST_ACTIVE_SUPERADMIN
+    message = "The last active superadmin cannot be deactivated."
+
+
 class AuthenticationRequiredError(ApiAuthenticationError):
     error_code = ApiErrorCode.AUTHENTICATION_REQUIRED
     message = "Authentication is required."
@@ -153,6 +163,26 @@ class AccountDeletionFailedError(ApiError):
 class EmailAlreadyLinkedError(ApiConflictError):
     error_code = ApiErrorCode.EMAIL_ALREADY_LINKED
     message = "This email is already linked to another account."
+
+
+class InvalidWebhookError(ApiValidationError):
+    error_code = ApiErrorCode.INVALID_WEBHOOK
+    message = "Webhook signature or payload is invalid."
+
+
+class InvitationNotFoundError(ApiNotFoundError):
+    error_code = ApiErrorCode.INVITATION_NOT_FOUND
+    message = "Invitation not found."
+
+
+class InvitationCreateError(ApiUpstreamError):
+    error_code = ApiErrorCode.INVITATION_CREATE_FAILED
+    message = "Invitation could not be created."
+
+
+class InvitationRevokeError(ApiUpstreamError):
+    error_code = ApiErrorCode.INVITATION_REVOKE_FAILED
+    message = "Invitation could not be revoked."
 
 
 class InvalidUrlError(ApiValidationError):

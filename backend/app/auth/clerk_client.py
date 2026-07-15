@@ -1,13 +1,40 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 import httpx
+from pydantic import BaseModel, ValidationError
 
 from app.auth.constants import AuthProviderType
-from app.auth.types import AuthProviderError, AuthUser
+from app.auth.types import AuthInvitation, AuthInvitationStatus, AuthProviderError, AuthUser
 
 
 class ClerkApiError(AuthProviderError):
     """Clerk returned an unavailable or unusable response."""
+
+
+class ClerkInvitationPayload(BaseModel):
+    id: str
+    email_address: str
+    status: str
+    created_at: int
+    updated_at: int
+    expires_at: int | None = None
+
+    def to_auth_invitation(self) -> AuthInvitation:
+        return AuthInvitation(
+            id=self.id,
+            email=self.email_address.strip().casefold(),
+            status=AuthInvitationStatus(self.status.upper()),
+            created_at=_timestamp_to_datetime(self.created_at),
+            updated_at=_timestamp_to_datetime(self.updated_at),
+            expires_at=_timestamp_to_datetime(self.expires_at) if self.expires_at is not None else None,
+        )
+
+
+def _timestamp_to_datetime(value: int) -> datetime:
+    seconds = value / 1000 if value > 100_000_000_000 else value
+    return datetime.fromtimestamp(seconds, timezone.utc)
 
 
 class ClerkClient:
@@ -51,6 +78,25 @@ class ClerkClient:
 
     def delete_user(self, clerk_user_id: str) -> None:
         self._request("DELETE", f"/users/{clerk_user_id}")
+
+    def create_invitation(self, email: str, *, redirect_url: str) -> AuthInvitation:
+        payload = self._request(
+            "POST",
+            "/invitations",
+            json={"email_address": email, "redirect_url": redirect_url},
+        )
+        return self._parse_invitation(payload)
+
+    def revoke_invitation(self, invitation_id: str) -> AuthInvitation:
+        payload = self._request("POST", f"/invitations/{invitation_id}/revoke")
+        return self._parse_invitation(payload)
+
+    @staticmethod
+    def _parse_invitation(payload: dict) -> AuthInvitation:
+        try:
+            return ClerkInvitationPayload.model_validate(payload).to_auth_invitation()
+        except (ValidationError, ValueError) as error:
+            raise ClerkApiError("Clerk invitation response is invalid.") from error
 
 
 def create_clerk_client(secret_key: str | None, api_url: str) -> ClerkClient:

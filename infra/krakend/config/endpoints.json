@@ -21,6 +21,26 @@
                       "public":  false
                   },
                   {
+                      "endpoint":  "/internal/access/users/{user_id}/status",
+                      "method":  "PATCH",
+                      "public":  false
+                  },
+                  {
+                      "endpoint":  "/internal/invitations",
+                      "method":  "GET",
+                      "public":  false
+                  },
+                  {
+                      "endpoint":  "/internal/invitations",
+                      "method":  "POST",
+                      "public":  false
+                  },
+                  {
+                      "endpoint":  "/internal/invitations/{invitation_id}/revoke",
+                      "method":  "POST",
+                      "public":  false
+                  },
+                  {
                       "endpoint":  "/collections",
                       "method":  "GET",
                       "public":  false
@@ -213,6 +233,11 @@
                   {
                       "endpoint":  "/redoc",
                       "method":  "GET",
+                      "public":  true
+                  },
+                  {
+                      "endpoint":  "/webhooks/clerk",
+                      "method":  "POST",
                       "public":  true
                   }
               ]

@@ -10,7 +10,7 @@ EXTRA_GATEWAY_ROUTES = {
     ("/docs/oauth2-redirect", "GET"),
     ("/redoc", "GET"),
 }
-PUBLIC_ROUTES = EXTRA_GATEWAY_ROUTES | {("/health", "GET")}
+PUBLIC_ROUTES = EXTRA_GATEWAY_ROUTES | {("/health", "GET"), ("/webhooks/clerk", "POST")}
 
 
 def _krakend_root() -> Path:
@@ -63,6 +63,15 @@ def test_identity_headers_are_not_browser_controlled_cors_headers():
 
     assert "X-Authenticated-Subject" not in cors_headers
     assert '"Authorization"' in cors_headers
+
+
+def test_gateway_forwards_svix_signature_headers_to_public_webhook():
+    template = (_krakend_root() / "krakend.tmpl").read_text(encoding="utf-8")
+    input_headers = template.split('"input_headers": [', 1)[1].split("]", 1)[0]
+
+    assert '"Svix-Id"' in input_headers
+    assert '"Svix-Timestamp"' in input_headers
+    assert '"Svix-Signature"' in input_headers
 
 
 def test_static_gateway_config_was_removed():

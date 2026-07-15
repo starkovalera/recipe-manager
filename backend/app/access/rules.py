@@ -2,7 +2,7 @@ from collections.abc import Collection
 
 from app.access.constants import UserRole
 from app.core.errors import ForbiddenError
-from app.models import ImportJob, RecipeEmbedding, User
+from app.models import ImportJob, RecipeEmbedding, User, UserStatus
 
 
 def has_role(user: User, role: UserRole) -> bool:
@@ -43,3 +43,12 @@ def can_use_search_debug(user: User) -> bool:
 
 def can_revoke_role(user: User, role: UserRole, assignment_count: int) -> bool:
     return not (role == UserRole.SUPERADMIN and has_role(user, UserRole.SUPERADMIN) and assignment_count == 1)
+
+
+def can_change_user_status(user: User, status: UserStatus, active_superadmin_count: int) -> bool:
+    return not (
+        status is UserStatus.DEACTIVATED
+        and user.status is UserStatus.ACTIVE
+        and has_role(user, UserRole.SUPERADMIN)
+        and active_superadmin_count == 1
+    )

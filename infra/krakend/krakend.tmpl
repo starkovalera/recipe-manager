@@ -32,7 +32,7 @@
       "output_encoding": "no-op",
       "input_query_strings": ["*"],
       "input_headers": [
-        "Accept", "Content-Type", "Idempotency-Key", "If-Modified-Since", "If-None-Match", "Range", "User-Agent", "X-Client-Id"
+        "Accept", "Content-Type", "Idempotency-Key", "If-Modified-Since", "If-None-Match", "Range", "Svix-Id", "Svix-Signature", "Svix-Timestamp", "User-Agent", "X-Client-Id"
         {{- if not $route.public }}, {{ marshal $.auth.subject_header }}{{ end }}
       ],
       {{- if not $route.public }}

@@ -47,19 +47,19 @@ The repository contains newer approved decisions that supersede provider-specifi
 
 ### Partially complete and requiring correction
 
-- [ ] Pass `VITE_CLERK_PUBLISHABLE_KEY` into `ClerkProvider`; the key is validated but is not currently passed to the component.
+- [x] Validate `VITE_CLERK_PUBLISHABLE_KEY` before render and let the current `@clerk/react` Vite integration consume it from the environment; the current public component API intentionally does not accept a manual key prop.
 - [x] Replace hidden first-request provisioning inside `resolve_current_user()` with explicit provisioning.
 - [x] Remove `AuthSessionDep`; auth and the route handler reuse the same `SessionDep`.
 - [x] Close the read-only current-user transaction before handlers open their domain transaction, preserving the import-creation regression test for one request session.
 - [ ] Extend the Clerk client/protocol with invitation operations and map provider failures to dedicated application errors.
-- [ ] Extend KrakenD route metadata when each new route is added and make the webhook route public.
-- [ ] Replace the current signed-in immediate app mount with the explicit provisioning bootstrap.
+- [x] Extend KrakenD route metadata when each new route is added and make the webhook route public.
+- [x] Replace the current signed-in immediate app mount with the explicit provisioning bootstrap.
 
 ### Not yet implemented
 
 - [x] Authenticated identity dependency and `USER_NOT_PROVISIONED` behavior.
 - [x] `POST /me/provision`.
-- [ ] Clerk webhooks and webhook idempotency storage.
+- [x] Clerk webhooks and webhook idempotency storage.
 - [ ] Invitations persistence, API, and UI.
 - [ ] User activation/deactivation administration.
 - [ ] `POST /me/deletion`, background user deletion, and reconciliation.
@@ -174,15 +174,15 @@ POST /me/provision
 - Modify: `backend/tests/db/test_migrations.py`
 - Modify: `backend/tests/infra/test_krakend_config.py`
 
-- [ ] Add mocked Clerk client tests for the remaining provider contract and safe external-error mapping without sensitive payload logging.
-- [ ] Add `ClerkWebhookEvent` idempotency storage and migration.
-- [ ] Add public `POST /webhooks/clerk` with raw-body Svix verification and no `CurrentUserDep`.
-- [ ] Implement idempotent `user.created`/`user.updated` synchronization through shared user provisioning/update semantics.
-- [ ] Make webhook-first and explicit-provision-first orderings converge to the same user without duplicate defaults, role changes, or email auto-linking.
-- [ ] Implement `user.deleted` as an idempotent transition to `DELETION_PENDING` plus deletion-task scheduling.
-- [ ] Do not log raw webhook payloads, signatures, secrets, or authorization data.
-- [ ] Mark the webhook route public in KrakenD and verify protected identity headers remain non-spoofable.
-- [ ] Run webhook/domain/migration/gateway tests and Ruff, then stop for review.
+- [x] Add mocked Clerk client tests for the remaining provider contract and safe external-error mapping without sensitive payload logging.
+- [x] Add `ClerkWebhookEvent` idempotency storage and migration.
+- [x] Add public `POST /webhooks/clerk` with raw-body Svix verification and no `CurrentUserDep`.
+- [x] Implement idempotent `user.created`/`user.updated` synchronization through shared user provisioning/update semantics.
+- [x] Make webhook-first and explicit-provision-first orderings converge to the same user without duplicate defaults, role changes, or email auto-linking.
+- [x] Implement `user.deleted` as an idempotent transition to `DELETION_PENDING`; deletion-task scheduling remains deferred to Iteration F.
+- [x] Do not log raw webhook payloads, signatures, secrets, or authorization data.
+- [x] Mark the webhook route public in KrakenD, forward the required Svix signature headers, and verify protected identity headers remain non-spoofable.
+- [x] Run webhook/domain/migration/gateway tests and Ruff, then stop for review.
 
 ## Iteration E: Invitations And User Status Administration
 
@@ -199,7 +199,7 @@ POST /me/provision
 - Modify: `backend/app/api/routes/access.py`
 - Modify: `backend/app/schemas/access.py`
 - Modify: `backend/app/models/__init__.py`
-- Create: `backend/alembic/versions/20260714_0027_invitations.py`
+- Create: `backend/alembic/versions/20260715_0027_invitations.py`
 - Modify: `backend/app/main.py`
 - Modify: `infra/krakend/config/endpoints.json`
 - Create: `backend/tests/invitations/test_service.py`

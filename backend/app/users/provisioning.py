@@ -51,6 +51,34 @@ def create_user(
     return user
 
 
+def synchronize_auth_user(
+    session: Session,
+    identity: AuthenticatedIdentity,
+    *,
+    email: str,
+    recipe_language: str,
+) -> UserProvisioningResult:
+    normalized_email = email.strip().casefold()
+    user = get_user_by_auth_identity(session, identity.auth_provider, identity.auth_user_id)
+    email_owner = get_user_by_email(session, normalized_email)
+    if email_owner is not None and (user is None or email_owner.id != user.id):
+        raise EmailAlreadyLinkedError()
+
+    if user is not None:
+        user.email = normalized_email
+        return UserProvisioningResult(user=user, created=False)
+
+    user = create_user(
+        session,
+        user_id=new_id(),
+        auth_provider=identity.auth_provider,
+        auth_user_id=identity.auth_user_id,
+        email=normalized_email,
+        recipe_language=recipe_language,
+    )
+    return UserProvisioningResult(user=user, created=True)
+
+
 def _recover_provisioning_race(
     session: Session,
     identity: AuthenticatedIdentity,

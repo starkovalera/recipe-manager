@@ -2,7 +2,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.access.constants import UserRole
-from app.models import User, UserRoleAssignment
+from app.models import User, UserRoleAssignment, UserStatus
 
 
 def list_access_users(session: Session) -> list[User]:
@@ -26,3 +26,18 @@ def revoke_user_role(session: Session, user: User, role: UserRole) -> None:
 
 def count_role_assignments(session: Session, role: UserRole) -> int:
     return session.scalar(select(func.count()).select_from(UserRoleAssignment).where(UserRoleAssignment.role == role)) or 0
+
+
+def count_active_superadmins(session: Session) -> int:
+    return (
+        session.scalar(
+            select(func.count())
+            .select_from(User)
+            .join(UserRoleAssignment)
+            .where(
+                User.status == UserStatus.ACTIVE,
+                UserRoleAssignment.role == UserRole.SUPERADMIN,
+            )
+        )
+        or 0
+    )

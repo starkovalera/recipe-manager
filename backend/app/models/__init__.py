@@ -25,6 +25,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.access.constants import UserRole
 from app.auth.constants import AuthProviderType
 from app.db.base import Base
+from app.invitations.constants import InvitationStatus
 from app.services.search_text import build_ingredient_search_name
 
 
@@ -156,6 +157,14 @@ class UserStatus(str, enum.Enum):
     DELETION_PENDING = "DELETION_PENDING"
 
 
+class ClerkWebhookEvent(Base):
+    __tablename__ = "clerk_webhook_events"
+
+    event_id: Mapped[str] = mapped_column(String, primary_key=True)
+    event_type: Mapped[str] = mapped_column(String, nullable=False)
+    processed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
 class User(TimestampMixin, Base):
     __tablename__ = "users"
     __table_args__ = (Index("ix_users_auth_identity", "auth_provider", "auth_user_id", unique=True),)
@@ -193,6 +202,7 @@ class User(TimestampMixin, Base):
         back_populates="user",
         cascade="all, delete-orphan",
     )
+    created_invitations: Mapped[list[Invitation]] = relationship(back_populates="created_by")
 
     @property
     def roles(self) -> set[UserRole]:
@@ -210,6 +220,26 @@ class UserRoleAssignment(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     user: Mapped[User] = relationship(back_populates="role_assignments")
+
+
+class Invitation(TimestampMixin, Base):
+    __tablename__ = "invitations"
+    __table_args__ = (Index("ix_invitations_auth_identity", "auth_provider", "auth_invitation_id", unique=True),)
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
+    auth_provider: Mapped[AuthProviderType] = mapped_column(Enum(AuthProviderType, name="auth_provider"), nullable=False)
+    auth_invitation_id: Mapped[str] = mapped_column(String, nullable=False)
+    email: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    status: Mapped[InvitationStatus] = mapped_column(
+        Enum(InvitationStatus, name="invitation_status"),
+        default=InvitationStatus.PENDING,
+        nullable=False,
+    )
+    created_by_user_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    created_by: Mapped[User | None] = relationship(back_populates="created_invitations")
 
 
 class UserSettings(TimestampMixin, Base):
