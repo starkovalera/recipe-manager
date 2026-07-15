@@ -8,6 +8,7 @@ import {
   getMediaBlob,
   listRecipes,
   mediaUrl,
+  provisionCurrentUser,
   setApiDebugLoggingForTests,
   setApiTokenProvider,
 } from "./client";
@@ -46,6 +47,28 @@ describe("api client", () => {
 
     expect(new Headers(fetchMock.mock.calls[0][1].headers).get("Authorization")).toBe("Bearer token-one");
     expect(new Headers(fetchMock.mock.calls[1][1].headers).get("Authorization")).toBe("Bearer token-two");
+  });
+
+  it("provisions the current user with an empty request body", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 201,
+      text: async () =>
+        JSON.stringify({
+          id: "user-1",
+          email: "user@example.test",
+          features: { showAdminPages: false, showRoleManagement: false, showRecipeDebug: false },
+        }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await provisionCurrentUser();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/me/provision"),
+      expect.objectContaining({ method: "POST" }),
+    );
+    expect(fetchMock.mock.calls[0][1].body).toBeUndefined();
   });
 
   it("loads protected media with a bearer token", async () => {

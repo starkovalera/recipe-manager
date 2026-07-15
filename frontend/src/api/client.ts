@@ -177,6 +177,10 @@ export async function getCurrentUser(): Promise<CurrentUser> {
   return request<CurrentUser>("/me");
 }
 
+export async function provisionCurrentUser(): Promise<CurrentUser> {
+  return request<CurrentUser>("/me/provision", { method: "POST" });
+}
+
 export async function getRecipe(recipeId: string): Promise<RecipeDetail> {
   return request<RecipeDetail>(`/recipes/${recipeId}`);
 }
