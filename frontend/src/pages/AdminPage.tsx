@@ -4,9 +4,10 @@ import type { CurrentUser } from "../api/types";
 import { InternalEmbeddingsPage } from "./InternalEmbeddingsPage";
 import { InternalImportJobsPage } from "./InternalImportJobsPage";
 import { InternalSearchDebugPage } from "./InternalSearchDebugPage";
+import { InvitationsPage } from "./InvitationsPage";
 import { RoleManagementPage } from "./RoleManagementPage";
 
-type AdminTab = "imports" | "embeddings" | "search" | "roles";
+type AdminTab = "imports" | "embeddings" | "search" | "roles" | "invitations";
 
 export function AdminPage({ currentUser, onOpenRecipe }: { currentUser: CurrentUser; onOpenRecipe: (recipeId: string) => void }) {
   const [tab, setTab] = useState<AdminTab>("imports");
@@ -18,11 +19,13 @@ export function AdminPage({ currentUser, onOpenRecipe }: { currentUser: CurrentU
         <button type="button" onClick={() => setTab("embeddings")}>Embeddings</button>
         <button type="button" onClick={() => setTab("search")}>Search Debug</button>
         {currentUser.features.showRoleManagement ? <button type="button" onClick={() => setTab("roles")}>Roles</button> : null}
+        {currentUser.features.showRoleManagement ? <button type="button" onClick={() => setTab("invitations")}>Invitations</button> : null}
       </nav>
       {tab === "imports" ? <InternalImportJobsPage onOpenRecipe={onOpenRecipe} /> : null}
       {tab === "embeddings" ? <InternalEmbeddingsPage /> : null}
       {tab === "search" ? <InternalSearchDebugPage onOpenRecipe={onOpenRecipe} /> : null}
       {tab === "roles" && currentUser.features.showRoleManagement ? <RoleManagementPage /> : null}
+      {tab === "invitations" && currentUser.features.showRoleManagement ? <InvitationsPage /> : null}
     </section>
   );
 }

@@ -12,8 +12,25 @@ export type CurrentUser = {
 
 export type AvailableRole = { value: string; label: string };
 export type RoleStatistic = { role: string; userCount: number };
-export type AccessUser = { id: string; email: string; roles: string[]; createdAt?: string | null };
+export type UserStatus = "ACTIVE" | "DEACTIVATED" | "DELETION_PENDING";
+export type AccessUser = { id: string; email: string; roles: string[]; status: UserStatus; createdAt?: string | null };
 export type AccessUserList = { availableRoles: AvailableRole[]; statistics: RoleStatistic[]; items: AccessUser[] };
+
+export type Invitation = {
+  id: string;
+  authProvider: string;
+  authInvitationId: string;
+  email: string;
+  status: "PENDING" | "ACCEPTED" | "REVOKED" | "EXPIRED";
+  createdByUserId?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  expiresAt?: string | null;
+  acceptedAt?: string | null;
+};
+
+export type InvitationList = { items: Invitation[] };
+export type AccountDeletionResult = { status: "DELETION_PENDING" };
 
 export type ImportJob = {
   jobId: string;

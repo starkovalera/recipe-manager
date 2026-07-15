@@ -4,8 +4,11 @@ import type {
   CollectionList,
   AccessUser,
   AccessUserList,
+  AccountDeletionResult,
   CurrentUser,
   ImportJob,
+  Invitation,
+  InvitationList,
   InternalImportJobList,
   InternalRecipeEmbeddingList,
   Notification,
@@ -23,6 +26,7 @@ import type {
   TagList,
   TagListParams,
   TagUsage,
+  UserStatus,
 } from "./types";
 
 export const DEFAULT_API_BASE_URL = "http://127.0.0.1:8081";
@@ -181,6 +185,10 @@ export async function provisionCurrentUser(): Promise<CurrentUser> {
   return request<CurrentUser>("/me/provision", { method: "POST" });
 }
 
+export async function deleteCurrentAccount(): Promise<AccountDeletionResult> {
+  return request<AccountDeletionResult>("/me/deletion", { method: "POST" });
+}
+
 export async function getRecipe(recipeId: string): Promise<RecipeDetail> {
   return request<RecipeDetail>(`/recipes/${recipeId}`);
 }
@@ -296,6 +304,30 @@ export async function assignUserRole(userId: string, role: string): Promise<Acce
 
 export async function revokeUserRole(userId: string, role: string): Promise<AccessUser> {
   return request<AccessUser>(`/internal/access/users/${encodeURIComponent(userId)}/roles/${encodeURIComponent(role)}`, { method: "DELETE" });
+}
+
+export async function updateAccessUserStatus(userId: string, status: Exclude<UserStatus, "DELETION_PENDING">): Promise<AccessUser> {
+  return request<AccessUser>(`/internal/access/users/${encodeURIComponent(userId)}/status`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ status }),
+  });
+}
+
+export async function listInvitations(): Promise<InvitationList> {
+  return request<InvitationList>("/internal/invitations");
+}
+
+export async function createInvitation(email: string): Promise<Invitation> {
+  return request<Invitation>("/internal/invitations", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+}
+
+export async function revokeInvitation(invitationId: string): Promise<Invitation> {
+  return request<Invitation>(`/internal/invitations/${encodeURIComponent(invitationId)}/revoke`, { method: "POST" });
 }
 
 export async function listTags(params?: TagListParams): Promise<TagList> {

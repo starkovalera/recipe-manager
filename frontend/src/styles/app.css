@@ -681,7 +681,8 @@ form button[type="submit"]:hover,
   align-items: center;
 }
 
-.image-modal-backdrop {
+.image-modal-backdrop,
+.modal-backdrop {
   position: fixed;
   inset: 0;
   z-index: 20;
@@ -1011,6 +1012,22 @@ form button[type="submit"]:hover,
 .danger-link:hover {
   border-color: var(--danger);
   background: #fff7f6;
+}
+
+.account-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.account-deletion-dialog {
+  width: min(100% - 32px, 480px);
+  background: #fff;
+  box-shadow: var(--shadow);
+}
+
+.account-deletion-dialog h2 {
+  margin-top: 0;
 }
 
 pre {

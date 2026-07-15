@@ -1,7 +1,7 @@
-import { SignInButton, SignUp, UserButton, useAuth } from "@clerk/react";
+import { SignInButton, SignUp, UserButton, useAuth, useClerk } from "@clerk/react";
 import { useEffect, useRef, useState } from "react";
 
-import { ApiError, provisionCurrentUser, setApiTokenProvider } from "../api/client";
+import { ApiError, deleteCurrentAccount, provisionCurrentUser, setApiTokenProvider } from "../api/client";
 import type { CurrentUser } from "../api/types";
 import { App } from "./App";
 import { queryClient } from "./queryClient";
@@ -32,18 +32,33 @@ function SignedOutShell() {
 
 export function ClerkApplication() {
   const { getToken, isLoaded, isSignedIn, sessionId, userId } = useAuth();
+  const { signOut } = useClerk();
+  const [deletionRequested, setDeletionRequested] = useState(false);
 
+  if (deletionRequested) return <AccountStateError heading="Account deletion requested" message="Your account is being deleted." />;
   if (!isLoaded) return <main className="auth-shell">Loading account...</main>;
   if (!isSignedIn || !sessionId || !userId) return <SignedOutShell />;
-  return <SignedInApplication key={`${userId}:${sessionId}`} getToken={getToken} userId={userId} />;
+  return (
+    <SignedInApplication
+      key={`${userId}:${sessionId}`}
+      getToken={getToken}
+      userId={userId}
+      signOut={signOut}
+      onDeletionRequested={() => setDeletionRequested(true)}
+    />
+  );
 }
 
 function SignedInApplication({
   getToken,
   userId,
+  signOut,
+  onDeletionRequested,
 }: {
   getToken: () => Promise<string | null>;
   userId: string;
+  signOut: () => Promise<unknown>;
+  onDeletionRequested: () => void;
 }) {
   const [attempt, setAttempt] = useState(0);
   const [provisioning, setProvisioning] = useState<ProvisioningState>({ status: "pending" });
@@ -82,7 +97,59 @@ function SignedInApplication({
   if (provisioning.status === "error") {
     return <ProvisioningError error={provisioning.error} onRetry={retryProvisioning} />;
   }
-  return <App key={userId} accountControl={<UserButton />} />;
+  async function deleteAccount() {
+    await deleteCurrentAccount();
+    setApiTokenProvider(null);
+    queryClient.clear();
+    onDeletionRequested();
+    await signOut();
+  }
+
+  return (
+    <App
+      key={userId}
+      accountControl={(
+        <div className="account-actions">
+          <UserButton />
+          <AccountDeletionControl onDelete={deleteAccount} />
+        </div>
+      )}
+    />
+  );
+}
+
+function AccountDeletionControl({ onDelete }: { onDelete: () => Promise<void> }) {
+  const [confirming, setConfirming] = useState(false);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+
+  async function confirmDeletion() {
+    setPending(true);
+    setError(null);
+    try {
+      await onDelete();
+    } catch (nextError) {
+      setError(nextError);
+      setPending(false);
+    }
+  }
+
+  if (!confirming) {
+    return <button type="button" className="danger-button" onClick={() => setConfirming(true)}>Delete account</button>;
+  }
+  return (
+    <div className="modal-backdrop" role="presentation">
+      <section className="danger-zone account-deletion-dialog" role="dialog" aria-modal="true" aria-labelledby="delete-account-heading">
+        <h2 id="delete-account-heading">Delete account?</h2>
+        <p>This permanently removes your recipes and account data.</p>
+        <div className="button-row">
+          <button type="button" disabled={pending} onClick={() => void confirmDeletion()}>Confirm delete account</button>
+          <button type="button" disabled={pending} onClick={() => setConfirming(false)}>Cancel</button>
+        </div>
+        {error ? <p role="alert">Account deletion could not be started.</p> : null}
+      </section>
+    </div>
+  );
 }
 
 function ProvisioningError({ error, onRetry }: { error: unknown; onRetry: () => void }) {

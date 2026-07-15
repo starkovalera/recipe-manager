@@ -51,7 +51,7 @@ The repository contains newer approved decisions that supersede provider-specifi
 - [x] Replace hidden first-request provisioning inside `resolve_current_user()` with explicit provisioning.
 - [x] Remove `AuthSessionDep`; auth and the route handler reuse the same `SessionDep`.
 - [x] Close the read-only current-user transaction before handlers open their domain transaction, preserving the import-creation regression test for one request session.
-- [ ] Extend the Clerk client/protocol with invitation operations and map provider failures to dedicated application errors.
+- [x] Extend the Clerk client/protocol with invitation operations and map provider failures to dedicated application errors.
 - [x] Extend KrakenD route metadata when each new route is added and make the webhook route public.
 - [x] Replace the current signed-in immediate app mount with the explicit provisioning bootstrap.
 
@@ -60,10 +60,10 @@ The repository contains newer approved decisions that supersede provider-specifi
 - [x] Authenticated identity dependency and `USER_NOT_PROVISIONED` behavior.
 - [x] `POST /me/provision`.
 - [x] Clerk webhooks and webhook idempotency storage.
-- [ ] Invitations persistence, API, and UI.
-- [ ] User activation/deactivation administration.
-- [ ] `POST /me/deletion`, background user deletion, and reconciliation.
-- [ ] Dedicated frontend provisioning/account-state/deletion screens.
+- [x] Invitations frontend UI, persistence, provider integration, and API.
+- [x] User activation/deactivation frontend controls and backend administration.
+- [x] `POST /me/deletion`, background user deletion, and reconciliation command.
+- [x] Dedicated frontend account-deletion interaction, provisioning, and account-state screens.
 - [ ] Final documentation and full verification.
 
 ---
@@ -156,7 +156,7 @@ POST /me/provision
 - [x] Add dedicated screens for deactivated, deletion-pending, email-conflict, and retryable provider errors; retries are explicit and finite.
 - [x] Test React Strict Mode/effect repetition, empty provisioning body, cache seeding, no premature product queries, identity/session changes, and no token persistence.
 - [x] Run the full frontend test suite and typecheck, then stop for review.
-- [ ] Re-run the production frontend build from a normal worktree-local dependency installation. The current local `frontend/node_modules` junction resolves Vite input and pnpm transitive dependencies through different checkouts and prevents a representative build.
+- [x] Re-run the production frontend build from a normal worktree-local dependency installation.
 
 ## Iteration D: Shared Provisioning Semantics And Clerk Webhooks
 
@@ -206,15 +206,15 @@ POST /me/provision
 - Create or modify API tests for invitations and access status changes
 - Modify migration and gateway tests
 
-- [ ] Add fixed invitation status enum/model without storing invitation tickets.
-- [ ] Extend the Clerk client with create/list/revoke invitation operations and sanitized provider types.
-- [ ] Add superadmin-only list/create/revoke invitation endpoints; normalize email, use configured frontend redirect URL, and make revoke idempotent.
-- [ ] Mark a pending invitation accepted when `user.created` provisions the matching email.
-- [ ] Include lifecycle status in access-user responses.
-- [ ] Add idempotent `ACTIVE <-> DEACTIVATED` administration while forbidding generic transition to `DELETION_PENDING`.
-- [ ] Prevent deactivation of the final active superadmin without changing role-management behavior.
-- [ ] Add every endpoint to protected KrakenD metadata.
-- [ ] Run invitation/access/migration/gateway tests and Ruff, then stop for review.
+- [x] Add fixed invitation status enum/model without storing invitation tickets.
+- [x] Extend the Clerk client with create/list/revoke invitation operations and sanitized provider types.
+- [x] Add superadmin-only list/create/revoke invitation endpoints; normalize email, use configured frontend redirect URL, and make revoke idempotent.
+- [x] Mark a pending invitation accepted when `user.created` provisions the matching email.
+- [x] Include lifecycle status in access-user responses.
+- [x] Add idempotent `ACTIVE <-> DEACTIVATED` administration while forbidding generic transition to `DELETION_PENDING`.
+- [x] Prevent deactivation of the final active superadmin without changing role-management behavior.
+- [x] Add every endpoint to protected KrakenD metadata.
+- [x] Run invitation/access/migration/gateway tests and Ruff, then stop for review.
 
 ## Iteration F: User-Initiated And Background Deletion
 
@@ -255,13 +255,13 @@ POST /me/provision
 - Create: `frontend/src/pages/InvitationsPage.test.tsx`
 - Create: `frontend/src/app/ClerkApplication.test.tsx`
 
-- [ ] Add an Invitations admin tab, rendered from backend capabilities, with history/create/revoke controls and no Clerk ticket/secret display.
-- [ ] Add activate/deactivate controls and lifecycle status to existing role management UI.
-- [ ] Add an irreversible asynchronous Delete Account confirmation and call `POST /me/deletion`.
-- [ ] After accepted deletion, clear query/token state, sign out through Clerk, and show a neutral completion screen.
-- [ ] Preserve dedicated deactivated and deletion-pending screens instead of mounting the product.
-- [ ] Keep all identity/provider operations behind the application backend.
-- [ ] Run frontend tests, typecheck, and build, then stop for review.
+- [x] Add an Invitations admin tab, rendered from backend capabilities, with history/create/revoke controls and no Clerk ticket/secret display.
+- [x] Add activate/deactivate controls and lifecycle status to existing role management UI.
+- [x] Add an irreversible asynchronous Delete Account confirmation and call `POST /me/deletion`.
+- [x] After accepted deletion, clear query/token state, sign out through Clerk, and show a neutral completion screen.
+- [x] Preserve dedicated deactivated and deletion-pending screens instead of mounting the product.
+- [x] Keep all identity/provider operations behind the application backend.
+- [x] Run frontend tests, typecheck, and build, then stop for review.
 
 ## Iteration H: Documentation, Reconciliation, And Closeout
 

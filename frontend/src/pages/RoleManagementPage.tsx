@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { assignUserRole, listAccessUsers, revokeUserRole } from "../api/client";
+import { assignUserRole, listAccessUsers, revokeUserRole, updateAccessUserStatus } from "../api/client";
+import type { UserStatus } from "../api/types";
 
 export function RoleManagementPage() {
   const queryClient = useQueryClient();
@@ -8,6 +9,11 @@ export function RoleManagementPage() {
   const mutation = useMutation({
     mutationFn: ({ userId, role, assigned }: { userId: string; role: string; assigned: boolean }) =>
       assigned ? revokeUserRole(userId, role) : assignUserRole(userId, role),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["access-users"] }),
+  });
+  const statusMutation = useMutation({
+    mutationFn: ({ userId, status }: { userId: string; status: Exclude<UserStatus, "DELETION_PENDING"> }) =>
+      updateAccessUserStatus(userId, status),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["access-users"] }),
   });
 
@@ -28,6 +34,7 @@ export function RoleManagementPage() {
         <article key={user.id} className="debug-card">
           <h3>{user.email}</h3>
           <p>{user.id}</p>
+          <p>Status: {user.status}</p>
           <div className="button-row">
             {query.data.availableRoles.map((role) => {
               const assigned = user.roles.includes(role.value);
@@ -43,8 +50,28 @@ export function RoleManagementPage() {
               );
             })}
           </div>
+          {user.status === "ACTIVE" ? (
+            <button
+              type="button"
+              className="danger-button"
+              disabled={statusMutation.isPending}
+              onClick={() => statusMutation.mutate({ userId: user.id, status: "DEACTIVATED" })}
+            >
+              Deactivate
+            </button>
+          ) : null}
+          {user.status === "DEACTIVATED" ? (
+            <button
+              type="button"
+              disabled={statusMutation.isPending}
+              onClick={() => statusMutation.mutate({ userId: user.id, status: "ACTIVE" })}
+            >
+              Activate
+            </button>
+          ) : null}
         </article>
       ))}
+      {statusMutation.error ? <p role="alert">{statusMutation.error.message}</p> : null}
     </div>
   );
 }

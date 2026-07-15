@@ -13,7 +13,9 @@ const currentUser: CurrentUser = {
 const mocks = vi.hoisted(() => ({
   lifecycle: [] as string[],
   provisionCurrentUser: vi.fn(),
+  deleteCurrentAccount: vi.fn(),
   getToken: vi.fn().mockResolvedValue("token"),
+  signOut: vi.fn(),
   sessionId: "session-1",
   userId: "auth-user-1",
   setApiTokenProvider: vi.fn((provider: unknown) => {
@@ -36,6 +38,7 @@ vi.mock("@clerk/react", () => ({
     sessionId: mocks.sessionId,
     userId: mocks.userId,
   }),
+  useClerk: () => ({ signOut: mocks.signOut }),
 }));
 
 vi.mock("../api/client", () => {
@@ -51,15 +54,16 @@ vi.mock("../api/client", () => {
 
   return {
     ApiError,
+    deleteCurrentAccount: mocks.deleteCurrentAccount,
     provisionCurrentUser: mocks.provisionCurrentUser,
     setApiTokenProvider: mocks.setApiTokenProvider,
   };
 });
 
 vi.mock("./App", () => ({
-  App: () => {
+  App: ({ accountControl }: { accountControl?: React.ReactNode }) => {
     mocks.lifecycle.push("app-rendered");
-    return <div>Application ready</div>;
+    return <div>Application ready{accountControl}</div>;
   },
 }));
 
@@ -72,6 +76,8 @@ describe("ClerkApplication", () => {
   beforeEach(() => {
     mocks.lifecycle.length = 0;
     mocks.provisionCurrentUser.mockReset().mockResolvedValue(currentUser);
+    mocks.deleteCurrentAccount.mockReset().mockResolvedValue({ status: "DELETION_PENDING" });
+    mocks.signOut.mockReset().mockResolvedValue(undefined);
     mocks.getToken.mockClear();
     mocks.sessionId = "session-1";
     mocks.userId = "auth-user-1";
@@ -190,5 +196,21 @@ describe("ClerkApplication", () => {
     await waitFor(() => expect(mocks.provisionCurrentUser).toHaveBeenCalledTimes(2));
     expect(mocks.setApiTokenProvider).toHaveBeenCalledWith(null);
     expect(mocks.queryClient.clear).toHaveBeenCalled();
+  });
+
+  it("confirms account deletion, clears local state, and signs out", async () => {
+    render(<ClerkApplication />);
+    await screen.findByText("Application ready");
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete account" }));
+    expect(screen.getByRole("dialog", { name: "Delete account?" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Delete account?" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Confirm delete account" }));
+
+    expect(await screen.findByRole("heading", { name: "Account deletion requested" })).toBeTruthy();
+    expect(mocks.deleteCurrentAccount).toHaveBeenCalledTimes(1);
+    expect(mocks.setApiTokenProvider).toHaveBeenCalledWith(null);
+    expect(mocks.queryClient.clear).toHaveBeenCalled();
+    expect(mocks.signOut).toHaveBeenCalledTimes(1);
   });
 });

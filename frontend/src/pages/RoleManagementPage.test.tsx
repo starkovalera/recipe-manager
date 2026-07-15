@@ -9,17 +9,21 @@ describe("RoleManagementPage", () => {
 
   it("renders backend roles and assigns and revokes them", async () => {
     let roles: string[] = [];
+    let status = "ACTIVE";
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const path = new URL(String(input)).pathname;
       if (init?.method === "PUT") roles = ["DEBUG"];
       if (init?.method === "DELETE") roles = [];
+      if (path.endsWith("/status") && init?.method === "PATCH") {
+        status = JSON.parse(String(init.body)).status;
+      }
       const payload = path === "/internal/access/users"
         ? {
             availableRoles: [{ value: "DEBUG", label: "Debug tools" }],
             statistics: [{ role: "DEBUG", userCount: 0 }],
-            items: [{ id: "user-1", email: "user@example.test", roles }],
+            items: [{ id: "user-1", email: "user@example.test", roles, status }],
           }
-        : { id: "user-1", email: "user@example.test", roles };
+        : { id: "user-1", email: "user@example.test", roles, status };
       return { ok: true, status: 200, text: async () => JSON.stringify(payload) };
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -43,5 +47,12 @@ describe("RoleManagementPage", () => {
       expect.stringContaining("/internal/access/users/user-1/roles/DEBUG"),
       expect.objectContaining({ method: "DELETE" }),
     ));
+
+    fireEvent.click(screen.getByRole("button", { name: "Deactivate" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/internal/access/users/user-1/status"),
+      expect.objectContaining({ method: "PATCH", body: JSON.stringify({ status: "DEACTIVATED" }) }),
+    ));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Activate" })).toBeTruthy());
   });
 });
