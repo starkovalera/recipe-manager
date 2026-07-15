@@ -148,14 +148,15 @@ POST /me/provision
 - Modify: `frontend/src/api/types.ts`
 - Create or modify focused tests under `frontend/src/app/` and `frontend/src/api/`
 
-- [ ] Pass the validated publishable key to `ClerkProvider`.
-- [ ] Add an empty-body `provisionCurrentUser()` client call.
-- [ ] After every established Clerk session, register the fresh-token provider, call provisioning, seed the `['current-user']` cache, and only then mount `App`.
-- [ ] Prevent `/me`, notifications, recipes, and other protected queries while Clerk is loading, signed out, provisioning, or in a provisioning error state.
-- [ ] Reset token provider, provisioning state, query cache, and app page on sign-out or Clerk identity/session change.
-- [ ] Add dedicated screens for deactivated, deletion-pending, email-conflict, and retryable provider errors; retries must be explicit and finite.
-- [ ] Test React Strict Mode/effect repetition, empty provisioning body, cache seeding, no premature product queries, and no token persistence.
-- [ ] Run frontend tests, typecheck, and build, then stop for review.
+- [x] Validate `VITE_CLERK_PUBLISHABLE_KEY` before rendering and let the current `@clerk/react` Vite integration consume it from the environment; its current public API intentionally does not accept a manual `publishableKey` prop.
+- [x] Add an empty-body `provisionCurrentUser()` client call.
+- [x] After every established Clerk session, register the fresh-token provider, call provisioning, seed the `['current-user']` cache, and only then mount `App`.
+- [x] Prevent `/me`, notifications, recipes, and other protected queries while Clerk is loading, signed out, provisioning, or in a provisioning error state.
+- [x] Reset token provider, provisioning state, query cache, and app page on sign-out or Clerk identity/session change.
+- [x] Add dedicated screens for deactivated, deletion-pending, email-conflict, and retryable provider errors; retries are explicit and finite.
+- [x] Test React Strict Mode/effect repetition, empty provisioning body, cache seeding, no premature product queries, identity/session changes, and no token persistence.
+- [x] Run the full frontend test suite and typecheck, then stop for review.
+- [ ] Re-run the production frontend build from a normal worktree-local dependency installation. The current local `frontend/node_modules` junction resolves Vite input and pnpm transitive dependencies through different checkouts and prevents a representative build.
 
 ## Iteration D: Shared Provisioning Semantics And Clerk Webhooks
 
@@ -271,12 +272,16 @@ POST /me/provision
 - Modify: `backend/config/preview-users.example.toml`
 - Modify: `infra/krakend/README.md`
 - Create or modify: `docs/manual-testing/` Clerk lifecycle instructions
+- Create: `docs/authentication-and-authorization.md`
 - Modify: `docs/background-processing-plan.md`
 - Modify: `docs/invariants.md`
 - Modify: `docs/future-work.md`
 - Update this plan's final statuses
 
 - [ ] Document Clerk CLI setup, env names, invite-only flow, startup order, webhook relay, role bootstrap, explicit provisioning, PREVIEW seed behavior, deletion worker, and direct-FastAPI local limitation without real keys.
+- [ ] Create a complete authentication and authorization architecture document covering identity ownership, trust boundaries, token flow, KrakenD validation, FastAPI identity resolution, local user provisioning, roles, owner scoping, account lifecycle, storage, workers, and failure handling.
+- [ ] Document detailed end-to-end scenarios for ordinary login, first login through an invitation, account deletion, password changes, and email changes, including expected UI states, backend/provider calls, database transitions, webhook ordering, retries, and exceptional cases.
+- [ ] Add visually readable Mermaid component, sequence, state, and data-flow diagrams for the overall architecture and every documented lifecycle scenario. Verify that every diagram renders without syntax errors.
 - [ ] Run full backend pytest, Ruff check/format, frontend tests/typecheck/build, migration tests, `docker compose config`, and KrakenD build/render validation.
 - [ ] Reconcile every FastAPI route/method with gateway metadata and verify public/protected classification.
 - [ ] Re-check owner isolation, local roles, no-token persistence, import invariants, and `docs/refactoring-guidelines.md`.
