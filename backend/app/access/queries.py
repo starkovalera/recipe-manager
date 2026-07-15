@@ -41,3 +41,18 @@ def count_active_superadmins(session: Session) -> int:
         )
         or 0
     )
+
+
+def list_active_superadmin_ids_for_update(session: Session) -> list[str]:
+    return list(
+        session.scalars(
+            select(User.id)
+            .join(UserRoleAssignment)
+            .where(
+                User.status == UserStatus.ACTIVE,
+                UserRoleAssignment.role == UserRole.SUPERADMIN,
+            )
+            .order_by(User.id)
+            .with_for_update()
+        )
+    )

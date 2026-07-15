@@ -296,6 +296,22 @@ def test_user_deleted_webhook_marks_existing_user_deletion_pending():
         assert user.deletion_requested_at is not None
 
 
+def test_user_deleted_webhook_enqueues_deletion_after_state_is_committed(monkeypatch):
+    client, session_factory = create_client()
+    with session_factory.begin() as session:
+        session.add(User(id="user-1", auth_user_id="auth-user", email="user@example.test"))
+    published_user_ids: list[str] = []
+    monkeypatch.setattr("app.api.routes.webhooks.enqueue_account_deletion", published_user_ids.append)
+    payload = webhook_payload("evt_deleted_enqueue", "user.deleted", auth_user_id="auth-user")
+
+    response = post_webhook(client, payload)
+
+    assert response.status_code == 200
+    assert published_user_ids == ["user-1"]
+    with session_factory() as session:
+        assert session.get(User, "user-1").status is UserStatus.DELETION_PENDING
+
+
 def test_repeated_user_deleted_events_preserve_original_deletion_timestamp():
     client, session_factory = create_client()
     with session_factory.begin() as session:

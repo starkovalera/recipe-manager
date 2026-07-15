@@ -63,6 +63,16 @@ def test_clerk_client_deletes_user_through_provider_contract():
     assert [(request.method, str(request.url)) for request in requests] == [("DELETE", "https://api.clerk.test/v1/users/user_123")]
 
 
+def test_clerk_client_treats_missing_user_as_already_deleted():
+    client = ClerkClient(
+        secret_key="secret",
+        api_url="https://api.clerk.test",
+        http_client=httpx.Client(transport=httpx.MockTransport(lambda _request: httpx.Response(404))),
+    )
+
+    client.delete_user("user_123")
+
+
 def test_clerk_client_creates_sanitized_invitation():
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.method == "POST"

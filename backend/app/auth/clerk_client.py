@@ -52,7 +52,7 @@ class ClerkClient:
         self._base_url = f"{api_url.rstrip('/')}/v1"
         self._client = http_client or httpx.Client(timeout=timeout)
 
-    def _request(self, method: str, path: str, **kwargs) -> dict:
+    def _request(self, method: str, path: str, *, allow_not_found: bool = False, **kwargs) -> dict:
         try:
             response = self._client.request(
                 method,
@@ -60,6 +60,8 @@ class ClerkClient:
                 headers={"Authorization": f"Bearer {self._secret_key}"},
                 **kwargs,
             )
+            if allow_not_found and response.status_code == 404:
+                return {}
             response.raise_for_status()
             return response.json() if response.content else {}
         except (httpx.HTTPError, ValueError) as error:
@@ -77,7 +79,7 @@ class ClerkClient:
         return AuthUser(id=clerk_user_id, primary_email=primary_email.casefold())
 
     def delete_user(self, clerk_user_id: str) -> None:
-        self._request("DELETE", f"/users/{clerk_user_id}")
+        self._request("DELETE", f"/users/{clerk_user_id}", allow_not_found=True)
 
     def create_invitation(self, email: str, *, redirect_url: str) -> AuthInvitation:
         payload = self._request(

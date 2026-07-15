@@ -52,3 +52,7 @@ def can_change_user_status(user: User, status: UserStatus, active_superadmin_cou
         and has_role(user, UserRole.SUPERADMIN)
         and active_superadmin_count == 1
     )
+
+
+def can_delete_user(user: User, active_superadmin_count: int) -> bool:
+    return not (has_role(user, UserRole.SUPERADMIN) and user.status is UserStatus.ACTIVE and active_superadmin_count == 1)

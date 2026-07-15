@@ -3,7 +3,7 @@ from pydantic.json_schema import SkipJsonSchema
 
 from app.access.constants import ADMIN_PAGE_ROLES, UserRole
 from app.access.rules import has_any_role, has_role
-from app.models import User
+from app.models import User, UserStatus
 from app.schemas.base import CamelModel
 
 
@@ -43,3 +43,7 @@ class CurrentUserOut(CamelModel):
     @property
     def features(self) -> CurrentUserFeaturesOut:
         return CurrentUserFeaturesOut(user=self.user)
+
+
+class AccountDeletionOut(CamelModel):
+    status: UserStatus

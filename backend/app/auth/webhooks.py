@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Annotated, Any
 
@@ -61,14 +62,22 @@ async def verify_clerk_webhook(request: Request, settings: Annotated[Settings, D
 VerifiedClerkWebhookDep = Annotated[ClerkWebhookPayload, Depends(verify_clerk_webhook)]
 
 
+@dataclass(frozen=True)
+class ClerkWebhookProcessingResult:
+    processed: bool
+    deletion_user_id: str | None = None
+
+
 def process_clerk_webhook(
     session: Session,
     event: ClerkWebhookPayload,
     *,
     recipe_language: str,
-) -> bool:
+) -> ClerkWebhookProcessingResult:
     if session.get(ClerkWebhookEvent, event.id) is not None:
-        return False
+        return ClerkWebhookProcessingResult(processed=False)
+
+    deletion_user_id: str | None = None
 
     if event.type in {"user.created", "user.updated"}:
         try:
@@ -100,6 +109,8 @@ def process_clerk_webhook(
         if user is not None and user.status is not UserStatus.DELETION_PENDING:
             user.status = UserStatus.DELETION_PENDING
             user.deletion_requested_at = datetime.now(timezone.utc)
+        if user is not None:
+            deletion_user_id = user.id
 
     session.add(ClerkWebhookEvent(event_id=event.id, event_type=event.type))
-    return True
+    return ClerkWebhookProcessingResult(processed=True, deletion_user_id=deletion_user_id)

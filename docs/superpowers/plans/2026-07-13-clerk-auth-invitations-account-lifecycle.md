@@ -231,15 +231,15 @@ POST /me/provision
 - Create: `backend/tests/api/test_users.py`
 - Modify: `backend/tests/infra/test_krakend_config.py`
 
-- [ ] Add idempotent protected `POST /me/deletion` for active users.
-- [ ] Prevent deletion of the only active superadmin.
-- [ ] Delete the external provider identity, persist `DELETION_PENDING` and timestamp durably, then enqueue the local deletion actor.
-- [ ] Make later `user.deleted` webhook processing safely repeat the transition/enqueue flow.
-- [ ] Implement an id-only Dramatiq actor that reloads the user, verifies status, collects only that user's storage keys, deletes owned DB data transactionally, and removes media idempotently.
-- [ ] Collect the complete current storage inventory from `RecipeImage.storage_key` through the user's recipes and `ImportJobSource.image_storage_key` through the user's import jobs; `RecipeResource` adds no separate storage key.
-- [ ] Add actor-specific retry configuration and a reconciliation command for pending users after restart.
-- [ ] Add `POST /me/deletion` to protected KrakenD metadata.
-- [ ] Run deletion/API/worker/gateway tests and Ruff, then stop for review.
+- [x] Add idempotent protected `POST /me/deletion` for active users.
+- [x] Prevent deletion of the only active superadmin, including concurrent deletion requests.
+- [x] Persist `DELETION_PENDING` and its timestamp durably before enqueueing the local deletion actor.
+- [x] Make later `user.deleted` webhook processing safely repeat the transition/enqueue flow.
+- [x] Implement an id-only Dramatiq actor that reloads the user, verifies status, waits for active imports, removes the provider identity and owned media idempotently, and only then deletes owned DB data transactionally.
+- [x] Collect the complete current storage inventory from `RecipeImage.storage_key` through the user's recipes and `ImportJobSource.image_storage_key` through the user's import jobs; `RecipeResource` adds no separate storage key.
+- [x] Add actor-specific retry configuration and a reconciliation command for pending users after restart.
+- [x] Add `POST /me/deletion` to protected KrakenD metadata.
+- [x] Run deletion/API/worker/gateway tests and Ruff, then stop for review.
 
 ## Iteration G: Admin And Account Lifecycle UI
 

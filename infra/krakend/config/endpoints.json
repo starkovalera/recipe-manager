@@ -216,6 +216,11 @@
                       "public":  false
                   },
                   {
+                      "endpoint":  "/me/deletion",
+                      "method":  "POST",
+                      "public":  false
+                  },
+                  {
                       "endpoint":  "/openapi.json",
                       "method":  "GET",
                       "public":  true
