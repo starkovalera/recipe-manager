@@ -14,7 +14,7 @@ backend-dev:
 	cd backend && uv run fastapi dev app/main.py --host 127.0.0.1 --port 8010
 
 worker-dev:
-	cd backend && uv run dramatiq app.imports.tasks
+	cd backend && uv run dramatiq app.worker
 
 frontend-dev:
 	cd frontend && pnpm dev

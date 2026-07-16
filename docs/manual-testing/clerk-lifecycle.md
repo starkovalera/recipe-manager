@@ -61,7 +61,7 @@ uv run fastapi dev app/main.py --host 127.0.0.1 --port 8010
 uv run dramatiq app.worker
 
 # Terminal 4, frontend
-npm run dev
+pnpm dev
 ```
 
 Optional preview bootstrap after migrations:
