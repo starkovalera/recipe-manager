@@ -4,6 +4,7 @@ import type {
   CollectionList,
   AccessUser,
   AccessUserList,
+  AccessUserListParams,
   AccountDeletionResult,
   CurrentUser,
   ImportJob,
@@ -294,8 +295,8 @@ export async function retryInternalRecipeEmbedding(recipeId: string): Promise<vo
   await request<void>(`/internal/embeddings/${recipeId}/retry`, { method: "POST" });
 }
 
-export async function listAccessUsers(): Promise<AccessUserList> {
-  return request<AccessUserList>("/internal/access/users");
+export async function listAccessUsers(params?: AccessUserListParams): Promise<AccessUserList> {
+  return request<AccessUserList>(withQuery("/internal/access/users", params));
 }
 
 export async function assignUserRole(userId: string, role: string): Promise<AccessUser> {

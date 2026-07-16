@@ -1,4 +1,5 @@
 from collections.abc import Generator
+from datetime import datetime, timezone
 
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -62,6 +63,99 @@ def test_superadmin_assigns_and_revokes_role_idempotently():
     assert first.status_code == second.status_code == revoked.status_code == revoked_again.status_code == 200
     assert first.json()["roles"] == ["DEBUG"]
     assert revoked_again.json()["roles"] == []
+
+
+def test_access_users_list_is_filtered_sorted_and_paginated_on_backend():
+    client, session_factory = client_with_session()
+    with session_factory() as session:
+        superadmin = ensure_default_user(session)
+        session.add_all(
+            [
+                User(
+                    id="active-debug",
+                    auth_user_id="auth-active",
+                    email="z-active@example.test",
+                    role_assignments=[UserRoleAssignment(role=UserRole.DEBUG)],
+                ),
+                User(
+                    id="deactivated-debug",
+                    auth_user_id="auth-deactivated",
+                    email="a-deactivated@example.test",
+                    status=UserStatus.DEACTIVATED,
+                    role_assignments=[UserRoleAssignment(role=UserRole.DEBUG)],
+                ),
+            ]
+        )
+        session.commit()
+        client.app.dependency_overrides[get_current_user] = lambda: superadmin
+
+    response = client.get(
+        "/internal/access/users",
+        params={
+            "q": "AUTH-",
+            "role": "DEBUG",
+            "status": "DEACTIVATED",
+            "sortBy": "email",
+            "sortOrder": "asc",
+            "limit": 1,
+            "offset": 0,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total"] == 1
+    assert payload["limit"] == 1
+    assert payload["offset"] == 0
+    assert [user["id"] for user in payload["items"]] == ["deactivated-debug"]
+    assert payload["items"][0]["authUserId"] == "auth-deactivated"
+    assert payload["items"][0]["updatedAt"] is not None
+    assert "deletionRequestedAt" in payload["items"][0]
+
+
+def test_access_users_list_defaults_to_all_statuses_and_updated_at_descending():
+    client, session_factory = client_with_session()
+    oldest = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    middle = datetime(2026, 2, 1, tzinfo=timezone.utc)
+    newest = datetime(2026, 3, 1, tzinfo=timezone.utc)
+    with session_factory() as session:
+        superadmin = ensure_default_user(session)
+        session.add_all(
+            [
+                User(
+                    id="active-user",
+                    email="active@example.test",
+                    status=UserStatus.ACTIVE,
+                    created_at=oldest,
+                    updated_at=oldest,
+                ),
+                User(
+                    id="pending-user",
+                    email="pending@example.test",
+                    status=UserStatus.DELETION_PENDING,
+                    created_at=newest,
+                    updated_at=newest,
+                ),
+                User(
+                    id="deactivated-user",
+                    email="deactivated@example.test",
+                    status=UserStatus.DEACTIVATED,
+                    created_at=middle,
+                    updated_at=middle,
+                ),
+            ]
+        )
+        session.commit()
+        client.app.dependency_overrides[get_current_user] = lambda: superadmin
+
+    response = client.get("/internal/access/users", params={"limit": 100, "offset": 0})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total"] == 4
+    assert {user["status"] for user in payload["items"]} == {"ACTIVE", "DEACTIVATED", "DELETION_PENDING"}
+    test_user_ids = [user["id"] for user in payload["items"] if user["id"] != superadmin.id]
+    assert test_user_ids == ["pending-user", "deactivated-user", "active-user"]
 
 
 def test_role_management_rejects_non_superadmin_and_last_superadmin_removal():

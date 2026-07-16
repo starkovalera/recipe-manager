@@ -1,12 +1,69 @@
-from sqlalchemy import func, select
+from sqlalchemy import ColumnElement, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
-from app.access.constants import UserRole
+from app.access.constants import AccessUserSort, SortOrder, UserRole
+from app.db.query_utils import list_scalars_with_optional_pagination
 from app.models import User, UserRoleAssignment, UserStatus
 
 
-def list_access_users(session: Session) -> list[User]:
-    return list(session.scalars(select(User).options(selectinload(User.role_assignments)).order_by(User.created_at, User.id)))
+def _access_user_filter_conditions(
+    *,
+    q: str | None = None,
+    role: UserRole | None = None,
+    status: UserStatus | None = None,
+) -> list[ColumnElement[bool]]:
+    conditions: list[ColumnElement[bool]] = []
+    normalized_query = q.strip() if q else ""
+    if normalized_query:
+        conditions.append(
+            or_(
+                User.email.icontains(normalized_query, autoescape=True),
+                User.id.icontains(normalized_query, autoescape=True),
+                User.auth_user_id.icontains(normalized_query, autoescape=True),
+            )
+        )
+    if role is not None:
+        conditions.append(User.role_assignments.any(UserRoleAssignment.role == role))
+    if status is not None:
+        conditions.append(User.status == status)
+    return conditions
+
+
+def list_access_users(
+    session: Session,
+    *,
+    q: str | None = None,
+    role: UserRole | None = None,
+    status: UserStatus | None = None,
+    sort_by: AccessUserSort = AccessUserSort.UPDATED_AT,
+    sort_order: SortOrder = SortOrder.DESC,
+    limit: int | None = None,
+    offset: int | None = None,
+) -> list[User]:
+    sort_column = {
+        AccessUserSort.EMAIL: func.lower(User.email),
+        AccessUserSort.CREATED_AT: User.created_at,
+        AccessUserSort.UPDATED_AT: User.updated_at,
+    }[AccessUserSort(sort_by)]
+    order_expression = sort_column.asc() if SortOrder(sort_order) is SortOrder.ASC else sort_column.desc()
+    query = (
+        select(User)
+        .where(*_access_user_filter_conditions(q=q, role=role, status=status))
+        .options(selectinload(User.role_assignments))
+        .order_by(order_expression, User.id.asc())
+    )
+    return list_scalars_with_optional_pagination(session, query, limit=limit, offset=offset)
+
+
+def count_access_users(
+    session: Session,
+    *,
+    q: str | None = None,
+    role: UserRole | None = None,
+    status: UserStatus | None = None,
+) -> int:
+    query = select(func.count()).select_from(User).where(*_access_user_filter_conditions(q=q, role=role, status=status))
+    return session.scalar(query) or 0
 
 
 def get_access_user(session: Session, user_id: str) -> User | None:

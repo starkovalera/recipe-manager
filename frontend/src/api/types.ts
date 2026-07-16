@@ -11,10 +11,37 @@ export type CurrentUser = {
 };
 
 export type AvailableRole = { value: string; label: string };
+export type AvailableStatus = { value: UserStatus; label: string };
 export type RoleStatistic = { role: string; userCount: number };
 export type UserStatus = "ACTIVE" | "DEACTIVATED" | "DELETION_PENDING";
-export type AccessUser = { id: string; email: string; roles: string[]; status: UserStatus; createdAt?: string | null };
-export type AccessUserList = { availableRoles: AvailableRole[]; statistics: RoleStatistic[]; items: AccessUser[] };
+export type AccessUser = {
+  id: string;
+  authUserId?: string | null;
+  email: string;
+  roles: string[];
+  status: UserStatus;
+  createdAt: string;
+  updatedAt: string;
+  deletionRequestedAt?: string | null;
+};
+export type AccessUserList = {
+  availableRoles: AvailableRole[];
+  availableStatuses: AvailableStatus[];
+  statistics: RoleStatistic[];
+  items: AccessUser[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+export type AccessUserListParams = {
+  q?: string;
+  role?: string;
+  status?: UserStatus;
+  sortBy?: "email" | "createdAt" | "updatedAt";
+  sortOrder?: "asc" | "desc";
+  limit?: number;
+  offset?: number;
+};
 
 export type Invitation = {
   id: string;

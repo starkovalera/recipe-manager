@@ -155,7 +155,11 @@ All routes except health, Clerk webhooks, and FastAPI documentation are protecte
   - Does not persist search debug snapshots.
   - `DEBUG` is owner-filtered; `SUPERADMIN` may inspect cross-user search results, but cannot open foreign ordinary recipe details.
 - `GET /internal/access/users`
-  - `SUPERADMIN` only. Returns users, lifecycle status, fixed available roles, and role statistics.
+  - `SUPERADMIN` only. Returns paginated users, lifecycle status, fixed available roles/statuses, and role statistics.
+  - Supports case-insensitive `q` search across email, internal user ID, and authentication-provider user ID.
+  - Supports one `role` filter and one `status` filter; omitted filters include every role and status.
+  - Supports `sortBy=email|createdAt|updatedAt`, `sortOrder=asc|desc`, `limit`, and `offset`.
+  - Defaults to `updatedAt desc` with a stable user-ID tie-breaker.
 - `PUT /internal/access/users/{userId}/roles/{role}`
   - `SUPERADMIN` only. Idempotently assigns a fixed role.
 - `DELETE /internal/access/users/{userId}/roles/{role}`

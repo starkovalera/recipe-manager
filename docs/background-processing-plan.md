@@ -126,6 +126,7 @@ This checklist applies to every phase. Any phase that touches import, resources,
 - `POST /me/provision` is the only synchronous interactive-user provisioning path. It accepts no client-selected identity or email, is idempotent, does not call the auth provider or change settings/roles for an existing active user, and never auto-links an identity by email. A missing user is resolved through the cached auth provider outside a database transaction and then created atomically; uniqueness races are recovered by re-reading the committed identity or returning `EMAIL_ALREADY_LINKED`.
 - Until mandatory account-language onboarding is implemented, every newly provisioned user is created `ACTIVE` with no roles, one `UserSettings` row using the current backend recipe language, and the matching current default tag set in the same transaction. PREVIEW seeding reuses this initialization while preserving configured internal IDs and synchronizing the configured role set exactly.
 - Fixed application roles are `DEBUG` and `SUPERADMIN`, are stored locally, and may be combined on one user. Role-management APIs require `SUPERADMIN`, available role definitions come from the backend, and the final remaining `SUPERADMIN` assignment cannot be removed.
+- The `SUPERADMIN` Users dashboard is backend-paginated and includes every user lifecycle status by default. Its case-insensitive search covers email, internal user ID, and authentication-provider user ID; role and status are single-value filters. Sorting is backend-owned, supports email, creation time, and update time, and defaults to update time descending with user ID as the stable tie-breaker. Role assignment/revocation and activation/deactivation remain protected backend mutations.
 - Ordinary product endpoints remain owner-scoped for every role; `SUPERADMIN` does not gain access to another user's recipes, collections, tags, notifications, or ordinary product data. Internal Import Jobs, Embeddings, and Search Debug require `DEBUG` or `SUPERADMIN`; `DEBUG` sees only owned records while `SUPERADMIN` may see all internal records. Recipe debug data specifically requires `DEBUG`, including when a user has `SUPERADMIN`.
 - `GET /me` exposes capability flags rather than roles. Frontend capability checks control visibility only; backend access checks remain authoritative.
 - Invitations and user lifecycle administration are rendered only from backend-provided capabilities. Invitation creation, revocation, role changes, and user status changes always go through protected application-backend endpoints; the frontend never displays invitation tickets, provider secrets, or provider invitation URLs.
@@ -2651,6 +2652,26 @@ Detailed execution plan: `docs/superpowers/plans/2026-07-13-clerk-auth-invitatio
 Canonical architecture and operations documentation: `docs/authentication-and-authorization.md` and `docs/manual-testing/clerk-lifecycle.md`.
 
 The former requirements checkpoint below is resolved by this subphase specification. The remaining user-settings and broader admin/UI design items stay in later approved work.
+
+### Subphase 5d: Admin Users Dashboard - Completed
+
+Goal: turn the existing role-management list into a usable superadmin Users dashboard without adding a user detail page or
+changing the established role and account-status mutation rules.
+
+- Rename the Admin `Roles` tab to `Users` and preserve role assignment/revocation plus activation/deactivation controls.
+- Keep user cards as a list. Show email, lifecycle status, roles, internal user id, authentication-provider user id,
+  `created_at`, `updated_at`, and `deletion_requested_at`.
+- Do not add user-name fields to the model in this subphase.
+- Add backend case-insensitive contains search across email, internal user id, and authentication-provider user id.
+- Add one role filter and one status filter; omitted filters include every role and status.
+- Add backend sorting by email, `created_at`, or `updated_at`, with `updated_at desc` as the default and a stable id
+  tie-breaker.
+- Add backend pagination with `total`, `limit`, and `offset`; filtering, sorting, counting, and slicing happen before the
+  response reaches the frontend.
+- Preserve backend-authoritative `SUPERADMIN` access, final-superadmin protections, existing role statistics, and the
+  current role/status mutation endpoints.
+- Keep user detail, bulk actions, onboarding, lifecycle audit/reconciliation, and broader Admin UI redesign outside this
+  subphase.
 
 ```mermaid
 flowchart TD
