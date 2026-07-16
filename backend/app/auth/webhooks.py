@@ -42,24 +42,41 @@ class ClerkDeletedUserPayload(BaseModel):
     id: str
 
 
-class ClerkWebhookPayload(BaseModel):
-    id: str
+class ClerkWebhookBody(BaseModel):
     type: str
     data: dict[str, Any]
 
 
-async def verify_clerk_webhook(request: Request, settings: Annotated[Settings, Depends(get_settings)]) -> ClerkWebhookPayload:
+@dataclass(frozen=True)
+class VerifiedClerkWebhook:
+    event_id: str
+    event_type: str
+    data: dict[str, Any]
+
+
+async def verify_clerk_webhook(
+    request: Request,
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> VerifiedClerkWebhook:
     if not settings.clerk_webhook_signing_secret:
         raise InvalidWebhookError()
     body = await request.body()
     try:
         payload = Webhook(settings.clerk_webhook_signing_secret).verify(body, dict(request.headers))
-        return ClerkWebhookPayload.model_validate(payload)
+        webhook_body = ClerkWebhookBody.model_validate(payload)
     except (ValidationError, ValueError, WebhookVerificationError) as error:
         raise InvalidWebhookError() from error
+    event_id = (request.headers.get("svix-id") or "").strip()
+    if not event_id:
+        raise InvalidWebhookError()
+    return VerifiedClerkWebhook(
+        event_id=event_id,
+        event_type=webhook_body.type,
+        data=webhook_body.data,
+    )
 
 
-VerifiedClerkWebhookDep = Annotated[ClerkWebhookPayload, Depends(verify_clerk_webhook)]
+VerifiedClerkWebhookDep = Annotated[VerifiedClerkWebhook, Depends(verify_clerk_webhook)]
 
 
 @dataclass(frozen=True)
@@ -70,16 +87,16 @@ class ClerkWebhookProcessingResult:
 
 def process_clerk_webhook(
     session: Session,
-    event: ClerkWebhookPayload,
+    event: VerifiedClerkWebhook,
     *,
     recipe_language: str,
 ) -> ClerkWebhookProcessingResult:
-    if session.get(ClerkWebhookEvent, event.id) is not None:
+    if session.get(ClerkWebhookEvent, event.event_id) is not None:
         return ClerkWebhookProcessingResult(processed=False)
 
     deletion_user_id: str | None = None
 
-    if event.type in {"user.created", "user.updated"}:
+    if event.event_type in {"user.created", "user.updated"}:
         try:
             user_payload = ClerkUserPayload.model_validate(event.data)
         except ValidationError as error:
@@ -93,14 +110,14 @@ def process_clerk_webhook(
             email=user_payload.primary_email,
             recipe_language=recipe_language,
         )
-        if event.type == "user.created":
+        if event.event_type == "user.created":
             accept_pending_invitations(
                 session,
                 auth_provider=AuthProviderType.CLERK,
                 email=user_payload.primary_email,
                 accepted_at=datetime.now(timezone.utc),
             )
-    elif event.type == "user.deleted":
+    elif event.event_type == "user.deleted":
         try:
             user_payload = ClerkDeletedUserPayload.model_validate(event.data)
         except ValidationError as error:
@@ -112,5 +129,5 @@ def process_clerk_webhook(
         if user is not None:
             deletion_user_id = user.id
 
-    session.add(ClerkWebhookEvent(event_id=event.id, event_type=event.type))
+    session.add(ClerkWebhookEvent(event_id=event.event_id, event_type=event.event_type))
     return ClerkWebhookProcessingResult(processed=True, deletion_user_id=deletion_user_id)

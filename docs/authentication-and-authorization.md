@@ -305,7 +305,9 @@ Supported events:
 - `user.updated`: synchronize the normalized primary email without auto-linking.
 - `user.deleted`: transition an existing local user to `DELETION_PENDING` and enqueue deletion.
 
-Each accepted event ID is stored in `ClerkWebhookEvent`; duplicate delivery returns `processed: false`. Raw payloads, JWTs, signatures, invitation tickets, and provider secrets are not logged.
+Each accepted signed `svix-id` delivery ID is stored in `ClerkWebhookEvent`; duplicate delivery returns `processed: false`.
+The JSON body supplies the event type and domain payload but never the idempotency key. Raw payloads, JWTs, signatures,
+invitation tickets, and provider secrets are not logged.
 
 Webhooks are asynchronous reconciliation, not a synchronous login dependency. Clerk uses Svix retries for non-2xx delivery and supports replay from the dashboard.
 

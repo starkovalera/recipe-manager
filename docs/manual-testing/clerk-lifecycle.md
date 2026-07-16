@@ -138,10 +138,32 @@ For local webhook delivery, expose the selected webhook ingress with a tunnel, c
 
 - [ ] Missing or invalid Svix signatures are rejected.
 - [ ] The webhook route is public at KrakenD but protected by signature verification in FastAPI.
+- [ ] `ClerkWebhookEvent.event_id` equals the signed `svix-id` delivery header, not a field from the JSON body.
 - [ ] Protected routes reject missing/invalid Clerk JWTs at KrakenD.
 - [ ] Browser-supplied `X-Authenticated-Subject` is not accepted as an identity override.
 - [ ] Failed webhook deliveries are visible in Clerk/Svix and can be replayed.
 - [ ] Logs contain no JWT, Clerk secret, webhook signing secret, signature, invitation ticket, or raw webhook body.
+
+### Dashboard Sample Versus Real User Event
+
+The Clerk Dashboard synthetic `user.created` sample may contain an empty `email_addresses` array even when
+`primary_email_address_id` is present. Recipe Manager rejects that payload with `400 INVALID_WEBHOOK` because the internal
+`User` model requires a real primary email. This is payload validation after successful signature verification and does not
+indicate that KrakenD failed to forward the raw body or Svix headers.
+
+To verify complete `user.created` processing:
+
+1. Keep the three predefined preview users unchanged.
+2. Create a temporary user in the Clerk development instance with a unique, verified primary email.
+3. Confirm that Clerk sends the resulting real `user.created` event to the configured public tunnel URL ending at
+   `/webhooks/clerk`.
+4. In the Clerk/Svix delivery view, confirm the relay result is `200 POST /webhooks/clerk`.
+5. Confirm FastAPI returns `200` with `{"processed": true}`.
+6. In PostgreSQL, confirm the internal user exists with `status = ACTIVE`, has no roles, and its auth identity matches the
+   temporary Clerk user.
+7. Confirm the corresponding `clerk_webhook_events.event_id` equals the request's `svix-id` header.
+8. Replay the same delivery and confirm `{"processed": false}` with no duplicate user or event row.
+9. Delete the temporary user after recording the result; do not use a predefined preview user for this test.
 
 ## Evidence to Record
 
