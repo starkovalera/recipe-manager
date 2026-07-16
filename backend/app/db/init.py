@@ -1,24 +1,10 @@
 from pathlib import Path
 
-from alembic import command
 from alembic.config import Config
-from sqlalchemy.orm import Session
+from sqlalchemy import create_engine, text
 
-from app.models import User
-
-DEFAULT_USER_ID = "local-user"
-DEFAULT_USER_EMAIL = "local@example.test"
-
-
-def ensure_default_user(session: Session) -> User:
-    user = session.get(User, DEFAULT_USER_ID)
-    if user is not None:
-        return user
-    user = User(id=DEFAULT_USER_ID, email=DEFAULT_USER_EMAIL)
-    session.add(user)
-    session.commit()
-    session.refresh(user)
-    return user
+from alembic import command
+from app.db.base import Base
 
 
 def run_migrations(database_url: str) -> None:
@@ -27,3 +13,16 @@ def run_migrations(database_url: str) -> None:
     config.set_main_option("script_location", str(backend_root / "alembic"))
     config.set_main_option("sqlalchemy.url", database_url)
     command.upgrade(config, "head")
+
+
+def reset_database_schema(database_url: str) -> None:
+    engine = create_engine(database_url)
+    try:
+        if database_url.startswith("postgresql://") or database_url.startswith("postgresql+"):
+            with engine.begin() as connection:
+                connection.execute(text("DROP SCHEMA IF EXISTS public CASCADE"))
+                connection.execute(text("CREATE SCHEMA public"))
+        else:
+            Base.metadata.drop_all(engine)
+    finally:
+        engine.dispose()

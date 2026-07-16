@@ -287,7 +287,7 @@ pnpm dev
 - Modify `backend/app/main.py`
 - Tests under `backend/tests/api/test_errors.py`
 
-- [ ] Define stable error codes matching old behavior where applicable: `INVALID_URL`, `TEXT_TOO_LONG`, `NOT_A_RECIPE`, `TOO_MANY_FILES`, `INVALID_FILE_TYPE`, `FILE_TOO_LARGE`, `ACTIVE_IMPORT_EXISTS`, `AI_UNAVAILABLE`, `INVALID_EXTRACTION_RESULT`, `MIXED_SOURCE_PLATFORMS`, `IMPORT_NOT_FOUND`.
+- [ ] Define stable API error codes matching old behavior where applicable: `INVALID_URL`, `TEXT_TOO_LONG`, `NO_IMPORT_SOURCES`, `TOO_MANY_FILES`, `INVALID_FILE_TYPE`, `FILE_TOO_LARGE`, `ACTIVE_IMPORT_EXISTS`, `IMPORT_NOT_FOUND`, plus high-level persisted import-job failure codes for creation, processing, and extraction failures.
 - [ ] Define API error response shape: `{"errorCode": "...", "message": "..."}`.
 - [ ] Implement request client id extraction from `X-Client-Id`, normalized to max 128 chars.
 - [ ] Use fixed default user for local mode.
@@ -309,7 +309,7 @@ pnpm dev
 - [ ] Implement `GET /recipes` with simple list sorted by newest first.
 - [ ] Implement `GET /recipes/{recipe_id}` returning ingredients, tags, images/media URLs, sources, and open/resolved review flags.
 - [ ] Implement `PATCH /recipes/{recipe_id}` for title, servings, cook time, instructions, ingredients, tags, and note.
-- [ ] Trim and truncate note to `MAX_RECIPE_NOTE_CHARS`; never send note through import AI.
+- [ ] Trim and validate note against `MAX_RECIPE_NOTE_CHARS`; never send note through import AI.
 - [ ] Implement `DELETE /recipes/{recipe_id}` with DB cascade. Physical media deletion can be deferred to a later cleanup task unless tests prove it is necessary now.
 - [ ] Implement `GET /recipes/{recipe_id}/sources`.
 - [ ] Implement `PATCH /recipes/{recipe_id}/review-flags/{flag_id}` to resolve/unresolve with `resolvedAt`.
@@ -332,7 +332,7 @@ pnpm dev
 - [ ] Require recipe results to include `quality`; normalize missing optional fields to safe defaults only where old schema did.
 - [ ] Port the prompt text and preserve the source-injection warning.
 - [ ] Define provider protocols: `RecipeExtractionProvider.extract`, `CoverValidationProvider.validate`, `VideoTranscriptionProvider.transcribe`.
-- [ ] Implement fake provider with deterministic recipe output for image/url/text evidence and `NOT_A_RECIPE` for empty/irrelevant evidence.
+- [ ] Implement fake provider with deterministic recipe output for image/url/text evidence and extraction-level `NOT_A_RECIPE` for empty/irrelevant evidence.
 - [ ] Implement OpenAI provider behind the interface with strict JSON parsing and schema validation.
 - [ ] Add tests for schema validation, prompt/source label construction, invalid AI JSON failure, fake provider behavior, and cover validation interface.
 - [ ] Run `uv run pytest backend/tests/ai -q`; expected pass.
@@ -439,7 +439,7 @@ pnpm dev
 - [ ] Add URL caption/body text as URL evidence.
 - [ ] Save accepted URL images in loader order and preserve source positions.
 - [ ] Process URL videos: add transcript as text evidence; save poster only while image capacity remains.
-- [ ] If accepted evidence is empty after partial failures, fail as `NOT_A_RECIPE`.
+- [ ] If accepted evidence is empty after secondary source failures, fail the import as `IMPORT_PROCESSING_FAILED` with a detailed processing error.
 - [ ] Call recipe extraction provider with structured ready sources.
 - [ ] On provider exception or AI unavailable, fail job and cleanup saved files.
 - [ ] Validate extracted recipe and normalize source ids.
@@ -482,7 +482,7 @@ pnpm dev
 - Create `frontend/src/app/App.tsx`
 - Tests under `frontend/src/api/*.test.ts`
 
-- [ ] Implement API base URL from `VITE_API_BASE_URL`, default `http://localhost:8000`.
+- [x] Implement API base URL from `VITE_API_BASE_URL`, default `http://127.0.0.1:8081` through the local KrakenD compatibility gateway.
 - [ ] Implement stable local `clientId` in localStorage and include it as `X-Client-Id`.
 - [ ] Implement typed client functions: list recipes, get recipe, patch recipe, delete recipe, create import, get import job, resolve review flag.
 - [ ] Implement API error parsing into a frontend error type with `errorCode` and `message`.

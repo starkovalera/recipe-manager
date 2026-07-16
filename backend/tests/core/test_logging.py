@@ -1,5 +1,5 @@
-from io import StringIO
 import logging
+from io import StringIO
 
 from app.core.logging import configure_logging, log_info
 
@@ -30,3 +30,16 @@ def test_log_info_prints_stdout_fallback(capsys):
     output = capsys.readouterr().out
     assert "[recipes.http] Request handled" in output
     assert '"path": "/recipes"' in output
+
+
+def test_log_info_does_not_raise_when_stdout_pipe_is_closed(monkeypatch):
+    logger = logging.getLogger("app.test.broken-pipe")
+    logger.handlers = [logging.NullHandler()]
+    logger.propagate = False
+
+    def raise_broken_pipe(*args, **kwargs):
+        raise BrokenPipeError(232, "The pipe is being closed")
+
+    monkeypatch.setattr("builtins.print", raise_broken_pipe)
+
+    log_info(logger, "Import job processing started.", import_job_id="job-1")

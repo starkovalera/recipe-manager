@@ -1,11 +1,254 @@
-export type RecipeImage = { id: string; role: string; mediaUrl: string; sourceImageId?: string | null };
+export type RecipeImage = { id: string; mediaUrl: string };
+
+export type CurrentUser = {
+  id: string;
+  email: string;
+  features: {
+    showAdminPages: boolean;
+    showRoleManagement: boolean;
+    showRecipeDebug: boolean;
+  };
+};
+
+export type AvailableRole = { value: string; label: string };
+export type AvailableStatus = { value: UserStatus; label: string };
+export type RoleStatistic = { role: string; userCount: number };
+export type UserStatus = "ACTIVE" | "DEACTIVATED" | "DELETION_PENDING";
+export type AccessUser = {
+  id: string;
+  authUserId?: string | null;
+  email: string;
+  roles: string[];
+  status: UserStatus;
+  createdAt: string;
+  updatedAt: string;
+  deletionRequestedAt?: string | null;
+};
+export type AccessUserList = {
+  availableRoles: AvailableRole[];
+  availableStatuses: AvailableStatus[];
+  statistics: RoleStatistic[];
+  items: AccessUser[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+export type AccessUserListParams = {
+  q?: string;
+  role?: string;
+  status?: UserStatus;
+  sortBy?: "email" | "createdAt" | "updatedAt";
+  sortOrder?: "asc" | "desc";
+  limit?: number;
+  offset?: number;
+};
+
+export type Invitation = {
+  id: string;
+  authProvider: string;
+  authInvitationId: string;
+  email: string;
+  status: "PENDING" | "ACCEPTED" | "REVOKED" | "EXPIRED";
+  createdByUserId?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  expiresAt?: string | null;
+  acceptedAt?: string | null;
+};
+
+export type InvitationList = { items: Invitation[] };
+export type AccountDeletionResult = { status: "DELETION_PENDING" };
 
 export type ImportJob = {
   jobId: string;
-  status: "pending" | "processing" | "succeeded" | "failed";
+  status: "queued" | "running" | "succeeded" | "succeeded_with_flags" | "failed" | "cancelled";
   createdRecipeId?: string | null;
   errorCode?: string | null;
   errorMessage?: string | null;
+  attemptCount: number;
+  maxAttempts: number;
+  createdAt?: string | null;
+  startedAt?: string | null;
+  finishedAt?: string | null;
+  sources: Array<{
+    type: "IMAGE" | "TEXT" | "URL";
+    url?: string | null;
+    originalName?: string | null;
+    mediaUrl?: string | null;
+    text?: string | null;
+  }>;
+};
+
+export type Notification = {
+  id: string;
+  type: "IMPORT_STARTED" | "IMPORT_FAILED" | "IMPORT_SUCCEEDED" | "IMPORT_SUCCEEDED_WITH_FLAGS" | string;
+  status: "unread" | "read" | string;
+  title: string;
+  message: string;
+  entityType?: "RECIPE" | "IMPORT_JOB" | string | null;
+  entityId?: string | null;
+  data?: Record<string, unknown> | null;
+  readAt?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+};
+
+export type NotificationList = {
+  items: Notification[];
+};
+
+export type NotificationsMarkAllReadResult = {
+  updatedCount: number;
+};
+
+export type Tag = {
+  id: string;
+  name: string;
+  description?: string | null;
+  deletedAt?: string | null;
+};
+
+export type TagList = {
+  items: Tag[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+
+export type TagListParams = {
+  limit?: number;
+  offset?: number;
+};
+
+export type TagUsage = {
+  recipeCount: number;
+};
+
+export type SearchSuggestion = {
+  type: "tag" | "ingredient_query" | "source_name" | "author_name" | "title";
+  id?: string | null;
+  recipeId?: string | null;
+  value?: string | null;
+  label: string;
+};
+
+export type SearchSuggestionList = {
+  items: SearchSuggestion[];
+};
+
+export type SearchRequest = {
+  text?: string | null;
+  selected?: SearchSuggestion[];
+  limit?: number;
+  offset?: number;
+};
+
+export type SearchResponse = {
+  items: Array<RecipeList["items"][number] & {
+    matchReasons: Array<{ type: string; label: string; score?: number | null }>;
+  }>;
+  limit: number;
+  offset: number;
+  hasMore: boolean;
+};
+
+export type SearchExplainResponse = {
+  textPresent: boolean;
+  filters: {
+    tagId?: string | null;
+    ingredientQueries: string[];
+    sourceName?: string | null;
+    authorName?: string | null;
+    titleRecipeId?: string | null;
+  };
+  provider?: string | null;
+  model?: string | null;
+  distanceMetric: string;
+  candidateCount: number;
+  returnedCount: number;
+  limit: number;
+  offset: number;
+  hasMore: boolean;
+  snapshotPersisted: boolean;
+  items: Array<RecipeList["items"][number] & {
+    matchReasons: Array<{ type: string; label: string; score?: number | null }>;
+    debug: {
+      rank?: number | null;
+      distance?: number | null;
+      similarity?: number | null;
+      embeddingStatus?: RecipeEmbeddingStatus | null;
+      embeddingModel?: string | null;
+      inputHash?: string | null;
+      embeddingInputPreview?: string | null;
+    };
+    canOpenRecipe: boolean;
+  }>;
+};
+
+export type EmbeddingInputPreview = {
+  recipeId: string;
+  input: string;
+  inputHash: string;
+};
+
+export type RecipeEmbeddingStatus = "STALE" | "RUNNING" | "READY" | "FAILED" | "SKIPPED_DUE_TO_FLAGS";
+
+export type RecipeEmbeddingEventType =
+  | "SCHEDULED"
+  | "ENQUEUED"
+  | "STARTED"
+  | "SKIPPED_DUE_TO_FLAGS"
+  | "ALREADY_READY"
+  | "PROVIDER_SUCCEEDED"
+  | "SAVED"
+  | "STALE_REQUEUED"
+  | "FAILED"
+  | "RETRY_REQUESTED";
+
+export type InternalImportJobList = {
+  items: Array<{
+    id: string;
+    ownerId: string;
+    clientId: string;
+    clientImportId?: string | null;
+    dedupeKey?: string | null;
+    status: string;
+    errorCode?: string | null;
+    errorMessage?: string | null;
+    createdRecipeId?: string | null;
+    createdAt?: string | null;
+    startedAt?: string | null;
+    finishedAt?: string | null;
+    attemptCount: number;
+    maxAttempts: number;
+    statusHistory: Array<{ status: string; changedAt?: string | null }>;
+    sources: Array<{ id: string; type: string; status: string; url?: string | null; originalName?: string | null; position: number }>;
+    events: Array<{ id: string; eventType: string; payload?: Record<string, unknown> | null; createdAt?: string | null }>;
+  }>;
+};
+
+export type InternalRecipeEmbeddingList = {
+  items: Array<{
+    recipeId: string;
+    ownerId?: string | null;
+    recipeTitle?: string | null;
+    status: RecipeEmbeddingStatus;
+    model: string;
+    inputHash?: string | null;
+    failedAttempts: number;
+    errorMessage?: string | null;
+    lastAttemptAt?: string | null;
+    lastErrorAt?: string | null;
+    createdAt?: string | null;
+    updatedAt?: string | null;
+    events: Array<{
+      id: string;
+      eventType: RecipeEmbeddingEventType;
+      statusAfter?: RecipeEmbeddingStatus | null;
+      payload?: Record<string, unknown> | null;
+      createdAt?: string | null;
+    }>;
+  }>;
 };
 
 export type RecipeList = {
@@ -15,7 +258,43 @@ export type RecipeList = {
     coverImage?: RecipeImage | null;
     note?: string | null;
     updatedAt?: string | null;
+    hasOpenReviewFlags?: boolean;
   }>;
+  total: number;
+  limit: number;
+  offset: number;
+};
+
+export type RecipeListParams = {
+  limit?: number;
+  offset?: number;
+  tag?: string;
+  ingredientQuery?: string[];
+  sourceName?: string;
+  authorName?: string;
+  title?: string;
+};
+
+export type RecipeResource = {
+  id: string;
+  type: string;
+  source: string;
+  role: string;
+  parentResourceId?: string | null;
+  status: string;
+  imageId?: string | null;
+  text?: string | null;
+  url?: string | null;
+};
+
+export type ReviewFlag = {
+  id: string;
+  type?: string;
+  status: string;
+  reasonCode: string;
+  message: string;
+  details?: Record<string, unknown> | null;
+  resolvedAt?: string | null;
 };
 
 export type RecipeDetail = RecipeList["items"][number] & {
@@ -24,31 +303,48 @@ export type RecipeDetail = RecipeList["items"][number] & {
   nutritionEstimate?: Record<string, number | null> | null;
   authorName?: string | null;
   sourceName: string;
-  tags: string[];
+  tags: Tag[];
   instructions: string[];
   ingredients: Array<{ id: string; name: string; quantity?: string | null; unit?: string | null; note?: string | null; position: number }>;
   images: RecipeImage[];
   coverImage?: RecipeImage | null;
-  coverImageSource?: string | null;
   coverOptions: Array<{ kind: string; image?: RecipeImage | null; label: string; selected: boolean }>;
   collections: Array<{ id: string; name: string }>;
-  sources: Array<{ id: string; type: string; status: string; text?: string | null; url?: string | null }>;
-  reviewFlags: Array<{ id: string; type?: string; status: string; reasonCode: string; message: string; details?: Record<string, unknown> | null; resolvedAt?: string | null }>;
+  resources: RecipeResource[];
+  sources: RecipeResource[];
+  debug?: {
+    resources: RecipeResource[];
+    embedding?: {
+      recipeId: string;
+      status: RecipeEmbeddingStatus;
+      model: string;
+      inputHash?: string | null;
+      failedAttempts: number;
+      errorMessage?: string | null;
+    } | null;
+    embeddingInput?: EmbeddingInputPreview | null;
+  };
+  reviewFlags: ReviewFlag[];
 };
 
 export type RecipePatch = {
   title?: string;
+  sourceName?: string;
+  authorName?: string | null;
   cookTimeMinutes?: number | null;
   nutritionEstimate?: Record<string, number | null> | null;
-  ingredients?: Array<{ name: string; quantity?: string | null; unit?: string | null; note?: string | null }>;
+  ingredients?: Array<{ id?: string | null; name: string; quantity?: string | null; unit?: string | null; note?: string | null }>;
   instructions?: string[];
-  tags?: string[];
+  tagIds?: string[];
   note?: string;
   coverSelection?: { kind: "DEFAULT" | "IMAGE"; imageId?: string | null };
 };
 
 export type CollectionList = {
   items: Array<{ id: string; name: string; description?: string | null; recipeCount: number }>;
+  total: number;
+  limit: number;
+  offset: number;
 };
 
 export type CollectionDetail = CollectionList["items"][number] & {

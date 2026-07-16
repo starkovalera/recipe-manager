@@ -7,9 +7,10 @@ from pydantic import ValidationError
 
 from app.ai.prompt import recipe_extraction_prompt
 from app.ai.provider import RecipeExtractionProvider
-from app.ai.schemas import ExtractedRecipe, ExtractionResult, ReadySource, ready_source_id
+from app.ai.schemas import ExtractedRecipe, ExtractionResult, ExtractionSource, extraction_source_id
 from app.core.config import Settings
 from app.core.logging import log_info
+from app.imports.error_codes import ImportExtractionErrorCode
 
 logger = logging.getLogger("recipes.ai.openai")
 
@@ -66,76 +67,56 @@ RECIPE_JSON_SCHEMA: dict[str, Any] = {
             "additionalProperties": False,
             "properties": {
                 "sourceRef": {"type": "string"},
-                "sourcePosition": {"type": "integer"},
-                "crop": {
-                    "type": ["object", "null"],
-                    "additionalProperties": False,
-                    "properties": {
-                        "x": {"type": "number"},
-                        "y": {"type": "number"},
-                        "width": {"type": "number"},
-                        "height": {"type": "number"},
-                    },
-                },
                 "confidence": {"type": "number"},
-                "reason": {"type": ["string", "null"]},
             },
-            "required": ["sourceRef", "sourcePosition", "confidence"],
+            "required": ["sourceRef", "confidence"],
         },
     },
 }
 
 
-def _source_log_summary(source: ReadySource) -> dict[str, Any]:
+def _source_log_summary(source: ExtractionSource) -> dict[str, Any]:
     if source.type == "IMAGE":
         return {
             "type": source.type,
-            "sourceId": ready_source_id(source),
-            "sourceRef": source.sourceRef,
+            "source_id": extraction_source_id(source),
+            "source_ref": source.source_ref,
             "position": source.position,
-            "originalName": source.originalName,
-            "mimeType": source.mimeType,
+            "original_name": source.original_name,
+            "mime_type": source.mime_type,
         }
     if source.type == "URL":
         return {
             "type": source.type,
-            "sourceId": ready_source_id(source),
+            "source_id": extraction_source_id(source),
             "position": source.position,
             "url": source.url,
-            "authorName": source.authorName,
+            "author_name": source.author_name,
         }
-    return {"type": source.type, "sourceId": ready_source_id(source), "position": source.position}
+    return {"type": source.type, "source_id": extraction_source_id(source), "position": source.position}
 
 
-def _source_label(source: ReadySource) -> dict[str, str]:
+def _source_label(source: ExtractionSource) -> dict[str, str]:
     if source.type == "IMAGE":
-        text = (
-            f"Source sourceId={ready_source_id(source)}, image sourceRef={source.sourceRef}, "
-            f"position={source.position}, originalName={source.originalName}"
-        )
-    elif source.type == "URL":
-        text = f"Source sourceId={ready_source_id(source)}, URL at position {source.position}: {source.url}"
-        if source.authorName:
-            text += f"\nFetched authorName: {source.authorName}"
-        if source.text:
-            text += f"\nUntrusted fetched URL text:\n{source.text}"
+        text = f"Source type=image, id={extraction_source_id(source)}, content:"
     else:
-        text = f"Source sourceId={ready_source_id(source)}, untrusted text at position {source.position}:\n{source.text}"
+        text = f"Source type=text, id={extraction_source_id(source)}, content:\n{source.text}"
     return {"type": "input_text", "text": text}
 
 
-def _source_to_extraction_content(source: ReadySource) -> list[dict[str, Any]]:
+def _source_to_extraction_content(source: ExtractionSource) -> list[dict[str, Any]]:
     label = _source_label(source)
     if source.type == "IMAGE":
         return [
             label,
-            {"type": "input_image", "detail": "auto", "image_url": source.dataUrl},
+            {"type": "input_image", "detail": "auto", "image_url": source.data_url},
         ]
     return [label]
 
 
-def _content_for_sources(sources: list[ReadySource]) -> list[dict[str, Any]]:
-    content: list[dict[str, Any]] = [{"type": "input_text", "text": recipe_extraction_prompt}]
+def _content_for_sources(sources: list[ExtractionSource], *, language: str, tags: str) -> list[dict[str, Any]]:
+    prompt = recipe_extraction_prompt.format(language=language, tags=tags)
+    content: list[dict[str, Any]] = [{"type": "input_text", "text": prompt}]
     for source in sources:
         content.extend(_source_to_extraction_content(source))
     return content
@@ -145,13 +126,21 @@ def _parse_recipe_json(text: str) -> ExtractionResult:
     try:
         payload = json.loads(text)
     except json.JSONDecodeError as error:
-        return ExtractionResult(not_a_recipe=True, error_code="AI_PARSE_FAILED", error_message=str(error))
+        return ExtractionResult(
+            not_a_recipe=True,
+            error_code=ImportExtractionErrorCode.RESULT_PARSE_FAILED,
+            error_message=str(error),
+        )
     if isinstance(payload, dict) and payload.get("notARecipe") is True:
         return ExtractionResult(not_a_recipe=True)
     try:
         return ExtractionResult(recipe=ExtractedRecipe.model_validate(payload))
     except ValidationError as error:
-        return ExtractionResult(not_a_recipe=True, error_code="INVALID_EXTRACTION_RESULT", error_message=str(error))
+        return ExtractionResult(
+            not_a_recipe=True,
+            error_code=ImportExtractionErrorCode.INVALID_EXTRACTION_RESULT,
+            error_message=str(error),
+        )
 
 
 class OpenAIRecipeExtractionProvider(RecipeExtractionProvider):
@@ -161,12 +150,14 @@ class OpenAIRecipeExtractionProvider(RecipeExtractionProvider):
         self.settings = settings
         self.client = client or AsyncOpenAI(api_key=settings.openai_api_key)
 
-    async def extract(self, sources: list[ReadySource]) -> ExtractionResult:
-        content = _content_for_sources(sources)
+    async def extract(self, sources: list[ExtractionSource], *, language: str, tags: str) -> ExtractionResult:
+        content = _content_for_sources(sources, language=language, tags=tags)
         log_info(
             logger,
             "[recipes.ai.openai] Recipe extraction request",
             model=self.settings.openai_recipe_model,
+            language=language,
+            tags=tags,
             sources=[source.model_dump() for source in sources],
             sourceCount=len(sources),
             imageSourceCount=len([source for source in sources if source.type == "IMAGE"]),
@@ -196,7 +187,11 @@ class OpenAIRecipeExtractionProvider(RecipeExtractionProvider):
                 imageSourceCount=len([source for source in sources if source.type == "IMAGE"]),
                 error=repr(error),
             )
-            return ExtractionResult(not_a_recipe=True, error_code="AI_UNAVAILABLE", error_message="AI extraction is unavailable.")
+            return ExtractionResult(
+                not_a_recipe=True,
+                error_code=ImportExtractionErrorCode.EXTRACTOR_UNAVAILABLE,
+                error_message="AI extraction is unavailable.",
+            )
 
         text = response.output_text or "{}"
         result = _parse_recipe_json(text)

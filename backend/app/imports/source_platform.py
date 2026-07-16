@@ -1,7 +1,11 @@
+import logging
 from dataclasses import dataclass
 from urllib.parse import urlparse
 
+from app.core.logging import log_info
 from app.models import SourceName
+
+logger = logging.getLogger(__name__)
 
 
 def detect_source_name_from_url(raw_url: str) -> SourceName:
@@ -23,7 +27,6 @@ def detect_source_name_from_url(raw_url: str) -> SourceName:
 class SourceNameResult:
     ok: bool
     source_name: SourceName | None = None
-    error_code: str | None = None
 
 
 def derive_source_name(urls: list[str]) -> SourceNameResult:
@@ -34,7 +37,13 @@ def derive_source_name(urls: list[str]) -> SourceNameResult:
     known_platforms.discard(SourceName.OTHER)
 
     if len(known_platforms) > 1:
-        return SourceNameResult(ok=False, error_code="MIXED_SOURCE_PLATFORMS")
+        log_info(
+            logger,
+            "MIXED_SOURCE_PLATFORMS",
+            urls=urls,
+            platforms=sorted(platform.value for platform in known_platforms),
+        )
+        return SourceNameResult(ok=True, source_name=SourceName.OTHER)
     if len(known_platforms) == 1:
         return SourceNameResult(ok=True, source_name=next(iter(known_platforms)))
     return SourceNameResult(ok=True, source_name=SourceName.OTHER)

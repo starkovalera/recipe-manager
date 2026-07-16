@@ -1,0 +1,249 @@
+{
+    "items":  [
+                  {
+                      "endpoint":  "/health",
+                      "method":  "GET",
+                      "public":  true
+                  },
+                  {
+                      "endpoint":  "/internal/access/users",
+                      "method":  "GET",
+                      "public":  false
+                  },
+                  {
+                      "endpoint":  "/internal/access/users/{user_id}/roles/{role}",
+                      "method":  "PUT",
+                      "public":  false
+                  },
+                  {
+                      "endpoint":  "/internal/access/users/{user_id}/roles/{role}",
+                      "method":  "DELETE",
+                      "public":  false
+                  },
+                  {
+                      "endpoint":  "/internal/access/users/{user_id}/status",
+                      "method":  "PATCH",
+                      "public":  false
+                  },
+                  {
+                      "endpoint":  "/internal/invitations",
+                      "method":  "GET",
+                      "public":  false
+                  },
+                  {
+                      "endpoint":  "/internal/invitations",
+                      "method":  "POST",
+                      "public":  false
+                  },
+                  {
+                      "endpoint":  "/internal/invitations/{invitation_id}/revoke",
+                      "method":  "POST",
+                      "public":  false
+                  },
+                  {
+                      "endpoint":  "/collections",
+                      "method":  "GET",
+                      "public":  false
+                  },
+                  {
+                      "endpoint":  "/collections",
+                      "method":  "POST",
+                      "public":  false
+                  },
+                  {
+                      "endpoint":  "/collections/{collection_id}",
+                      "method":  "GET",
+                      "public":  false
+                  },
+                  {
+                      "endpoint":  "/collections/{collection_id}",
+                      "method":  "DELETE",
+                      "public":  false
+                  },
+                  {
+                      "endpoint":  "/collections/{collection_id}/recipes/{recipe_id}",
+                      "method":  "PUT",
+                      "public":  false
+                  },
+                  {
+                      "endpoint":  "/collections/{collection_id}/recipes/{recipe_id}",
+                      "method":  "DELETE",
+                      "public":  false
+                  },
+                  {
+                      "endpoint":  "/imports",
+                      "method":  "POST",
+                      "public":  false
+                  },
+                  {
+                      "endpoint":  "/imports/{job_id}",
+                      "method":  "GET",
+                      "public":  false
+                  },
+                  {
+                      "endpoint":  "/imports/{job_id}/retry",
+                      "method":  "POST",
+                      "public":  false
+                  },
+                  {
+                      "endpoint":  "/internal/import-jobs",
+                      "method":  "GET",
+                      "public":  false
+                  },
+                  {
+                      "endpoint":  "/internal/embeddings",
+                      "method":  "GET",
+                      "public":  false
+                  },
+                  {
+                      "endpoint":  "/internal/import-jobs/{job_id}/retry",
+                      "method":  "POST",
+                      "public":  false
+                  },
+                  {
+                      "endpoint":  "/internal/embeddings/{recipe_id}/retry",
+                      "method":  "POST",
+                      "public":  false
+                  },
+                  {
+                      "endpoint":  "/internal/search/explain",
+                      "method":  "POST",
+                      "public":  false
+                  },
+                  {
+                      "endpoint":  "/media/{storage_key}",
+                      "method":  "GET",
+                      "public":  false
+                  },
+                  {
+                      "endpoint":  "/notifications",
+                      "method":  "GET",
+                      "public":  false
+                  },
+                  {
+                      "endpoint":  "/notifications/read-all",
+                      "method":  "PATCH",
+                      "public":  false
+                  },
+                  {
+                      "endpoint":  "/notifications/{notification_id}",
+                      "method":  "PATCH",
+                      "public":  false
+                  },
+                  {
+                      "endpoint":  "/recipes",
+                      "method":  "GET",
+                      "public":  false
+                  },
+                  {
+                      "endpoint":  "/recipes/{recipe_id}",
+                      "method":  "GET",
+                      "public":  false
+                  },
+                  {
+                      "endpoint":  "/recipes/{recipe_id}",
+                      "method":  "PATCH",
+                      "public":  false
+                  },
+                  {
+                      "endpoint":  "/recipes/{recipe_id}",
+                      "method":  "DELETE",
+                      "public":  false
+                  },
+                  {
+                      "endpoint":  "/recipes/{recipe_id}/review-flags/{flag_id}",
+                      "method":  "PATCH",
+                      "public":  false
+                  },
+                  {
+                      "endpoint":  "/recipes/{recipe_id}/embedding/retry",
+                      "method":  "POST",
+                      "public":  false
+                  },
+                  {
+                      "endpoint":  "/recipes/{recipe_id}/sources/{resource_id}",
+                      "method":  "PATCH",
+                      "public":  false
+                  },
+                  {
+                      "endpoint":  "/recipes/{recipe_id}/resources/{resource_id}",
+                      "method":  "PATCH",
+                      "public":  false
+                  },
+                  {
+                      "endpoint":  "/search/suggestions",
+                      "method":  "GET",
+                      "public":  false
+                  },
+                  {
+                      "endpoint":  "/search",
+                      "method":  "POST",
+                      "public":  false
+                  },
+                  {
+                      "endpoint":  "/tags",
+                      "method":  "GET",
+                      "public":  false
+                  },
+                  {
+                      "endpoint":  "/tags",
+                      "method":  "POST",
+                      "public":  false
+                  },
+                  {
+                      "endpoint":  "/tags/{tag_id}",
+                      "method":  "PATCH",
+                      "public":  false
+                  },
+                  {
+                      "endpoint":  "/tags/{tag_id}",
+                      "method":  "DELETE",
+                      "public":  false
+                  },
+                  {
+                      "endpoint":  "/tags/{tag_id}/usage",
+                      "method":  "GET",
+                      "public":  false
+                  },
+                  {
+                      "endpoint":  "/me",
+                      "method":  "GET",
+                      "public":  false
+                  },
+                  {
+                      "endpoint":  "/me/provision",
+                      "method":  "POST",
+                      "public":  false
+                  },
+                  {
+                      "endpoint":  "/me/deletion",
+                      "method":  "POST",
+                      "public":  false
+                  },
+                  {
+                      "endpoint":  "/openapi.json",
+                      "method":  "GET",
+                      "public":  true
+                  },
+                  {
+                      "endpoint":  "/docs",
+                      "method":  "GET",
+                      "public":  true
+                  },
+                  {
+                      "endpoint":  "/docs/oauth2-redirect",
+                      "method":  "GET",
+                      "public":  true
+                  },
+                  {
+                      "endpoint":  "/redoc",
+                      "method":  "GET",
+                      "public":  true
+                  },
+                  {
+                      "endpoint":  "/webhooks/clerk",
+                      "method":  "POST",
+                      "public":  true
+                  }
+              ]
+}

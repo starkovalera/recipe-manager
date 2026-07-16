@@ -1,46 +1,87 @@
 # Import Pipeline Flow
 
-Current implementation is sync-first: `POST /imports` creates an `ImportJob`, processes it in the same request, and the frontend still polls `GET /imports/{jobId}` so the contract can move to a real background queue later.
+This diagram focuses on the persisted `ImportJob` lifecycle, retry behavior,
+events, notifications, and user navigation. Detailed source and extraction rules
+are documented in `import-pipeline.md`.
 
 ```mermaid
-flowchart TD
-  A["Frontend submits import form\nclientImportId, text, url, files"] --> B["POST /imports"]
-  B --> C["Resolve current user\nlocal default/admin user for now"]
-  C --> D{"Existing ImportJob for\nowner_id + clientImportId?"}
-  D -- yes --> E["Return existing ImportJob"]
-  D -- no --> F["Create ImportJob\nstatus=pending"]
-  F --> G["Persist import sources\nTEXT, IMAGE attachments, URL"]
-  G --> H["Process job synchronously\nstatus=processing"]
+stateDiagram-v2
+  [*] --> CreationValidation: POST /imports
 
-  H --> I["Build ready evidence in source order"]
-  I --> J["Add text input as recipe evidence"]
-  J --> K["Validate and save attachment images"]
-  K --> L["Calculate remaining image capacity\nMAX_IMPORT_IMAGES - attachment count"]
-  L --> M["Load URL content\nremote images only fill remaining capacity"]
-  M --> N["Call AI recipe extraction provider"]
+  CreationValidation --> [*]: API validation error\nno job created
+  CreationValidation --> ExistingJob: duplicate owner and dedupe key
+  CreationValidation --> Queued: atomic creation succeeds
 
-  N --> O{"AI result is recipe\nand confidence > min?"}
-  O -- no --> P["Fail ImportJob\ncleanup saved media"]
-  O -- yes --> Q["Normalize single-URL quality\nwhen applicable"]
-  Q --> R["Create Recipe, ingredients,\nimages, sources"]
+  state Queued {
+    [*] --> AwaitingWorker
+  }
 
-  R --> S["Source statuses from\nprimarySourceRefs / ignoredSourceRefs"]
-  S --> T["Select coverCandidate from AI"]
-  T --> U["Cover guard block\nfeature-flagged, default off"]
-  U --> V["Generate cover image when candidate accepted"]
-  V --> W{"hasConflicts OR hasIgnored OR\nconfidence <= IMPORT_WARN_CONFIDENCE?"}
-  W -- yes --> X["Create open CONTENT_WARNING flag"]
-  W -- no --> Y["No warning flag"]
-  X --> Z["Mark ImportJob succeeded\ncreatedRecipeId=recipe.id"]
-  Y --> Z
+  Queued: status QUEUED
+  Queued: IMPORT_CREATED event
+  Queued: IMPORT_STARTED notification
+  ExistingJob --> [*]: return existing job
 
-  E --> AA["Frontend polls GET /imports/{jobId}"]
-  Z --> AA
-  P --> AA
-  AA --> AB{"Terminal status?"}
-  AB -- succeeded --> AC["Redirect to recipe detail"]
-  AB -- failed --> AD["Show import error"]
-  AB -- pending/processing --> AA
+  Queued --> Running: worker atomically claims job
+  Running: status RUNNING
+  Running: increment attempt_count
+  Running: IMPORT_STARTED event
+  Running: RAW_SOURCES_DOWNLOADED event
+  Running: EXTRACTOR_REQUESTED event
+  Running: EXTRACTOR_SUCCEEDED event
+
+  Running --> Running: secondary failures are non-fatal\nIMPORT_SECONDARY_RESOURCE_UPLOAD_FAILED
+  Running --> Failed: fatal loading, extraction,\nor unexpected failure
+  Running --> Succeeded: recipe saved without open flag
+  Running --> SucceededWithFlags: recipe saved with open flag
+
+  Failed: status FAILED
+  Failed: IMPORT_FAILED event and notification
+  Failed: attempt files cleaned
+  Failed --> Queued: owner/admin requests retry\nand attempts remain
+  Failed --> [*]: attempts exhausted or no retry
+
+  Succeeded: status SUCCEEDED
+  Succeeded: RECIPE_CREATED event
+  Succeeded: recipe notification
+  Succeeded --> EmbeddingQueued: embedding plan allows enqueue
+  Succeeded --> [*]: no embedding enqueue needed
+
+  SucceededWithFlags: status SUCCEEDED_WITH_FLAGS
+  SucceededWithFlags: RECIPE_CREATED event
+  SucceededWithFlags: recipe notification
+  SucceededWithFlags --> [*]: embedding skipped until flags resolve
+
+  EmbeddingQueued --> [*]
 ```
 
-Owner scoping is part of the current backend path: recipe, collection, and import endpoints resolve the current user through a single API dependency. Today that dependency returns the local default/admin user; later it can be replaced with authenticated user resolution without changing the service contracts.
+```mermaid
+flowchart LR
+  form["Import form"] -->|"accepted"| queued["Form clears and remains open"]
+  queued --> notifications["Notification polling"]
+  notifications -->|"IMPORT_JOB"| jobDetail["Public import-job detail<br/>status, friendly error, attempts,<br/>primary resources, retry"]
+  notifications -->|"RECIPE"| recipeDetail["Recipe detail"]
+  jobDetail -->|"retry allowed"| retry["POST /imports/{jobId}/retry"]
+  retry --> notifications
+  admin["Admin Import Jobs"] --> diagnostics["Job metadata, recipe link,<br/>newest-first events and payloads,<br/>admin retry"]
+```
+
+## Failure and Cleanup Rules
+
+- Creation validation or atomic creation failure is synchronous. No failed job,
+  event, or notification is retained, and files saved by the failed creation are
+  cleaned up.
+- A processing attempt always cleans its secondary files after failure.
+- Primary uploads survive intermediate failed attempts so manual retry can reuse
+  them. They are cleaned after the final allowed attempt.
+- Failure persistence uses an independent database scope so the failed status,
+  event, and notification survive rollback of recipe persistence.
+- Failed events contain nested `error.import_job_code`, `error.code`, and
+  `error.message`, plus structured diagnostics when available.
+
+## Current Access Boundary
+
+Owner scoping is part of recipe, collection, notification, and import APIs. The
+current dependency resolves the local default/admin user. Public import-job
+detail exposes a user-safe subset; technical event history is protected by the
+backend internal/admin guard. Real authentication and permission enforcement are
+deferred to the dedicated auth phase.

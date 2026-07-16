@@ -3,12 +3,27 @@ import logging
 import os
 import sys
 from collections.abc import Mapping
+from dataclasses import dataclass
 from datetime import datetime
-from typing import TextIO
-from typing import Any
-
+from typing import Any, TextIO
 
 SENSITIVE_KEYS = {"openai_api_key", "api_key", "authorization"}
+
+
+@dataclass(frozen=True)
+class BoundLogger:
+    logger: logging.Logger
+    context: Mapping[str, Any]
+
+    def info(self, message: str, **meta: Any) -> None:
+        log_info(self.logger, message, **self.context, **meta)
+
+    def error(self, message: str, **meta: Any) -> None:
+        log_error(self.logger, message, **self.context, **meta)
+
+
+def bind_logger(logger: logging.Logger, **context: Any) -> BoundLogger:
+    return BoundLogger(logger=logger, context=context)
 
 
 def _safe_value(value: Any) -> Any:
@@ -28,14 +43,23 @@ def _safe_value(value: Any) -> Any:
 
 def log_info(logger: logging.Logger, message: str, **meta: Any) -> None:
     text = _format_log_message(message, meta)
-    logger.info(text)
-    _print_fallback("INFO", logger.name, text)
+    _emit_log(logger, logging.INFO, text)
 
 
 def log_error(logger: logging.Logger, message: str, **meta: Any) -> None:
     text = _format_log_message(message, meta)
-    logger.error(text)
-    _print_fallback("ERROR", logger.name, text)
+    _emit_log(logger, logging.ERROR, text)
+
+
+def _emit_log(logger: logging.Logger, level: int, text: str) -> None:
+    try:
+        logger.log(level, text)
+    except Exception:
+        pass
+    try:
+        _print_fallback(logging.getLevelName(level), logger.name, text)
+    except Exception:
+        pass
 
 
 def _format_log_message(message: str, meta: Mapping[str, Any]) -> str:

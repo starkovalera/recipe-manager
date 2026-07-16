@@ -1,4 +1,5 @@
 from collections.abc import Generator
+from contextlib import contextmanager
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
@@ -15,6 +16,25 @@ def create_app_engine(database_url: str | None = None):
 
 engine = create_app_engine()
 SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+
+
+@contextmanager
+def db_session() -> Generator[Session, None, None]:
+    session = SessionLocal()
+    try:
+        yield session
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+
+@contextmanager
+def db_transaction(session: Session) -> Generator[None, None, None]:
+    with session.begin():
+        yield
 
 
 def get_session() -> Generator[Session, None, None]:

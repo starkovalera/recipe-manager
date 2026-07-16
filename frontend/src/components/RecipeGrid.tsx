@@ -1,6 +1,7 @@
 import defaultRecipeImage from "../assets/default-recipe.svg";
 import { mediaUrl } from "../api/client";
 import type { RecipeList } from "../api/types";
+import { AuthenticatedImage } from "./AuthenticatedImage";
 
 type RecipeListItem = RecipeList["items"][number];
 
@@ -17,7 +18,12 @@ export function RecipeGrid({ recipes, onSelect }: { recipes: RecipeListItem[]; o
     <div className="recipe-grid">
       {recipes.map((recipe) => (
         <button className="recipe-card" key={recipe.id} type="button" onClick={() => onSelect(recipe.id)}>
-          <img src={getRecipePreviewUrl(recipe)} alt={`${recipe.title} cover`} />
+          {recipe.hasOpenReviewFlags ? (
+            <span className="recipe-card-flag" aria-label={`${recipe.title} requires review`}>
+              !
+            </span>
+          ) : null}
+          <AuthenticatedImage src={getRecipePreviewUrl(recipe)} alt={`${recipe.title} cover`} />
           <span>{recipe.title}</span>
         </button>
       ))}

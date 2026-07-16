@@ -1,0 +1,128 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: recipe_manager
+          POSTGRES_PASSWORD: recipe_manager
+          POSTGRES_DB: recipe_manager_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U recipe_manager -d recipe_manager_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      APP_ENV: TEST
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install backend dependencies
+        run: uv sync --frozen
+
+      - name: Lint backend
+        run: uv run ruff check .
+
+      - name: Apply migrations to clean PostgreSQL
+        env:
+          DATABASE_URL: postgresql+psycopg://recipe_manager:recipe_manager@127.0.0.1:5432/recipe_manager_ci
+        run: uv run alembic upgrade head
+
+      - name: Verify Alembic revision
+        env:
+          DATABASE_URL: postgresql+psycopg://recipe_manager:recipe_manager@127.0.0.1:5432/recipe_manager_ci
+        run: uv run alembic current
+
+      - name: Run backend tests
+        run: uv run pytest
+
+  frontend:
+    name: frontend
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck frontend
+        run: pnpm typecheck
+
+      - name: Test frontend
+        run: pnpm test:ci
+
+      - name: Build frontend
+        env:
+          VITE_CLERK_PUBLISHABLE_KEY: pk_test_Y2xlcmsuZXhhbXBsZS5jb20k
+        run: pnpm build
+
+  gateway:
+    name: gateway
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Validate KrakenD configuration
+        run: make gateway-check

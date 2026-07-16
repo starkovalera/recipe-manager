@@ -33,6 +33,9 @@ function recipeClientLogPlugin(): Plugin {
 
 export default defineConfig({
   plugins: [recipeClientLogPlugin(), react()],
+  server: {
+    host: "127.0.0.1",
+  },
   test: {
     environment: "jsdom",
     globals: true

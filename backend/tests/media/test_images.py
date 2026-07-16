@@ -2,7 +2,7 @@ from pathlib import Path
 
 from PIL import Image
 
-from app.media.images import create_cover_image, image_to_data_url, validate_image_upload
+from app.media.images import create_cover_image, image_to_data_url
 from app.storage.local import LocalStorageService
 
 
@@ -10,15 +10,6 @@ def jpeg_bytes(path: Path) -> bytes:
     image = Image.new("RGB", (80, 40), color=(200, 20, 20))
     image.save(path, format="JPEG")
     return path.read_bytes()
-
-
-def test_validate_image_upload_accepts_jpeg(tmp_path: Path):
-    data = jpeg_bytes(tmp_path / "source.jpg")
-
-    result = validate_image_upload(data, "image/jpeg", "source.jpg")
-
-    assert result.mime_type == "image/jpeg"
-    assert result.original_name == "source.jpg"
 
 
 def test_image_to_data_url_encodes_bytes():

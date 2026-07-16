@@ -1,4 +1,4 @@
-from app.imports.source_platform import detect_source_name_from_url, derive_source_name
+from app.imports.source_platform import derive_source_name, detect_source_name_from_url
 from app.models import SourceName
 
 
@@ -21,8 +21,9 @@ def test_derive_source_name_matches_reference_behavior():
     assert derive_source_name(["https://example.com/recipe"]).source_name == SourceName.OTHER
 
 
-def test_derive_source_name_fails_for_mixed_known_platforms():
+def test_derive_source_name_logs_and_falls_back_for_mixed_known_platforms(capsys):
     result = derive_source_name(["https://instagram.com/p/abc", "https://threads.net/@cook/post/abc"])
 
-    assert result.ok is False
-    assert result.error_code == "MIXED_SOURCE_PLATFORMS"
+    assert result.ok is True
+    assert result.source_name == SourceName.OTHER
+    assert "MIXED_SOURCE_PLATFORMS" in capsys.readouterr().out

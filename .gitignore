@@ -4,11 +4,14 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.idea/
 *.pyc
 *.egg-info/
 *.db
+.env
 backend/storage/
 backend/.env
+backend/config/preview-users.local.toml
 frontend/.env
 node_modules/
 .pnpm-store/

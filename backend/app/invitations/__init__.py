@@ -1,0 +1,1 @@
+"""Invitation domain services."""

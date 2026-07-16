@@ -5,19 +5,24 @@ description = "FastAPI backend for Recipe Manager"
 requires-python = ">=3.12"
 dependencies = [
   "alembic>=1.13",
+  "dramatiq[redis]>=1.17",
   "fastapi[standard]>=0.115",
   "httpx>=0.27",
   "openai>=1.50",
+  "pgvector>=0.4.2",
   "pillow>=10.4",
+  "psycopg[binary]>=3.2",
   "pydantic-settings>=2.4",
   "python-multipart>=0.0.9",
   "sqlalchemy>=2.0",
+  "svix>=1.96.1,<2",
 ]
 
 [dependency-groups]
 dev = [
   "pytest>=8.3",
   "pytest-asyncio>=0.24",
+  "ruff>=0.8",
   "sqlite-web>=0.6.4",
 ]
 
@@ -25,3 +30,15 @@ dev = [
 testpaths = ["tests"]
 pythonpath = ["."]
 asyncio_mode = "auto"
+
+[tool.ruff]
+line-length = 140
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["B", "E", "F", "I"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+known-first-party = ["app", "tests"]

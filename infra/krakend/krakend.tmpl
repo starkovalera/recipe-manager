@@ -1,0 +1,58 @@
+{
+  "$schema": "https://www.krakend.io/schema/v2.13/krakend.json",
+  "version": 3,
+  "name": "Recipe Manager Authenticated Gateway",
+  "port": 8080,
+  "timeout": "120s",
+  "extra_config": {
+    "router": {
+      "auto_options": true,
+      "logger_skip_paths": ["/__health"]
+    },
+    "security/cors": {
+      "allow_origins": {{ marshal .settings.cors_origins }},
+      "allow_methods": ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+      "allow_headers": ["Accept", "Authorization", "Content-Type", "Idempotency-Key", "Range", "X-Client-Id"],
+      "expose_headers": ["Accept-Ranges", "Content-Disposition", "Content-Length", "Content-Range", "Content-Type", "ETag", "Last-Modified"],
+      "allow_credentials": true,
+      "max_age": "12h"
+    },
+    "telemetry/logging": {
+      "level": "INFO",
+      "prefix": "[KRAKEND]",
+      "stdout": true
+    }
+  },
+  "endpoints": [
+    {{- range $index, $route := .endpoints.items }}
+    {{- if $index }},{{ end }}
+    {
+      "endpoint": {{ marshal $route.endpoint }},
+      "method": {{ marshal $route.method }},
+      "output_encoding": "no-op",
+      "input_query_strings": ["*"],
+      "input_headers": [
+        "Accept", "Content-Type", "Idempotency-Key", "If-Modified-Since", "If-None-Match", "Range", "Svix-Id", "Svix-Signature", "Svix-Timestamp", "User-Agent", "X-Client-Id"
+        {{- if not $route.public }}, {{ marshal $.auth.subject_header }}{{ end }}
+      ],
+      {{- if not $route.public }}
+      "extra_config": {
+        "auth/validator": {
+          "alg": {{ marshal $.auth.algorithm }},
+          "jwk_url": {{ marshal (env "CLERK_JWKS_URL") }},
+          "issuer": {{ marshal (env "CLERK_ISSUER") }},
+          "cache": true,
+          "propagate_claims": [["sub", {{ marshal $.auth.subject_header }}]]
+        }
+      },
+      {{- end }}
+      "backend": [{
+        "host": [{{ marshal $.settings.upstream_host }}],
+        "url_pattern": {{ marshal $route.endpoint }},
+        "method": {{ marshal $route.method }},
+        "encoding": "no-op"
+      }]
+    }
+    {{- end }}
+  ]
+}

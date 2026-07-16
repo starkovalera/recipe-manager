@@ -1,43 +1,36 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { FormEvent, useRef, useState } from "react";
 
-import { createImport, getImportJob } from "../api/client";
+import { createImport } from "../api/client";
 
-export function ImportPage({ onImported }: { onImported?: (recipeId: string) => void }) {
+function createClientImportId() {
+  return `import_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+}
+
+export function ImportPage() {
+  const queryClient = useQueryClient();
   const [text, setText] = useState("");
   const [url, setUrl] = useState("");
   const [files, setFiles] = useState<File[]>([]);
-  const [jobId, setJobId] = useState<string | null>(null);
-  const reportedRecipeId = useRef<string | null>(null);
-  const clientImportId = useMemo(() => `import_${Date.now()}_${Math.random().toString(36).slice(2)}`, [jobId]);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const mutation = useMutation({
-    mutationFn: () => createImport({ clientImportId, text, url, files }),
-    onSuccess: (job) => setJobId(job.jobId),
-  });
-  const jobQuery = useQuery({
-    queryKey: ["import-job", jobId],
-    queryFn: () => getImportJob(jobId as string),
-    enabled: jobId != null,
-    refetchInterval: (query) => {
-      const status = query.state.data?.status;
-      return status === "succeeded" || status === "failed" ? false : 1000;
+    mutationFn: createImport,
+    onSuccess: () => {
+      setText("");
+      setUrl("");
+      setFiles([]);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
     },
   });
 
   function submit(event: FormEvent) {
     event.preventDefault();
-    mutation.mutate();
+    mutation.mutate({ clientImportId: createClientImportId(), text, url, files });
   }
-
-  const job = jobQuery.data ?? mutation.data;
-
-  useEffect(() => {
-    if (job?.status === "succeeded" && job.createdRecipeId && reportedRecipeId.current !== job.createdRecipeId) {
-      reportedRecipeId.current = job.createdRecipeId;
-      onImported?.(job.createdRecipeId);
-    }
-  }, [job?.createdRecipeId, job?.status, onImported]);
 
   return (
     <section className="panel">
@@ -54,6 +47,7 @@ export function ImportPage({ onImported }: { onImported?: (recipeId: string) => 
         <label>
           Images
           <input
+            ref={fileInputRef}
             type="file"
             accept="image/jpeg,image/png,image/webp"
             multiple
@@ -65,9 +59,6 @@ export function ImportPage({ onImported }: { onImported?: (recipeId: string) => 
         </button>
       </form>
       {mutation.error ? <p role="alert">{mutation.error.message}</p> : null}
-      {job ? <p>Status: {job.status}</p> : null}
-      {job?.status === "succeeded" && job.createdRecipeId ? <p>Created recipe: {job.createdRecipeId}</p> : null}
-      {job?.status === "failed" ? <p role="alert">{job.errorMessage ?? job.errorCode}</p> : null}
     </section>
   );
 }
