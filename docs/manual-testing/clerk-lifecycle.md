@@ -34,9 +34,9 @@ CLERK_JWKS_URL=https://<instance>.clerk.accounts.dev/.well-known/jwks.json
 
 ```dotenv
 APP_ENV=PREVIEW
-CLERK_SECRET_KEY=sk_test_...
+CLERK_SECRET_KEY=<clerk-secret-key>
 CLERK_API_URL=https://api.clerk.com
-CLERK_WEBHOOK_SIGNING_SECRET=whsec_...
+CLERK_WEBHOOK_SIGNING_SECRET=<clerk-webhook-signing-secret>
 FRONTEND_INVITATION_URL=http://127.0.0.1:5173/sign-up
 PREVIEW_USERS_FILE=./config/preview-users.local.toml
 ```
