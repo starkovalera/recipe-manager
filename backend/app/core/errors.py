@@ -17,7 +17,6 @@ class ApiErrorCode(str, Enum):
     IMPORT_CREATION_FAILED = "IMPORT_CREATION_FAILED"
     IMPORT_ATTEMPTS_EXHAUSTED = "IMPORT_ATTEMPTS_EXHAUSTED"
     IMPORT_NOT_RETRYABLE = "IMPORT_NOT_RETRYABLE"
-    IMPORT_RETRY_FAILED = "IMPORT_RETRY_FAILED"
     INVALID_INGREDIENT = "INVALID_INGREDIENT"
     IMPORT_NOT_FOUND = "IMPORT_NOT_FOUND"
     NOTIFICATION_NOT_FOUND = "NOTIFICATION_NOT_FOUND"
@@ -239,12 +238,6 @@ class ImportAttemptsExhaustedError(ApiConflictError):
 class ImportNotRetryableError(ApiConflictError):
     error_code = ApiErrorCode.IMPORT_NOT_RETRYABLE
     message = "Import is not available for retry."
-
-
-class ImportRetryFailedError(ApiError):
-    status_code = 500
-    error_code = ApiErrorCode.IMPORT_RETRY_FAILED
-    message = "Failed to retry import. Please try again."
 
 
 class InvalidIngredientError(ApiValidationError):

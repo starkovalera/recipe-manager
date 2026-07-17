@@ -4,19 +4,16 @@ from typing import Annotated
 from fastapi import APIRouter, File, Form, Header, Response, UploadFile, status
 
 from app.api.deps import CurrentUserDep, SessionDep, SettingsDep
-from app.core.errors import ImportRetryFailedError
 from app.core.logging import bind_logger
 from app.core.security import client_id_from_header
 from app.imports.constants import IMPORT_LOG_COMPONENT
 from app.imports.jobs import (
-    compensate_import_retry_publish_failure,
     create_import_job,
     get_import_job,
     request_import_retry,
 )
 from app.models import ImportJob
 from app.queueing.outbox import dispatch_outbox_message
-from app.queueing.provider import get_queue_publisher
 from app.schemas.imports import ImportJobOut
 
 router = APIRouter(prefix="/imports", tags=["imports"])
@@ -72,7 +69,6 @@ def poll_import(job_id: str, session: SessionDep, current_user: CurrentUserDep) 
 @router.post("/{job_id}/retry", response_model=ImportJobOut, status_code=status.HTTP_202_ACCEPTED)
 def retry_import(
     job_id: str,
-    response: Response,
     session: SessionDep,
     current_user: CurrentUserDep,
     settings: SettingsDep,
@@ -84,25 +80,12 @@ def retry_import(
         max_import_attempts=settings.max_import_attempts,
         max_parallel_imports=settings.max_parallel_imports_per_client,
     )
-    try:
-        get_queue_publisher().publish_import_job(job_id)
-    except Exception as error:
-        job, reverted = compensate_import_retry_publish_failure(
-            session,
-            job_id=job_id,
-            owner_id=current_user.id,
-            notification_id=result.notification_id,
-        )
-        log = bind_logger(
+    published = dispatch_outbox_message(result.outbox_message_id)
+    if not published:
+        bind_logger(
             logger,
             component=IMPORT_LOG_COMPONENT,
             owner_id=current_user.id,
             import_job_id=job_id,
-        )
-        if reverted:
-            log.error(f"{IMPORT_LOG_COMPONENT} Import retry enqueue failed", error=repr(error))
-            raise ImportRetryFailedError() from error
-        log.info(f"{IMPORT_LOG_COMPONENT} Import retry enqueue result is ambiguous", error=repr(error))
-        response.status_code = status.HTTP_200_OK
-        return job
+        ).info(f"{IMPORT_LOG_COMPONENT} Import retry is pending outbox recovery")
     return result.job

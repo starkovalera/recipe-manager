@@ -2463,27 +2463,17 @@ Goal: allow the owner to manually restart a failed background import without rec
 - Backend must prevent concurrent/double retry requests and must re-check status and attempt limits transactionally.
 - If attempts are exhausted, return `IMPORT_ATTEMPTS_EXHAUSTED` with HTTP `409`.
 - If another request already moved the job out of `FAILED`, return `IMPORT_NOT_RETRYABLE` with HTTP `409`.
-- If retry preparation or queue publishing fails unexpectedly, return `IMPORT_RETRY_FAILED` with HTTP `500`.
+- If retry preparation fails, roll back the retry transaction and return the corresponding API error. A post-commit publication failure does not fail the accepted retry because its outbox message remains recoverable.
 - Missing or foreign jobs continue to return the existing `IMPORT_NOT_FOUND` with HTTP `404`.
 - Retry should be subject to the same per-owner active-import limit as a new import.
 - Public/internal job responses expose persisted `attempt_count` plus the current effective maximum attempt count from settings needed by future clients.
 
-#### Queue Publish Compensation
+#### Durable Retry Scheduling
 
-- The retry transaction changes `FAILED -> QUEUED` and creates the retry `IMPORT_STARTED` notification without clearing previous-attempt fields.
-- After that transaction commits, publish the Dramatiq message.
-- If publishing fails, open a compensating transaction and lock the job.
-- If the job is still `QUEUED`:
-  - restore only its status to `FAILED`; previous error/timestamp fields are already intact;
-  - delete the retry notification created by the failed request;
-  - log the original publish error;
-  - return `IMPORT_RETRY_FAILED` with HTTP `500`.
-- The compensating update must be conditional so it cannot overwrite a worker transition that already changed the job to `RUNNING` or a terminal state.
-- If publishing raised but the locked job is no longer `QUEUED`, treat delivery as successful/ambiguous rather than failed:
-  - do not revert status;
-  - do not delete the retry notification;
-  - log the publish exception and observed current status;
-  - return the current job with HTTP `200` because the worker already observed and progressed the retry.
+- One transaction changes `FAILED -> QUEUED`, creates the retry `IMPORT_STARTED` notification, and creates a pending `IMPORT_JOB` outbox message without clearing previous-attempt fields.
+- After that transaction commits, the route attempts immediate outbox dispatch.
+- If immediate dispatch fails, the retry remains accepted: the job stays `QUEUED`, the notification remains, and reconciliation can publish the pending outbox message later.
+- Retry status and attempt-limit checks remain transactional and locked, so concurrent requests cannot create multiple accepted retries.
 
 #### Implementation Outline
 
