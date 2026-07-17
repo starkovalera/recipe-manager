@@ -4,6 +4,10 @@ Greenfield recipe manager with a FastAPI backend, React/Vite frontend, PostgreSQ
 
 The canonical authentication design is in [`docs/authentication-and-authorization.md`](docs/authentication-and-authorization.md). Manual lifecycle checks are in [`docs/manual-testing/clerk-lifecycle.md`](docs/manual-testing/clerk-lifecycle.md).
 
+## Repository Workflow
+
+`main` is the default integration branch. Feature changes are submitted through pull requests, and the required backend, frontend, and gateway checks must pass before merge.
+
 ## Local Configuration
 
 Authentication is required in both `dev` and `preview`. Configure a Clerk development instance and enable Restricted mode when registration must be invite-only.

@@ -6,7 +6,7 @@
 - Add backend, frontend, and gateway CI.
 - Verify Alembic against clean PostgreSQL + pgvector.
 - Merge the current baseline branch.
-- Rename the default branch to `main`.
+- Use `main` as the default integration branch.
 - Enable required checks.
 - Create `v0.1.0-local-baseline`.
 

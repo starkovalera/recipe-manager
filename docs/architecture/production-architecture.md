@@ -982,7 +982,7 @@ Sentry is intentionally deferred to Future Improvements.
 
 ### Source control
 
-- `main` is the primary branch;
+- `main` is the default and primary integration branch;
 - feature work uses branches and pull requests;
 - required checks pass before merge.
 
