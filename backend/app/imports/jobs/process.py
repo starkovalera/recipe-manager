@@ -9,7 +9,6 @@ from app.core.errors import ImportNotFoundError
 from app.core.logging import bind_logger
 from app.db.session import db_session
 from app.embeddings.planning import prepare_recipe_embedding
-from app.embeddings.queue import enqueue_recipe_embedding
 from app.imports.config import ImportConfig
 from app.imports.constants import IMPORT_LOG_COMPONENT
 from app.imports.events import build_job_event
@@ -42,6 +41,7 @@ from app.notifications.notification_data import (
     ImportSucceededWithFlagsNotification,
     build_notification,
 )
+from app.queueing.outbox import dispatch_outbox_message
 from app.services.search_text import refresh_recipe_search_text
 from app.storage.base import StorageService
 from app.storage.local import LocalStorageService
@@ -54,7 +54,7 @@ logger = bind_logger(logging.getLogger(__name__), component=IMPORT_LOG_COMPONENT
 class ImportResult:
     job: ImportJobContext
     recipe_id: str
-    enqueue_embedding: bool
+    embedding_outbox_message_id: str | None
 
 
 def start_import_job(session: Session, job_id: str, import_config: ImportConfig) -> ImportJob | None:
@@ -140,7 +140,11 @@ def save_import(
 
     session.flush()
     session.refresh(job)
-    return ImportResult(job=ImportJobContext.from_job(job), recipe_id=recipe.id, enqueue_embedding=embedding_plan.enqueue)
+    return ImportResult(
+        job=ImportJobContext.from_job(job),
+        recipe_id=recipe.id,
+        embedding_outbox_message_id=embedding_plan.outbox_message_id,
+    )
 
 
 def process_import_job(job_id: str) -> None:
@@ -233,8 +237,8 @@ def process_import_job(job_id: str) -> None:
 
         log_recipe_created(import_result.job)
 
-        if import_result.enqueue_embedding:
-            enqueue_recipe_embedding(import_result.recipe_id, job_context.owner_id)
+        if import_result.embedding_outbox_message_id is not None:
+            dispatch_outbox_message(import_result.embedding_outbox_message_id)
     except Exception as error:
         process_import_failure(
             job_id,

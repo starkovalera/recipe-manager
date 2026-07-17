@@ -14,12 +14,14 @@ from app.models import (
     RecipeEmbeddingStatus,
     RecipeReviewFlagStatus,
 )
+from app.queueing.constants import QueueMessageType
+from app.queueing.outbox import schedule_outbox_message
 
 
 @dataclass(frozen=True)
 class EmbeddingPlan:
     embedding: RecipeEmbedding
-    enqueue: bool
+    outbox_message_id: str | None
 
 
 def prepare_recipe_embedding(
@@ -53,7 +55,7 @@ def prepare_recipe_embedding(
             payload={"reason": "open_review_flags", "openFlagCount": open_flag_count},
         )
         log.info("Embedding skipped due to open review flags")
-        return EmbeddingPlan(embedding=embedding, enqueue=False)
+        return EmbeddingPlan(embedding=embedding, outbox_message_id=None)
 
     if (
         not force
@@ -62,7 +64,7 @@ def prepare_recipe_embedding(
         and embedding.model == provider.model
     ):
         log.info("Embedding already ready")
-        return EmbeddingPlan(embedding=embedding, enqueue=False)
+        return EmbeddingPlan(embedding=embedding, outbox_message_id=None)
 
     embedding.model = provider.model
     embedding.input_hash = embedding_input.input_hash
@@ -75,5 +77,13 @@ def prepare_recipe_embedding(
         event_type=RecipeEmbeddingEventType.SCHEDULED,
         payload={"reason": "manual_retry" if force else "recipe_content_changed", "model": provider.model},
     )
+    outbox_message = schedule_outbox_message(
+        session,
+        QueueMessageType.RECIPE_EMBEDDING,
+        recipe.id,
+    )
     log.info("Embedding task planned", force=force)
-    return EmbeddingPlan(embedding=embedding, enqueue=True)
+    return EmbeddingPlan(
+        embedding=embedding,
+        outbox_message_id=outbox_message.id,
+    )

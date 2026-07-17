@@ -152,7 +152,7 @@ def test_superadmin_can_retry_foreign_embedding_but_debug_user_cannot(monkeypatc
         session.add_all([debug_user, superadmin, recipe])
         session.commit()
         recipe_id = recipe.id
-    monkeypatch.setattr("app.embeddings.service.enqueue_recipe_embedding", lambda _recipe_id, _owner_id: True)
+    monkeypatch.setattr("app.embeddings.service.dispatch_outbox_message", lambda _message_id: True, raising=False)
     client.app.dependency_overrides[get_current_user] = lambda: debug_user
     assert client.post(f"/internal/embeddings/{recipe_id}/retry").status_code == 404
 

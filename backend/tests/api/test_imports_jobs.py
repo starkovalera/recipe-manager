@@ -67,7 +67,7 @@ def reset_import_dependencies(monkeypatch):
     set_recipe_extraction_provider(FakeRecipeExtractionProvider())
     reset_url_content_service()
     monkeypatch.setattr(import_routes, "dispatch_outbox_message", lambda _message_id: True)
-    monkeypatch.setattr("app.imports.jobs.process.enqueue_recipe_embedding", lambda recipe_id, owner_id: True)
+    monkeypatch.setattr("app.imports.jobs.process.dispatch_outbox_message", lambda _message_id: True, raising=False)
     yield
     set_recipe_extraction_provider(FakeRecipeExtractionProvider())
     reset_url_content_service()
@@ -464,11 +464,11 @@ def test_text_import_sets_recipe_search_text_and_hash():
     assert len(recipe.search_text_hash) == 64
 
 
-def test_import_succeeds_when_embedding_publish_fails(monkeypatch):
+def test_import_succeeds_when_embedding_outbox_dispatch_fails(monkeypatch):
     client, SessionLocal = client_with_session_factory()
     monkeypatch.setattr(
-        "app.imports.jobs.process.enqueue_recipe_embedding",
-        lambda recipe_id, owner_id: False,
+        "app.imports.jobs.process.dispatch_outbox_message",
+        lambda _message_id: False,
         raising=False,
     )
 

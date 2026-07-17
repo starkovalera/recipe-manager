@@ -7,11 +7,13 @@ from app.embeddings.service import retry_recipe_embedding
 from app.local.users import ensure_default_user
 from app.models import (
     Ingredient,
+    QueueOutboxMessage,
     Recipe,
     RecipeEmbedding,
     RecipeEmbeddingEventType,
     RecipeEmbeddingStatus,
 )
+from app.queueing.constants import QueueOutboxStatus
 
 
 class StaticEmbeddingProvider:
@@ -36,15 +38,16 @@ def create_recipe(session) -> Recipe:
     return recipe
 
 
-def test_retry_embedding_commits_and_enqueues_when_recipe_has_no_open_flags(monkeypatch):
+def test_retry_embedding_commits_and_dispatches_outbox_when_recipe_has_no_open_flags(monkeypatch):
     SessionLocal = session_factory()
-    enqueued: list[tuple[str, str]] = []
+    dispatched_message_ids: list[str] = []
     with SessionLocal() as session:
         monkeypatch.setattr("app.embeddings.service.get_embedding_provider", lambda: ("test", StaticEmbeddingProvider()))
         monkeypatch.setattr("app.embeddings.planning.get_embedding_provider", lambda: ("test", StaticEmbeddingProvider()))
         monkeypatch.setattr(
-            "app.embeddings.service.enqueue_recipe_embedding",
-            lambda recipe_id, owner_id: enqueued.append((recipe_id, owner_id)) or True,
+            "app.embeddings.service.dispatch_outbox_message",
+            lambda message_id: dispatched_message_ids.append(message_id) or True,
+            raising=False,
         )
         recipe = create_recipe(session)
 
@@ -52,19 +55,23 @@ def test_retry_embedding_commits_and_enqueues_when_recipe_has_no_open_flags(monk
 
         assert embedding.status is RecipeEmbeddingStatus.STALE
         assert session.get(RecipeEmbedding, recipe.id) is not None
-        assert enqueued == [(recipe.id, recipe.owner_id)]
+        assert len(dispatched_message_ids) == 1
+        outbox_message = session.get(QueueOutboxMessage, dispatched_message_ids[0])
+        assert outbox_message is not None
+        assert outbox_message.entity_id == recipe.id
+        assert outbox_message.status is QueueOutboxStatus.PENDING
         assert [event.event_type for event in embedding.events] == [
             RecipeEmbeddingEventType.RETRY_REQUESTED,
             RecipeEmbeddingEventType.SCHEDULED,
         ]
 
 
-def test_retry_embedding_succeeds_when_queue_publish_fails(monkeypatch):
+def test_retry_embedding_succeeds_when_outbox_dispatch_fails(monkeypatch):
     SessionLocal = session_factory()
     with SessionLocal() as session:
         monkeypatch.setattr("app.embeddings.service.get_embedding_provider", lambda: ("test", StaticEmbeddingProvider()))
         monkeypatch.setattr("app.embeddings.planning.get_embedding_provider", lambda: ("test", StaticEmbeddingProvider()))
-        monkeypatch.setattr("app.embeddings.service.enqueue_recipe_embedding", lambda recipe_id, owner_id: False)
+        monkeypatch.setattr("app.embeddings.service.dispatch_outbox_message", lambda _message_id: False, raising=False)
         recipe = create_recipe(session)
 
         embedding = retry_recipe_embedding(session, recipe.id, recipe.owner_id)

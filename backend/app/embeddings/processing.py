@@ -15,9 +15,10 @@ from app.embeddings.queries import (
     get_recipe_for_embedding,
     has_open_review_flags,
 )
-from app.embeddings.queue import enqueue_recipe_embedding
 from app.embeddings.runtime import get_embedding_provider
 from app.models import RecipeEmbeddingEventType, RecipeEmbeddingStatus
+from app.queueing.constants import QueueMessageType
+from app.queueing.outbox import dispatch_outbox_message, schedule_outbox_message
 
 
 @dataclass(frozen=True)
@@ -82,14 +83,14 @@ def complete_recipe_embedding(
     vector: list[float],
     *,
     duration_ms: int,
-) -> bool:
+) -> str | None:
     recipe = get_recipe_for_embedding(session, context.recipe_id)
     if recipe is None:
-        return False
+        return None
 
     embedding = get_recipe_embedding(session, recipe.id)
     if embedding is None:
-        return False
+        return None
 
     add_embedding_event(
         session,
@@ -120,7 +121,11 @@ def complete_recipe_embedding(
                 "latestInputHash": current_input.input_hash,
             },
         )
-        return True
+        return schedule_outbox_message(
+            session,
+            QueueMessageType.RECIPE_EMBEDDING,
+            recipe.id,
+        ).id
 
     embedding.embedding = vector
     embedding.model = context.model
@@ -138,7 +143,7 @@ def complete_recipe_embedding(
             "dimension": len(vector),
         },
     )
-    return False
+    return None
 
 
 def fail_recipe_embedding(
@@ -207,15 +212,15 @@ def process_recipe_embedding(recipe_id: str) -> None:
     duration_ms = int((perf_counter() - started_at) * 1000)
 
     with db_session() as session:
-        requeue = complete_recipe_embedding(
+        outbox_message_id = complete_recipe_embedding(
             session,
             context,
             vector,
             duration_ms=duration_ms,
         )
 
-    if requeue:
-        enqueue_recipe_embedding(context.recipe_id, context.owner_id)
+    if outbox_message_id is not None:
+        dispatch_outbox_message(outbox_message_id)
         log.info("Embedding input changed during provider call", duration_ms=duration_ms)
         return
 

@@ -10,14 +10,17 @@ from app.embeddings.planning import prepare_recipe_embedding
 from app.local.users import ensure_default_user
 from app.models import (
     Ingredient,
+    QueueOutboxMessage,
     Recipe,
     RecipeEmbedding,
+    RecipeEmbeddingEvent,
     RecipeEmbeddingEventType,
     RecipeEmbeddingStatus,
     RecipeReviewFlag,
     RecipeReviewFlagStatus,
     RecipeReviewFlagType,
 )
+from app.queueing.constants import QueueMessageType, QueueOutboxStatus
 
 
 class StaticEmbeddingProvider:
@@ -59,7 +62,7 @@ def test_prepare_embedding_skips_recipe_with_open_flags(monkeypatch):
 
         plan = prepare_recipe_embedding(session, recipe)
 
-        assert plan.enqueue is False
+        assert plan.outbox_message_id is None
         assert plan.embedding.status is RecipeEmbeddingStatus.SKIPPED_DUE_TO_FLAGS
         assert plan.embedding.events[0].event_type is RecipeEmbeddingEventType.SKIPPED_DUE_TO_FLAGS
         assert plan.embedding.events[0].payload == {"reason": "open_review_flags", "openFlagCount": 2}
@@ -71,10 +74,15 @@ def test_prepare_embedding_creates_missing_embedding_and_schedules(monkeypatch, 
         recipe = create_recipe(session)
         plan = prepare_recipe_embedding(session, recipe)
 
-        assert plan.enqueue is True
+        assert plan.outbox_message_id is not None
         assert plan.embedding is session.get(RecipeEmbedding, recipe.id)
         assert plan.embedding.status is RecipeEmbeddingStatus.STALE
         assert plan.embedding.events[0].event_type is RecipeEmbeddingEventType.SCHEDULED
+        outbox_message = session.get(QueueOutboxMessage, plan.outbox_message_id)
+        assert outbox_message is not None
+        assert outbox_message.message_type is QueueMessageType.RECIPE_EMBEDDING
+        assert outbox_message.entity_id == recipe.id
+        assert outbox_message.status is QueueOutboxStatus.PENDING
         message = next(line for line in capsys.readouterr().out.splitlines() if "Embedding task planned" in line)
         assert " recipes.embeddings Embedding task planned {" in message
         assert '"recipe_id"' in message
@@ -98,7 +106,7 @@ def test_prepare_embedding_keeps_current_ready_embedding_without_scheduler_event
 
         plan = prepare_recipe_embedding(session, recipe)
 
-        assert plan.enqueue is False
+        assert plan.outbox_message_id is None
         assert plan.embedding.status is RecipeEmbeddingStatus.READY
         assert plan.embedding.events == []
 
@@ -116,7 +124,7 @@ def test_prepare_embedding_schedules_when_input_or_model_changed(monkeypatch):
 
         plan = prepare_recipe_embedding(session, recipe)
 
-        assert plan.enqueue is True
+        assert plan.outbox_message_id is not None
         assert plan.embedding.status is RecipeEmbeddingStatus.STALE
         assert plan.embedding.model == "test-embedding"
         assert plan.embedding.events[0].event_type is RecipeEmbeddingEventType.SCHEDULED
@@ -137,8 +145,23 @@ def test_prepare_embedding_force_schedules_current_ready_embedding(monkeypatch):
 
         plan = prepare_recipe_embedding(session, recipe, force=True)
 
-        assert plan.enqueue is True
+        assert plan.outbox_message_id is not None
         assert plan.embedding.status is RecipeEmbeddingStatus.STALE
         assert plan.embedding.events[0].payload["reason"] == "manual_retry"
         with pytest.raises(FrozenInstanceError):
-            plan.enqueue = False
+            plan.outbox_message_id = None
+
+
+def test_prepare_embedding_rolls_back_embedding_event_and_outbox_together(monkeypatch):
+    with create_session() as session:
+        monkeypatch.setattr("app.embeddings.planning.get_embedding_provider", lambda: ("test", StaticEmbeddingProvider()))
+        recipe = create_recipe(session)
+
+        with pytest.raises(RuntimeError, match="rollback embedding plan"):
+            with session.begin():
+                prepare_recipe_embedding(session, recipe)
+                raise RuntimeError("rollback embedding plan")
+
+        assert session.get(RecipeEmbedding, recipe.id) is None
+        assert session.query(RecipeEmbeddingEvent).count() == 0
+        assert session.query(QueueOutboxMessage).count() == 0
