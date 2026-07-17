@@ -8,7 +8,7 @@ from app.db.session import db_session
 from app.models import QueueOutboxMessage
 from app.queueing.constants import QueueMessageType, QueueOutboxStatus
 from app.queueing.provider import get_queue_publisher
-from app.queueing.queries import get_outbox_message
+from app.queueing.queries import get_outbox_message, list_pending_outbox_message_ids
 
 OUTBOX_LOG_COMPONENT = "recipes.queueing.outbox"
 logger = bind_logger(
@@ -140,7 +140,6 @@ def dispatch_outbox_message(message_id: str) -> bool:
             error_type=error_type,
         )
         return False
-
     try:
         return _record_publish_success(
             message_id,
@@ -155,3 +154,16 @@ def dispatch_outbox_message(message_id: str) -> bool:
             error_type=type(error).__name__,
         )
         return False
+
+
+def reconcile_pending_outbox_messages(
+    *,
+    batch_size: int,
+) -> list[str]:
+    with db_session() as session:
+        message_ids = list_pending_outbox_message_ids(
+            session,
+            limit=batch_size,
+        )
+
+    return [message_id for message_id in message_ids if not dispatch_outbox_message(message_id)]
