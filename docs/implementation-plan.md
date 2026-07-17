@@ -114,6 +114,7 @@ Implement profile selection in backend settings with `APP_ENV`, default `PROD` s
 - `DEV`, `PREVIEW`, and `TEST` retain the existing Dramatiq-compatible local behavior. Selecting the not-yet-implemented SQS provider fails explicitly until the P4 adapter is delivered rather than silently routing work through Dramatiq.
 - Outbox reconciliation processes one bounded oldest-first batch, performs transport calls outside the database transaction, returns failed outbox message IDs, and leaves failed messages pending for later recovery.
 - New import creation atomically persists the `ImportJob`, its initial event and notification, and one pending `IMPORT_JOB` outbox message. Immediate publication happens only after commit. Publication failure does not fail or revert the accepted import; the queued job and pending outbox message remain recoverable. Idempotent duplicate requests create and dispatch no additional outbox message.
+- An accepted import retry atomically persists `FAILED -> QUEUED`, its `IMPORT_STARTED` notification, and one pending `IMPORT_JOB` outbox message. Immediate dispatch happens after commit. Dispatch failure does not revert the job or delete its notification; reconciliation retries the pending message.
 
 Add explicit scripts or documented commands for both modes:
 
