@@ -13,6 +13,8 @@ from app.core.config import Settings, get_settings
 from app.core.errors import InvalidWebhookError
 from app.invitations.service import accept_pending_invitations
 from app.models import ClerkWebhookEvent, UserStatus
+from app.queueing.constants import QueueMessageType
+from app.queueing.outbox import schedule_outbox_message
 from app.users.provisioning import synchronize_auth_user
 from app.users.queries import get_user_by_auth_identity
 
@@ -82,7 +84,7 @@ VerifiedClerkWebhookDep = Annotated[VerifiedClerkWebhook, Depends(verify_clerk_w
 @dataclass(frozen=True)
 class ClerkWebhookProcessingResult:
     processed: bool
-    deletion_user_id: str | None = None
+    deletion_outbox_message_id: str | None = None
 
 
 def process_clerk_webhook(
@@ -94,7 +96,7 @@ def process_clerk_webhook(
     if session.get(ClerkWebhookEvent, event.event_id) is not None:
         return ClerkWebhookProcessingResult(processed=False)
 
-    deletion_user_id: str | None = None
+    deletion_outbox_message_id: str | None = None
 
     if event.event_type in {"user.created", "user.updated"}:
         try:
@@ -127,7 +129,15 @@ def process_clerk_webhook(
             user.status = UserStatus.DELETION_PENDING
             user.deletion_requested_at = datetime.now(timezone.utc)
         if user is not None:
-            deletion_user_id = user.id
+            outbox_message = schedule_outbox_message(
+                session,
+                QueueMessageType.ACCOUNT_DELETION,
+                user.id,
+            )
+            deletion_outbox_message_id = outbox_message.id
 
     session.add(ClerkWebhookEvent(event_id=event.event_id, event_type=event.event_type))
-    return ClerkWebhookProcessingResult(processed=True, deletion_user_id=deletion_user_id)
+    return ClerkWebhookProcessingResult(
+        processed=True,
+        deletion_outbox_message_id=deletion_outbox_message_id,
+    )

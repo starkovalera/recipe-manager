@@ -3,6 +3,7 @@ import json
 from collections.abc import Generator
 from datetime import datetime, timezone
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, select, text
 from sqlalchemy.orm import Session, sessionmaker
@@ -10,6 +11,7 @@ from sqlalchemy.pool import StaticPool
 from svix.webhooks import Webhook
 
 from app.api.deps import get_session
+from app.auth import webhooks as webhooks_module
 from app.auth.constants import AuthProviderType
 from app.auth.types import AuthenticatedIdentity, AuthUser
 from app.core.config import Settings, get_settings
@@ -17,7 +19,8 @@ from app.db.base import Base
 from app.db.defaults import DEFAULT_TAG_NAMES
 from app.invitations.constants import InvitationStatus
 from app.main import create_app
-from app.models import ClerkWebhookEvent, Invitation, Tag, User, UserSettings, UserStatus
+from app.models import ClerkWebhookEvent, Invitation, QueueOutboxMessage, Tag, User, UserSettings, UserStatus
+from app.queueing.constants import QueueMessageType, QueueOutboxStatus
 from app.users import provisioning as provisioning_module
 
 WEBHOOK_SECRET = f"whsec_{base64.b64encode(b'test-webhook-secret').decode()}"
@@ -300,8 +303,9 @@ def test_user_updated_email_collision_returns_conflict_without_marking_event_pro
         assert event_count == 0
 
 
-def test_user_deleted_webhook_marks_existing_user_deletion_pending():
+def test_user_deleted_webhook_marks_existing_user_deletion_pending(monkeypatch):
     client, session_factory = create_client()
+    monkeypatch.setattr("app.api.routes.webhooks.dispatch_outbox_message", lambda _message_id: True)
     with session_factory.begin() as session:
         session.add(User(id="user-1", auth_user_id="auth-user", email="user@example.test"))
     payload = webhook_payload("user.deleted", auth_user_id="auth-user")
@@ -314,26 +318,125 @@ def test_user_deleted_webhook_marks_existing_user_deletion_pending():
         assert user is not None
         assert user.status is UserStatus.DELETION_PENDING
         assert user.deletion_requested_at is not None
+        message = session.scalar(select(QueueOutboxMessage))
+        assert message is not None
+        assert message.message_type is QueueMessageType.ACCOUNT_DELETION
+        assert message.entity_id == user.id
+        assert message.status is QueueOutboxStatus.PENDING
 
 
-def test_user_deleted_webhook_enqueues_deletion_after_state_is_committed(monkeypatch):
+def test_user_deleted_webhook_dispatches_outbox_after_state_is_committed(monkeypatch):
     client, session_factory = create_client()
     with session_factory.begin() as session:
         session.add(User(id="user-1", auth_user_id="auth-user", email="user@example.test"))
-    published_user_ids: list[str] = []
-    monkeypatch.setattr("app.api.routes.webhooks.enqueue_account_deletion", published_user_ids.append)
+    dispatched_message_ids: list[str] = []
+
+    def assert_committed_and_dispatch(message_id: str) -> bool:
+        with session_factory() as session:
+            assert session.get(User, "user-1").status is UserStatus.DELETION_PENDING
+            assert session.get(ClerkWebhookEvent, "msg_deleted_enqueue") is not None
+            assert session.get(QueueOutboxMessage, message_id) is not None
+        dispatched_message_ids.append(message_id)
+        return True
+
+    monkeypatch.setattr("app.api.routes.webhooks.dispatch_outbox_message", assert_committed_and_dispatch)
     payload = webhook_payload("user.deleted", auth_user_id="auth-user")
 
     response = post_webhook(client, payload, message_id="msg_deleted_enqueue")
 
     assert response.status_code == 200
-    assert published_user_ids == ["user-1"]
+    assert len(dispatched_message_ids) == 1
+
+
+def test_duplicate_user_deleted_webhook_does_not_schedule_or_dispatch_again(monkeypatch):
+    client, session_factory = create_client()
+    with session_factory.begin() as session:
+        session.add(User(id="user-1", auth_user_id="auth-user", email="user@example.test"))
+    dispatched_message_ids: list[str] = []
+    monkeypatch.setattr(
+        "app.api.routes.webhooks.dispatch_outbox_message",
+        lambda message_id: dispatched_message_ids.append(message_id) or True,
+    )
+    payload = webhook_payload("user.deleted", auth_user_id="auth-user")
+
+    first_response = post_webhook(client, payload, message_id="msg_deleted_duplicate")
+    second_response = post_webhook(client, payload, message_id="msg_deleted_duplicate")
+
+    assert first_response.json() == {"processed": True}
+    assert second_response.json() == {"processed": False}
+    assert len(dispatched_message_ids) == 1
+    with session_factory() as session:
+        assert len(session.scalars(select(QueueOutboxMessage)).all()) == 1
+
+
+def test_user_deleted_webhook_without_local_user_does_not_schedule_or_dispatch(monkeypatch):
+    client, session_factory = create_client()
+    dispatched_message_ids: list[str] = []
+    monkeypatch.setattr(
+        "app.api.routes.webhooks.dispatch_outbox_message",
+        lambda message_id: dispatched_message_ids.append(message_id) or True,
+    )
+    payload = webhook_payload("user.deleted", auth_user_id="missing-auth-user")
+
+    response = post_webhook(client, payload, message_id="msg_deleted_missing")
+
+    assert response.status_code == 200
+    assert response.json() == {"processed": True}
+    assert dispatched_message_ids == []
+    with session_factory() as session:
+        assert session.get(ClerkWebhookEvent, "msg_deleted_missing") is not None
+        assert session.scalars(select(QueueOutboxMessage)).all() == []
+
+
+def test_user_deleted_webhook_stays_successful_when_outbox_dispatch_fails(monkeypatch):
+    client, session_factory = create_client()
+    with session_factory.begin() as session:
+        session.add(User(id="user-1", auth_user_id="auth-user", email="user@example.test"))
+    dispatched_message_ids: list[str] = []
+    monkeypatch.setattr(
+        "app.api.routes.webhooks.dispatch_outbox_message",
+        lambda message_id: dispatched_message_ids.append(message_id) or False,
+    )
+    payload = webhook_payload("user.deleted", auth_user_id="auth-user")
+
+    response = post_webhook(client, payload, message_id="msg_deleted_dispatch_failure")
+
+    assert response.status_code == 200
+    assert response.json() == {"processed": True}
+    assert len(dispatched_message_ids) == 1
     with session_factory() as session:
         assert session.get(User, "user-1").status is UserStatus.DELETION_PENDING
+        message = session.get(QueueOutboxMessage, dispatched_message_ids[0])
+        assert message is not None
+        assert message.status is QueueOutboxStatus.PENDING
 
 
-def test_repeated_user_deleted_events_preserve_original_deletion_timestamp():
+def test_user_deleted_webhook_rolls_back_state_and_idempotency_when_outbox_scheduling_fails(monkeypatch):
     client, session_factory = create_client()
+    with session_factory.begin() as session:
+        session.add(User(id="user-1", auth_user_id="auth-user", email="user@example.test"))
+    monkeypatch.setattr(
+        webhooks_module,
+        "schedule_outbox_message",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("schedule failed")),
+    )
+    payload = webhook_payload("user.deleted", auth_user_id="auth-user")
+
+    with pytest.raises(RuntimeError, match="schedule failed"):
+        post_webhook(client, payload, message_id="msg_deleted_schedule_failure")
+
+    with session_factory() as session:
+        user = session.get(User, "user-1")
+        assert user is not None
+        assert user.status is UserStatus.ACTIVE
+        assert user.deletion_requested_at is None
+        assert session.get(ClerkWebhookEvent, "msg_deleted_schedule_failure") is None
+        assert session.scalars(select(QueueOutboxMessage)).all() == []
+
+
+def test_repeated_user_deleted_events_preserve_original_deletion_timestamp(monkeypatch):
+    client, session_factory = create_client()
+    monkeypatch.setattr("app.api.routes.webhooks.dispatch_outbox_message", lambda _message_id: True)
     with session_factory.begin() as session:
         session.add(User(id="user-1", auth_user_id="auth-user", email="user@example.test"))
 
@@ -349,6 +452,7 @@ def test_repeated_user_deleted_events_preserve_original_deletion_timestamp():
         user = session.get(User, "user-1")
         assert user is not None
         assert user.deletion_requested_at == first_timestamp
+        assert len(session.scalars(select(QueueOutboxMessage)).all()) == 2
 
 
 def test_invalid_signature_is_rejected_without_processing_payload():
