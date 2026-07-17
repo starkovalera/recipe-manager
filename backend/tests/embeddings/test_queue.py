@@ -6,6 +6,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.db import session as session_module
 from app.db.base import Base
+from app.embeddings import queue as queue_module
 from app.embeddings.queue import enqueue_recipe_embedding
 from app.local.users import ensure_default_user
 from app.models import (
@@ -14,6 +15,23 @@ from app.models import (
     RecipeEmbeddingEventType,
     RecipeEmbeddingStatus,
 )
+
+
+class StubQueuePublisher:
+    def __init__(self, error: Exception | None = None) -> None:
+        self.error = error
+        self.recipe_ids: list[str] = []
+
+    def publish_import_job(self, import_job_id: str) -> None:
+        raise AssertionError(f"Unexpected import publication for {import_job_id}")
+
+    def publish_recipe_embedding(self, recipe_id: str) -> None:
+        self.recipe_ids.append(recipe_id)
+        if self.error is not None:
+            raise self.error
+
+    def publish_account_deletion(self, user_id: str) -> None:
+        raise AssertionError(f"Unexpected account deletion publication for {user_id}")
 
 
 def create_session_factory():
@@ -42,17 +60,13 @@ def test_enqueue_publishes_before_recording_enqueued_event(monkeypatch):
         embedding = create_stale_embedding(session)
         recipe_id = embedding.recipe_id
         owner_id = embedding.recipe.owner_id
-    calls: list[str] = []
-
-    def send(received_recipe_id: str) -> None:
-        calls.append(f"send:{received_recipe_id}")
-
-    monkeypatch.setattr("app.embeddings.tasks.embed_recipe_task.send", send)
+    publisher = StubQueuePublisher()
+    monkeypatch.setattr(queue_module, "get_queue_publisher", lambda: publisher, raising=False)
 
     published = enqueue_recipe_embedding(recipe_id, owner_id)
 
     assert published is True
-    assert calls == [f"send:{recipe_id}"]
+    assert publisher.recipe_ids == [recipe_id]
     with SessionLocal() as session:
         embedding = session.get(RecipeEmbedding, recipe_id)
         assert embedding is not None
@@ -68,13 +82,12 @@ def test_enqueue_returns_false_without_event_when_broker_publish_fails(monkeypat
         recipe_id = embedding.recipe_id
         owner_id = embedding.recipe.owner_id
 
-    def fail_send(recipe_id: str) -> None:
-        raise RuntimeError("broker unavailable")
-
-    monkeypatch.setattr("app.embeddings.tasks.embed_recipe_task.send", fail_send)
+    publisher = StubQueuePublisher(RuntimeError("broker unavailable"))
+    monkeypatch.setattr(queue_module, "get_queue_publisher", lambda: publisher, raising=False)
     published = enqueue_recipe_embedding(recipe_id, owner_id)
 
     assert published is False
+    assert publisher.recipe_ids == [recipe_id]
     with SessionLocal() as session:
         embedding = session.get(RecipeEmbedding, recipe_id)
         assert embedding is not None
@@ -89,8 +102,8 @@ def test_enqueue_returns_false_without_event_when_broker_publish_fails(monkeypat
 
 
 def test_enqueue_returns_true_when_event_persistence_fails_after_publish(monkeypatch):
-    published_recipe_ids: list[str] = []
-    monkeypatch.setattr("app.embeddings.tasks.embed_recipe_task.send", published_recipe_ids.append)
+    publisher = StubQueuePublisher()
+    monkeypatch.setattr(queue_module, "get_queue_publisher", lambda: publisher, raising=False)
 
     @contextmanager
     def failing_db_session():
@@ -102,4 +115,4 @@ def test_enqueue_returns_true_when_event_persistence_fails_after_publish(monkeyp
     published = enqueue_recipe_embedding("recipe-1", "owner-1")
 
     assert published is True
-    assert published_recipe_ids == ["recipe-1"]
+    assert publisher.recipe_ids == ["recipe-1"]
