@@ -8,7 +8,12 @@ from app.queueing.constants import QueueOutboxStatus
 def get_outbox_message(
     session: Session,
     message_id: str,
+    *,
+    for_update: bool = False,
 ) -> QueueOutboxMessage | None:
+    if for_update:
+        statement = select(QueueOutboxMessage).where(QueueOutboxMessage.id == message_id).with_for_update()
+        return session.scalar(statement)
     return session.get(QueueOutboxMessage, message_id)
 
 
