@@ -9,7 +9,8 @@ from app.access.constants import UserRole
 from app.api.deps import get_session
 from app.db.base import Base
 from app.main import create_app
-from app.models import User, UserRoleAssignment, UserStatus
+from app.models import QueueOutboxMessage, User, UserRoleAssignment, UserStatus
+from app.queueing.constants import QueueMessageType, QueueOutboxStatus
 
 
 def create_client(monkeypatch) -> tuple[TestClient, sessionmaker[Session], list[str]]:
@@ -26,14 +27,17 @@ def create_client(monkeypatch) -> tuple[TestClient, sessionmaker[Session], list[
         with session_factory() as session:
             yield session
 
-    published_user_ids: list[str] = []
+    dispatched_message_ids: list[str] = []
     app.dependency_overrides[get_session] = override_session
-    monkeypatch.setattr("app.api.routes.users.enqueue_account_deletion", published_user_ids.append)
-    return TestClient(app), session_factory, published_user_ids
+    monkeypatch.setattr(
+        "app.api.routes.users.dispatch_outbox_message",
+        lambda message_id: dispatched_message_ids.append(message_id) or True,
+    )
+    return TestClient(app), session_factory, dispatched_message_ids
 
 
 def test_active_user_requests_idempotent_background_deletion(monkeypatch):
-    client, session_factory, published_user_ids = create_client(monkeypatch)
+    client, session_factory, dispatched_message_ids = create_client(monkeypatch)
     with session_factory.begin() as session:
         session.add(User(id="user-1", auth_user_id="auth-user", email="user@example.test"))
     headers = {"X-Authenticated-Subject": "auth-user"}
@@ -43,12 +47,16 @@ def test_active_user_requests_idempotent_background_deletion(monkeypatch):
 
     assert first.status_code == second.status_code == 202
     assert first.json() == second.json() == {"status": "DELETION_PENDING"}
-    assert published_user_ids == ["user-1", "user-1"]
+    assert len(dispatched_message_ids) == 2
     with session_factory() as session:
         user = session.get(User, "user-1")
         assert user is not None
         assert user.status is UserStatus.DELETION_PENDING
         assert user.deletion_requested_at is not None
+        messages = session.query(QueueOutboxMessage).all()
+        assert [message.id for message in messages] == dispatched_message_ids
+        assert all(message.message_type is QueueMessageType.ACCOUNT_DELETION for message in messages)
+        assert all(message.status is QueueOutboxStatus.PENDING for message in messages)
 
 
 def test_deletion_rejects_last_active_superadmin(monkeypatch):
@@ -91,9 +99,11 @@ def test_deletion_rejects_deactivated_user(monkeypatch):
     assert published_user_ids == []
 
 
-def test_deletion_stays_pending_when_task_publish_fails(monkeypatch):
-    client, session_factory, published_user_ids = create_client(monkeypatch)
-    monkeypatch.setattr("app.api.routes.users.enqueue_account_deletion", lambda _user_id: False)
+def test_deletion_stays_pending_when_outbox_dispatch_fails(monkeypatch):
+    client, session_factory, dispatched_message_ids = create_client(monkeypatch)
+    monkeypatch.setattr(
+        "app.api.routes.users.dispatch_outbox_message", lambda message_id: dispatched_message_ids.append(message_id) or False
+    )
     with session_factory.begin() as session:
         session.add(User(id="user-1", auth_user_id="auth-user", email="user@example.test"))
 
@@ -101,6 +111,7 @@ def test_deletion_stays_pending_when_task_publish_fails(monkeypatch):
 
     assert response.status_code == 202
     assert response.json() == {"status": "DELETION_PENDING"}
-    assert published_user_ids == []
+    assert len(dispatched_message_ids) == 1
     with session_factory() as session:
         assert session.get(User, "user-1").status is UserStatus.DELETION_PENDING
+        assert session.get(QueueOutboxMessage, dispatched_message_ids[0]).status is QueueOutboxStatus.PENDING

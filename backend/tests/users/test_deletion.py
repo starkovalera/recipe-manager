@@ -5,9 +5,10 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.auth.constants import AuthProviderType
-from app.auth.types import AuthProviderError
+from app.auth.types import AuthenticatedIdentity, AuthProviderError
 from app.db.base import Base
-from app.models import ImportJob, ImportJobSource, ImportJobStatus, Recipe, RecipeImage, SourceType, User, UserStatus
+from app.models import ImportJob, ImportJobSource, ImportJobStatus, QueueOutboxMessage, Recipe, RecipeImage, SourceType, User, UserStatus
+from app.queueing.constants import QueueMessageType, QueueOutboxStatus
 from app.users import deletion as deletion_module, reconcile_deletions
 
 
@@ -101,6 +102,50 @@ def add_pending_user_with_media(session_factory) -> None:
             ]
         )
         session.add(user)
+
+
+def test_request_account_deletion_atomically_marks_user_pending_and_schedules_outbox(tmp_path):
+    engine = create_engine(f"sqlite:///{tmp_path / 'request-deletion.db'}")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine, expire_on_commit=False)
+    with session_factory.begin() as session:
+        session.add(User(id="user-1", auth_user_id="auth-user", email="user@example.test"))
+
+    with session_factory() as session:
+        result = deletion_module.request_account_deletion(
+            session,
+            AuthenticatedIdentity(AuthProviderType.CLERK, "auth-user"),
+        )
+
+        message = session.get(QueueOutboxMessage, result.outbox_message_id)
+        assert result.user.status is UserStatus.DELETION_PENDING
+        assert message is not None
+        assert message.message_type is QueueMessageType.ACCOUNT_DELETION
+        assert message.entity_id == "user-1"
+        assert message.status is QueueOutboxStatus.PENDING
+
+
+def test_request_account_deletion_rolls_back_user_when_outbox_scheduling_fails(monkeypatch, tmp_path):
+    engine = create_engine(f"sqlite:///{tmp_path / 'request-deletion-rollback.db'}")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine, expire_on_commit=False)
+    with session_factory.begin() as session:
+        session.add(User(id="user-1", auth_user_id="auth-user", email="user@example.test"))
+
+    monkeypatch.setattr(
+        deletion_module,
+        "schedule_outbox_message",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("schedule failed")),
+    )
+    with session_factory() as session, pytest.raises(RuntimeError, match="schedule failed"):
+        deletion_module.request_account_deletion(
+            session,
+            AuthenticatedIdentity(AuthProviderType.CLERK, "auth-user"),
+        )
+
+    with session_factory() as session:
+        assert session.get(User, "user-1").status is UserStatus.ACTIVE
+        assert session.query(QueueOutboxMessage).count() == 0
 
 
 def test_process_account_deletion_removes_provider_identity_unique_media_and_user(monkeypatch, tmp_path):

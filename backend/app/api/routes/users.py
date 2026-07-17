@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Response, status
 
 from app.api.deps import AuthenticatedIdentityDep, CurrentUserDep, SessionDep, SettingsDep
+from app.queueing.outbox import dispatch_outbox_message
 from app.schemas.users import AccountDeletionOut, CurrentUserOut
-from app.users.deletion import enqueue_account_deletion, request_account_deletion
+from app.users.deletion import request_account_deletion
 from app.users.provisioning import provision_current_user
 
 router = APIRouter(tags=["users"])
@@ -28,6 +29,6 @@ def provision_me(
 
 @router.post("/me/deletion", response_model=AccountDeletionOut, status_code=status.HTTP_202_ACCEPTED)
 def delete_me(session: SessionDep, identity: AuthenticatedIdentityDep) -> AccountDeletionOut:
-    user = request_account_deletion(session, identity)
-    enqueue_account_deletion(user.id)
-    return AccountDeletionOut(status=user.status)
+    result = request_account_deletion(session, identity)
+    dispatch_outbox_message(result.outbox_message_id)
+    return AccountDeletionOut(status=result.user.status)
