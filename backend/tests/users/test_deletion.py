@@ -35,6 +35,23 @@ class StubStorage:
             raise OSError("storage unavailable")
 
 
+class StubQueuePublisher:
+    def __init__(self, failing_user_ids: set[str] | None = None) -> None:
+        self.failing_user_ids = failing_user_ids or set()
+        self.user_ids: list[str] = []
+
+    def publish_import_job(self, import_job_id: str) -> None:
+        raise AssertionError(f"Unexpected import publication for {import_job_id}")
+
+    def publish_recipe_embedding(self, recipe_id: str) -> None:
+        raise AssertionError(f"Unexpected embedding publication for {recipe_id}")
+
+    def publish_account_deletion(self, user_id: str) -> None:
+        self.user_ids.append(user_id)
+        if user_id in self.failing_user_ids:
+            raise RuntimeError("broker unavailable")
+
+
 def setup_deletion(monkeypatch, tmp_path: Path, *, provider_error: Exception | None = None, failing_key: str | None = None):
     engine = create_engine(f"sqlite:///{tmp_path / 'deletion.db'}")
     Base.metadata.create_all(engine)
@@ -161,6 +178,26 @@ def test_process_account_deletion_waits_for_active_imports(monkeypatch, tmp_path
         assert session.get(User, "user-1").status is UserStatus.DELETION_PENDING
 
 
+def test_enqueue_account_deletion_publishes_internal_user_id(monkeypatch):
+    publisher = StubQueuePublisher()
+    monkeypatch.setattr(deletion_module, "get_queue_publisher", lambda: publisher, raising=False)
+
+    published = deletion_module.enqueue_account_deletion("user-1")
+
+    assert published is True
+    assert publisher.user_ids == ["user-1"]
+
+
+def test_enqueue_account_deletion_returns_false_when_publish_fails(monkeypatch):
+    publisher = StubQueuePublisher({"user-1"})
+    monkeypatch.setattr(deletion_module, "get_queue_publisher", lambda: publisher, raising=False)
+
+    published = deletion_module.enqueue_account_deletion("user-1")
+
+    assert published is False
+    assert publisher.user_ids == ["user-1"]
+
+
 def test_requeue_pending_account_deletions_publishes_only_pending_users(monkeypatch, tmp_path):
     session_factory, _provider, _storage = setup_deletion(monkeypatch, tmp_path)
     with session_factory.begin() as session:
@@ -175,16 +212,12 @@ def test_requeue_pending_account_deletions_publishes_only_pending_users(monkeypa
                 User(id="active-user", auth_user_id="active-auth-user", email="active@example.test"),
             ]
         )
-    published_user_ids: list[str] = []
-    monkeypatch.setattr(
-        deletion_module,
-        "enqueue_account_deletion",
-        lambda user_id: published_user_ids.append(user_id) is None,
-    )
+    publisher = StubQueuePublisher()
+    monkeypatch.setattr(deletion_module, "get_queue_publisher", lambda: publisher, raising=False)
 
     failed_user_ids = deletion_module.requeue_pending_account_deletions()
 
-    assert published_user_ids == ["pending-user"]
+    assert publisher.user_ids == ["pending-user"]
     assert failed_user_ids == []
 
 
@@ -199,9 +232,11 @@ def test_requeue_pending_account_deletions_reports_publish_failures(monkeypatch,
                 status=UserStatus.DELETION_PENDING,
             )
         )
-    monkeypatch.setattr(deletion_module, "enqueue_account_deletion", lambda _user_id: False)
+    publisher = StubQueuePublisher({"pending-user"})
+    monkeypatch.setattr(deletion_module, "get_queue_publisher", lambda: publisher, raising=False)
 
     assert deletion_module.requeue_pending_account_deletions() == ["pending-user"]
+    assert publisher.user_ids == ["pending-user"]
 
 
 def test_reconcile_deletions_exit_code_reflects_publish_failures(monkeypatch):

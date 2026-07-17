@@ -81,21 +81,37 @@ Important reference behavior to preserve:
 
 ## Runtime Profiles
 
-Implement profile selection in backend settings with `APP_ENV`, default `dev`.
+Implement profile selection in backend settings with `APP_ENV`, default `PROD` so missing production configuration fails closed.
 
-- `APP_ENV=dev`
-  - `DATABASE_URL` defaults to `sqlite:///./storage/dev/app.db`.
+- `APP_ENV=DEV`
+  - `DATABASE_URL` defaults to local PostgreSQL database `recipe_manager_dev`.
+  - `QUEUE_PROVIDER` defaults to `DRAMATIQ` and `REDIS_URL` defaults locally.
+  - `STORAGE_PROVIDER` defaults to `LOCAL`.
   - `UPLOAD_DIR` defaults to `./storage/dev/uploads`.
-  - Startup creates directories and runs against existing data.
+  - Startup runs against existing database and media data.
   - Never clears database or uploaded files automatically.
-- `APP_ENV=preview`
-  - `DATABASE_URL` defaults to `sqlite:///./storage/preview/app.db`.
+- `APP_ENV=PREVIEW`
+  - `DATABASE_URL` defaults to local PostgreSQL database `recipe_manager_preview`.
+  - `QUEUE_PROVIDER` defaults to `DRAMATIQ` and `REDIS_URL` defaults locally.
+  - `STORAGE_PROVIDER` defaults to `LOCAL`.
   - `UPLOAD_DIR` defaults to `./storage/preview/uploads`.
-  - Startup clears the preview SQLite file and preview upload directory before migrations/default user initialization.
+  - Startup recreates the preview PostgreSQL schema and clears the preview upload directory before migrations/default user initialization.
   - Cleanup must be guarded so only paths under `backend/storage/preview/` are deleted.
-- `APP_ENV=test`
-  - Tests should use temporary database and storage paths where possible.
+- `APP_ENV=TEST`
+  - `DATABASE_URL` defaults to isolated SQLite storage and local/test-safe providers.
+  - Tests must not require running Redis, Clerk, OpenAI, SQS, or S3 services.
   - Tests must not touch dev or preview storage.
+- `APP_ENV=PROD`
+  - Requires an explicit PostgreSQL `DATABASE_URL`, `QUEUE_PROVIDER=SQS`, and `STORAGE_PROVIDER=S3`.
+  - Rejects SQLite, `REDIS_URL`, `UPLOAD_DIR`, Dramatiq, and local storage.
+  - SQS and S3 adapters are delivered in later production iterations; no fallback provider is selected.
+
+### Runtime and Queue Boundary Invariants
+
+- Runtime infrastructure selection is explicit and environment-owned. `PROD` fails closed when its required PostgreSQL, SQS, or S3 configuration is missing or incompatible; it must never fall back to local development providers.
+- Application and domain code publish background work through `QueuePublisher` using scalar entity IDs only. ORM entities, request objects, credentials, and provider-specific message objects do not cross the queue boundary.
+- Direct Dramatiq actor publishing is confined to the Dramatiq queue adapter. Other application modules must not call actor `.send()` or `.send_with_options()` directly.
+- `DEV`, `PREVIEW`, and `TEST` retain the existing Dramatiq-compatible local behavior. Selecting the not-yet-implemented SQS provider fails explicitly until the P4 adapter is delivered rather than silently routing work through Dramatiq.
 
 Add explicit scripts or documented commands for both modes:
 
@@ -237,10 +253,10 @@ pnpm dev
 - Test `backend/tests/core/test_runtime_profiles.py`
 
 - [ ] Define settings with defaults from `docs/design.md`: `APP_ENV`, database URL, upload dir, import limits, OpenAI model names, cover guard flag, ffmpeg paths, stale job timeout.
-- [ ] Implement `APP_ENV=dev` defaults to persistent `backend/storage/dev/app.db` and `backend/storage/dev/uploads`.
-- [ ] Implement `APP_ENV=preview` defaults to isolated `backend/storage/preview/app.db` and `backend/storage/preview/uploads`.
-- [ ] Implement `APP_ENV=test` defaults for tests that never touch dev or preview data.
-- [ ] Implement preview startup cleanup that deletes only the configured preview database file and files under the configured preview upload directory after resolving absolute paths under `backend/storage/preview`.
+- [ ] Implement `APP_ENV=DEV` defaults to persistent PostgreSQL database `recipe_manager_dev` and `backend/storage/dev/uploads`.
+- [ ] Implement `APP_ENV=PREVIEW` defaults to PostgreSQL database `recipe_manager_preview` and `backend/storage/preview/uploads`.
+- [ ] Implement `APP_ENV=TEST` defaults for isolated SQLite tests that never touch dev or preview data.
+- [ ] Implement preview startup cleanup that recreates only the configured preview PostgreSQL schema and deletes files under the configured preview upload directory after resolving absolute paths under `backend/storage/preview`.
 - [ ] Refuse preview cleanup if resolved paths are outside the preview storage root.
 - [ ] Define SQLAlchemy enums equivalent to the old Prisma enums: source name/type/status, import job status/source status, image role, cover source, review flag status/type.
 - [ ] Define UUID primary keys as strings or SQLAlchemy UUID-compatible values for SQLite portability.
@@ -559,8 +575,8 @@ pnpm dev
 
 - [ ] Run full backend verification.
 - [ ] Run full frontend verification.
-- [ ] Start backend dev server in `APP_ENV=dev` and verify existing dev data persists after restart.
-- [ ] Start backend dev server in `APP_ENV=preview` and verify preview database/uploads are cleared after restart while dev data remains untouched.
+- [ ] Start backend dev server in `APP_ENV=DEV` and verify existing dev data persists after restart.
+- [ ] Start backend dev server in `APP_ENV=PREVIEW` and verify preview database/uploads are cleared after restart while dev data remains untouched.
 - [ ] Start frontend dev server against the selected backend.
 - [ ] Manually smoke: create import from text only with fake provider, poll to success, open recipe detail, edit note, resolve warning flag if present.
 - [ ] Manually smoke: import URL plus attachments with fake loader/provider if test-only route or fixture mode exists; confirm attachments occupy capacity before URL images.

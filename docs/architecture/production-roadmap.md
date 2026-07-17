@@ -31,6 +31,8 @@ entrypoints for the four production Lambdas.
 - **P11. SSRF and streaming hardening**
 - **P12. Production Docker artifacts**
 
+Iteration 1 covers P1 and P2 only: production configuration requires explicit PostgreSQL, SQS, and S3 selections, while PREVIEW publishes ID-only messages through the existing Dramatiq actors. The SQS and S3 values define the target configuration contract; their runtime adapters remain deferred to P4 and P9. P3, the transactional outbox, is not part of this iteration.
+
 ## Phase 2 — Terraform, IAM, and Secrets Foundation
 
 - Bootstrap remote Terraform state and GitHub OIDC.

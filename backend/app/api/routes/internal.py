@@ -13,8 +13,8 @@ from app.embeddings.service import retry_recipe_embedding
 from app.imports.constants import IMPORT_LOG_COMPONENT
 from app.imports.jobs import compensate_import_retry_publish_failure, request_import_retry
 from app.imports.queries import get_import_job_unscoped, list_internal_import_jobs
-from app.imports.tasks import import_recipe_task
 from app.models import ImportJob, RecipeEmbedding
+from app.queueing.provider import get_queue_publisher
 from app.schemas.imports import ImportJobOut
 from app.schemas.internal import InternalImportJobListOut, InternalRecipeEmbeddingListOut
 from app.schemas.recipes import RecipeEmbeddingOut
@@ -61,7 +61,7 @@ def retry_internal_import_job(
         max_parallel_imports=settings.max_parallel_imports_per_client,
     )
     try:
-        import_recipe_task.send(job_id)
+        get_queue_publisher().publish_import_job(job_id)
     except Exception as error:
         reverted_job, reverted = compensate_import_retry_publish_failure(
             session,

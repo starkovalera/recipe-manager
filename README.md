@@ -148,6 +148,15 @@ Direct FastAPI access at `http://127.0.0.1:8010` is upstream diagnostics only. I
 
 `preview` uses `recipe_manager_preview` and resets that schema plus `backend/storage/preview/uploads` on backend startup.
 
+| Mode | Database | Queue provider | Storage provider | Redis | Upload directory |
+| --- | --- | --- | --- | --- | --- |
+| `DEV` | Local PostgreSQL default | `DRAMATIQ` | `LOCAL` | Local default | Local persistent default |
+| `PREVIEW` | Local PostgreSQL default | `DRAMATIQ` | `LOCAL` | Local default | Local resettable default |
+| `TEST` | Isolated SQLite default | `DRAMATIQ` test-safe configuration | `LOCAL` | No running server required | Isolated test default |
+| `PROD` | Explicit PostgreSQL required | Explicit `SQS` required | Explicit `S3` required | Not supported | Not supported |
+
+Production settings fail closed instead of falling back to SQLite, Redis/Dramatiq, or local media storage. The SQS publisher and S3 storage adapters are intentionally deferred to roadmap items P4 and P9; selecting SQS currently fails explicitly at runtime rather than silently publishing through another provider.
+
 `POST /imports` creates a queued `ImportJob` and returns `202 Accepted`. The frontend remains on the import form, polls notifications, and can submit additional imports within concurrency limits.
 
 Without an OpenAI key, recipe extraction and embeddings use local fake providers. To use OpenAI, set in `backend/.env`:

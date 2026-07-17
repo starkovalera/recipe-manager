@@ -1,5 +1,5 @@
 import logging
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from datetime import datetime, timezone
 from io import BytesIO
 
@@ -51,6 +51,23 @@ from tests.imports.runtime_overrides import (
 )
 
 
+class StubQueuePublisher:
+    def __init__(self, import_job_handler: Callable[[str], None] | None = None) -> None:
+        self.import_job_handler = import_job_handler
+        self.import_job_ids: list[str] = []
+
+    def publish_import_job(self, import_job_id: str) -> None:
+        self.import_job_ids.append(import_job_id)
+        if self.import_job_handler is not None:
+            self.import_job_handler(import_job_id)
+
+    def publish_recipe_embedding(self, recipe_id: str) -> None:
+        raise AssertionError(f"Unexpected embedding publication for {recipe_id}")
+
+    def publish_account_deletion(self, user_id: str) -> None:
+        raise AssertionError(f"Unexpected account deletion publication for {user_id}")
+
+
 @pytest.fixture(autouse=True)
 def reset_import_dependencies(monkeypatch):
     monkeypatch.setenv("MAX_IMPORT_TEXT_CHARS", "1000")
@@ -63,7 +80,8 @@ def reset_import_dependencies(monkeypatch):
     get_settings.cache_clear()
     set_recipe_extraction_provider(FakeRecipeExtractionProvider())
     reset_url_content_service()
-    monkeypatch.setattr(import_routes, "enqueue_import_job", lambda import_job_id: None, raising=False)
+    publisher = StubQueuePublisher()
+    monkeypatch.setattr(import_routes, "get_queue_publisher", lambda: publisher, raising=False)
     monkeypatch.setattr("app.imports.jobs.process.enqueue_recipe_embedding", lambda recipe_id, owner_id: True)
     yield
     set_recipe_extraction_provider(FakeRecipeExtractionProvider())
@@ -201,8 +219,8 @@ def create_failed_import(client: TestClient, SessionLocal, *, client_import_id: 
 def test_failed_import_can_be_requeued_without_resetting_attempt_fields(monkeypatch):
     client, SessionLocal = client_with_session_factory()
     job_id = create_failed_import(client, SessionLocal, client_import_id="retry-1")
-    enqueued: list[str] = []
-    monkeypatch.setattr(import_routes, "enqueue_import_job", enqueued.append)
+    publisher = StubQueuePublisher()
+    monkeypatch.setattr(import_routes, "get_queue_publisher", lambda: publisher)
 
     response = client.post(f"/imports/{job_id}/retry")
 
@@ -212,7 +230,7 @@ def test_failed_import_can_be_requeued_without_resetting_attempt_fields(monkeypa
     assert response.json()["maxAttempts"] == 3
     assert response.json()["errorCode"] == "IMPORT_FAILED"
     assert response.json()["errorMessage"] == "UNEXPECTED_ERROR"
-    assert enqueued == [job_id]
+    assert publisher.import_job_ids == [job_id]
     with SessionLocal() as session:
         job = session.get(ImportJob, job_id)
         started_notifications = (
@@ -248,8 +266,8 @@ def test_retry_rejects_non_failed_and_exhausted_imports():
 def test_second_retry_request_is_rejected_after_first_requeues_job(monkeypatch):
     client, SessionLocal = client_with_session_factory()
     job_id = create_failed_import(client, SessionLocal, client_import_id="double-retry")
-    enqueued: list[str] = []
-    monkeypatch.setattr(import_routes, "enqueue_import_job", enqueued.append)
+    publisher = StubQueuePublisher()
+    monkeypatch.setattr(import_routes, "get_queue_publisher", lambda: publisher)
 
     first = client.post(f"/imports/{job_id}/retry")
     second = client.post(f"/imports/{job_id}/retry")
@@ -257,7 +275,7 @@ def test_second_retry_request_is_rejected_after_first_requeues_job(monkeypatch):
     assert first.status_code == 202
     assert second.status_code == 409
     assert second.json()["errorCode"] == "IMPORT_NOT_RETRYABLE"
-    assert enqueued == [job_id]
+    assert publisher.import_job_ids == [job_id]
 
 
 def test_retry_publish_failure_restores_failed_status_and_removes_retry_notification(monkeypatch):
@@ -269,7 +287,8 @@ def test_retry_publish_failure_restores_failed_status_and_removes_retry_notifica
     def fail_publish(import_job_id: str) -> None:
         raise RuntimeError("redis unavailable")
 
-    monkeypatch.setattr(import_routes, "enqueue_import_job", fail_publish)
+    publisher = StubQueuePublisher(fail_publish)
+    monkeypatch.setattr(import_routes, "get_queue_publisher", lambda: publisher)
 
     response = client.post(f"/imports/{job_id}/retry")
 
@@ -294,7 +313,8 @@ def test_retry_publish_error_returns_running_job_when_worker_already_claimed_mes
             session.commit()
         raise RuntimeError("broker acknowledgement failed")
 
-    monkeypatch.setattr(import_routes, "enqueue_import_job", claim_then_fail)
+    publisher = StubQueuePublisher(claim_then_fail)
+    monkeypatch.setattr(import_routes, "get_queue_publisher", lambda: publisher)
 
     response = client.post(f"/imports/{job_id}/retry")
 
@@ -498,7 +518,9 @@ def test_import_succeeds_when_embedding_publish_fails(monkeypatch):
         assert [event.event_type for event in recipe.embedding.events] == [RecipeEmbeddingEventType.SCHEDULED]
 
 
-def test_duplicate_client_import_id_returns_existing_job():
+def test_duplicate_client_import_id_returns_existing_job(monkeypatch):
+    publisher = StubQueuePublisher()
+    monkeypatch.setattr(import_routes, "get_queue_publisher", lambda: publisher)
     client = client_with_session()
 
     first = client.post("/imports", data={"clientImportId": "same", "text": "Recipe"}, headers={"X-Client-Id": "client-1"})
@@ -507,6 +529,7 @@ def test_duplicate_client_import_id_returns_existing_job():
     assert first.status_code == 202
     assert second.status_code == 200
     assert second.json()["jobId"] == first.json()["jobId"]
+    assert publisher.import_job_ids == [first.json()["jobId"]]
 
 
 def test_import_records_job_events_and_notifications():
@@ -584,15 +607,15 @@ def test_idempotency_key_returns_existing_job_for_different_client_import_id():
 
 
 def test_create_import_enqueues_job(monkeypatch):
-    enqueued: list[str] = []
-    monkeypatch.setattr(import_routes, "enqueue_import_job", enqueued.append)
+    publisher = StubQueuePublisher()
+    monkeypatch.setattr(import_routes, "get_queue_publisher", lambda: publisher)
     client = client_with_session()
 
     response = client.post("/imports", data={"clientImportId": "queued", "text": "Recipe"}, headers={"X-Client-Id": "client-1"})
 
     assert response.status_code == 202
     assert response.json()["status"] == "queued"
-    assert enqueued == [response.json()["jobId"]]
+    assert publisher.import_job_ids == [response.json()["jobId"]]
 
 
 def test_import_requires_at_least_one_source():
@@ -686,8 +709,8 @@ def test_upload_failure_rolls_back_import_creation_and_deletes_saved_files(
     client, SessionLocal = client_with_session_factory()
     storage = RecordingStorage(fail_on_save=fail_on_save)
     monkeypatch.setattr(import_create, "LocalStorageService", lambda upload_dir: storage)
-    enqueued: list[str] = []
-    monkeypatch.setattr(import_routes, "enqueue_import_job", enqueued.append)
+    publisher = StubQueuePublisher()
+    monkeypatch.setattr(import_routes, "get_queue_publisher", lambda: publisher)
 
     response = client.post(
         "/imports",
@@ -705,7 +728,7 @@ def test_upload_failure_rolls_back_import_creation_and_deletes_saved_files(
         "message": "Failed to create import. Please try again.",
     }
     assert storage.deleted_keys == expected_deleted_keys
-    assert enqueued == []
+    assert publisher.import_job_ids == []
     with SessionLocal() as session:
         assert session.query(ImportJob).count() == 0
         assert session.query(ImportJobSource).count() == 0
@@ -718,8 +741,8 @@ def test_audit_write_failure_rolls_back_import_creation_and_deletes_uploaded_fil
     client, SessionLocal = client_with_session_factory()
     storage = RecordingStorage()
     monkeypatch.setattr(import_create, "LocalStorageService", lambda upload_dir: storage)
-    enqueued: list[str] = []
-    monkeypatch.setattr(import_routes, "enqueue_import_job", enqueued.append)
+    publisher = StubQueuePublisher()
+    monkeypatch.setattr(import_routes, "get_queue_publisher", lambda: publisher)
 
     def fail_audit_write(*args, **kwargs):
         raise RuntimeError("audit write failed")
@@ -736,7 +759,7 @@ def test_audit_write_failure_rolls_back_import_creation_and_deletes_uploaded_fil
     assert response.status_code == 500
     assert response.json()["errorCode"] == "IMPORT_CREATION_FAILED"
     assert storage.deleted_keys == ["saved-1.jpg"]
-    assert enqueued == []
+    assert publisher.import_job_ids == []
     with SessionLocal() as session:
         assert session.query(ImportJob).count() == 0
         assert session.query(ImportJobSource).count() == 0

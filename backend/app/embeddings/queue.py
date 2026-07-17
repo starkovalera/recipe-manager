@@ -3,17 +3,16 @@ from app.embeddings.events import add_embedding_event
 from app.embeddings.logging import bind_embedding_logger
 from app.embeddings.queries import get_recipe_embedding
 from app.models import RecipeEmbeddingEventType
+from app.queueing.provider import get_queue_publisher
 
 
 def enqueue_recipe_embedding(recipe_id: str, owner_id: str) -> bool:
-    from app.embeddings.tasks import embed_recipe_task
-
     log = bind_embedding_logger(
         recipe_id=recipe_id,
         owner_id=owner_id,
     )
     try:
-        embed_recipe_task.send(recipe_id)
+        get_queue_publisher().publish_recipe_embedding(recipe_id)
     except Exception as error:
         log.error("Embedding task publish failed", error=repr(error))
         return False
