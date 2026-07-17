@@ -36,23 +36,6 @@ class StubStorage:
             raise OSError("storage unavailable")
 
 
-class StubQueuePublisher:
-    def __init__(self, failing_user_ids: set[str] | None = None) -> None:
-        self.failing_user_ids = failing_user_ids or set()
-        self.user_ids: list[str] = []
-
-    def publish_import_job(self, import_job_id: str) -> None:
-        raise AssertionError(f"Unexpected import publication for {import_job_id}")
-
-    def publish_recipe_embedding(self, recipe_id: str) -> None:
-        raise AssertionError(f"Unexpected embedding publication for {recipe_id}")
-
-    def publish_account_deletion(self, user_id: str) -> None:
-        self.user_ids.append(user_id)
-        if user_id in self.failing_user_ids:
-            raise RuntimeError("broker unavailable")
-
-
 def setup_deletion(monkeypatch, tmp_path: Path, *, provider_error: Exception | None = None, failing_key: str | None = None):
     engine = create_engine(f"sqlite:///{tmp_path / 'deletion.db'}")
     Base.metadata.create_all(engine)
@@ -223,27 +206,7 @@ def test_process_account_deletion_waits_for_active_imports(monkeypatch, tmp_path
         assert session.get(User, "user-1").status is UserStatus.DELETION_PENDING
 
 
-def test_enqueue_account_deletion_publishes_internal_user_id(monkeypatch):
-    publisher = StubQueuePublisher()
-    monkeypatch.setattr(deletion_module, "get_queue_publisher", lambda: publisher, raising=False)
-
-    published = deletion_module.enqueue_account_deletion("user-1")
-
-    assert published is True
-    assert publisher.user_ids == ["user-1"]
-
-
-def test_enqueue_account_deletion_returns_false_when_publish_fails(monkeypatch):
-    publisher = StubQueuePublisher({"user-1"})
-    monkeypatch.setattr(deletion_module, "get_queue_publisher", lambda: publisher, raising=False)
-
-    published = deletion_module.enqueue_account_deletion("user-1")
-
-    assert published is False
-    assert publisher.user_ids == ["user-1"]
-
-
-def test_requeue_pending_account_deletions_publishes_only_pending_users(monkeypatch, tmp_path):
+def test_requeue_pending_account_deletions_schedules_and_dispatches_only_pending_users(monkeypatch, tmp_path):
     session_factory, _provider, _storage = setup_deletion(monkeypatch, tmp_path)
     with session_factory.begin() as session:
         session.add_all(
@@ -254,16 +217,36 @@ def test_requeue_pending_account_deletions_publishes_only_pending_users(monkeypa
                     email="pending@example.test",
                     status=UserStatus.DELETION_PENDING,
                 ),
+                User(
+                    id="pending-user-2",
+                    auth_user_id="pending-auth-user-2",
+                    email="pending-2@example.test",
+                    status=UserStatus.DELETION_PENDING,
+                ),
                 User(id="active-user", auth_user_id="active-auth-user", email="active@example.test"),
             ]
         )
-    publisher = StubQueuePublisher()
-    monkeypatch.setattr(deletion_module, "get_queue_publisher", lambda: publisher, raising=False)
+    dispatched: list[tuple[str, str]] = []
+
+    def assert_committed_and_dispatch(message_id: str) -> bool:
+        with session_factory() as session:
+            message = session.get(QueueOutboxMessage, message_id)
+            assert message is not None
+            assert message.message_type is QueueMessageType.ACCOUNT_DELETION
+            assert message.status is QueueOutboxStatus.PENDING
+            assert session.query(QueueOutboxMessage).count() == 2
+            dispatched.append((message.entity_id, message.id))
+        return True
+
+    monkeypatch.setattr(deletion_module, "dispatch_outbox_message", assert_committed_and_dispatch, raising=False)
 
     failed_user_ids = deletion_module.requeue_pending_account_deletions()
 
-    assert publisher.user_ids == ["pending-user"]
+    assert [user_id for user_id, _message_id in dispatched] == ["pending-user", "pending-user-2"]
     assert failed_user_ids == []
+    with session_factory() as session:
+        messages = session.query(QueueOutboxMessage).all()
+        assert {message.id for message in messages} == {message_id for _user_id, message_id in dispatched}
 
 
 def test_requeue_pending_account_deletions_reports_publish_failures(monkeypatch, tmp_path):
@@ -277,11 +260,21 @@ def test_requeue_pending_account_deletions_reports_publish_failures(monkeypatch,
                 status=UserStatus.DELETION_PENDING,
             )
         )
-    publisher = StubQueuePublisher({"pending-user"})
-    monkeypatch.setattr(deletion_module, "get_queue_publisher", lambda: publisher, raising=False)
+    dispatched_message_ids: list[str] = []
+    monkeypatch.setattr(
+        deletion_module,
+        "dispatch_outbox_message",
+        lambda message_id: dispatched_message_ids.append(message_id) or False,
+        raising=False,
+    )
 
     assert deletion_module.requeue_pending_account_deletions() == ["pending-user"]
-    assert publisher.user_ids == ["pending-user"]
+    assert len(dispatched_message_ids) == 1
+    with session_factory() as session:
+        message = session.get(QueueOutboxMessage, dispatched_message_ids[0])
+        assert message is not None
+        assert message.entity_id == "pending-user"
+        assert message.status is QueueOutboxStatus.PENDING
 
 
 def test_reconcile_deletions_exit_code_reflects_publish_failures(monkeypatch):
