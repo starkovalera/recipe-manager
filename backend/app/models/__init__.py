@@ -26,6 +26,7 @@ from app.access.constants import UserRole
 from app.auth.constants import AuthProviderType
 from app.db.base import Base
 from app.invitations.constants import InvitationStatus
+from app.queueing.constants import QueueMessageType, QueueOutboxStatus
 from app.services.search_text import build_ingredient_search_name
 
 
@@ -168,6 +169,48 @@ class ClerkWebhookEvent(Base):
     event_id: Mapped[str] = mapped_column(String, primary_key=True)
     event_type: Mapped[str] = mapped_column(String, nullable=False)
     processed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class QueueOutboxMessage(Base):
+    __tablename__ = "queue_outbox_messages"
+    __table_args__ = (
+        Index(
+            "ix_queue_outbox_status_created_at",
+            "status",
+            "created_at",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(
+        String,
+        primary_key=True,
+        default=new_id,
+    )
+    message_type: Mapped[QueueMessageType] = mapped_column(
+        Enum(QueueMessageType, name="queue_message_type"),
+        nullable=False,
+    )
+    entity_id: Mapped[str] = mapped_column(String, nullable=False)
+    status: Mapped[QueueOutboxStatus] = mapped_column(
+        Enum(QueueOutboxStatus, name="queue_outbox_status"),
+        default=QueueOutboxStatus.PENDING,
+        server_default=QueueOutboxStatus.PENDING.value,
+        nullable=False,
+    )
+    attempt_count: Mapped[int] = mapped_column(
+        Integer,
+        default=0,
+        server_default="0",
+        nullable=False,
+    )
+    last_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_error_type: Mapped[str | None] = mapped_column(String(255))
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
 
 
 class User(TimestampMixin, Base):
