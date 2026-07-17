@@ -25,29 +25,6 @@ Non-goals for the first rewrite:
 - Full production deployment hardening.
 - Video frame slicing. Video import uses transcript and poster image only, matching the current simplified behavior.
 
-## Recommended Stack
-
-### Backend
-
-- Python 3.12+.
-- FastAPI for HTTP API and OpenAPI generation.
-- SQLAlchemy 2.x ORM.
-- Alembic migrations.
-- SQLite for local development.
-- Pydantic settings for configuration.
-- `uv` and `pyproject.toml` for dependency and script management.
-- In-process background worker for local import jobs.
-- Local filesystem storage behind a storage interface.
-
-### Frontend
-
-- React + Vite + TypeScript.
-- TanStack Query for server-state fetching, caching, mutations, and polling.
-- Plain CSS or a small CSS module setup initially; avoid heavy UI frameworks until the workflows stabilize.
-- `pnpm` for frontend package management unless we later choose another JS package manager.
-
-TanStack Query is useful here because import status polling and recipe cache invalidation are core workflows. It lets the UI submit an import job, poll `/imports/{jobId}`, refetch recipe lists when the job succeeds, and handle loading/error states without writing custom request lifecycle code everywhere. It is a frontend-only choice and does not couple the backend to React.
-
 ## Repository Layout
 
 The new project lives next to the current repository:
@@ -629,4 +606,3 @@ Implementation should start with backend foundations and job lifecycle before po
 3. Whether to use generated TypeScript API types from OpenAPI in the first version or write a small manual frontend API client first.
 4. Whether local auth remains a fixed default user or we introduce a lightweight client id concept now to prepare for mobile/cloud.
 5. Whether the first version needs resource review/delete UI or only source display and warning flags.
-
