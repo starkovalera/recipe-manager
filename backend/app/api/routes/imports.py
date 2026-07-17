@@ -14,16 +14,12 @@ from app.imports.jobs import (
     get_import_job,
     request_import_retry,
 )
-from app.imports.tasks import import_recipe_task
 from app.models import ImportJob, ImportJobStatus
+from app.queueing.provider import get_queue_publisher
 from app.schemas.imports import ImportJobOut
 
 router = APIRouter(prefix="/imports", tags=["imports"])
 logger = logging.getLogger(IMPORT_LOG_COMPONENT)
-
-
-def enqueue_import_job(import_job_id: str) -> None:
-    import_recipe_task.send(import_job_id)
 
 
 @router.post("", response_model=ImportJobOut, status_code=status.HTTP_202_ACCEPTED)
@@ -50,7 +46,7 @@ def create_import(
     )
     job = result.job
     if result.was_created and job.status == ImportJobStatus.QUEUED:
-        enqueue_import_job(job.id)
+        get_queue_publisher().publish_import_job(job.id)
         bind_logger(
             logger,
             component=IMPORT_LOG_COMPONENT,
@@ -84,7 +80,7 @@ def retry_import(
         max_parallel_imports=settings.max_parallel_imports_per_client,
     )
     try:
-        enqueue_import_job(job_id)
+        get_queue_publisher().publish_import_job(job_id)
     except Exception as error:
         job, reverted = compensate_import_retry_publish_failure(
             session,
