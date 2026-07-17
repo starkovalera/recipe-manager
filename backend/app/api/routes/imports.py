@@ -14,7 +14,8 @@ from app.imports.jobs import (
     get_import_job,
     request_import_retry,
 )
-from app.models import ImportJob, ImportJobStatus
+from app.models import ImportJob
+from app.queueing.outbox import dispatch_outbox_message
 from app.queueing.provider import get_queue_publisher
 from app.schemas.imports import ImportJobOut
 
@@ -45,15 +46,19 @@ def create_import(
         idempotency_key=idempotency_key,
     )
     job = result.job
-    if result.was_created and job.status == ImportJobStatus.QUEUED:
-        get_queue_publisher().publish_import_job(job.id)
-        bind_logger(
+    if result.outbox_message_id is not None:
+        published = dispatch_outbox_message(result.outbox_message_id)
+        log = bind_logger(
             logger,
             component=IMPORT_LOG_COMPONENT,
             owner_id=current_user.id,
             import_job_id=job.id,
             client_id=client_id_from_header(x_client_id),
-        ).info(f"{IMPORT_LOG_COMPONENT} Import job enqueued")
+        )
+        if published:
+            log.info(f"{IMPORT_LOG_COMPONENT} Import job enqueued")
+        else:
+            log.info(f"{IMPORT_LOG_COMPONENT} Import job is pending outbox recovery")
     elif not result.was_created:
         response.status_code = status.HTTP_200_OK
     return job
