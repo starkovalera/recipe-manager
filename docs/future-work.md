@@ -4,7 +4,7 @@ This document tracks known follow-up work, shortcuts, compatibility leftovers, a
 
 After each completed phase or subphase, review the finished work and propose candidate items to add here before moving on.
 
-The ordered productionization sequence is maintained in
+The ordered "productionization" sequence is maintained in
 `docs/architecture/production-roadmap.md`. This file remains the backlog for
 deferred product and technical work and does not override roadmap phase gates.
 
