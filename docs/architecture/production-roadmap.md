@@ -12,16 +12,24 @@
 
 ## Phase 1 — Local Production Readiness
 
-- Make PROD settings fail closed.
-- Introduce a queue-publisher boundary.
-- Keep Dramatiq as the PREVIEW adapter.
-- Add a transactional outbox and publishing recovery.
-- Add SQS publishing.
-- Add import, embedding, maintenance, and account-deletion Lambda adapters.
-- Add S3 storage and presigned media access.
-- Add maintenance/recovery operations.
-- Harden URL loading, streaming limits, gateway configuration, and video-duration validation.
-- Build all production artifacts locally without cloud credentials.
+Implementation details and acceptance criteria for each subphase are agreed
+immediately before that subphase starts.
+
+P5-P8 establish the import, embedding, account-deletion, and maintenance
+entrypoints for the four production Lambdas.
+
+- **P1. PROD settings fail closed**
+- **P2. QueuePublisher protocol and preview Dramatiq adapter**
+- **P3. Transactional outbox**
+- **P4. SQS publisher**
+- **P5. Import Lambda adapter**
+- **P6. Embedding Lambda adapter**
+- **P7. Account-deletion Lambda adapter**
+- **P8. Maintenance dispatcher**
+- **P9. S3 storage provider**
+- **P10. Presigned media access**
+- **P11. SSRF and streaming hardening**
+- **P12. Production Docker artifacts**
 
 ## Phase 2 — Terraform, IAM, and Secrets Foundation
 
