@@ -112,6 +112,7 @@ Implement profile selection in backend settings with `APP_ENV`, default `PROD` s
 - Application and domain code publish background work through `QueuePublisher` using scalar entity IDs only. ORM entities, request objects, credentials, and provider-specific message objects do not cross the queue boundary.
 - Direct Dramatiq actor publishing is confined to the Dramatiq queue adapter. Other application modules must not call actor `.send()` or `.send_with_options()` directly.
 - `DEV`, `PREVIEW`, and `TEST` retain the existing Dramatiq-compatible local behavior. Selecting the not-yet-implemented SQS provider fails explicitly until the P4 adapter is delivered rather than silently routing work through Dramatiq.
+- Outbox reconciliation processes one bounded oldest-first batch, performs transport calls outside the database transaction, returns failed outbox message IDs, and leaves failed messages pending for later recovery.
 
 Add explicit scripts or documented commands for both modes:
 
