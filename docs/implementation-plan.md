@@ -106,6 +106,13 @@ Implement profile selection in backend settings with `APP_ENV`, default `PROD` s
   - Rejects SQLite, `REDIS_URL`, `UPLOAD_DIR`, Dramatiq, and local storage.
   - SQS and S3 adapters are delivered in later production iterations; no fallback provider is selected.
 
+### Runtime and Queue Boundary Invariants
+
+- Runtime infrastructure selection is explicit and environment-owned. `PROD` fails closed when its required PostgreSQL, SQS, or S3 configuration is missing or incompatible; it must never fall back to local development providers.
+- Application and domain code publish background work through `QueuePublisher` using scalar entity IDs only. ORM entities, request objects, credentials, and provider-specific message objects do not cross the queue boundary.
+- Direct Dramatiq actor publishing is confined to the Dramatiq queue adapter. Other application modules must not call actor `.send()` or `.send_with_options()` directly.
+- `DEV`, `PREVIEW`, and `TEST` retain the existing Dramatiq-compatible local behavior. Selecting the not-yet-implemented SQS provider fails explicitly until the P4 adapter is delivered rather than silently routing work through Dramatiq.
+
 Add explicit scripts or documented commands for both modes:
 
 ```powershell
