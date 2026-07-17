@@ -4,6 +4,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.core.config import AppEnv, Settings
+from app.core.infrastructure import QueueProvider, StorageProvider
 
 
 @pytest.fixture(autouse=True)
@@ -26,16 +27,16 @@ def test_dev_and_preview_default_to_postgres_databases():
 
     assert dev.database_url == "postgresql+psycopg://recipe_manager:recipe_manager@127.0.0.1:5432/recipe_manager_dev"
     assert preview.database_url == "postgresql+psycopg://recipe_manager:recipe_manager@127.0.0.1:5432/recipe_manager_preview"
-    assert dev.queue_provider.value == "DRAMATIQ"
-    assert dev.storage_provider.value == "LOCAL"
+    assert dev.queue_provider is QueueProvider.DRAMATIQ
+    assert dev.storage_provider is StorageProvider.LOCAL
 
 
 def test_preview_uses_local_infrastructure_defaults():
     settings = Settings(app_env=AppEnv.PREVIEW, clerk_secret_key="secret", _env_file=None)
 
     assert settings.database_url == "postgresql+psycopg://recipe_manager:recipe_manager@127.0.0.1:5432/recipe_manager_preview"
-    assert settings.queue_provider.value == "DRAMATIQ"
-    assert settings.storage_provider.value == "LOCAL"
+    assert settings.queue_provider is QueueProvider.DRAMATIQ
+    assert settings.storage_provider is StorageProvider.LOCAL
     assert settings.redis_url == "redis://127.0.0.1:6379/0"
     assert settings.upload_dir is not None
     assert settings.upload_dir == Path(__file__).resolve().parents[2] / "storage" / "preview" / "uploads"
@@ -46,8 +47,8 @@ def test_test_env_defaults_to_sqlite_file():
 
     assert settings.database_url.endswith("backend\\storage\\test\\app.db") or settings.database_url.endswith("backend/storage/test/app.db")
     assert settings.database_url.startswith("sqlite:///")
-    assert settings.queue_provider.value == "DRAMATIQ"
-    assert settings.storage_provider.value == "LOCAL"
+    assert settings.queue_provider is QueueProvider.DRAMATIQ
+    assert settings.storage_provider is StorageProvider.LOCAL
     assert settings.upload_dir is not None
 
 
@@ -55,8 +56,8 @@ def test_prod_rejects_missing_database_url():
     with pytest.raises(ValidationError, match="DATABASE_URL"):
         Settings(
             app_env=AppEnv.PROD,
-            queue_provider="SQS",
-            storage_provider="S3",
+            queue_provider=QueueProvider.SQS,
+            storage_provider=StorageProvider.S3,
             clerk_secret_key="secret",
             _env_file=None,
         )
@@ -67,8 +68,8 @@ def test_prod_rejects_sqlite_database():
         Settings(
             app_env=AppEnv.PROD,
             database_url="sqlite:///production.db",
-            queue_provider="SQS",
-            storage_provider="S3",
+            queue_provider=QueueProvider.SQS,
+            storage_provider=StorageProvider.S3,
             clerk_secret_key="secret",
             _env_file=None,
         )
@@ -79,8 +80,8 @@ def test_prod_rejects_dramatiq():
         Settings(
             app_env=AppEnv.PROD,
             database_url="postgresql+psycopg://user:pass@db.example.test/app",
-            queue_provider="DRAMATIQ",
-            storage_provider="S3",
+            queue_provider=QueueProvider.DRAMATIQ,
+            storage_provider=StorageProvider.S3,
             clerk_secret_key="secret",
             _env_file=None,
         )
@@ -91,8 +92,8 @@ def test_prod_rejects_local_storage():
         Settings(
             app_env=AppEnv.PROD,
             database_url="postgresql+psycopg://user:pass@db.example.test/app",
-            queue_provider="SQS",
-            storage_provider="LOCAL",
+            queue_provider=QueueProvider.SQS,
+            storage_provider=StorageProvider.LOCAL,
             clerk_secret_key="secret",
             _env_file=None,
         )
@@ -103,8 +104,8 @@ def test_prod_rejects_redis_url():
         Settings(
             app_env=AppEnv.PROD,
             database_url="postgresql+psycopg://user:pass@db.example.test/app",
-            queue_provider="SQS",
-            storage_provider="S3",
+            queue_provider=QueueProvider.SQS,
+            storage_provider=StorageProvider.S3,
             redis_url="redis://redis.example.test:6379/0",
             clerk_secret_key="secret",
             _env_file=None,
@@ -116,8 +117,8 @@ def test_prod_rejects_upload_dir(tmp_path):
         Settings(
             app_env=AppEnv.PROD,
             database_url="postgresql+psycopg://user:pass@db.example.test/app",
-            queue_provider="SQS",
-            storage_provider="S3",
+            queue_provider=QueueProvider.SQS,
+            storage_provider=StorageProvider.S3,
             upload_dir=tmp_path / "uploads",
             clerk_secret_key="secret",
             _env_file=None,
@@ -128,14 +129,14 @@ def test_prod_accepts_explicit_target_providers():
     settings = Settings(
         app_env=AppEnv.PROD,
         database_url="postgresql+psycopg://user:pass@db.example.test/app",
-        queue_provider="SQS",
-        storage_provider="S3",
+        queue_provider=QueueProvider.SQS,
+        storage_provider=StorageProvider.S3,
         clerk_secret_key="secret",
         _env_file=None,
     )
 
-    assert settings.queue_provider.value == "SQS"
-    assert settings.storage_provider.value == "S3"
+    assert settings.queue_provider is QueueProvider.SQS
+    assert settings.storage_provider is StorageProvider.S3
     assert settings.redis_url is None
     assert settings.upload_dir is None
 
@@ -166,7 +167,13 @@ def test_import_retry_settings_have_safe_defaults_and_can_be_configured():
 
 def test_app_env_defaults_to_production_when_environment_is_absent(monkeypatch):
     monkeypatch.delenv("APP_ENV", raising=False)
-    settings = Settings(_env_file=None, clerk_secret_key="secret")
+    settings = Settings(
+        database_url="postgresql+psycopg://user:pass@db.example.test/app",
+        queue_provider=QueueProvider.SQS,
+        storage_provider=StorageProvider.S3,
+        clerk_secret_key="secret",
+        _env_file=None,
+    )
 
     assert settings.app_env is AppEnv.PROD
 

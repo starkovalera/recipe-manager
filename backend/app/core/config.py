@@ -6,6 +6,8 @@ from typing import Literal
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.core.infrastructure import QueueProvider, StorageProvider
+
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
 
@@ -17,16 +19,38 @@ class AppEnv(StrEnum):
     TEST = "TEST"
 
 
-def _default_database_url(app_env: AppEnv) -> str:
+def _default_database_url(app_env: AppEnv) -> str | None:
     if app_env is AppEnv.DEV:
         return "postgresql+psycopg://recipe_manager:recipe_manager@127.0.0.1:5432/recipe_manager_dev"
     if app_env is AppEnv.PREVIEW:
         return "postgresql+psycopg://recipe_manager:recipe_manager@127.0.0.1:5432/recipe_manager_preview"
-    return f"sqlite:///{BACKEND_ROOT / 'storage' / app_env.value.lower() / 'app.db'}"
+    if app_env is AppEnv.TEST:
+        return f"sqlite:///{BACKEND_ROOT / 'storage' / 'test' / 'app.db'}"
+    return None
 
 
-def _default_upload_dir(app_env: AppEnv) -> Path:
+def _default_upload_dir(app_env: AppEnv) -> Path | None:
+    if app_env is AppEnv.PROD:
+        return None
     return BACKEND_ROOT / "storage" / app_env.value.lower() / "uploads"
+
+
+def _default_redis_url(app_env: AppEnv) -> str | None:
+    if app_env is AppEnv.PROD:
+        return None
+    return "redis://127.0.0.1:6379/0"
+
+
+def _default_queue_provider(app_env: AppEnv) -> QueueProvider | None:
+    if app_env is AppEnv.PROD:
+        return None
+    return QueueProvider.DRAMATIQ
+
+
+def _default_storage_provider(app_env: AppEnv) -> StorageProvider | None:
+    if app_env is AppEnv.PROD:
+        return None
+    return StorageProvider.LOCAL
 
 
 class Settings(BaseSettings):
@@ -35,6 +59,8 @@ class Settings(BaseSettings):
     app_env: AppEnv = AppEnv.PROD
     database_url: str | None = None
     upload_dir: Path | None = None
+    queue_provider: QueueProvider | None = None
+    storage_provider: StorageProvider | None = None
     cors_origins: list[str] = Field(
         default_factory=lambda: [
             "http://127.0.0.1:5173",
@@ -58,7 +84,7 @@ class Settings(BaseSettings):
     max_import_attempts: int = Field(default=3, ge=1)
     import_task_max_retries: int = Field(default=0, ge=0)
     stale_import_minutes: int = 30
-    redis_url: str = "redis://127.0.0.1:6379/0"
+    redis_url: str | None = None
     account_deletion_task_max_retries: int = Field(default=3, ge=0)
 
     clerk_secret_key: str | None = None
@@ -80,22 +106,42 @@ class Settings(BaseSettings):
     ffmpeg_path: str | None = None
     ffprobe_path: str | None = None
 
-    @field_validator("database_url", mode="before")
+    @field_validator(
+        "database_url",
+        "upload_dir",
+        "queue_provider",
+        "storage_provider",
+        "redis_url",
+        mode="before",
+    )
     @classmethod
-    def default_database_url(cls, value: str | None, info):
-        if value:
-            return value
-        return _default_database_url(info.data.get("app_env", AppEnv.PROD))
-
-    @field_validator("upload_dir", mode="before")
-    @classmethod
-    def default_upload_dir(cls, value: str | Path | None, info):
-        if value:
-            return Path(value)
-        return _default_upload_dir(info.data.get("app_env", AppEnv.PROD))
+    def empty_infrastructure_value_as_none(cls, value: object) -> object | None:
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
 
     @model_validator(mode="after")
-    def validate_clerk_identity_configuration(self):
+    def materialize_and_validate_environment_settings(self):
+        self.database_url = self.database_url or _default_database_url(self.app_env)
+        self.upload_dir = self.upload_dir or _default_upload_dir(self.app_env)
+        self.queue_provider = self.queue_provider or _default_queue_provider(self.app_env)
+        self.storage_provider = self.storage_provider or _default_storage_provider(self.app_env)
+        self.redis_url = self.redis_url or _default_redis_url(self.app_env)
+
+        if self.app_env is AppEnv.PROD:
+            if not self.database_url:
+                raise ValueError("DATABASE_URL is required in PROD.")
+            if not self.database_url.startswith(("postgresql://", "postgresql+psycopg://")):
+                raise ValueError("PROD requires a PostgreSQL DATABASE_URL.")
+            if self.queue_provider is not QueueProvider.SQS:
+                raise ValueError("PROD requires QUEUE_PROVIDER=SQS.")
+            if self.storage_provider is not StorageProvider.S3:
+                raise ValueError("PROD requires STORAGE_PROVIDER=S3.")
+            if self.redis_url:
+                raise ValueError("REDIS_URL is not supported in PROD.")
+            if self.upload_dir:
+                raise ValueError("UPLOAD_DIR is not supported in PROD.")
+
         if self.app_env is not AppEnv.TEST and not self.clerk_secret_key:
             raise ValueError("Clerk identity configuration is required outside TEST.")
         return self
