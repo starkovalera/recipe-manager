@@ -18,6 +18,7 @@ from app.db.session import db_session, db_transaction
 from app.imports.constants import ACTIVE_IMPORT_STATUSES
 from app.imports.queries import count_import_jobs_by_statuses
 from app.models import ImportJob, ImportJobSource, Recipe, RecipeImage, User, UserStatus
+from app.queueing.provider import get_queue_publisher
 from app.storage.local import LocalStorageService
 from app.users.queries import get_user_by_auth_identity_for_update, list_user_ids_by_status
 
@@ -119,10 +120,8 @@ def process_account_deletion(user_id: str) -> None:
 
 
 def enqueue_account_deletion(user_id: str) -> bool:
-    from app.users.tasks import delete_account_task
-
     try:
-        delete_account_task.send(user_id)
+        get_queue_publisher().publish_account_deletion(user_id)
     except Exception as error:
         log_error(logger, "Account deletion task publish failed.", user_id=user_id, error=repr(error))
         return False
