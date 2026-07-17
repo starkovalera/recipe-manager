@@ -110,8 +110,12 @@ Backend configuration should be environment-based and loaded through Pydantic se
 
 Initial backend settings:
 
-- `DATABASE_URL`, default SQLite local file.
-- `UPLOAD_DIR`, default local upload directory.
+- `APP_ENV`, defaults to fail-closed `PROD`.
+- `DATABASE_URL`, with local PostgreSQL defaults in `DEV`/`PREVIEW`, isolated SQLite in `TEST`, and an explicit PostgreSQL value required in `PROD`.
+- `QUEUE_PROVIDER`, defaults to `DRAMATIQ` outside `PROD`; `PROD` requires `SQS`.
+- `STORAGE_PROVIDER`, defaults to `LOCAL` outside `PROD`; `PROD` requires `S3`.
+- `REDIS_URL`, local outside `PROD` and unsupported in `PROD`.
+- `UPLOAD_DIR`, local outside `PROD` and unsupported in `PROD`.
 - `MAX_IMPORT_IMAGES`, default `10`.
 - `MAX_IMPORT_TEXT_CHARS`, default `1000`.
 - `MAX_RECIPE_INGREDIENTS`, default `50`.
@@ -321,7 +325,7 @@ Define a storage service interface:
 - `delete(storage_key)`
 - `url_or_response(storage_key)` for media serving implementation details.
 
-The first implementation is local filesystem storage. Future implementations can be S3/GCS/etc. Database rows store storage keys only.
+The first implementation is local filesystem storage. `S3` is the required production provider value, but its adapter is implemented in a later production iteration. Database rows store storage keys only.
 
 ## Frontend Behavior
 
