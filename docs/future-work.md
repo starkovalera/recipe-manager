@@ -111,6 +111,8 @@ deferred product and technical work and does not override roadmap phase gates.
 
 ## Улучшение серча
 
+- Support multiple simultaneous search chips, including repeated chips of the same filter type. Define backend request representation, AND/OR semantics within and across chip types, duplicate handling, URL/state serialization, autocomplete behavior, removable-chip UI, Search Debug explanations, and stable pagination when the active chip set changes.
+
 - Улучшить autocomplete для структурных концептов: если пользователь вводит текст, похожий на существующий tag (`низкокалорийное`, `быстрое`, `высокобелковое`, `без сахара`), явно предлагать выбрать tag chip. Пока не конвертировать free text в tag filter неявно.
 - На Search Debug странице показывать, как был обработан запрос: только structured filters, semantic-only text или mixed chips + semantic text. Для semantic-only запросов показывать пояснение, что числовые/структурные фильтры не применялись.
 - Добавить deterministic derived semantic labels в embedding input на основе структурных полей, не записывая их в `recipe_tags`: например `быстрое`/`quick` по `cook_time_minutes`, `низкокалорийное` по calories, `высокобелковое` по protein grams. Не генерировать эти labels через AI во время поиска.
