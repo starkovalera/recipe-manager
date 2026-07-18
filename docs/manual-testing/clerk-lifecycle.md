@@ -131,7 +131,8 @@ For local webhook delivery, expose the selected webhook ingress with a tunnel, c
 - [ ] The worker removes the Clerk user, recipe/import media, and then the internal user with owned rows.
 - [ ] Simulated storage failure leaves the user and owned rows in `DELETION_PENDING` for retry.
 - [ ] Re-running deletion after partial provider cleanup is idempotent.
-- [ ] `uv run python -m app.users.reconcile_deletions` republishes pending users after a worker/publish outage.
+- [ ] `uv run python -m app.queueing.reconcile_outbox` retries a bounded pending outbox batch after a publish outage.
+- [ ] `uv run python -m app.users.reconcile_deletions` creates and dispatches fresh durable intents for pending users after a deletion-reconciliation outage.
 - [ ] A provider-side `user.deleted` event starts the same pending deletion lifecycle.
 
 ## Webhook Security and Recovery

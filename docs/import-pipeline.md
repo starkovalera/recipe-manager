@@ -1,7 +1,9 @@
 # Current Import Pipeline
 
-The current implementation is queue-first. `POST /imports` atomically creates a
-queued `ImportJob` with its primary sources, then publishes a Dramatiq message.
+The current implementation is queue-first with a transactional outbox.
+`POST /imports` atomically creates a queued `ImportJob`, its primary sources,
+and an ID-only pending outbox message, then attempts post-commit dispatch through
+the configured queue publisher.
 The worker executes the synchronous import pipeline in the background. The
 import form clears after a job is accepted and does not poll that job or redirect
 when it finishes; users receive completion and failure notifications instead.
@@ -12,8 +14,8 @@ flowchart TD
   preflight -->|"invalid"| apiError["Synchronous API error<br/>no ImportJob created"]
   preflight -->|"valid"| dedupe{"Existing owner + dedupe_key?"}
   dedupe -->|"yes"| existing["Return existing ImportJob"]
-  dedupe -->|"no"| create["Atomic creation transaction<br/>ImportJob QUEUED<br/>primary ImportJobSource rows<br/>IMPORT_CREATED event<br/>IMPORT_STARTED notification"]
-  create --> publish["Publish import_recipe_task<br/>return 202 Accepted"]
+  dedupe -->|"no"| create["Atomic creation transaction<br/>ImportJob QUEUED<br/>primary ImportJobSource rows<br/>IMPORT_CREATED event<br/>IMPORT_STARTED notification<br/>pending IMPORT_JOB outbox message"]
+  create --> publish["Post-commit outbox dispatch<br/>return 202 Accepted"]
   publish --> reset["Clear form<br/>remain on Import page"]
 
   publish --> claim{"Worker atomically claims<br/>QUEUED to RUNNING"}
@@ -51,7 +53,7 @@ flowchart TD
   failure --> cleanup["Always delete files created in this attempt<br/>delete primary uploads only after final attempt"]
   cleanup --> failedNotification["Notification polling<br/>open public import-job detail"]
   failedNotification --> retry{"Retry allowed?<br/>FAILED and attempts below current limit"}
-  retry -->|"yes"| retryRequest["POST /imports/{jobId}/retry<br/>set QUEUED and publish task"]
+  retry -->|"yes"| retryRequest["POST /imports/{jobId}/retry<br/>atomically set QUEUED, notify,<br/>and persist outbox message<br/>then dispatch after commit"]
   retryRequest --> claim
 
   classDef fail fill:#ffe0e0,stroke:#b91c1c,color:#111;
@@ -111,9 +113,10 @@ flowchart TD
   The maximum number of attempts comes from current runtime settings and is not
   stored on the job.
 - Manual retry is owner-scoped and allowed only for `FAILED` jobs below the
-  current attempt limit. Concurrent retry is protected by the backend. Publish
-  compensation restores the prior failed state only while the job is still
-  queued.
+  current attempt limit. Concurrent retry is protected by the backend. The
+  accepted retry state, notification, and pending outbox message commit
+  atomically; immediate dispatch failure leaves that durable state available
+  for reconciliation.
 - `IMPORT_STARTED` and `IMPORT_FAILED` events include current and maximum attempt
   counts. Events are currently not directly associated with an attempt row or
   attempt id.

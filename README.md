@@ -122,7 +122,16 @@ The first request after a Clerk session is established is `POST /me/provision`. 
 
 For local webhooks, expose the webhook ingress through a public tunnel and configure the exact HTTPS URL in Clerk. Clerk cannot deliver directly to localhost. The FastAPI endpoint is `POST /webhooks/clerk` and verifies Svix signatures.
 
-After a worker or publish outage, republish durable pending account deletions with:
+After a worker or publish outage, dispatch the oldest bounded batch of pending transactional outbox messages with:
+
+```powershell
+cd C:\Users\stark\Documents\recipe-manager\backend
+uv run python -m app.queueing.reconcile_outbox
+```
+
+Exit code `0` means every message in the processed batch dispatched successfully. Exit code `1` means at least one message failed and remains pending. This is manual PREVIEW recovery until scheduled maintenance dispatch is implemented.
+
+The separate account-deletion domain recovery command scans every current `DELETION_PENDING` user, creates a new durable deletion intent for each, and attempts immediate dispatch:
 
 ```powershell
 cd C:\Users\stark\Documents\recipe-manager\backend
