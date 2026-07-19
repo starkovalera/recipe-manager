@@ -24,6 +24,7 @@ from app.imports.job_stages.raw_sources import build_raw_sources
 from app.imports.job_stages.recipe_building import build_recipe
 from app.imports.job_stages.recipe_resource_building import build_recipe_resources
 from app.imports.logging import log_import_started, log_recipe_created
+from app.imports.outcomes import ImportProcessingDisposition, ImportProcessingResult
 from app.imports.queries import (
     get_import_job as query_import_job,
     get_queued_import_job_for_update,
@@ -147,22 +148,25 @@ def save_import(
     )
 
 
-def process_import_job(job_id: str) -> None:
+def process_import_job(job_id: str) -> ImportProcessingResult:
     settings = get_settings()
     storage = LocalStorageService(settings.upload_dir)
     import_config = ImportConfig.from_settings(settings)
-    primary_storage_keys: list[str] = []
+
+    with db_session() as session:
+        job = start_import_job(session, job_id, import_config)
+        if job is None:
+            logger.info(f"{IMPORT_LOG_COMPONENT} Import job id={job_id} is not found or can't be started.")
+            return ImportProcessingResult(
+                import_job_id=job_id,
+                disposition=ImportProcessingDisposition.NOOP,
+            )
+        job_context = ImportJobContext.from_job(job)
+
+    primary_storage_keys = job_context.primary_storage_keys
     secondary_storage_keys: list[str] = []
 
     try:
-        with db_session() as session:
-            job = start_import_job(session, job_id, import_config)
-            if job is None:
-                logger.info(f"{IMPORT_LOG_COMPONENT} Import job id={job_id} is not found or can't be started.")
-                return
-            job_context = ImportJobContext.from_job(job)
-
-        primary_storage_keys = job_context.primary_storage_keys
         log_import_started(job_context)
 
         raw_sources_result = build_raw_sources(
@@ -240,7 +244,7 @@ def process_import_job(job_id: str) -> None:
         if import_result.embedding_outbox_message_id is not None:
             dispatch_outbox_message(import_result.embedding_outbox_message_id)
     except Exception as error:
-        process_import_failure(
+        return process_import_failure(
             job_id,
             storage,
             primary_storage_keys,
@@ -249,7 +253,11 @@ def process_import_job(job_id: str) -> None:
             error,
             cleanup_storage=True,
         )
-        return
+
+    return ImportProcessingResult(
+        import_job_id=job_id,
+        disposition=ImportProcessingDisposition.SUCCEEDED,
+    )
 
 
 def get_import_job(session: Session, job_id: str, owner_id: str, raise_error: bool = True) -> ImportJob | None:

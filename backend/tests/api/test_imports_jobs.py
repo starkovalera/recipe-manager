@@ -1021,7 +1021,7 @@ def test_url_video_transcript_survives_when_image_capacity_is_full():
     assert any(source.type == "TEXT" and source.text == "Video 1 transcript:\nMix batter and bake." for source in provider.sources)
 
 
-def test_url_secondary_resource_failure_fails_job_with_processing_error():
+def test_url_secondary_resource_failure_returns_job_to_queue_for_automatic_retry():
     client, SessionLocal = client_with_session_factory()
     set_url_content_service(FailingRegistry())
 
@@ -1033,9 +1033,9 @@ def test_url_secondary_resource_failure_fails_job_with_processing_error():
     response = process_import_response(client, response)
 
     assert response.status_code == 200
-    assert response.json()["status"] == "failed"
-    assert response.json()["errorCode"] == "IMPORT_PROCESSING_FAILED"
-    assert response.json()["errorMessage"] == "SECONDARY_RESOURCE_UPLOADING_FAILED"
+    assert response.json()["status"] == "queued"
+    assert response.json()["errorCode"] is None
+    assert response.json()["errorMessage"] is None
     with SessionLocal() as session:
         job = session.get(ImportJob, response.json()["jobId"])
         assert [event.event_type for event in job.events] == [
@@ -1049,8 +1049,11 @@ def test_url_secondary_resource_failure_fails_job_with_processing_error():
             "code": "SECONDARY_RESOURCE_UPLOADING_FAILED",
             "message": "Import processing failed due to secondary resource uploading issue.",
         }
+        assert failed_payload["retryable"] is True
+        assert failed_payload["terminal"] is False
         assert failed_payload["reason"] == "NO_USABLE_SECONDARY_RESOURCES"
         assert failed_payload["failed_resource_count"] == 1
+        assert session.query(Notification).filter_by(type=NotificationType.IMPORT_FAILED, entity_id=job.id).count() == 0
 
 
 def test_url_secondary_resource_failure_is_audited_when_manual_evidence_can_continue():
