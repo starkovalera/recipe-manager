@@ -109,6 +109,7 @@ Implement profile selection in backend settings with `APP_ENV`, default `PROD` s
 ### Runtime and Queue Boundary Invariants
 
 - Runtime infrastructure selection is explicit and environment-owned. `PROD` fails closed when its required PostgreSQL, SQS, or S3 configuration is missing or incompatible; it must never fall back to local development providers.
+- Any runtime configuration selecting `QUEUE_PROVIDER=SQS` requires an explicit AWS region and three non-empty, distinct queue URLs for imports, embeddings, and account deletion. Dramatiq configurations, including `PREVIEW` and `TEST` defaults, do not require AWS settings. AWS credentials are never application settings and are resolved by the standard boto3 credential chain.
 - Application and domain code publish background work through `QueuePublisher` using scalar entity IDs only. ORM entities, request objects, credentials, and provider-specific message objects do not cross the queue boundary.
 - Queue transport wire contracts are strict ID-only JSON objects. Imports use only `importJobId`, embeddings use only `recipeId`, and account deletion uses only `userId`. IDs are stripped, non-empty, limited to 255 characters, and extra fields are forbidden. Queue selection defines the operation; messages contain no envelope or domain payload.
 - Direct Dramatiq actor publishing is confined to the Dramatiq queue adapter. Other application modules must not call actor `.send()` or `.send_with_options()` directly.
