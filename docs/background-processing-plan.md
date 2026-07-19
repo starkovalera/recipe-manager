@@ -141,11 +141,11 @@ This checklist applies to every phase. Any phase that touches import, resources,
 - A webhook email collision returns `EMAIL_ALREADY_LINKED` with HTTP `409`, rolls back the user mutation, and leaves the webhook event unprocessed so Svix may redeliver it after the conflict is resolved.
 - Clerk webhooks are asynchronous reconciliation and are never a synchronous login dependency. Interactive login readiness is established through idempotent `POST /me/provision`; delayed, duplicated, or temporarily unavailable webhooks must not prevent an otherwise valid user from entering the product after provisioning succeeds.
 - Password credentials and password-change behavior belong entirely to the authentication provider and never enter application persistence. The application synchronizes only the provider's verified primary email; an email collision never auto-links different external identities.
-- Account deletion begins with an atomic durable transition from `ACTIVE` to `DELETION_PENDING`; the protected request then publishes an id-only deletion worker and returns `202`. Repeating the request for an already-pending account is idempotent and republishes the worker. A broker publish failure never rolls the account back to `ACTIVE`; manual reconciliation can republish all pending accounts, and stale scheduled reconciliation remains future work.
+- Account deletion begins by atomically persisting `DELETION_PENDING` and a pending `ACCOUNT_DELETION` outbox message; the protected request then attempts post-commit dispatch and returns `202`. Repeating the request for an already-pending account creates a new durable intent. A broker failure never rolls the account back to `ACTIVE`; generic outbox reconciliation retries pending rows, account-deletion reconciliation can create fresh intents for all pending users, and stale scheduled reconciliation remains future work.
 - User-initiated account deletion requires explicit irreversible confirmation. Once `POST /me/deletion` is accepted, the frontend clears its in-memory API token provider and query cache, permanently unmounts the product for that application session, requests Clerk sign-out, and shows a neutral deletion-requested screen; a later sign-out failure must not remount product data for an account already accepted for deletion.
 - The final active `SUPERADMIN` cannot request deletion. The transition serializes concurrent active-superadmin checks so two concurrent requests cannot remove every active superadmin.
 - The account-deletion worker operates only on `DELETION_PENDING` users and waits while their imports are `QUEUED` or `RUNNING`. It idempotently removes the external authentication identity, deletes the unique storage-key inventory from owned `RecipeImage` and `ImportJobSource` rows, and only then deletes the local `User`; user-owned tags, recipes, embeddings and embedding events, import jobs and job events, collections, notifications, settings, roles, resources, and flags are removed through ORM/database cascades. Provider, storage, or database failure leaves the account pending for retry, and success is logged only after the local delete transaction commits.
-- A verified `user.deleted` webhook atomically records `DELETION_PENDING`, `deletion_requested_at`, and webhook idempotency state before publishing the same deletion worker. Provider `404` during deletion is treated as an idempotent success.
+- A new verified `user.deleted` webhook atomically records `DELETION_PENDING`, `deletion_requested_at`, webhook idempotency state, and a pending `ACCOUNT_DELETION` outbox message before post-commit dispatch. Duplicate `svix-id` deliveries create and dispatch nothing. Provider `404` during deletion is treated as an idempotent success.
 - `Recipe.status` is the single source of truth for recipe deletion lifecycle. The fixed statuses are `ACTIVE` and `DELETION_PENDING`; existing and newly created recipes default to `ACTIVE`.
 - Product and search query functions return only `ACTIVE` recipes by default. This boundary includes recipe list/detail/mutation, collections and recipe membership, tag usage counts, autocomplete, exact and semantic search, Search Debug, embedding processing, and internal embedding lists. Maintenance code may explicitly request `status=None`; account deletion intentionally inventories recipes and their media across every recipe status.
 - Recipe deletion first atomically locks an owned `ACTIVE` recipe, changes it to `DELETION_PENDING`, and commits. Once that transition is durable, the recipe is no longer visible or mutable through product APIs and no longer participates in search or embedding work.
@@ -160,7 +160,7 @@ This checklist applies to every phase. Any phase that touches import, resources,
 - `RecipeEmbedding.input_hash` is independent from `Recipe.search_text_hash`. Embedding input is built only from `title`, `ingredients.search_name`, `instructions`, `nutrition_estimate`, and `cook_time_minutes`. Nutrition data and cooking time use the same readable semantic formatting described for `Recipe.search_text`. Recipes with open review flags are marked `SKIPPED_DUE_TO_FLAGS` and are not enqueued for embedding until the last open flag is resolved. Embedding tasks do not create user-facing notifications.
 - `RecipeEmbeddingEvent` is append-only internal audit/debug history for `RecipeEmbedding`. It is not user-facing notification data and current embedding status is never computed from events. `RecipeEmbeddingEvent.recipe_id` points to `recipe_embeddings.recipe_id` and cascades through `RecipeEmbedding`.
 - Embedding state transitions and their corresponding lifecycle events are persisted atomically in the same database scope. The external embedding provider is called without an open database session.
-- `ENQUEUED` is written only after the broker accepts the embedding task. Queue publishing is secondary to successful import, recipe edit, review-flag, retry, and stale-requeue operations: a publish failure is logged, does not fail the completed user operation, leaves the embedding `STALE`, and does not write `ENQUEUED`.
+- Embedding scheduling atomically persists `STALE`, its lifecycle event, and a pending `RECIPE_EMBEDDING` outbox message. `ENQUEUED` is written only when outbox dispatch succeeds. Immediate dispatch failure does not fail the completed user operation or remove the durable scheduling intent.
 - Embedding provider failure persists `FAILED`, increments `failed_attempts`, writes the corresponding failure event, and is re-raised for Dramatiq retry.
 - Recipe and collection list endpoints are owner-scoped and paginated. Public list responses include `items`, `total`, `limit`, and `offset`. Lower-level query functions may return full owner-scoped lists when `limit` and `offset` are omitted.
 - Selected search chips are hard filters. Free text is reserved for vector search. `ingredient_name` has been replaced with `ingredient_query` in autocomplete, API parameters, and frontend types. Autocomplete always returns an `ingredient_query` suggestion first for a non-empty `q`, for example `Ingredient - cottage`. Concrete ingredient suggestions are no longer returned, to avoid encouraging overly exact ingredient choices. `/recipes` accepts repeatable `ingredientQuery=<text>` query parameters. Each `ingredientQuery` value filters recipes through `contains` matching against `Ingredient.search_name`, and multiple `ingredientQuery` values are combined with AND semantics.
@@ -185,7 +185,7 @@ This checklist applies to every phase. Any phase that touches import, resources,
 - Import retry is manual and owner-scoped. It is allowed only for `FAILED` jobs while persisted `attempt_count` is below the current runtime `MAX_IMPORT_ATTEMPTS`; the configured maximum is not snapshotted into the job.
 - `ImportJob.attempt_count` counts worker attempts that actually started. It increments only when the worker atomically claims `QUEUED -> RUNNING`; that transition clears previous failure/result fields and refreshes attempt timestamps.
 - Every failed attempt cleans files created during that processing attempt. Original primary uploads remain available after intermediate failures and are cleaned only when the current attempt exhausts the current configured maximum.
-- Retry queue-publish compensation may restore `QUEUED -> FAILED` and remove the retry-start notification only while the job is still `QUEUED`. It must not overwrite a worker or terminal transition that already occurred.
+- An accepted retry atomically persists `FAILED -> QUEUED`, its retry-start notification, and a pending `IMPORT_JOB` outbox message. Immediate dispatch failure does not restore the previous state or remove the notification; reconciliation retries the durable intent.
 - `IMPORT_STARTED` and `IMPORT_FAILED` events include the current `attempt_count` and effective `max_attempts` for audit/debugging.
 - Logging and other diagnostic output are best-effort side effects. Logging failures must not roll back domain state, failure events, notifications, or storage-cleanup decisions, and must not change a background job outcome.
 - A successfully accepted import ends the import form's responsibility for that job: the form clears and remains open without polling the job or redirecting to a completed recipe. Completion and failure remain visible through notifications.
@@ -229,6 +229,19 @@ Apply them during implementation and before closing every phase, subphase, or it
 7. Stop for user review before starting the next phase, subphase, or iteration.
 
 Do not turn this checkpoint into an unapproved broad redesign. Larger refactoring work must be added to the plan with an explicit scope, invariant review, verification plan, and approval gate.
+
+## Transactional Outbox Recovery
+
+PREVIEW recovery currently runs manually:
+
+```powershell
+cd backend
+uv run python -m app.queueing.reconcile_outbox
+```
+
+The command processes one bounded oldest-first batch of pending outbox messages. Exit code `0` means every message in that processed batch dispatched successfully; exit code `1` means at least one attempted message failed and remains pending. Scheduled maintenance dispatch is deferred to the maintenance phase.
+
+`uv run python -m app.users.reconcile_deletions` remains a separate domain recovery command. It scans all current `DELETION_PENDING` users, creates a fresh durable deletion intent for each in one database transaction, and reports immediate dispatch failures through its exit code.
 
 ## 2. Work Plan by Phase
 
@@ -1812,7 +1825,7 @@ Embedding status and event names and values are identical uppercase strings in P
 Search ranking and vector distance behavior remain unchanged.
 ```
 
-Queue publishing is a secondary operation. Failure to publish an embedding task must not turn an already successful import, recipe edit, or review-flag update into a failed user operation. The embedding remains `STALE`, the publishing failure is logged, and no `ENQUEUED` event is written. A transactional outbox remains deferred to production hardening.
+Embedding planning atomically persists the embedding lifecycle state, event, and a pending `RECIPE_EMBEDDING` outbox message. Immediate dispatch remains secondary to an already successful import, recipe edit, or review-flag update. Failure leaves the durable outbox message pending, and `ENQUEUED` is written only after transport success.
 
 #### Target Module Responsibilities
 
@@ -1832,8 +1845,8 @@ embeddings/planning.py
 embeddings/processing.py
   Orchestrate worker start, provider execution, completion, stale requeue, and failure persistence.
 
-embeddings/queue.py
-  Own the Dramatiq publishing boundary and successful enqueued-event recording.
+queueing/outbox.py
+  Own generic post-commit dispatch and record successful embedding enqueue state atomically with the outbox transition.
 
 embeddings/service.py
   Keep thin public use cases such as owner-scoped manual retry.
@@ -1859,7 +1872,7 @@ class RecipeEmbeddingInput:
 @dataclass(frozen=True)
 class EmbeddingPlan:
     embedding: RecipeEmbedding
-    enqueue: bool
+    outbox_message_id: str | None
 
 
 @dataclass(frozen=True)
@@ -1873,7 +1886,7 @@ class EmbeddingProcessingContext:
 
 `EmbeddingProcessingContext` belongs in `processing.py` because it is local to worker execution. It is an immutable snapshot used only across the provider-call session boundary.
 
-`EmbeddingPlan` is session-local: callers must consume its ORM `embedding` inside the session that created the plan, commit the scheduling state, and pass only scalar identifiers to the queue boundary.
+`EmbeddingPlan` is session-local: callers commit its ORM `embedding` together with the outbox row, then pass only `outbox_message_id` to post-commit dispatch.
 
 ```python
 def build_recipe_embedding_input(recipe: Recipe) -> RecipeEmbeddingInput: ...
@@ -1917,14 +1930,12 @@ def build_embedding_event(
     **payload: Any,
 ) -> RecipeEmbeddingEvent: ...
 
-def enqueue_recipe_embedding(recipe_id: str, owner_id: str) -> bool: ...
-
 def process_recipe_embedding(recipe_id: str) -> None: ...
 ```
 
 The boolean returned by `complete_recipe_embedding` means that the recipe changed during provider execution and a new task must be published after the completion transaction commits.
 
-The boolean returned by `enqueue_recipe_embedding` reports whether broker publishing succeeded. Publishing failure is logged inside the queue boundary and is not raised into the completed user operation.
+`dispatch_outbox_message` reports whether immediate transport publication and outbox success persistence completed. A false result does not fail an already completed user operation; the pending row remains recoverable.
 
 #### Typed Lifecycle Model
 
@@ -1993,10 +2004,10 @@ def process_recipe_embedding(recipe_id: str) -> None:
         raise
 
     with db_session() as session:
-        requeue = complete_recipe_embedding(session, context, vector, duration_ms=duration_ms)
+        outbox_message_id = complete_recipe_embedding(session, context, vector, duration_ms=duration_ms)
 
-    if requeue:
-        enqueue_recipe_embedding(context.recipe_id, context.owner_id)
+    if outbox_message_id is not None:
+        dispatch_outbox_message(outbox_message_id)
 ```
 
 The real implementation must calculate `duration_ms` around the provider call. The provider call must execute without an open SQLAlchemy session or transaction.
@@ -2068,7 +2079,7 @@ Status: completed and approved.
 - Add embedding lifecycle structured logging with snake_case fields and stable messages.
 - Remove repeated component prefixes from log messages.
 - Verify no test-only provider or queue behavior remains in production code.
-- Update embedding invariants and future-work entries, including the deferred transactional outbox.
+- Update embedding invariants and future-work entries; transactional outbox integration is now implemented as the shared queue scheduling boundary.
 - Run `uv run ruff check app tests`.
 - Run focused embedding, import, recipe, search, worker, model, and migration tests.
 - Run the full backend suite.
@@ -2433,7 +2444,7 @@ Goal: allow the owner to manually restart a failed background import without rec
 #### Retry State Transition
 
 - A successful retry request transitions `FAILED -> QUEUED`.
-- The retry request does not clear fields from the previous attempt. It changes only the status and creates the new `IMPORT_STARTED` notification, so queue-publish compensation does not need a separate snapshot of old values.
+- The retry request does not clear fields from the previous attempt. It atomically changes the status, creates the new `IMPORT_STARTED` notification, and creates a pending outbox message, so immediate dispatch failure requires no state restoration.
 - `start_import_job` remains the single point that starts an attempt. When it atomically claims `QUEUED -> RUNNING`, it:
   - increments `attempt_count`;
   - clears `error_code`, `error_message`, and `created_recipe_id`;
@@ -2463,27 +2474,17 @@ Goal: allow the owner to manually restart a failed background import without rec
 - Backend must prevent concurrent/double retry requests and must re-check status and attempt limits transactionally.
 - If attempts are exhausted, return `IMPORT_ATTEMPTS_EXHAUSTED` with HTTP `409`.
 - If another request already moved the job out of `FAILED`, return `IMPORT_NOT_RETRYABLE` with HTTP `409`.
-- If retry preparation or queue publishing fails unexpectedly, return `IMPORT_RETRY_FAILED` with HTTP `500`.
+- If retry preparation fails, roll back the retry transaction and return the corresponding API error. A post-commit publication failure does not fail the accepted retry because its outbox message remains recoverable.
 - Missing or foreign jobs continue to return the existing `IMPORT_NOT_FOUND` with HTTP `404`.
 - Retry should be subject to the same per-owner active-import limit as a new import.
 - Public/internal job responses expose persisted `attempt_count` plus the current effective maximum attempt count from settings needed by future clients.
 
-#### Queue Publish Compensation
+#### Durable Retry Scheduling
 
-- The retry transaction changes `FAILED -> QUEUED` and creates the retry `IMPORT_STARTED` notification without clearing previous-attempt fields.
-- After that transaction commits, publish the Dramatiq message.
-- If publishing fails, open a compensating transaction and lock the job.
-- If the job is still `QUEUED`:
-  - restore only its status to `FAILED`; previous error/timestamp fields are already intact;
-  - delete the retry notification created by the failed request;
-  - log the original publish error;
-  - return `IMPORT_RETRY_FAILED` with HTTP `500`.
-- The compensating update must be conditional so it cannot overwrite a worker transition that already changed the job to `RUNNING` or a terminal state.
-- If publishing raised but the locked job is no longer `QUEUED`, treat delivery as successful/ambiguous rather than failed:
-  - do not revert status;
-  - do not delete the retry notification;
-  - log the publish exception and observed current status;
-  - return the current job with HTTP `200` because the worker already observed and progressed the retry.
+- One transaction changes `FAILED -> QUEUED`, creates the retry `IMPORT_STARTED` notification, and creates a pending `IMPORT_JOB` outbox message without clearing previous-attempt fields.
+- After that transaction commits, the route attempts immediate outbox dispatch.
+- If immediate dispatch fails, the retry remains accepted: the job stays `QUEUED`, the notification remains, and reconciliation can publish the pending outbox message later.
+- Retry status and attempt-limit checks remain transactional and locked, so concurrent requests cannot create multiple accepted retries.
 
 #### Implementation Outline
 
@@ -2503,12 +2504,12 @@ Goal: allow the owner to manually restart a failed background import without rec
    - add owner-scoped `POST /imports/{job_id}/retry`;
    - lock and validate the job, current attempt limit, active-import limit, and `FAILED` status;
    - transition only status to `QUEUED` and create `IMPORT_STARTED` notification;
-   - publish the task and apply the agreed conditional compensation on failure.
+   - commit the pending outbox message with retry state and attempt post-commit dispatch without compensating the accepted retry on failure.
 5. Backend verification:
    - migration/default/backfill tests;
    - worker claim/increment/field-reset and event payload tests;
    - intermediate/final storage cleanup tests;
-   - owner, exhausted, non-failed, active-limit, concurrent request, publish compensation, and ambiguous-delivery API tests;
+   - owner, exhausted, non-failed, active-limit, concurrent request, outbox atomicity, dispatch-failure, and ambiguous-delivery API tests;
    - full backend lint/tests and PostgreSQL migration smoke test.
 
 #### Frontend Import Retry and Job Detail

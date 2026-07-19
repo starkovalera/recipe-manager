@@ -51,8 +51,8 @@ def reset_settings(monkeypatch):
     monkeypatch.setenv("MAX_RECIPE_INGREDIENTS", "50")
     monkeypatch.setenv("MAX_RECIPE_INSTRUCTION_CHARS", "1000")
     monkeypatch.setenv("MAX_RECIPE_NOTE_CHARS", "500")
-    monkeypatch.setattr("app.embeddings.service.enqueue_recipe_embedding", lambda recipe_id, owner_id: True)
-    monkeypatch.setattr("app.services.recipes.enqueue_recipe_embedding", lambda recipe_id, owner_id: True)
+    monkeypatch.setattr("app.embeddings.service.dispatch_outbox_message", lambda _message_id: True, raising=False)
+    monkeypatch.setattr("app.services.recipes.dispatch_outbox_message", lambda _message_id: True, raising=False)
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()
@@ -414,19 +414,20 @@ def test_retry_embedding_endpoint_marks_stale_and_enqueues(monkeypatch):
         session.add(recipe)
         session.commit()
         recipe_id = recipe.id
-    enqueued: list[tuple[str, str]] = []
+    dispatched_message_ids: list[str] = []
     monkeypatch.setattr("app.embeddings.service.get_embedding_provider", lambda: ("test", StaticEmbeddingProvider()))
     monkeypatch.setattr("app.embeddings.planning.get_embedding_provider", lambda: ("test", StaticEmbeddingProvider()))
     monkeypatch.setattr(
-        "app.embeddings.service.enqueue_recipe_embedding",
-        lambda recipe_id, owner_id: enqueued.append((recipe_id, owner_id)) or True,
+        "app.embeddings.service.dispatch_outbox_message",
+        lambda message_id: dispatched_message_ids.append(message_id) or True,
+        raising=False,
     )
 
     response = client.post(f"/recipes/{recipe_id}/embedding/retry")
 
     assert response.status_code == 200
     assert response.json()["status"] == RecipeEmbeddingStatus.STALE.value
-    assert enqueued == [(recipe_id, "local-user")]
+    assert len(dispatched_message_ids) == 1
 
 
 def test_patch_recipe_succeeds_when_embedding_publish_fails(monkeypatch):
@@ -439,8 +440,8 @@ def test_patch_recipe_succeeds_when_embedding_publish_fails(monkeypatch):
         session.commit()
         recipe_id = recipe.id
     monkeypatch.setattr(
-        "app.services.recipes.enqueue_recipe_embedding",
-        lambda recipe_id, owner_id: False,
+        "app.services.recipes.dispatch_outbox_message",
+        lambda _message_id: False,
         raising=False,
     )
 
@@ -754,8 +755,8 @@ def test_resolve_review_flag_succeeds_when_embedding_publish_fails(monkeypatch):
     client, SessionLocal = client_with_session()
     recipe_id, flag_id = seed_recipe(SessionLocal)
     monkeypatch.setattr(
-        "app.services.recipes.enqueue_recipe_embedding",
-        lambda recipe_id, owner_id: False,
+        "app.services.recipes.dispatch_outbox_message",
+        lambda _message_id: False,
         raising=False,
     )
 

@@ -1,20 +1,20 @@
 import logging
 
-from fastapi import APIRouter, Response, status
+from fastapi import APIRouter, status
 
 from app.access.constants import ADMIN_PAGE_ROLES, UserRole
 from app.access.rules import can_retry_embedding, can_retry_import, get_owner_id, require_any_role
 from app.api.deps import CurrentUserDep, SessionDep, SettingsDep
-from app.core.errors import ImportNotFoundError, ImportRetryFailedError, RecipeEmbeddingNotFoundError
+from app.core.errors import ImportNotFoundError, RecipeEmbeddingNotFoundError
 from app.core.logging import bind_logger
 from app.db.session import db_transaction
 from app.embeddings.queries import get_recipe_embedding_with_recipe, list_internal_recipe_embeddings
 from app.embeddings.service import retry_recipe_embedding
 from app.imports.constants import IMPORT_LOG_COMPONENT
-from app.imports.jobs import compensate_import_retry_publish_failure, request_import_retry
+from app.imports.jobs import request_import_retry
 from app.imports.queries import get_import_job_unscoped, list_internal_import_jobs
 from app.models import ImportJob, RecipeEmbedding
-from app.queueing.provider import get_queue_publisher
+from app.queueing.outbox import dispatch_outbox_message
 from app.schemas.imports import ImportJobOut
 from app.schemas.internal import InternalImportJobListOut, InternalRecipeEmbeddingListOut
 from app.schemas.recipes import RecipeEmbeddingOut
@@ -42,7 +42,6 @@ def get_internal_recipe_embeddings(session: SessionDep, current_user: CurrentUse
 @router.post("/import-jobs/{job_id}/retry", response_model=ImportJobOut, status_code=status.HTTP_202_ACCEPTED)
 def retry_internal_import_job(
     job_id: str,
-    response: Response,
     session: SessionDep,
     current_user: CurrentUserDep,
     settings: SettingsDep,
@@ -60,22 +59,14 @@ def retry_internal_import_job(
         max_import_attempts=settings.max_import_attempts,
         max_parallel_imports=settings.max_parallel_imports_per_client,
     )
-    try:
-        get_queue_publisher().publish_import_job(job_id)
-    except Exception as error:
-        reverted_job, reverted = compensate_import_retry_publish_failure(
-            session,
-            job_id=job_id,
+    published = dispatch_outbox_message(result.outbox_message_id)
+    if not published:
+        bind_logger(
+            logger,
+            component=IMPORT_LOG_COMPONENT,
             owner_id=owner_id,
-            notification_id=result.notification_id,
-        )
-        log = bind_logger(logger, component=IMPORT_LOG_COMPONENT, owner_id=owner_id, import_job_id=job_id)
-        if reverted:
-            log.error(f"{IMPORT_LOG_COMPONENT} Import retry enqueue failed", error=repr(error))
-            raise ImportRetryFailedError() from error
-        log.info(f"{IMPORT_LOG_COMPONENT} Import retry enqueue result is ambiguous", error=repr(error))
-        response.status_code = status.HTTP_200_OK
-        return reverted_job
+            import_job_id=job_id,
+        ).info(f"{IMPORT_LOG_COMPONENT} Import retry is pending outbox recovery")
     return result.job
 
 

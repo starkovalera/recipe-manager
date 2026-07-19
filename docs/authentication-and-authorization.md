@@ -221,7 +221,7 @@ Any session revocation or reauthentication requirement is controlled by the Cler
 
 ## Account Deletion
 
-Deletion is asynchronous. `POST /me/deletion` atomically locks the user, protects the final active superadmin, changes status to `DELETION_PENDING`, records `deletion_requested_at`, and then publishes an id-only Dramatiq task.
+Deletion is asynchronous. `POST /me/deletion` atomically locks the user, protects the final active superadmin, changes status to `DELETION_PENDING`, records `deletion_requested_at`, and creates an ID-only pending outbox message. After commit, FastAPI attempts immediate dispatch through the configured queue publisher.
 
 ```mermaid
 stateDiagram-v2
@@ -239,6 +239,7 @@ sequenceDiagram
   participant User
   participant UI as React
   participant API as FastAPI
+  participant Outbox as PostgreSQL outbox
   participant Q as Dramatiq
   participant Worker
   participant Clerk
@@ -248,7 +249,10 @@ sequenceDiagram
   User->>UI: confirm Delete account
   UI->>API: POST /me/deletion
   API->>DB: ACTIVE -> DELETION_PENDING
-  API->>Q: publish user id
+  API->>Outbox: persist ACCOUNT_DELETION intent
+  DB-->>API: commit state and intent
+  API->>Outbox: dispatch message id
+  Outbox->>Q: publish user id
   API-->>UI: 202 DELETION_PENDING
   UI->>UI: clear token and query state
   UI->>Clerk: sign out
@@ -270,13 +274,13 @@ sequenceDiagram
 
 Important failure behavior:
 
-- An enqueue failure does not restore `ACTIVE`; the durable pending state is preserved for reconciliation.
+- Immediate outbox dispatch failure does not restore `ACTIVE`; the durable pending state and pending outbox message are preserved for reconciliation.
 - Active imports postpone deletion by causing the actor to retry.
 - Missing provider users and already-missing files are expected to be idempotent at their service boundaries.
 - Any failed media deletion leaves the local user and owned database rows intact in `DELETION_PENDING`.
 - Database deletion happens only after provider and media cleanup succeed. User-owned rows such as recipes, tags, collections, import jobs, embeddings through recipes, notifications, settings, and roles are removed through ORM/database cascades.
-- `user.deleted` webhooks also transition the internal user to `DELETION_PENDING` and enqueue the same worker.
-- `python -m app.users.reconcile_deletions` republishes all current pending deletions after a restart. Scheduled stale-pending recovery remains future work.
+- A new verified `user.deleted` webhook atomically records its idempotency row, transitions the internal user to `DELETION_PENDING`, and creates a pending outbox message for the same worker before post-commit dispatch.
+- `python -m app.queueing.reconcile_outbox` dispatches one bounded batch of existing pending outbox rows. `python -m app.users.reconcile_deletions` creates and dispatches a fresh durable deletion intent for every current pending user. Scheduled stale-pending recovery remains future work.
 
 ## Authorization Rules
 
@@ -303,7 +307,7 @@ Supported events:
 
 - `user.created`: create/update the local identity, initialize defaults idempotently, and accept matching pending invitations.
 - `user.updated`: synchronize the normalized primary email without auto-linking.
-- `user.deleted`: transition an existing local user to `DELETION_PENDING` and enqueue deletion.
+- `user.deleted`: atomically transition an existing local user to `DELETION_PENDING`, record webhook idempotency, and create a pending deletion outbox message before post-commit dispatch.
 
 Each accepted signed `svix-id` delivery ID is stored in `ClerkWebhookEvent`; duplicate delivery returns `processed: false`.
 The JSON body supplies the event type and domain payload but never the idempotency key. Raw payloads, JWTs, signatures,

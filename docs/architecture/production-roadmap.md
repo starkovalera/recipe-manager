@@ -33,6 +33,11 @@ entrypoints for the four production Lambdas.
 
 Iteration 1 covers P1 and P2 only: production configuration requires explicit PostgreSQL, SQS, and S3 selections, while PREVIEW publishes ID-only messages through the existing Dramatiq actors. The SQS and S3 values define the target configuration contract; their runtime adapters remain deferred to P4 and P9. P3, the transactional outbox, is not part of this iteration.
 
+Iteration 2 covers P3 only. Import, embedding, and account-deletion scheduling
+create ID-only outbox rows atomically with domain state. Immediate publication
+continues through the PREVIEW Dramatiq adapter, and a generic reconciliation
+command retries pending rows. SQS remains deferred to P4.
+
 ## Phase 2 — Terraform, IAM, and Secrets Foundation
 
 - Bootstrap remote Terraform state and GitHub OIDC.

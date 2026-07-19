@@ -147,6 +147,22 @@ def test_max_tags_per_user_defaults_to_50():
     assert settings.max_tags_per_user == 50
 
 
+def test_outbox_reconcile_batch_size_defaults_to_one_hundred():
+    settings = Settings(app_env=AppEnv.TEST, _env_file=None)
+
+    assert settings.outbox_reconcile_batch_size == 100
+
+
+@pytest.mark.parametrize("batch_size", [0, 1001])
+def test_outbox_reconcile_batch_size_rejects_values_outside_bounds(batch_size):
+    with pytest.raises(ValidationError):
+        Settings(
+            app_env=AppEnv.TEST,
+            outbox_reconcile_batch_size=batch_size,
+            _env_file=None,
+        )
+
+
 def test_recipe_language_defaults_to_ru_and_can_be_configured():
     default_settings = Settings(app_env=AppEnv.TEST, _env_file=None)
     custom_settings = Settings(app_env=AppEnv.TEST, recipe_language="en", _env_file=None)

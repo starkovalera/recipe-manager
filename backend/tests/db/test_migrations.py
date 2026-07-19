@@ -47,6 +47,7 @@ def test_alembic_upgrade_head_creates_core_tables(tmp_path: Path):
         "invitations",
         "recipes",
         "import_jobs",
+        "queue_outbox_messages",
         "recipe_resources",
         "recipe_review_flags",
     }.issubset(tables)
@@ -102,6 +103,46 @@ def test_alembic_upgrade_head_creates_core_tables(tmp_path: Path):
         and foreign_key["options"].get("ondelete") == "SET NULL"
         for foreign_key in inspector.get_foreign_keys("import_jobs")
     )
+    outbox_columns = {column["name"]: column for column in inspector.get_columns("queue_outbox_messages")}
+    assert set(outbox_columns) == {
+        "id",
+        "message_type",
+        "entity_id",
+        "status",
+        "attempt_count",
+        "last_attempt_at",
+        "last_error_type",
+        "published_at",
+        "created_at",
+    }
+    assert outbox_columns["id"]["nullable"] is False
+    assert outbox_columns["message_type"]["nullable"] is False
+    assert outbox_columns["entity_id"]["nullable"] is False
+    assert outbox_columns["status"]["nullable"] is False
+    assert outbox_columns["attempt_count"]["nullable"] is False
+    assert outbox_columns["created_at"]["nullable"] is False
+    assert inspector.get_pk_constraint("queue_outbox_messages")["constrained_columns"] == ["id"]
+    assert any(
+        index["name"] == "ix_queue_outbox_status_created_at" and index["column_names"] == ["status", "created_at"]
+        for index in inspector.get_indexes("queue_outbox_messages")
+    )
+
+
+def test_queue_outbox_migration_upgrades_previous_revision_to_head(tmp_path: Path):
+    db_path = tmp_path / "queue-outbox-migration.db"
+    backend_root = Path(__file__).resolve().parents[2]
+    config = Config(str(backend_root / "alembic.ini"))
+    config.set_main_option("sqlalchemy.url", f"sqlite:///{db_path}")
+    config.set_main_option("script_location", str(backend_root / "alembic"))
+
+    command.upgrade(config, "20260715_0028")
+    engine = create_engine(f"sqlite:///{db_path}")
+    assert "queue_outbox_messages" not in inspect(engine).get_table_names()
+
+    command.upgrade(config, "head")
+
+    inspector = inspect(engine)
+    assert "queue_outbox_messages" in inspector.get_table_names()
 
 
 def test_clerk_webhook_event_migration_upgrades_previous_revision_to_head(tmp_path: Path):

@@ -18,7 +18,8 @@ from app.db.session import db_session, db_transaction
 from app.imports.constants import ACTIVE_IMPORT_STATUSES
 from app.imports.queries import count_import_jobs_by_statuses
 from app.models import ImportJob, ImportJobSource, Recipe, RecipeImage, User, UserStatus
-from app.queueing.provider import get_queue_publisher
+from app.queueing.constants import QueueMessageType
+from app.queueing.outbox import dispatch_outbox_message, schedule_outbox_message
 from app.storage.local import LocalStorageService
 from app.users.queries import get_user_by_auth_identity_for_update, list_user_ids_by_status
 
@@ -43,21 +44,33 @@ class AccountDeletionContext:
     storage_keys: tuple[str, ...]
 
 
-def request_account_deletion(session: Session, identity: AuthenticatedIdentity) -> User:
+@dataclass(frozen=True)
+class AccountDeletionRequest:
+    user: User
+    outbox_message_id: str
+
+
+def request_account_deletion(session: Session, identity: AuthenticatedIdentity) -> AccountDeletionRequest:
     with db_transaction(session):
         user = get_user_by_auth_identity_for_update(session, identity.auth_provider, identity.auth_user_id)
         if user is None:
             raise UserNotProvisionedError()
-        if user.status is UserStatus.DELETION_PENDING:
-            return user
-        ensure_user_is_active(user)
-        active_superadmin_ids = list_active_superadmin_ids_for_update(session)
-        if not can_delete_user(user, len(active_superadmin_ids)):
-            raise LastActiveSuperadminError()
-        user.status = UserStatus.DELETION_PENDING
-        user.deletion_requested_at = datetime.now(timezone.utc)
-        session.flush()
-    return user
+        if user.status is not UserStatus.DELETION_PENDING:
+            ensure_user_is_active(user)
+            active_superadmin_ids = list_active_superadmin_ids_for_update(session)
+            if not can_delete_user(user, len(active_superadmin_ids)):
+                raise LastActiveSuperadminError()
+            user.status = UserStatus.DELETION_PENDING
+            user.deletion_requested_at = datetime.now(timezone.utc)
+        outbox_message = schedule_outbox_message(
+            session,
+            QueueMessageType.ACCOUNT_DELETION,
+            user.id,
+        )
+    return AccountDeletionRequest(
+        user=user,
+        outbox_message_id=outbox_message.id,
+    )
 
 
 def _load_account_deletion_context(session: Session, user_id: str) -> AccountDeletionContext | None:
@@ -119,21 +132,22 @@ def process_account_deletion(user_id: str) -> None:
     log_info(logger, "Account deletion completed.", user_id=user_id)
 
 
-def enqueue_account_deletion(user_id: str) -> bool:
-    try:
-        get_queue_publisher().publish_account_deletion(user_id)
-    except Exception as error:
-        log_error(logger, "Account deletion task publish failed.", user_id=user_id, error=repr(error))
-        return False
-    log_info(logger, "Account deletion task published.", user_id=user_id)
-    return True
-
-
 def requeue_pending_account_deletions() -> list[str]:
     with db_session() as session:
         user_ids = list_user_ids_by_status(session, UserStatus.DELETION_PENDING)
+        scheduled = [
+            (
+                user_id,
+                schedule_outbox_message(
+                    session,
+                    QueueMessageType.ACCOUNT_DELETION,
+                    user_id,
+                ).id,
+            )
+            for user_id in user_ids
+        ]
 
-    failed_user_ids = [user_id for user_id in user_ids if not enqueue_account_deletion(user_id)]
+    failed_user_ids = [user_id for user_id, message_id in scheduled if not dispatch_outbox_message(message_id)]
     log_info(
         logger,
         "Pending account deletion tasks republished.",

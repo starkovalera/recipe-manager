@@ -19,7 +19,7 @@ All routes except health, Clerk webhooks, and FastAPI documentation are protecte
   - Requires an already provisioned active internal user.
   - Returns `{ id, email, features }`; features are backend-derived capabilities and roles are not exposed.
 - `POST /me/deletion`
-  - Atomically changes the current user to `DELETION_PENDING` and returns `202` before publishing asynchronous deletion work.
+  - Atomically changes the current user to `DELETION_PENDING`, creates a pending `ACCOUNT_DELETION` outbox message, and returns `202` after attempting post-commit dispatch.
   - The final active superadmin cannot request deletion.
 - `POST /webhooks/clerk`
   - Public at KrakenD, but requires a valid Svix signature over the raw body.
@@ -46,7 +46,7 @@ All routes except health, Clerk webhooks, and FastAPI documentation are protecte
 - `POST /recipes/{recipeId}/embedding/retry`
   - Retries embedding generation for the current-user recipe.
   - If the recipe has open review flags, marks embedding state as `skipped_due_to_flags` and does not enqueue work.
-  - Otherwise marks embedding state as `stale` and enqueues `embed_recipe_task`.
+  - Otherwise atomically marks embedding state as `stale` and creates a pending `RECIPE_EMBEDDING` outbox message, then attempts post-commit dispatch.
   - Returns `{ recipeId, status, model, inputHash, failedAttempts, errorMessage }`.
 
 ## Collections
@@ -107,7 +107,7 @@ All routes except health, Clerk webhooks, and FastAPI documentation are protecte
 - `POST /imports`
   - Multipart form fields: `clientImportId`, optional `text`, optional `url`.
   - Headers: `X-Client-Id`, optional `Idempotency-Key`.
-  - Creates `ImportJob(status=queued)` and enqueues `import_recipe_task`.
+  - Atomically creates `ImportJob(status=queued)`, its initial audit/notification state, and a pending `IMPORT_JOB` outbox message, then attempts post-commit dispatch.
   - Returns `202 Accepted` for a newly queued import.
   - Returns `200 OK` when the same dedupe key already exists and the existing job is returned.
   - Returns `{ jobId, status, createdRecipeId, errorCode, errorMessage }`.
@@ -147,7 +147,7 @@ All routes except health, Clerk webhooks, and FastAPI documentation are protecte
   - Writes `retry_requested`, `scheduled`, and, if queueing succeeds, `enqueued` embedding events.
 - `POST /internal/import-jobs/{jobId}/retry`
   - Requires `DEBUG` or `SUPERADMIN`; retry is allowed for an owned job or any job for `SUPERADMIN`.
-  - Reuses the ordinary retry business flow and enqueue compensation.
+  - Reuses the ordinary retry business flow and atomically creates a pending `IMPORT_JOB` outbox message with the accepted retry state.
 - `POST /internal/search/explain`
   - Requires `DEBUG` or `SUPERADMIN`.
   - Accepts the same body shape as `POST /search`.

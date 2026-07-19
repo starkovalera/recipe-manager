@@ -7,9 +7,9 @@ from app.embeddings.queries import (
     get_or_create_recipe_embedding,
     get_recipe_for_embedding,
 )
-from app.embeddings.queue import enqueue_recipe_embedding
 from app.embeddings.runtime import get_embedding_provider
 from app.models import RecipeEmbedding, RecipeEmbeddingEventType
+from app.queueing.outbox import dispatch_outbox_message
 
 
 def retry_recipe_embedding(session: Session, recipe_id: str, owner_id: str) -> RecipeEmbedding:
@@ -28,7 +28,7 @@ def retry_recipe_embedding(session: Session, recipe_id: str, owner_id: str) -> R
     )
     plan = prepare_recipe_embedding(session, recipe, force=True)
     session.commit()
-    if plan.enqueue:
-        enqueue_recipe_embedding(recipe.id, recipe.owner_id)
+    if plan.outbox_message_id is not None:
+        dispatch_outbox_message(plan.outbox_message_id)
     session.refresh(plan.embedding)
     return plan.embedding

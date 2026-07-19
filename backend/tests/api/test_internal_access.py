@@ -13,20 +13,6 @@ from app.main import create_app
 from app.models import ImportJob, ImportJobStatus, Recipe, RecipeEmbedding, RecipeEmbeddingStatus, User, UserRoleAssignment
 
 
-class StubQueuePublisher:
-    def __init__(self) -> None:
-        self.import_job_ids: list[str] = []
-
-    def publish_import_job(self, import_job_id: str) -> None:
-        self.import_job_ids.append(import_job_id)
-
-    def publish_recipe_embedding(self, recipe_id: str) -> None:
-        raise AssertionError(f"Unexpected embedding publication for {recipe_id}")
-
-    def publish_account_deletion(self, user_id: str) -> None:
-        raise AssertionError(f"Unexpected account deletion publication for {user_id}")
-
-
 def client_with_session():
     engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False}, poolclass=StaticPool)
     Base.metadata.create_all(engine)
@@ -130,17 +116,21 @@ def test_superadmin_can_retry_foreign_import_but_debug_user_cannot(monkeypatch):
         session.add_all([debug_user, superadmin, job])
         session.commit()
         job_id = job.id
-    publisher = StubQueuePublisher()
-    monkeypatch.setattr("app.api.routes.internal.get_queue_publisher", lambda: publisher, raising=False)
+    dispatched_message_ids: list[str] = []
+    monkeypatch.setattr(
+        "app.api.routes.internal.dispatch_outbox_message",
+        lambda message_id: dispatched_message_ids.append(message_id) or True,
+        raising=False,
+    )
     client.app.dependency_overrides[get_current_user] = lambda: debug_user
     assert client.post(f"/internal/import-jobs/{job_id}/retry").status_code == 404
-    assert publisher.import_job_ids == []
+    assert dispatched_message_ids == []
 
     client.app.dependency_overrides[get_current_user] = lambda: superadmin
     response = client.post(f"/internal/import-jobs/{job_id}/retry")
     assert response.status_code == 202
     assert response.json()["status"] == "queued"
-    assert publisher.import_job_ids == [job_id]
+    assert len(dispatched_message_ids) == 1
 
 
 def test_superadmin_can_retry_foreign_embedding_but_debug_user_cannot(monkeypatch):
@@ -162,7 +152,7 @@ def test_superadmin_can_retry_foreign_embedding_but_debug_user_cannot(monkeypatc
         session.add_all([debug_user, superadmin, recipe])
         session.commit()
         recipe_id = recipe.id
-    monkeypatch.setattr("app.embeddings.service.enqueue_recipe_embedding", lambda _recipe_id, _owner_id: True)
+    monkeypatch.setattr("app.embeddings.service.dispatch_outbox_message", lambda _message_id: True, raising=False)
     client.app.dependency_overrides[get_current_user] = lambda: debug_user
     assert client.post(f"/internal/embeddings/{recipe_id}/retry").status_code == 404
 

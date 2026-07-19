@@ -12,6 +12,7 @@ from app.embeddings.processing import process_recipe_embedding, start_recipe_emb
 from app.local.users import ensure_default_user
 from app.models import (
     Ingredient,
+    QueueOutboxMessage,
     Recipe,
     RecipeEmbedding,
     RecipeEmbeddingEventType,
@@ -20,6 +21,7 @@ from app.models import (
     RecipeReviewFlagStatus,
     RecipeReviewFlagType,
 )
+from app.queueing.constants import QueueOutboxStatus
 
 
 class StaticEmbeddingProvider:
@@ -245,13 +247,14 @@ def test_process_embedding_requeues_when_recipe_changes_during_provider_call(mon
     with SessionLocal() as session:
         recipe = create_recipe(session)
         recipe_id = recipe.id
-    enqueued: list[tuple[str, str]] = []
+    dispatched_message_ids: list[str] = []
     provider = MutatingEmbeddingProvider(SessionLocal, recipe_id)
     monkeypatch.setattr("app.embeddings.processing.db_session", tracked_db_session(SessionLocal, {"value": 0}))
     monkeypatch.setattr("app.embeddings.processing.get_embedding_provider", lambda: ("test", provider))
     monkeypatch.setattr(
-        "app.embeddings.processing.enqueue_recipe_embedding",
-        lambda recipe_id, owner_id: enqueued.append((recipe_id, owner_id)) or False,
+        "app.embeddings.processing.dispatch_outbox_message",
+        lambda message_id: dispatched_message_ids.append(message_id) or False,
+        raising=False,
     )
 
     process_recipe_embedding(recipe_id)
@@ -260,7 +263,11 @@ def test_process_embedding_requeues_when_recipe_changes_during_provider_call(mon
         embedding = session.get(RecipeEmbedding, recipe_id)
         assert embedding is not None
         assert embedding.status is RecipeEmbeddingStatus.STALE
-        assert enqueued == [(recipe_id, embedding.recipe.owner_id)]
+        assert len(dispatched_message_ids) == 1
+        outbox_message = session.get(QueueOutboxMessage, dispatched_message_ids[0])
+        assert outbox_message is not None
+        assert outbox_message.entity_id == recipe_id
+        assert outbox_message.status is QueueOutboxStatus.PENDING
         assert [event.event_type for event in embedding.events] == [
             RecipeEmbeddingEventType.STARTED,
             RecipeEmbeddingEventType.PROVIDER_SUCCEEDED,

@@ -40,6 +40,8 @@ from app.models import (
     SourceType,
 )
 from app.notifications.notification_data import ImportStartedNotification, build_notification
+from app.queueing.constants import QueueMessageType
+from app.queueing.outbox import schedule_outbox_message
 from app.storage.base import StorageService
 from app.storage.local import LocalStorageService
 
@@ -50,6 +52,7 @@ logger = bind_logger(logging.getLogger(__name__), component=IMPORT_LOG_COMPONENT
 class ImportJobCreationResult:
     job: ImportJob
     was_created: bool
+    outbox_message_id: str | None
 
 
 def _validate_import_request(
@@ -151,7 +154,11 @@ def create_import_job(
         with db_transaction(session):
             existing = get_import_job_by_dedupe_key(session, owner_id, dedupe_key)
             if existing is not None:
-                return ImportJobCreationResult(job=existing, was_created=False)
+                return ImportJobCreationResult(
+                    job=existing,
+                    was_created=False,
+                    outbox_message_id=None,
+                )
 
             settings = get_settings()
             active_import_count = count_import_jobs_by_statuses(session, owner_id, ACTIVE_IMPORT_STATUSES)
@@ -212,7 +219,11 @@ def create_import_job(
                 owner_id=job.owner_id,
                 entity_id=job.id,
             )
-            session.flush()
+            outbox_message = schedule_outbox_message(
+                session,
+                QueueMessageType.IMPORT_JOB,
+                job.id,
+            )
     except ApiError:
         if storage is not None and saved_storage_keys:
             cleanup_import_storage(storage, saved_storage_keys)
@@ -237,4 +248,8 @@ def create_import_job(
         has_url=normalized_url is not None,
         attachment_count=len(validated_images),
     )
-    return ImportJobCreationResult(job=job, was_created=True)
+    return ImportJobCreationResult(
+        job=job,
+        was_created=True,
+        outbox_message_id=outbox_message.id,
+    )

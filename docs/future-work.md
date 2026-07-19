@@ -21,7 +21,9 @@ deferred product and technical work and does not override roadmap phase gates.
 
 ## Background Processing
 
-- Add a transactional outbox for embedding scheduling so persisted embedding lifecycle state and broker publishing are durably coordinated. Publishing is currently best-effort and intentionally secondary to completed user operations.
+- Add retention and pruning for published transactional outbox rows. Define the retention period, bounded deletion batches, observability requirements, and any audit/history needs before removing successfully published records.
+- Add a concurrent-dispatch claim or lease only if observed duplicate delivery rates become operationally material. Preserve at-least-once delivery and idempotent consumers; do not introduce locking complexity without production evidence.
+- Add operational metrics and alerts for transactional outbox pending age, pending count, dispatch failure count, and repeated-attempt count, with dimensions that avoid high-cardinality entity identifiers.
 - In the background-jobs phase immediately after authentication work is complete, add scheduled invitation-expiration reconciliation. Find local invitations still marked `PENDING` whose `expires_at` is in the past and idempotently move them to `EXPIRED`, even when no `user.created` webhook arrives. Define batching, scheduling, concurrent-run protection, and diagnostics together with the other scheduled maintenance jobs.
 - In the same background-jobs phase, add durable provider/local invitation reconciliation. Cover both divergence directions: the provider invitation remains active after local persistence and compensating revoke both fail, or the provider revoke succeeds while the local `PENDING -> REVOKED` update fails. Decide whether to reconcile through provider status/list APIs, a transactional operation/outbox record, or both; keep retries idempotent and record sanitized diagnostics without persisting invitation tickets or URLs.
 - Add a scheduled account-deletion recovery job that finds users which have remained `DELETION_PENDING` longer than an environment-backed stale threshold and idempotently republishes their account-deletion worker tasks. Protect concurrent scheduler runs, avoid duplicate active work where practical, log sanitized recovery diagnostics, and use the current runtime threshold rather than snapshotting it on each user. The user deletion worker itself must remain idempotent so duplicate deliveries are safe.
@@ -75,6 +77,7 @@ deferred product and technical work and does not override roadmap phase gates.
 
 ## Recipes and Manual Content
 
+- Add shared recipe libraries for multiple users. Introduce an explicit shared-space/library entity with membership and role-based access instead of weakening existing owner-scoped queries; define ownership, invitations, read/write permissions, recipe and media lifecycle, collections, tags, search and embeddings visibility, import destinations, member removal, and deletion behavior before implementation.
 - Expose shared recipe-editing domain limits through a backend-owned API/capabilities response instead of configuring them independently in the frontend. Replace `VITE_MAX_RECIPE_INGREDIENTS`, `VITE_MAX_RECIPE_INSTRUCTION_CHARS`, and `VITE_MAX_RECIPE_NOTE_CHARS` with values derived from the same backend settings that enforce these limits.
 - Let users upload additional images to an existing recipe. Persist each accepted image through the existing `RecipeImage`/`RecipeResource` relationship as a recipe-owned image resource, resize or recompress images that exceed the configured maximum dimensions or byte size, and enforce a backend-owned per-recipe maximum for resources of each applicable type. Define validation, frontend feedback, cover-selection behavior, deletion/storage cleanup, and concurrent-upload handling before implementation.
 - Add aligned frontend and backend length limits for every remaining editable recipe field, including title and author name. Ingredient count, instruction length, note length, and required ingredient names are already validated; backend validation remains authoritative.
@@ -107,6 +110,8 @@ deferred product and technical work and does not override roadmap phase gates.
 - Add sorting and filters for collections on backend and frontend.
 
 ## Улучшение серча
+
+- Support multiple simultaneous search chips, including repeated chips of the same filter type. Define backend request representation, AND/OR semantics within and across chip types, duplicate handling, URL/state serialization, autocomplete behavior, removable-chip UI, Search Debug explanations, and stable pagination when the active chip set changes.
 
 - Улучшить autocomplete для структурных концептов: если пользователь вводит текст, похожий на существующий tag (`низкокалорийное`, `быстрое`, `высокобелковое`, `без сахара`), явно предлагать выбрать tag chip. Пока не конвертировать free text в tag filter неявно.
 - На Search Debug странице показывать, как был обработан запрос: только structured filters, semantic-only text или mixed chips + semantic text. Для semantic-only запросов показывать пояснение, что числовые/структурные фильтры не применялись.

@@ -17,7 +17,6 @@ from app.core.errors import (
 )
 from app.core.logging import bind_logger
 from app.embeddings.planning import prepare_recipe_embedding
-from app.embeddings.queue import enqueue_recipe_embedding
 from app.models import (
     Ingredient,
     Recipe,
@@ -29,6 +28,7 @@ from app.models import (
     SourceName,
     SourceType,
 )
+from app.queueing.outbox import dispatch_outbox_message
 from app.recipes.filters import RecipeListFilters
 from app.recipes.queries import (
     count_recipes,
@@ -179,8 +179,8 @@ def patch_recipe(session: Session, recipe_id: str, owner_id: str, patch: RecipeP
     refresh_recipe_search_text(recipe)
     embedding_plan = prepare_recipe_embedding(session, recipe)
     session.commit()
-    if embedding_plan.enqueue:
-        enqueue_recipe_embedding(recipe.id, recipe.owner_id)
+    if embedding_plan.outbox_message_id is not None:
+        dispatch_outbox_message(embedding_plan.outbox_message_id)
     return get_recipe_detail(session, recipe_id, owner_id)
 
 
@@ -242,8 +242,8 @@ def set_review_flag_status(session: Session, recipe_id: str, owner_id: str, flag
         flag.resolved_at = None
     embedding_plan = prepare_recipe_embedding(session, flag.recipe)
     session.commit()
-    if embedding_plan.enqueue:
-        enqueue_recipe_embedding(flag.recipe.id, flag.recipe.owner_id)
+    if embedding_plan.outbox_message_id is not None:
+        dispatch_outbox_message(embedding_plan.outbox_message_id)
     session.refresh(flag)
     return flag
 
