@@ -579,6 +579,14 @@ class ImportJob(TimestampMixin, Base):
         self.error_message = error_message
         self.finished_at = datetime.now(timezone.utc)
 
+    def set_queued_for_retry(self) -> None:
+        self.status = ImportJobStatus.QUEUED
+        self.error_code = None
+        self.error_message = None
+        self.created_recipe_id = None
+        self.started_at = None
+        self.finished_at = None
+
     def set_running(self) -> None:
         self.status = ImportJobStatus.RUNNING
         self.attempt_count += 1
