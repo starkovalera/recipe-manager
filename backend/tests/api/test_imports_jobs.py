@@ -183,7 +183,15 @@ def process_import_response(client: TestClient, response):
     return poll_import(client, job_id)
 
 
-def create_failed_import(client: TestClient, SessionLocal, *, client_import_id: str, attempt_count: int = 1) -> str:
+def create_failed_import(
+    client: TestClient,
+    SessionLocal,
+    *,
+    client_import_id: str,
+    attempt_count: int = 1,
+    error_code: ImportJobErrorCode = ImportJobErrorCode.IMPORT_FAILED,
+    error_message: str = "UNEXPECTED_ERROR",
+) -> str:
     response = client.post(
         "/imports",
         data={"clientImportId": client_import_id, "text": "Tomato soup recipe"},
@@ -194,8 +202,8 @@ def create_failed_import(client: TestClient, SessionLocal, *, client_import_id: 
         job = session.get(ImportJob, job_id)
         job.status = ImportJobStatus.FAILED
         job.attempt_count = attempt_count
-        job.error_code = ImportJobErrorCode.IMPORT_FAILED
-        job.error_message = "UNEXPECTED_ERROR"
+        job.error_code = error_code
+        job.error_message = error_message
         job.finished_at = datetime.now(timezone.utc)
         session.commit()
     return job_id
@@ -237,6 +245,55 @@ def test_failed_import_can_be_requeued_without_resetting_attempt_fields(monkeypa
         assert outbox_message.entity_id == job_id
         assert outbox_message.status is QueueOutboxStatus.PENDING
     assert started_notifications == 2
+
+
+@pytest.mark.parametrize("detailed_code", ["NOT_A_RECIPE", "RECIPE_TOO_LONG"])
+def test_manual_retry_accepts_non_automatic_retry_codes(monkeypatch, detailed_code: str) -> None:
+    client, SessionLocal = client_with_session_factory()
+    job_id = create_failed_import(
+        client,
+        SessionLocal,
+        client_import_id=f"manual-{detailed_code.lower()}",
+        error_code=ImportJobErrorCode.IMPORT_EXTRACTION_FAILED,
+        error_message=detailed_code,
+    )
+    dispatched_message_ids: list[str] = []
+    monkeypatch.setattr(
+        import_routes,
+        "dispatch_outbox_message",
+        lambda message_id: dispatched_message_ids.append(message_id) or True,
+    )
+
+    response = client.post(f"/imports/{job_id}/retry")
+
+    assert response.status_code == 202
+    assert response.json()["status"] == "queued"
+    assert response.json()["errorCode"] == "IMPORT_EXTRACTION_FAILED"
+    assert response.json()["errorMessage"] == detailed_code
+    assert len(dispatched_message_ids) == 1
+    with SessionLocal() as session:
+        outbox_message = session.get(QueueOutboxMessage, dispatched_message_ids[0])
+        assert outbox_message is not None
+        assert outbox_message.message_type is QueueMessageType.IMPORT_JOB
+        assert outbox_message.entity_id == job_id
+
+
+@pytest.mark.parametrize("detailed_code", ["NOT_A_RECIPE", "RECIPE_TOO_LONG"])
+def test_manual_retry_rejects_non_automatic_codes_when_attempts_are_exhausted(detailed_code: str) -> None:
+    client, SessionLocal = client_with_session_factory()
+    job_id = create_failed_import(
+        client,
+        SessionLocal,
+        client_import_id=f"exhausted-{detailed_code.lower()}",
+        attempt_count=3,
+        error_code=ImportJobErrorCode.IMPORT_EXTRACTION_FAILED,
+        error_message=detailed_code,
+    )
+
+    response = client.post(f"/imports/{job_id}/retry")
+
+    assert response.status_code == 409
+    assert response.json()["errorCode"] == "IMPORT_ATTEMPTS_EXHAUSTED"
 
 
 def test_retry_rejects_non_failed_and_exhausted_imports():
