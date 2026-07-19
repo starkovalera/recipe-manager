@@ -86,6 +86,10 @@ class Settings(BaseSettings):
     stale_import_minutes: int = 30
     outbox_reconcile_batch_size: int = Field(default=100, ge=1, le=1000)
     redis_url: str | None = None
+    aws_region: str | None = None
+    sqs_imports_queue_url: str | None = None
+    sqs_embeddings_queue_url: str | None = None
+    sqs_account_deletion_queue_url: str | None = None
     account_deletion_task_max_retries: int = Field(default=3, ge=0)
 
     clerk_secret_key: str | None = None
@@ -113,6 +117,10 @@ class Settings(BaseSettings):
         "queue_provider",
         "storage_provider",
         "redis_url",
+        "aws_region",
+        "sqs_imports_queue_url",
+        "sqs_embeddings_queue_url",
+        "sqs_account_deletion_queue_url",
         mode="before",
     )
     @classmethod
@@ -120,6 +128,15 @@ class Settings(BaseSettings):
         if isinstance(value, str) and not value.strip():
             return None
         return value
+
+    def _missing_sqs_settings(self) -> list[str]:
+        required = {
+            "AWS_REGION": self.aws_region,
+            "SQS_IMPORTS_QUEUE_URL": self.sqs_imports_queue_url,
+            "SQS_EMBEDDINGS_QUEUE_URL": self.sqs_embeddings_queue_url,
+            "SQS_ACCOUNT_DELETION_QUEUE_URL": self.sqs_account_deletion_queue_url,
+        }
+        return [name for name, value in required.items() if not value]
 
     @model_validator(mode="after")
     def materialize_and_validate_environment_settings(self):
@@ -142,6 +159,20 @@ class Settings(BaseSettings):
                 raise ValueError("REDIS_URL is not supported in PROD.")
             if self.upload_dir:
                 raise ValueError("UPLOAD_DIR is not supported in PROD.")
+
+        if self.queue_provider is QueueProvider.SQS:
+            missing = self._missing_sqs_settings()
+            if missing:
+                joined = ", ".join(missing)
+                raise ValueError(f"QUEUE_PROVIDER=SQS requires: {joined}.")
+
+            queue_urls = {
+                self.sqs_imports_queue_url,
+                self.sqs_embeddings_queue_url,
+                self.sqs_account_deletion_queue_url,
+            }
+            if len(queue_urls) != 3:
+                raise ValueError("SQS queue URLs must be distinct.")
 
         if self.app_env is not AppEnv.TEST and not self.clerk_secret_key:
             raise ValueError("Clerk identity configuration is required outside TEST.")
