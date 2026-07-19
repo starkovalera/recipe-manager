@@ -78,6 +78,13 @@ def test_static_gateway_config_was_removed():
     assert not (_krakend_root() / "krakend.json").exists()
 
 
+def test_gateway_entrypoint_uses_linux_line_endings():
+    entrypoint = (_krakend_root() / "entrypoint.sh").read_bytes()
+
+    assert entrypoint.startswith(b"#!/bin/sh\n")
+    assert b"\r\n" not in entrypoint
+
+
 def test_compose_diagnostics_do_not_require_clerk_but_gateway_startup_does():
     compose = (_repository_root() / "docker-compose.yml").read_text(encoding="utf-8")
     entrypoint = (_krakend_root() / "entrypoint.sh").read_text(encoding="utf-8")
