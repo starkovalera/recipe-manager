@@ -38,6 +38,11 @@ create ID-only outbox rows atomically with domain state. Immediate publication
 continues through the PREVIEW Dramatiq adapter, and a generic reconciliation
 command retries pending rows. SQS remains deferred to P4.
 
+Iteration 3 covers P4 only. The existing `QueuePublisher` gains a lazy boto3
+SQS adapter with strict ID-only contracts for the imports, embeddings, and
+account-deletion queues. AWS resources, IAM, DLQs, and consumers remain
+deferred to later phases.
+
 ## Phase 2 — Terraform, IAM, and Secrets Foundation
 
 - Bootstrap remote Terraform state and GitHub OIDC.
