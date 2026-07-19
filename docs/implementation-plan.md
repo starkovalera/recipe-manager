@@ -110,6 +110,7 @@ Implement profile selection in backend settings with `APP_ENV`, default `PROD` s
 
 - Runtime infrastructure selection is explicit and environment-owned. `PROD` fails closed when its required PostgreSQL, SQS, or S3 configuration is missing or incompatible; it must never fall back to local development providers.
 - Application and domain code publish background work through `QueuePublisher` using scalar entity IDs only. ORM entities, request objects, credentials, and provider-specific message objects do not cross the queue boundary.
+- Queue transport wire contracts are strict ID-only JSON objects. Imports use only `importJobId`, embeddings use only `recipeId`, and account deletion uses only `userId`. IDs are stripped, non-empty, limited to 255 characters, and extra fields are forbidden. Queue selection defines the operation; messages contain no envelope or domain payload.
 - Direct Dramatiq actor publishing is confined to the Dramatiq queue adapter. Other application modules must not call actor `.send()` or `.send_with_options()` directly.
 - `DEV`, `PREVIEW`, and `TEST` retain the existing Dramatiq-compatible local behavior. Selecting the not-yet-implemented SQS provider fails explicitly until the P4 adapter is delivered rather than silently routing work through Dramatiq.
 - Outbox reconciliation processes one bounded oldest-first batch, performs transport calls outside the database transaction, returns failed outbox message IDs, and leaves failed messages pending for later recovery.
