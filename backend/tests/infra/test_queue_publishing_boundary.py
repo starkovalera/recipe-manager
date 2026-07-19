@@ -1,5 +1,7 @@
 from pathlib import Path
 
+from app.queueing.types import QueuePublisher
+
 APP_ROOT = Path(__file__).resolve().parents[2] / "app"
 
 TRANSPORT_SYMBOL_ALLOWED_MODULES = {
@@ -10,6 +12,10 @@ TRANSPORT_SYMBOL_ALLOWED_MODULES = {
     "DramatiqQueuePublisher": {
         "queueing/dramatiq.py",
         "queueing/provider.py",
+    },
+    "SqsQueuePublisher": {
+        "queueing/provider.py",
+        "queueing/sqs.py",
     },
     "import_recipe_task": {
         "imports/tasks.py",
@@ -55,3 +61,38 @@ def test_actor_send_calls_stay_in_dramatiq_adapter():
                 violations.append(f"{relative_path}: {actor_name}.send")
 
     assert violations == [], "Actor send calls found outside the Dramatiq queue adapter:\n" + "\n".join(violations)
+
+
+def test_sqs_send_message_calls_stay_in_sqs_adapter():
+    violations: list[str] = []
+
+    for path in APP_ROOT.rglob("*.py"):
+        relative_path = path.relative_to(APP_ROOT).as_posix()
+        if relative_path == "queueing/sqs.py":
+            continue
+        if ".send_message(" in path.read_text(encoding="utf-8"):
+            violations.append(relative_path)
+
+    assert violations == [], "SQS send_message calls found outside the SQS queue adapter:\n" + "\n".join(violations)
+
+
+def test_boto3_imports_stay_in_sqs_adapter():
+    violations: list[str] = []
+
+    for path in APP_ROOT.rglob("*.py"):
+        relative_path = path.relative_to(APP_ROOT).as_posix()
+        if relative_path == "queueing/sqs.py":
+            continue
+        lines = path.read_text(encoding="utf-8").splitlines()
+        if any(line.strip() == "import boto3" or line.strip().startswith("from boto3") for line in lines):
+            violations.append(relative_path)
+
+    assert violations == [], "boto3 imports found outside the SQS queue adapter:\n" + "\n".join(violations)
+
+
+def test_queue_publisher_protocol_keeps_supported_operations():
+    assert {
+        "publish_import_job",
+        "publish_recipe_embedding",
+        "publish_account_deletion",
+    } <= set(QueuePublisher.__dict__)

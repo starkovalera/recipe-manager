@@ -367,6 +367,38 @@ FastAPI must not execute long-running imports, media processing, embeddings, or 
 
 ## 9. SQS queues, concurrency, and DLQs
 
+### Current application transport boundary
+
+Production-readiness iteration P4 implements the publisher boundary, not the AWS infrastructure:
+
+```text
+PREVIEW:
+  QueuePublisher -> Dramatiq -> Redis
+
+PROD:
+  QueuePublisher -> lazy boto3 SQS client
+```
+
+The transactional outbox and domain scheduling flows are shared by both transports. The current SQS adapter routes the three implemented operation types to dedicated configured queues and sends these exact ID-only JSON bodies:
+
+```json
+{"importJobId":"..."}
+```
+
+```json
+{"recipeId":"..."}
+```
+
+```json
+{"userId":"..."}
+```
+
+Queue selection defines the operation; there is no common message envelope. Queue URLs and the AWS region are runtime environment configuration. Queue URLs are not secrets. AWS credentials are not application settings and come from the standard boto3 credential chain; production will use an IAM role or instance profile.
+
+The initial queues are Standard SQS queues. FIFO ordering, message-group IDs, and deduplication fields are not part of the application message contract. Terraform/OpenTofu will later own queues, DLQs, policies, IAM, and queue URL references. Completing P4 does not create any AWS resource, consumer, event-source mapping, or deployment.
+
+### Target provisioned topology
+
 Create Standard queues:
 
 ```text

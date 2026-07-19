@@ -1,4 +1,13 @@
-from typing import Protocol
+from typing import Any, Protocol
+
+
+class SqsClient(Protocol):
+    def send_message(
+        self,
+        *,
+        QueueUrl: str,
+        MessageBody: str,
+    ) -> dict[str, Any]: ...
 
 
 class QueuePublisher(Protocol):

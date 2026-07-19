@@ -232,6 +232,18 @@ Do not turn this checkpoint into an unapproved broad redesign. Larger refactorin
 
 ## Transactional Outbox Recovery
 
+The domain scheduling and transactional outbox flows are transport-independent:
+
+```text
+PREVIEW:
+  QueuePublisher -> Dramatiq -> Redis
+
+PROD:
+  QueuePublisher -> lazy boto3 SQS client
+```
+
+Both transports publish only validated entity identifiers. The selected queue defines the operation; the current SQS wire bodies are exactly `{"importJobId":"..."}`, `{"recipeId":"..."}`, and `{"userId":"..."}` with no shared envelope. SQS publication failure leaves the outbox row pending under the same recovery semantics used by the PREVIEW transport.
+
 PREVIEW recovery currently runs manually:
 
 ```powershell

@@ -16,8 +16,29 @@ def clear_infrastructure_environment(monkeypatch):
         "STORAGE_PROVIDER",
         "REDIS_URL",
         "UPLOAD_DIR",
+        "AWS_REGION",
+        "SQS_IMPORTS_QUEUE_URL",
+        "SQS_EMBEDDINGS_QUEUE_URL",
+        "SQS_ACCOUNT_DELETION_QUEUE_URL",
     ):
         monkeypatch.delenv(variable, raising=False)
+
+
+def build_sqs_settings(**overrides):
+    values = {
+        "app_env": AppEnv.PROD,
+        "database_url": "postgresql+psycopg://user:pass@db.example.test/app",
+        "queue_provider": QueueProvider.SQS,
+        "storage_provider": StorageProvider.S3,
+        "clerk_secret_key": "test-clerk-secret",
+        "aws_region": "eu-west-1",
+        "sqs_imports_queue_url": "https://sqs.eu-west-1.amazonaws.com/000000000000/imports",
+        "sqs_embeddings_queue_url": "https://sqs.eu-west-1.amazonaws.com/000000000000/embeddings",
+        "sqs_account_deletion_queue_url": ("https://sqs.eu-west-1.amazonaws.com/000000000000/account-deletion"),
+        "_env_file": None,
+    }
+    values.update(overrides)
+    return Settings(**values)
 
 
 def test_dev_and_preview_default_to_postgres_databases():
@@ -40,6 +61,20 @@ def test_preview_uses_local_infrastructure_defaults():
     assert settings.redis_url == "redis://127.0.0.1:6379/0"
     assert settings.upload_dir is not None
     assert settings.upload_dir == Path(__file__).resolve().parents[2] / "storage" / "preview" / "uploads"
+
+
+def test_preview_dramatiq_does_not_require_aws_queue_settings():
+    settings = Settings(
+        app_env=AppEnv.PREVIEW,
+        clerk_secret_key="test-clerk-secret",
+        _env_file=None,
+    )
+
+    assert settings.queue_provider is QueueProvider.DRAMATIQ
+    assert settings.aws_region is None
+    assert settings.sqs_imports_queue_url is None
+    assert settings.sqs_embeddings_queue_url is None
+    assert settings.sqs_account_deletion_queue_url is None
 
 
 def test_test_env_defaults_to_sqlite_file():
@@ -126,19 +161,50 @@ def test_prod_rejects_upload_dir(tmp_path):
 
 
 def test_prod_accepts_explicit_target_providers():
-    settings = Settings(
-        app_env=AppEnv.PROD,
-        database_url="postgresql+psycopg://user:pass@db.example.test/app",
-        queue_provider=QueueProvider.SQS,
-        storage_provider=StorageProvider.S3,
-        clerk_secret_key="secret",
-        _env_file=None,
-    )
+    settings = build_sqs_settings()
 
     assert settings.queue_provider is QueueProvider.SQS
     assert settings.storage_provider is StorageProvider.S3
     assert settings.redis_url is None
     assert settings.upload_dir is None
+
+
+@pytest.mark.parametrize(
+    ("field_name", "environment_name"),
+    [
+        ("aws_region", "AWS_REGION"),
+        ("sqs_imports_queue_url", "SQS_IMPORTS_QUEUE_URL"),
+        ("sqs_embeddings_queue_url", "SQS_EMBEDDINGS_QUEUE_URL"),
+        ("sqs_account_deletion_queue_url", "SQS_ACCOUNT_DELETION_QUEUE_URL"),
+    ],
+)
+def test_sqs_provider_requires_all_queue_settings(field_name, environment_name):
+    with pytest.raises(ValidationError, match=environment_name):
+        build_sqs_settings(**{field_name: None})
+
+
+def test_sqs_provider_treats_blank_settings_as_missing():
+    with pytest.raises(ValidationError, match="AWS_REGION"):
+        build_sqs_settings(aws_region="   ")
+
+
+def test_sqs_provider_requires_distinct_queue_urls():
+    shared_url = "https://sqs.eu-west-1.amazonaws.com/000000000000/shared"
+
+    with pytest.raises(ValidationError, match="distinct"):
+        build_sqs_settings(
+            sqs_imports_queue_url=shared_url,
+            sqs_embeddings_queue_url=shared_url,
+        )
+
+
+def test_sqs_provider_accepts_explicit_region_and_distinct_queue_urls():
+    settings = build_sqs_settings()
+
+    assert settings.aws_region == "eu-west-1"
+    assert settings.sqs_imports_queue_url.endswith("/imports")
+    assert settings.sqs_embeddings_queue_url.endswith("/embeddings")
+    assert settings.sqs_account_deletion_queue_url.endswith("/account-deletion")
 
 
 def test_max_tags_per_user_defaults_to_50():
@@ -183,13 +249,7 @@ def test_import_retry_settings_have_safe_defaults_and_can_be_configured():
 
 def test_app_env_defaults_to_production_when_environment_is_absent(monkeypatch):
     monkeypatch.delenv("APP_ENV", raising=False)
-    settings = Settings(
-        database_url="postgresql+psycopg://user:pass@db.example.test/app",
-        queue_provider=QueueProvider.SQS,
-        storage_provider=StorageProvider.S3,
-        clerk_secret_key="secret",
-        _env_file=None,
-    )
+    settings = build_sqs_settings(app_env=AppEnv.PROD)
 
     assert settings.app_env is AppEnv.PROD
 
