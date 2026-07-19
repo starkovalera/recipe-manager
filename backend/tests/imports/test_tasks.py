@@ -1,4 +1,16 @@
 from app.imports import tasks
+from app.imports.outcomes import ImportProcessingDisposition, ImportProcessingResult
+
+
+def test_run_import_job_returns_domain_result(monkeypatch) -> None:
+    expected = ImportProcessingResult(
+        import_job_id="job-1",
+        disposition=ImportProcessingDisposition.RETRYABLE_FAILURE,
+        detailed_error_code="EXTRACTOR_UNAVAILABLE",
+    )
+    monkeypatch.setattr(tasks, "process_import_job", lambda _job_id: expected)
+
+    assert tasks.run_import_job("job-1") is expected
 
 
 def test_import_recipe_task_delegates_to_domain_handler(monkeypatch):
