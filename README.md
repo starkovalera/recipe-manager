@@ -164,7 +164,7 @@ Direct FastAPI access at `http://127.0.0.1:8010` is upstream diagnostics only. I
 | `TEST` | Isolated SQLite default | `DRAMATIQ` test-safe configuration | `LOCAL` | No running server required | Isolated test default |
 | `PROD` | Explicit PostgreSQL required | Explicit `SQS` required | Explicit `S3` required | Not supported | Not supported |
 
-Production settings fail closed instead of falling back to SQLite, Redis/Dramatiq, or local media storage. The SQS publisher and S3 storage adapters are intentionally deferred to roadmap items P4 and P9; selecting SQS currently fails explicitly at runtime rather than silently publishing through another provider.
+Production settings fail closed instead of falling back to SQLite, Redis/Dramatiq, or local media storage. The P4 SQS publisher is implemented, while the S3 storage adapter remains deferred to roadmap item P9. Selecting SQS requires an explicit AWS region and dedicated queue URLs; publisher construction performs no AWS call, credentials come from the standard boto3 credential chain, and P4 does not provision AWS resources.
 
 `POST /imports` creates a queued `ImportJob` and returns `202 Accepted`. The frontend remains on the import form, polls notifications, and can submit additional imports within concurrency limits.
 
