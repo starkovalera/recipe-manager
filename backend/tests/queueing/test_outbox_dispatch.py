@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from typing import Any
 
 import pytest
 from sqlalchemy import create_engine
@@ -24,6 +25,11 @@ from app.queueing.queries import (
     get_outbox_message,
     list_pending_outbox_message_ids,
 )
+from app.queueing.sqs import SqsQueuePublisher
+
+IMPORTS_QUEUE_URL = "https://sqs.example.test/000/imports"
+EMBEDDINGS_QUEUE_URL = "https://sqs.example.test/000/embeddings"
+ACCOUNT_DELETION_QUEUE_URL = "https://sqs.example.test/000/account-deletion"
 
 
 def create_session_factory():
@@ -58,6 +64,44 @@ class StubQueuePublisher:
     def publish_account_deletion(self, user_id: str) -> None:
         self.user_ids.append(user_id)
         self._raise_if_configured()
+
+
+class FakeSqsClient:
+    def __init__(
+        self,
+        *,
+        response: dict[str, Any] | None = None,
+        error: Exception | None = None,
+    ) -> None:
+        self.response = response if response is not None else {"MessageId": "message-1"}
+        self.error = error
+        self.calls: list[dict[str, str]] = []
+
+    def send_message(
+        self,
+        *,
+        QueueUrl: str,
+        MessageBody: str,
+    ) -> dict[str, Any]:
+        self.calls.append(
+            {
+                "QueueUrl": QueueUrl,
+                "MessageBody": MessageBody,
+            }
+        )
+        if self.error is not None:
+            raise self.error
+        return self.response
+
+
+def create_sqs_publisher(client: FakeSqsClient) -> SqsQueuePublisher:
+    return SqsQueuePublisher(
+        aws_region="eu-west-1",
+        imports_queue_url=IMPORTS_QUEUE_URL,
+        embeddings_queue_url=EMBEDDINGS_QUEUE_URL,
+        account_deletion_queue_url=ACCOUNT_DELETION_QUEUE_URL,
+        client=client,
+    )
 
 
 def create_outbox_message(
@@ -231,6 +275,77 @@ def test_dispatch_outbox_message_records_safe_broker_failure_metadata(monkeypatc
         assert message.status is QueueOutboxStatus.PENDING
         assert message.attempt_count == 1
         assert message.last_attempt_at is not None
+        assert message.last_error_type == "RuntimeError"
+        assert message.published_at is None
+
+
+def test_dispatch_outbox_message_publishes_import_through_sqs(monkeypatch):
+    session_factory = create_session_factory()
+    client = FakeSqsClient()
+    configure_dispatch(monkeypatch, session_factory, create_sqs_publisher(client))
+    message_id = create_outbox_message(
+        session_factory,
+        QueueMessageType.IMPORT_JOB,
+        "job-1",
+    )
+
+    assert dispatch_outbox_message(message_id) is True
+    assert client.calls == [
+        {
+            "QueueUrl": IMPORTS_QUEUE_URL,
+            "MessageBody": '{"importJobId":"job-1"}',
+        }
+    ]
+
+    with session_factory() as session:
+        message = session.get(QueueOutboxMessage, message_id)
+        assert message is not None
+        assert message.status is QueueOutboxStatus.PUBLISHED
+        assert message.attempt_count == 1
+        assert message.last_error_type is None
+        assert message.published_at is not None
+
+
+def test_dispatch_outbox_message_records_safe_sqs_failure(monkeypatch):
+    session_factory = create_session_factory()
+    client = FakeSqsClient(error=RuntimeError("sqs unavailable"))
+    configure_dispatch(monkeypatch, session_factory, create_sqs_publisher(client))
+    message_id = create_outbox_message(
+        session_factory,
+        QueueMessageType.IMPORT_JOB,
+        "job-1",
+    )
+
+    assert dispatch_outbox_message(message_id) is False
+
+    with session_factory() as session:
+        message = session.get(QueueOutboxMessage, message_id)
+        assert message is not None
+        assert message.status is QueueOutboxStatus.PENDING
+        assert message.attempt_count == 1
+        assert message.last_error_type == "RuntimeError"
+        assert message.published_at is None
+        persisted_values = {column.key: getattr(message, column.key) for column in QueueOutboxMessage.__mapper__.column_attrs}
+        assert "sqs unavailable" not in repr(persisted_values)
+
+
+def test_dispatch_outbox_message_records_missing_sqs_message_id(monkeypatch):
+    session_factory = create_session_factory()
+    client = FakeSqsClient(response={})
+    configure_dispatch(monkeypatch, session_factory, create_sqs_publisher(client))
+    message_id = create_outbox_message(
+        session_factory,
+        QueueMessageType.IMPORT_JOB,
+        "job-1",
+    )
+
+    assert dispatch_outbox_message(message_id) is False
+
+    with session_factory() as session:
+        message = session.get(QueueOutboxMessage, message_id)
+        assert message is not None
+        assert message.status is QueueOutboxStatus.PENDING
+        assert message.attempt_count == 1
         assert message.last_error_type == "RuntimeError"
         assert message.published_at is None
 
