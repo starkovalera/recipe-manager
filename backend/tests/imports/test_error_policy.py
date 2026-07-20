@@ -1,3 +1,6 @@
+import ast
+from pathlib import Path
+
 import pytest
 
 from app.imports.error_codes import (
@@ -19,6 +22,11 @@ from app.imports.error_policy import (
     render_import_error_policy_table,
 )
 from app.models import ImportJobErrorCode
+
+APP_ROOT = Path(__file__).resolve().parents[2] / "app"
+ERROR_POLICY_PATH = APP_ROOT / "imports" / "error_policy.py"
+FAILURE_STAGE_PATH = APP_ROOT / "imports" / "job_stages" / "failure.py"
+IMPORT_LAMBDA_PATH = APP_ROOT / "lambdas" / "imports.py"
 
 EXPECTED_CODES = {
     "UNEXPECTED_ERROR",
@@ -53,6 +61,24 @@ def _declared_codes(constants_type: type) -> set[str]:
     return {value for name, value in vars(constants_type).items() if name.isupper() and isinstance(value, str)}
 
 
+def _assigned_name(node: ast.Assign | ast.AnnAssign) -> str | None:
+    targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+    if len(targets) == 1 and isinstance(targets[0], ast.Name):
+        return targets[0].id
+    return None
+
+
+def _referenced_policy_codes(node: ast.AST) -> set[str]:
+    codes: set[str] = set()
+    for child in ast.walk(node):
+        if isinstance(child, ast.Constant) and isinstance(child.value, str):
+            if child.value in IMPORT_ERROR_POLICIES:
+                codes.add(child.value)
+        elif isinstance(child, ast.Attribute) and child.attr in IMPORT_ERROR_POLICIES:
+            codes.add(child.attr)
+    return codes
+
+
 def test_registry_covers_every_declared_import_error_code() -> None:
     declared = (
         _declared_codes(ImportGeneralErrorCode) | _declared_codes(ImportProcessingErrorCode) | _declared_codes(ImportExtractionErrorCode)
@@ -69,6 +95,37 @@ def test_registry_defines_exact_automatic_retry_policy() -> None:
     assert automatic_retry_codes == AUTOMATIC_RETRY_CODES
     assert non_automatic_retry_codes == NON_AUTOMATIC_RETRY_CODES
     assert all(policy.manual_retry for policy in IMPORT_ERROR_POLICIES.values())
+
+
+def test_application_has_no_second_import_retry_code_collection() -> None:
+    violations: list[str] = []
+
+    for path in APP_ROOT.rglob("*.py"):
+        if path == ERROR_POLICY_PATH:
+            continue
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Assign | ast.AnnAssign):
+                continue
+            name = _assigned_name(node)
+            if name is None or not name.isupper() or "RETRY" not in name or "CODE" not in name:
+                continue
+            value = node.value
+            if value is not None and len(_referenced_policy_codes(value)) >= 2:
+                violations.append(f"{path.relative_to(APP_ROOT).as_posix()}: {name}")
+
+    assert violations == [], "Duplicate import retry code collections found outside error_policy.py:\n" + "\n".join(violations)
+
+
+def test_failure_stage_owns_automatic_retry_classification() -> None:
+    failure_tree = ast.parse(FAILURE_STAGE_PATH.read_text(encoding="utf-8"))
+    lambda_tree = ast.parse(IMPORT_LAMBDA_PATH.read_text(encoding="utf-8"))
+
+    failure_calls = {node.func.id for node in ast.walk(failure_tree) if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)}
+    lambda_names = {node.id for node in ast.walk(lambda_tree) if isinstance(node, ast.Name)}
+
+    assert "classify_import_error" in failure_calls
+    assert "classify_import_error" not in lambda_names
 
 
 def test_registry_defines_high_level_error_codes_and_stages() -> None:

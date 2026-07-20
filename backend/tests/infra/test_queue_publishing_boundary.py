@@ -1,8 +1,10 @@
+import ast
 from pathlib import Path
 
 from app.queueing.types import QueuePublisher
 
 APP_ROOT = Path(__file__).resolve().parents[2] / "app"
+IMPORT_LAMBDA_PATH = APP_ROOT / "lambdas" / "imports.py"
 
 TRANSPORT_SYMBOL_ALLOWED_MODULES = {
     "get_queue_publisher": {
@@ -96,3 +98,47 @@ def test_queue_publisher_protocol_keeps_supported_operations():
         "publish_recipe_embedding",
         "publish_account_deletion",
     } <= set(QueuePublisher.__dict__)
+
+
+def test_import_lambda_handler_keeps_infrastructure_boundary() -> None:
+    tree = ast.parse(IMPORT_LAMBDA_PATH.read_text(encoding="utf-8"), filename=str(IMPORT_LAMBDA_PATH))
+    imported_symbols: set[tuple[str, str]] = set()
+    imported_modules: set[str] = set()
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            imported_modules.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            module = node.module or ""
+            imported_modules.add(module)
+            imported_symbols.update((module, alias.name) for alias in node.names)
+
+    required_symbols = {
+        ("app.imports.jobs", "process_import_job"),
+        ("app.imports.outcomes", "ImportProcessingDisposition"),
+        ("app.queueing.messages", "ImportJobQueueMessage"),
+    }
+    assert required_symbols <= imported_symbols
+
+    prohibited_prefixes = (
+        "boto3",
+        "sqlalchemy",
+        "sqlmodel",
+        "app.db",
+        "app.models",
+        "app.imports.error_codes",
+        "app.imports.error_policy",
+        "app.imports.storage_cleanup",
+        "app.storage",
+    )
+    prohibited_modules = {
+        module for module in imported_modules if any(module == prefix or module.startswith(f"{prefix}.") for prefix in prohibited_prefixes)
+    }
+    prohibited_symbols = {
+        symbol
+        for _, symbol in imported_symbols
+        if symbol == "SqsQueuePublisher" or (symbol.endswith("Error") and symbol != "InvalidSqsRecordError")
+    }
+
+    assert prohibited_modules == set()
+    assert prohibited_symbols == set()
