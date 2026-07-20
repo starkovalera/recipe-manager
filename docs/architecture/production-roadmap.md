@@ -49,6 +49,12 @@ success, no-op, permanent-failure, or retryable-failure outcomes. A single
 documented error-policy registry controls automatic retry and the job state
 between attempts. Lambda packaging and AWS infrastructure remain deferred.
 
+Iteration 5 covers P6 only. The embeddings queue gains a partial-batch Lambda
+adapter around a duplicate-safe embedding claim. Embedding processing returns
+explicit success, no-op, requeued, busy, or retryable-failure outcomes. PREVIEW
+Dramatiq retries are aligned to three total executions. Packaging, AWS
+infrastructure, and stale-running maintenance remain deferred.
+
 ## Phase 2 — Terraform, IAM, and Secrets Foundation
 
 - Bootstrap remote Terraform state and GitHub OIDC.
