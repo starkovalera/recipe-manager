@@ -159,9 +159,9 @@ This checklist applies to every phase. Any phase that touches import, resources,
 - `RecipeEmbedding` is optional technical search-index state: `Recipe 1 -- 0..1 RecipeEmbedding`. `recipe_embeddings.recipe_id` is both primary key and foreign key to `recipes.id` with cascade delete. Application code creates or updates the row only when the embedding subsystem needs to record state.
 - `RecipeEmbedding.input_hash` is independent from `Recipe.search_text_hash`. Embedding input is built only from `title`, `ingredients.search_name`, `instructions`, `nutrition_estimate`, and `cook_time_minutes`. Nutrition data and cooking time use the same readable semantic formatting described for `Recipe.search_text`. Recipes with open review flags are marked `SKIPPED_DUE_TO_FLAGS` and are not enqueued for embedding until the last open flag is resolved. Embedding tasks do not create user-facing notifications.
 - `RecipeEmbeddingEvent` is append-only internal audit/debug history for `RecipeEmbedding`. It is not user-facing notification data and current embedding status is never computed from events. `RecipeEmbeddingEvent.recipe_id` points to `recipe_embeddings.recipe_id` and cascades through `RecipeEmbedding`.
-- Embedding state transitions and their corresponding lifecycle events are persisted atomically in the same database scope. The external embedding provider is called without an open database session.
+- Embedding claims lock the active `Recipe` row in a short transaction. Missing, flagged, and current-ready work returns `NOOP`; an existing `RUNNING` claim returns `BUSY` without another provider call. Claimable work atomically becomes `RUNNING` with `STARTED`, and the external embedding provider is called only after that transaction commits and without an open database session.
 - Embedding scheduling atomically persists `STALE`, its lifecycle event, and a pending `RECIPE_EMBEDDING` outbox message. `ENQUEUED` is written only when outbox dispatch succeeds. Immediate dispatch failure does not fail the completed user operation or remove the durable scheduling intent.
-- Embedding provider failure persists `FAILED`, increments `failed_attempts`, writes the corresponding failure event, and is re-raised for Dramatiq retry.
+- Embedding processing returns explicit `SUCCEEDED`, `NOOP`, `REQUEUED`, `BUSY`, or `RETRYABLE_FAILURE` outcomes. Provider failure persists `FAILED`, increments `failed_attempts`, writes the corresponding failure event, and returns `RETRYABLE_FAILURE`; `failed_attempts` counts failed provider calls, not queue deliveries. Lambda reports `BUSY` and `RETRYABLE_FAILURE` as partial batch failures, while PREVIEW Dramatiq retries those outcomes twice after the initial execution.
 - Recipe and collection list endpoints are owner-scoped and paginated. Public list responses include `items`, `total`, `limit`, and `offset`. Lower-level query functions may return full owner-scoped lists when `limit` and `offset` are omitted.
 - Selected search chips are hard filters. Free text is reserved for vector search. `ingredient_name` has been replaced with `ingredient_query` in autocomplete, API parameters, and frontend types. Autocomplete always returns an `ingredient_query` suggestion first for a non-empty `q`, for example `Ingredient - cottage`. Concrete ingredient suggestions are no longer returned, to avoid encouraging overly exact ingredient choices. `/recipes` accepts repeatable `ingredientQuery=<text>` query parameters. Each `ingredientQuery` value filters recipes through `contains` matching against `Ingredient.search_name`, and multiple `ingredientQuery` values are combined with AND semantics.
 - `POST /search` uses selected chips as hard filters and free text as semantic/vector search. With free text present, the backend computes the query embedding using the current embedding provider/model, considers only current-owner recipes with `RecipeEmbedding.status = READY`, non-null embeddings, and `RecipeEmbedding.model == current query embedding model`, applies chip filters before vector ranking, and sorts by configured vector distance ascending with `Recipe.id` as a stable tie-breaker. The default and preferred metric is pgvector cosine distance (`<=>`); `EMBEDDING_DISTANCE_METRIC` defaults to `cosine` and currently supports `cosine` and `l2`. Debug similarity for cosine is `1 - distance`.
@@ -1829,8 +1829,8 @@ Embedding provider/model selection remains unchanged.
 Open review flags produce SKIPPED_DUE_TO_FLAGS and prevent enqueue.
 Ready embedding with the same input hash and model is not recalculated.
 Recipe changes during provider execution discard the stale vector and requeue.
-Provider failure records failed state, increments failed_attempts, and is re-raised for Dramatiq retry.
-Dramatiq max_retries remains 3.
+Provider failure records failed state, increments failed_attempts, and returns a retryable processing result.
+Dramatiq retries `BUSY` and `RETRYABLE_FAILURE` twice after the initial execution.
 Embedding tasks do not create user-facing notifications.
 Public and internal API paths remain unchanged.
 Embedding status and event names and values are identical uppercase strings in Python, PostgreSQL, API responses, and frontend contracts.
@@ -1916,7 +1916,7 @@ def start_recipe_embedding(
     *,
     provider_name: str,
     model: str,
-) -> EmbeddingProcessingContext | None: ...
+) -> EmbeddingStartResult: ...
 
 def complete_recipe_embedding(
     session: Session,
@@ -1942,7 +1942,7 @@ def build_embedding_event(
     **payload: Any,
 ) -> RecipeEmbeddingEvent: ...
 
-def process_recipe_embedding(recipe_id: str) -> None: ...
+def process_recipe_embedding(recipe_id: str) -> EmbeddingProcessingResult: ...
 ```
 
 The boolean returned by `complete_recipe_embedding` means that the recipe changed during provider execution and a new task must be published after the completion transaction commits.
@@ -1993,36 +1993,10 @@ Add an Alembic migration that converts existing lowercase status and event value
 
 #### Worker Transaction Flow
 
-```python
-def process_recipe_embedding(recipe_id: str) -> None:
-    provider_name, provider = get_embedding_provider()
-
-    with db_session() as session:
-        context = start_recipe_embedding(
-            session,
-            recipe_id,
-            provider_name=provider_name,
-            model=provider.model,
-        )
-
-    if context is None:
-        return
-
-    try:
-        vector = provider.embed(context.embedding_input.text)
-    except Exception as error:
-        with db_session() as session:
-            fail_recipe_embedding(session, context, error)
-        raise
-
-    with db_session() as session:
-        outbox_message_id = complete_recipe_embedding(session, context, vector, duration_ms=duration_ms)
-
-    if outbox_message_id is not None:
-        dispatch_outbox_message(outbox_message_id)
-```
-
-The real implementation must calculate `duration_ms` around the provider call. The provider call must execute without an open SQLAlchemy session or transaction.
+The current P6 worker transaction flow is documented in
+[`embedding-processing.md`](./embedding-processing.md). The service returns an
+explicit processing result, claims the active recipe row in a short transaction,
+and executes the provider without an open SQLAlchemy session or transaction.
 
 #### Subphase 10c.1: Typed Lifecycle and Migration
 
