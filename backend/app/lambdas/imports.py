@@ -5,6 +5,7 @@ from typing import Any, TypedDict
 from app.core.logging import bind_logger
 from app.imports.jobs import process_import_job
 from app.imports.outcomes import ImportProcessingDisposition
+from app.lambdas.sqs import InvalidSqsRecordError, get_sqs_records, parse_sqs_message, require_sqs_message_id
 from app.queueing.messages import ImportJobQueueMessage
 
 logger = bind_logger(logging.getLogger(__name__), component="recipes.lambda.import")
@@ -18,22 +19,8 @@ class PartialBatchResponse(TypedDict):
     batchItemFailures: list[BatchItemFailure]
 
 
-class InvalidSqsRecordError(ValueError):
-    pass
-
-
-def _require_message_id(record: Mapping[str, Any]) -> str:
-    value = record.get("messageId")
-    if not isinstance(value, str) or not value.strip():
-        raise InvalidSqsRecordError("SQS record requires a non-empty messageId.")
-    return value.strip()
-
-
 def _parse_message(record: Mapping[str, Any]) -> ImportJobQueueMessage:
-    body = record.get("body")
-    if not isinstance(body, str):
-        raise ValueError("SQS record body must be a JSON string.")
-    return ImportJobQueueMessage.model_validate_json(body)
+    return parse_sqs_message(record, ImportJobQueueMessage)
 
 
 def _process_record(
@@ -41,7 +28,7 @@ def _process_record(
     *,
     aws_request_id: str | None,
 ) -> tuple[str, bool]:
-    message_id = _require_message_id(record)
+    message_id = require_sqs_message_id(record)
     import_job_id: str | None = None
 
     try:
@@ -73,18 +60,12 @@ def handler(
     event: dict[str, Any],
     context: object,
 ) -> PartialBatchResponse:
-    records = event.get("Records", [])
-    if records is None:
-        records = []
-    if not isinstance(records, list):
-        raise InvalidSqsRecordError("Records must be a list.")
+    records = get_sqs_records(event)
 
     aws_request_id = getattr(context, "aws_request_id", None)
     failures: list[BatchItemFailure] = []
 
     for record in records:
-        if not isinstance(record, Mapping):
-            raise InvalidSqsRecordError("Each SQS record must be an object.")
         message_id, succeeded = _process_record(
             record,
             aws_request_id=aws_request_id,
