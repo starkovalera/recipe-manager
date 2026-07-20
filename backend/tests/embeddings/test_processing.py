@@ -8,6 +8,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.db.base import Base
 from app.embeddings.input import build_recipe_embedding_input
+from app.embeddings.outcomes import EmbeddingProcessingDisposition, EmbeddingProcessingResult
 from app.embeddings.processing import process_recipe_embedding, start_recipe_embedding
 from app.local.users import ensure_default_user
 from app.models import (
@@ -100,6 +101,23 @@ def tracked_db_session(session_factory, active_session_count: dict[str, int]):
             session.close()
 
     return manager
+
+
+def test_embedding_processing_outcomes_are_explicit_and_frozen() -> None:
+    assert [disposition.value for disposition in EmbeddingProcessingDisposition] == [
+        "SUCCEEDED",
+        "NOOP",
+        "REQUEUED",
+        "BUSY",
+        "RETRYABLE_FAILURE",
+    ]
+    result = EmbeddingProcessingResult(
+        recipe_id="recipe-1",
+        disposition=EmbeddingProcessingDisposition.SUCCEEDED,
+    )
+    assert result.failed_attempts is None
+    with pytest.raises(FrozenInstanceError):
+        result.recipe_id = "recipe-2"
 
 
 def test_start_embedding_returns_frozen_running_context():
