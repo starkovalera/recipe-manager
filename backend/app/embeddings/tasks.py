@@ -19,6 +19,4 @@ class RetryableEmbeddingTaskError(RuntimeError):
 def embed_recipe_task(recipe_id: str) -> None:
     result = process_recipe_embedding(recipe_id)
     if result.disposition in RETRYABLE_DISPOSITIONS:
-        raise RetryableEmbeddingTaskError(
-            f"Embedding processing returned retryable disposition {result.disposition.value}."
-        )
+        raise RetryableEmbeddingTaskError(f"Embedding processing returned retryable disposition {result.disposition.value}.")

@@ -1,5 +1,6 @@
 from app import worker
 from app.embeddings import tasks as embedding_tasks
+from app.embeddings.outcomes import EmbeddingProcessingDisposition, EmbeddingProcessingResult
 from app.users import tasks as user_tasks
 
 
@@ -11,7 +12,15 @@ def test_worker_entrypoint_discovers_import_tasks():
 
 def test_embedding_actor_calls_processing_orchestrator(monkeypatch):
     processed: list[str] = []
-    monkeypatch.setattr(embedding_tasks, "process_recipe_embedding", processed.append)
+
+    def process(recipe_id: str) -> EmbeddingProcessingResult:
+        processed.append(recipe_id)
+        return EmbeddingProcessingResult(
+            recipe_id=recipe_id,
+            disposition=EmbeddingProcessingDisposition.SUCCEEDED,
+        )
+
+    monkeypatch.setattr(embedding_tasks, "process_recipe_embedding", process)
 
     embedding_tasks.embed_recipe_task.fn("recipe-1")
 

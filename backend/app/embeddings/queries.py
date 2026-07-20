@@ -1,6 +1,6 @@
 from sqlalchemy import exists, select
-from sqlalchemy.sql import Select
 from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.sql import Select
 
 from app.models import Recipe, RecipeEmbedding, RecipeEmbeddingStatus, RecipeReviewFlag, RecipeReviewFlagStatus, RecipeStatus
 

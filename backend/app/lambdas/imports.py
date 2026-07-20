@@ -17,6 +17,8 @@ from app.queueing.messages import ImportJobQueueMessage
 
 logger = bind_logger(logging.getLogger(__name__), component="recipes.lambda.import")
 
+__all__ = ["InvalidSqsRecordError", "handler"]
+
 
 def _parse_message(record: Mapping[str, Any]) -> ImportJobQueueMessage:
     return ImportJobQueueMessage.model_validate_json(require_body(record))

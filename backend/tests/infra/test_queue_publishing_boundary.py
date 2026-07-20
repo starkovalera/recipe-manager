@@ -179,9 +179,7 @@ def test_embedding_lambda_handler_keeps_infrastructure_boundary() -> None:
         "app.queueing.sqs",
     )
     prohibited_modules = {
-        module
-        for module in imported_modules
-        if any(module == prefix or module.startswith(f"{prefix}.") for prefix in prohibited_prefixes)
+        module for module in imported_modules if any(module == prefix or module.startswith(f"{prefix}.") for prefix in prohibited_prefixes)
     }
 
     assert prohibited_modules == set()

@@ -64,9 +64,7 @@ def test_handler_returns_retryable_dispositions_as_partial_failures(
         lambda _recipe_id: processing_result(disposition),
     )
 
-    assert embedding_lambda.handler({"Records": [sqs_record()]}, None) == {
-        "batchItemFailures": [{"itemIdentifier": "sqs-message-1"}]
-    }
+    assert embedding_lambda.handler({"Records": [sqs_record()]}, None) == {"batchItemFailures": [{"itemIdentifier": "sqs-message-1"}]}
 
 
 def test_handler_processes_every_record_and_preserves_failure_order(monkeypatch) -> None:
@@ -114,9 +112,7 @@ def test_handler_processes_every_record_and_preserves_failure_order(monkeypatch)
     ],
 )
 def test_handler_returns_addressable_validation_errors_as_partial_failures(record: dict[str, object]) -> None:
-    assert embedding_lambda.handler({"Records": [record]}, None) == {
-        "batchItemFailures": [{"itemIdentifier": "sqs-message-1"}]
-    }
+    assert embedding_lambda.handler({"Records": [record]}, None) == {"batchItemFailures": [{"itemIdentifier": "sqs-message-1"}]}
 
 
 @pytest.mark.parametrize(
@@ -146,9 +142,7 @@ def test_handler_returns_unexpected_processing_exception_as_partial_failure(monk
 
     monkeypatch.setattr(embedding_lambda, "process_recipe_embedding", raise_unexpected)
 
-    assert embedding_lambda.handler({"Records": [sqs_record()]}, None) == {
-        "batchItemFailures": [{"itemIdentifier": "sqs-message-1"}]
-    }
+    assert embedding_lambda.handler({"Records": [sqs_record()]}, None) == {"batchItemFailures": [{"itemIdentifier": "sqs-message-1"}]}
 
 
 def test_handler_logs_only_safe_record_metadata(monkeypatch, capsys) -> None:
