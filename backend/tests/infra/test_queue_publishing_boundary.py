@@ -5,6 +5,7 @@ from app.queueing.types import QueuePublisher
 
 APP_ROOT = Path(__file__).resolve().parents[2] / "app"
 IMPORT_LAMBDA_PATH = APP_ROOT / "lambdas" / "imports.py"
+EMBEDDING_LAMBDA_PATH = APP_ROOT / "lambdas" / "embeddings.py"
 
 TRANSPORT_SYMBOL_ALLOWED_MODULES = {
     "get_queue_publisher": {
@@ -142,3 +143,45 @@ def test_import_lambda_handler_keeps_infrastructure_boundary() -> None:
 
     assert prohibited_modules == set()
     assert prohibited_symbols == set()
+
+
+def test_embedding_lambda_handler_keeps_infrastructure_boundary() -> None:
+    tree = ast.parse(EMBEDDING_LAMBDA_PATH.read_text(encoding="utf-8"), filename=str(EMBEDDING_LAMBDA_PATH))
+    imported_symbols: set[tuple[str, str]] = set()
+    imported_modules: set[str] = set()
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            imported_modules.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            module = node.module or ""
+            imported_modules.add(module)
+            imported_symbols.update((module, alias.name) for alias in node.names)
+
+    required_symbols = {
+        ("app.embeddings.outcomes", "EmbeddingProcessingDisposition"),
+        ("app.embeddings.processing", "process_recipe_embedding"),
+        ("app.queueing.messages", "RecipeEmbeddingQueueMessage"),
+    }
+    assert required_symbols <= imported_symbols
+
+    prohibited_prefixes = (
+        "boto3",
+        "sqlalchemy",
+        "sqlmodel",
+        "app.db",
+        "app.models",
+        "app.embeddings.factory",
+        "app.embeddings.provider",
+        "app.embeddings.runtime",
+        "app.queueing.outbox",
+        "app.queueing.provider",
+        "app.queueing.sqs",
+    )
+    prohibited_modules = {
+        module
+        for module in imported_modules
+        if any(module == prefix or module.startswith(f"{prefix}.") for prefix in prohibited_prefixes)
+    }
+
+    assert prohibited_modules == set()
