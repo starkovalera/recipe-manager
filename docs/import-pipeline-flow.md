@@ -30,13 +30,20 @@ stateDiagram-v2
   Running: EXTRACTOR_SUCCEEDED event
 
   Running --> Running: secondary failures are non-fatal\nIMPORT_SECONDARY_RESOURCE_UPLOAD_FAILED
-  Running --> Failed: fatal loading, extraction,\nor unexpected failure
+  Running --> AutomaticRetry: retryable failure\nand attempts remain
+  Running --> Failed: non-retryable failure\nor attempts exhausted
   Running --> Succeeded: recipe saved without open flag
   Running --> SucceededWithFlags: recipe saved with open flag
 
+  AutomaticRetry: IMPORT_FAILED event terminal=false
+  AutomaticRetry: current-attempt files cleaned
+  AutomaticRetry: no final notification
+  AutomaticRetry --> Queued: return job to QUEUED\nSQS retries same record
+
   Failed: status FAILED
-  Failed: IMPORT_FAILED event and notification
-  Failed: attempt files cleaned
+  Failed: IMPORT_FAILED event terminal=true
+  Failed: final failure notification
+  Failed: terminal cleanup
   Failed --> Queued: owner/admin requests retry\nand attempts remain
   Failed --> [*]: attempts exhausted or no retry
 
@@ -71,12 +78,28 @@ flowchart LR
   event, or notification is retained, and files saved by the failed creation are
   cleaned up.
 - A processing attempt always cleans its secondary files after failure.
-- Primary uploads survive intermediate failed attempts so manual retry can reuse
-  them. They are cleaned after the final allowed attempt.
+- Primary uploads survive intermediate automatic failures so the next delivery
+  can reuse them. They are cleaned after a terminal failure when cleanup is
+  enabled.
 - Failure persistence uses an independent database scope so the failed status,
   event, and notification survive rollback of recipe persistence.
 - Failed events contain nested `error.import_job_code`, `error.code`, and
-  `error.message`, plus structured diagnostics when available.
+  `error.message`, plus structured diagnostics when available. Intermediate
+  automatic failures use `terminal=false` and do not create final failure
+  notifications; terminal failures use `terminal=true` and do.
+
+## Retry Rules
+
+- `attempt_count` increments only when a worker atomically claims
+  `QUEUED -> RUNNING`; transport receives do not increment it.
+- Automatic retry is controlled by the import error-policy registry. A
+  retryable failure with attempts remaining returns the job to `QUEUED`, and the
+  Import Lambda reports the same SQS record as a partial batch failure.
+- Manual retry remains a separate owner/admin API operation for terminal
+  `FAILED` jobs while attempts remain. It creates a new durable outbox message
+  and retains its existing user-visible retry-start notification.
+- The authoritative classification and exact state transitions are documented
+  in [`import-error-handling.md`](import-error-handling.md).
 
 ## Current Access Boundary
 

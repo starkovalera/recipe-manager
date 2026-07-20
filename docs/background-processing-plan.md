@@ -179,14 +179,14 @@ This checklist applies to every phase. Any phase that touches import, resources,
 - URL loaders and video processors report each secondary resource as `LOADED`, `FAILED`, or `SKIPPED`; only `build_raw_sources` decides whether the aggregated result is fatal. `SKIPPED` represents an expected absence and does not create a failure event.
 - A sole primary URL fails with `IMPORT_PROCESSING_FAILED` and detail `SECONDARY_RESOURCE_UPLOADING_FAILED` when it yields no useful secondary resources or only one or more video posters. Otherwise processing continues and failed secondary resources are recorded in `IMPORT_SECONDARY_RESOURCE_UPLOAD_FAILED` with structured diagnostics.
 - Until audio-stream detection is implemented, both a silent video and a transcription-provider failure are represented as a failed `VIDEO_TRANSCRIPT` secondary resource while other usable content continues through the pipeline.
-- Extraction-stage failures fail the job with `IMPORT_EXTRACTION_FAILED`, store extraction detail code in `error_message`, create failed event/notification, and clean up storage created for the import.
+- Extraction-stage failures use the central import error-policy registry and create an `IMPORT_FAILED` event containing `IMPORT_EXTRACTION_FAILED` plus the stable detail code. Retryable failures with attempts remaining clean up current-attempt storage, clear persisted job error fields, return to `QUEUED`, and create no final notification. Non-retryable or exhausted failures retain the codes on the `FAILED` job and create the final notification.
 - Extraction detail codes are `RESULT_PARSE_FAILED`, `INVALID_EXTRACTION_RESULT`, `NOT_A_RECIPE`, `EXTRACTOR_UNAVAILABLE`, and `RECIPE_TOO_LONG`.
 - `MIXED_SOURCE_PLATFORMS` is diagnostic log text only; it is not an API error code and not an import-job error code.
-- Import retry is manual and owner-scoped. It is allowed only for `FAILED` jobs while persisted `attempt_count` is below the current runtime `MAX_IMPORT_ATTEMPTS`; the configured maximum is not snapshotted into the job.
+- Automatic import retry is policy-controlled and reuses the same SQS record: a retryable failure with attempts remaining returns the job to `QUEUED`, while non-retryable or exhausted failures remain `FAILED`. Manual retry is a separate owner-scoped operation allowed for `FAILED` jobs while persisted `attempt_count` is below the current runtime `MAX_IMPORT_ATTEMPTS`; the configured maximum is not snapshotted into the job. See `docs/import-error-handling.md` for the authoritative policy and state table.
 - `ImportJob.attempt_count` counts worker attempts that actually started. It increments only when the worker atomically claims `QUEUED -> RUNNING`; that transition clears previous failure/result fields and refreshes attempt timestamps.
-- Every failed attempt cleans files created during that processing attempt. Original primary uploads remain available after intermediate failures and are cleaned only when the current attempt exhausts the current configured maximum.
+- Every failed attempt cleans files created during that processing attempt. Original primary uploads remain available after intermediate automatic failures and are cleaned on terminal failure when cleanup is enabled.
 - An accepted retry atomically persists `FAILED -> QUEUED`, its retry-start notification, and a pending `IMPORT_JOB` outbox message. Immediate dispatch failure does not restore the previous state or remove the notification; reconciliation retries the durable intent.
-- `IMPORT_STARTED` and `IMPORT_FAILED` events include the current `attempt_count` and effective `max_attempts` for audit/debugging.
+- `IMPORT_STARTED` and `IMPORT_FAILED` events include the current `attempt_count` and effective `max_attempts` for audit/debugging. Intermediate automatic failures write `IMPORT_FAILED` with `terminal=false` and no final notification; terminal failures write it with `terminal=true` and create the final notification.
 - Logging and other diagnostic output are best-effort side effects. Logging failures must not roll back domain state, failure events, notifications, or storage-cleanup decisions, and must not change a background job outcome.
 - A successfully accepted import ends the import form's responsibility for that job: the form clears and remains open without polling the job or redirecting to a completed recipe. Completion and failure remain visible through notifications.
 - Public import-job detail exposes only user-safe status, error, timestamps, attempt/retry information, and primary resources. Technical lifecycle events and their payloads remain on the admin-only Import Jobs surface.
@@ -2438,6 +2438,10 @@ Goal: persist an `ImportJob` only when its complete primary-source creation scop
 
 Status: completed and approved.
 
+This subsection records the manual-retry baseline. P5 extends it with automatic
+SQS retry as described below and in `docs/import-error-handling.md`; the manual
+API remains a separate flow.
+
 Goal: allow the owner to manually restart a failed background import without recreating its successfully persisted primary inputs.
 
 #### Agreed Configuration and Attempt Semantics
@@ -2446,12 +2450,12 @@ Goal: allow the owner to manually restart a failed background import without rec
 - `IMPORT_TASK_MAX_RETRIES` configures Dramatiq actor retries independently and defaults to `0`.
 - `MAX_IMPORT_ATTEMPTS` is runtime policy, not persisted job data. Every existing job uses the current value from `Settings`, regardless of the value in effect when the job was created or when previous attempts ran.
 - Add the effective limit to `ImportConfig` and pass it through import processing where attempt/event decisions require it.
-- Import retry is user-requested only; the application does not automatically retry failed imports.
+- Manual retry remains user-requested. P5 additionally adds policy-controlled automatic SQS retry for retryable processing failures while attempts remain.
 - Add non-null `ImportJob.attempt_count` with default `0`.
 - Atomically increment `attempt_count` when a worker successfully claims `QUEUED -> RUNNING`.
 - The initial worker execution becomes attempt `1`; retries become attempts `2` and `3`.
 - Retry is allowed only when the job is `FAILED` and `attempt_count < MAX_IMPORT_ATTEMPTS`.
-- For the first version, every `FAILED` import is retryable regardless of its detailed processing/extraction error. Possible non-retryable detail codes are deferred to `future-work.md`.
+- Every current terminal `FAILED` import remains manually retryable while attempts remain. Automatic retry eligibility is independently defined by the central import error-policy registry.
 
 #### Retry State Transition
 

@@ -492,9 +492,13 @@ Required order:
 2. commit;
 3. publish to SQS;
 4. record `ENQUEUED` only after successful publishing;
-5. on failure, record an enqueue-failure state/event.
+5. on transport failure, leave the outbox row pending for reconciliation.
 
-Never leave a job looking successfully queued when publishing failed.
+The durable PostgreSQL transaction preserves scheduling intent independently of
+transport availability. A job may therefore be `QUEUED` while its outbox row is
+still `PENDING`; this is an accepted recoverable state, not evidence that SQS
+accepted the message. Successful publication changes the outbox row to
+`PUBLISHED`, while reconciliation retries pending rows.
 
 ---
 
@@ -580,7 +584,8 @@ VIDEO_DURATION_UNAVAILABLE
 
 ## 12. Import Lambda
 
-The import Lambda receives `importJobId` and calls:
+The import Lambda receives the strict ID-only `ImportJobQueueMessage` containing
+`importJobId` and calls:
 
 ```text
 process_import_job(import_job_id)
@@ -590,12 +595,23 @@ Requirements:
 
 - idempotent processing;
 - safe duplicate-message handling;
+- partial batch failure responses keyed by the incoming SQS `messageId`;
+- explicit `SUCCEEDED`, `NOOP`, `PERMANENT_FAILURE`, and `RETRYABLE_FAILURE`
+  processing dispositions;
+- retryable failures with attempts remaining return the job to `QUEUED` and
+  report only that SQS record as failed so it can be redelivered;
+- non-retryable and exhausted failures remain terminal and are acknowledged;
 - stable statuses and events;
 - permanent validation failures are not retried;
 - temporary provider/network failures may be retried through SQS;
 - final user notification;
 - structured logs;
 - explicit concurrency limit from Section 9.
+
+The domain-owned policy registry, attempt semantics, event/notification rules,
+cleanup behavior, and Lambda mapping are documented in
+[`../import-error-handling.md`](../import-error-handling.md). The Lambda adapter
+must consume the domain disposition rather than duplicate that policy.
 
 ---
 
