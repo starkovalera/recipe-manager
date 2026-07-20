@@ -1,16 +1,20 @@
 from collections.abc import Mapping
-from typing import Any, TypeVar
+from typing import Any, TypedDict
 
-from pydantic import BaseModel
 
-SqsMessage = TypeVar("SqsMessage", bound=BaseModel)
+class BatchItemFailure(TypedDict):
+    itemIdentifier: str
+
+
+class PartialBatchResponse(TypedDict):
+    batchItemFailures: list[BatchItemFailure]
 
 
 class InvalidSqsRecordError(ValueError):
     pass
 
 
-def get_sqs_records(event: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+def require_records(event: Mapping[str, Any]) -> list[Mapping[str, Any]]:
     records = event.get("Records", [])
     if records is None:
         return []
@@ -21,15 +25,20 @@ def get_sqs_records(event: Mapping[str, Any]) -> list[Mapping[str, Any]]:
     return records
 
 
-def require_sqs_message_id(record: Mapping[str, Any]) -> str:
+def require_message_id(record: Mapping[str, Any]) -> str:
     value = record.get("messageId")
     if not isinstance(value, str) or not value.strip():
         raise InvalidSqsRecordError("SQS record requires a non-empty messageId.")
     return value.strip()
 
 
-def parse_sqs_message(record: Mapping[str, Any], message_type: type[SqsMessage]) -> SqsMessage:
+def require_body(record: Mapping[str, Any]) -> str:
     body = record.get("body")
     if not isinstance(body, str):
         raise ValueError("SQS record body must be a JSON string.")
-    return message_type.model_validate_json(body)
+    return body
+
+
+def get_aws_request_id(context: object) -> str | None:
+    value = getattr(context, "aws_request_id", None)
+    return value if isinstance(value, str) else None
