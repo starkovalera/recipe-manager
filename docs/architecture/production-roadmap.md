@@ -43,6 +43,12 @@ SQS adapter with strict ID-only contracts for the imports, embeddings, and
 account-deletion queues. AWS resources, IAM, DLQs, and consumers remain
 deferred to later phases.
 
+Iteration 4 covers P5 only. The imports queue gains a partial-batch Lambda
+adapter around the existing import service. Import processing returns explicit
+success, no-op, permanent-failure, or retryable-failure outcomes. A single
+documented error-policy registry controls automatic retry and the job state
+between attempts. Lambda packaging and AWS infrastructure remain deferred.
+
 ## Phase 2 — Terraform, IAM, and Secrets Foundation
 
 - Bootstrap remote Terraform state and GitHub OIDC.

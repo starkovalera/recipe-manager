@@ -144,6 +144,30 @@ def test_import_job_starts_next_attempt_and_clears_previous_result_fields():
     assert job.started_at is not None
 
 
+def test_import_job_returns_to_queued_for_automatic_retry() -> None:
+    job = ImportJob(
+        owner_id="owner-1",
+        client_id="client-1",
+        status=ImportJobStatus.RUNNING,
+        attempt_count=1,
+        error_code=ImportJobErrorCode.IMPORT_FAILED,
+        error_message="UNEXPECTED_ERROR",
+        created_recipe_id="recipe-1",
+        started_at=datetime.now(timezone.utc),
+        finished_at=datetime.now(timezone.utc),
+    )
+
+    job.set_queued_for_retry()
+
+    assert job.status is ImportJobStatus.QUEUED
+    assert job.attempt_count == 1
+    assert job.started_at is None
+    assert job.finished_at is None
+    assert job.error_code is None
+    assert job.error_message is None
+    assert job.created_recipe_id is None
+
+
 def test_ensure_default_user_creates_settings_and_default_tags_idempotently():
     session = create_session()
 

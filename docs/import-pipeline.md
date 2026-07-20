@@ -40,7 +40,7 @@ flowchart TD
   requested --> extractor["RecipeExtractionProvider.extract"]
   extractor --> succeeded["Write EXTRACTOR_SUCCEEDED"]
   succeeded --> validate{"Validate and normalize result"}
-  validate -->|"invalid, not recipe,<br/>too long, or confidence too low"| failure["Persist FAILED job<br/>IMPORT_FAILED event<br/>failure notification"]
+  validate -->|"invalid, not recipe,<br/>too long, or confidence too low"| failure["Classify failure through<br/>IMPORT_ERROR_POLICIES"]
   validate -->|"valid"| save["Single success transaction<br/>recipe fields and ingredients<br/>resources and statuses<br/>cover and flags<br/>search text and embedding plan"]
 
   save --> flag{"Open review flag?"}
@@ -50,8 +50,15 @@ flowchart TD
   success --> completed
   completed --> notification["Notification polling<br/>open recipe detail"]
 
-  failure --> cleanup["Always delete files created in this attempt<br/>delete primary uploads only after final attempt"]
-  cleanup --> failedNotification["Notification polling<br/>open public import-job detail"]
+  failure --> automaticRetry{"Automatic retry allowed<br/>and attempts remain?"}
+  automaticRetry -->|"yes"| retryableEvent["Write IMPORT_FAILED<br/>terminal=false"]
+  retryableEvent --> retryCleanup["Delete files created in this attempt<br/>retain primary uploads"]
+  retryCleanup --> automaticQueued["Return job to QUEUED<br/>no final notification"]
+  automaticQueued --> sqsRetry["Import Lambda returns partial failure<br/>SQS retries the same record"]
+  sqsRetry --> claim
+  automaticRetry -->|"no"| terminalFailure["Persist FAILED job<br/>IMPORT_FAILED terminal=true<br/>failure notification"]
+  terminalFailure --> terminalCleanup["Delete files created in this attempt<br/>delete primary uploads when enabled"]
+  terminalCleanup --> failedNotification["Notification polling<br/>open public import-job detail"]
   failedNotification --> retry{"Retry allowed?<br/>FAILED and attempts below current limit"}
   retry -->|"yes"| retryRequest["POST /imports/{jobId}/retry<br/>atomically set QUEUED, notify,<br/>and persist outbox message<br/>then dispatch after commit"]
   retryRequest --> claim
@@ -61,9 +68,9 @@ flowchart TD
   classDef db fill:#e7f5ff,stroke:#1d4ed8,color:#111;
   classDef extractor fill:#fff0b3,stroke:#b7791f,color:#111,stroke-width:2px;
 
-  class apiError,failure fail;
-  class preflight,dedupe,claim,url,fatal,partial,validate,flag,retry decision;
-  class create,started,partialEvent,rawEvent,requested,succeeded,save,flagged,success,completed db;
+  class apiError,failure,terminalFailure fail;
+  class preflight,dedupe,claim,url,fatal,partial,validate,flag,automaticRetry,retry decision;
+  class create,started,partialEvent,rawEvent,requested,succeeded,save,flagged,success,completed,retryableEvent,automaticQueued db;
   class extractor extractor;
 ```
 
@@ -112,11 +119,22 @@ flowchart TD
 - `attempt_count` increments only when a worker successfully claims a queued job.
   The maximum number of attempts comes from current runtime settings and is not
   stored on the job.
+- Automatic retry is controlled by the import error-policy registry. A
+  retryable failure with attempts remaining writes a non-terminal
+  `IMPORT_FAILED` event, cleans current-attempt files, preserves primary
+  uploads, returns the job to `QUEUED`, and creates no final failure
+  notification. The Import Lambda reports that SQS record as a partial batch
+  failure so the same message is delivered again.
+- A non-retryable failure, or a retryable failure after the final allowed
+  attempt, leaves the job `FAILED`, writes a terminal `IMPORT_FAILED` event,
+  performs terminal cleanup, and creates the final failure notification. The
+  complete classification table is maintained in
+  [`import-error-handling.md`](import-error-handling.md).
 - Manual retry is owner-scoped and allowed only for `FAILED` jobs below the
-  current attempt limit. Concurrent retry is protected by the backend. The
-  accepted retry state, notification, and pending outbox message commit
-  atomically; immediate dispatch failure leaves that durable state available
-  for reconciliation.
+  current attempt limit, independently of automatic retry classification.
+  Concurrent retry is protected by the backend. The accepted retry state,
+  notification, and pending outbox message commit atomically; immediate
+  dispatch failure leaves that durable state available for reconciliation.
 - `IMPORT_STARTED` and `IMPORT_FAILED` events include current and maximum attempt
   counts. Events are currently not directly associated with an attempt row or
   attempt id.
