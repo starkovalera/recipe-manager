@@ -20,6 +20,7 @@ from app.imports.queries import count_import_jobs_by_statuses
 from app.models import ImportJob, ImportJobSource, Recipe, RecipeImage, User, UserStatus
 from app.queueing.constants import QueueMessageType
 from app.queueing.outbox import dispatch_outbox_message, schedule_outbox_message
+from app.storage.base import StorageService
 from app.storage.local import LocalStorageService
 from app.users.constants import AccountDeletionProcessingDisposition
 from app.users.queries import get_user_by_auth_identity_for_update, list_user_ids_by_status
@@ -103,11 +104,29 @@ def _load_account_deletion_context(session: Session, user_id: str) -> AccountDel
     )
 
 
-def process_account_deletion(user_id: str) -> None:
-    with db_session() as session:
-        context = _load_account_deletion_context(session, user_id)
+def process_account_deletion(
+    user_id: str,
+    *,
+    storage: StorageService | None = None,
+) -> AccountDeletionProcessingResult | None:
+    try:
+        with db_session() as session:
+            context = _load_account_deletion_context(session, user_id)
+    except AccountDeletionActiveImportError:
+        log_info(
+            logger,
+            "Account deletion is waiting for active imports.",
+            user_id=user_id,
+        )
+        return AccountDeletionProcessingResult(
+            user_id=user_id,
+            disposition=AccountDeletionProcessingDisposition.WAITING_FOR_IMPORTS,
+        )
     if context is None:
-        return
+        return AccountDeletionProcessingResult(
+            user_id=user_id,
+            disposition=AccountDeletionProcessingDisposition.NOOP,
+        )
 
     if context.auth_user_id is not None:
         provider = get_auth_provider()
@@ -115,11 +134,11 @@ def process_account_deletion(user_id: str) -> None:
             raise AuthProviderError("Authentication provider does not match the user identity.")
         provider.delete_user(context.auth_user_id)
 
-    storage = LocalStorageService(get_settings().upload_dir)
+    resolved_storage = storage or LocalStorageService(get_settings().upload_dir)
     failed_storage_keys: list[str] = []
     for storage_key in context.storage_keys:
         try:
-            storage.delete(storage_key)
+            resolved_storage.delete(storage_key)
         except Exception as error:
             failed_storage_keys.append(storage_key)
             log_error(

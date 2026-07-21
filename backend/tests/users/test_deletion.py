@@ -200,9 +200,17 @@ def test_process_account_deletion_ignores_non_pending_or_missing_user(monkeypatc
     with session_factory.begin() as session:
         session.add(User(id="active-user", auth_user_id="auth-user", email="user@example.test"))
 
-    deletion_module.process_account_deletion("active-user")
-    deletion_module.process_account_deletion("missing-user")
+    active = deletion_module.process_account_deletion("active-user", storage=storage)
+    missing = deletion_module.process_account_deletion("missing-user", storage=storage)
 
+    assert active == AccountDeletionProcessingResult(
+        user_id="active-user",
+        disposition=AccountDeletionProcessingDisposition.NOOP,
+    )
+    assert missing == AccountDeletionProcessingResult(
+        user_id="missing-user",
+        disposition=AccountDeletionProcessingDisposition.NOOP,
+    )
     assert provider.deleted_user_ids == []
     assert storage.deleted_keys == []
 
@@ -219,9 +227,12 @@ def test_process_account_deletion_waits_for_active_imports(monkeypatch, tmp_path
         user.import_jobs.append(ImportJob(id="job-1", client_id="client-1"))
         session.add(user)
 
-    with pytest.raises(deletion_module.AccountDeletionActiveImportError):
-        deletion_module.process_account_deletion("user-1")
+    result = deletion_module.process_account_deletion("user-1", storage=storage)
 
+    assert result == AccountDeletionProcessingResult(
+        user_id="user-1",
+        disposition=AccountDeletionProcessingDisposition.WAITING_FOR_IMPORTS,
+    )
     assert provider.deleted_user_ids == []
     assert storage.deleted_keys == []
     with session_factory() as session:
