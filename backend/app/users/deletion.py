@@ -11,7 +11,6 @@ from app.auth.constants import AuthProviderType
 from app.auth.current_user import ensure_user_is_active
 from app.auth.provider import get_auth_provider
 from app.auth.types import AuthenticatedIdentity, AuthProviderError
-from app.core.config import get_settings
 from app.core.errors import LastActiveSuperadminError, UserNotProvisionedError
 from app.core.logging import log_error, log_info
 from app.db.session import db_session, db_transaction
@@ -21,17 +20,11 @@ from app.models import ImportJob, ImportJobSource, Recipe, RecipeImage, User, Us
 from app.queueing.constants import QueueMessageType
 from app.queueing.outbox import dispatch_outbox_message, schedule_outbox_message
 from app.storage.base import StorageService
-from app.storage.local import LocalStorageService
 from app.users.constants import AccountDeletionProcessingDisposition
+from app.users.deletion_storage import get_account_deletion_storage
 from app.users.queries import get_user_by_auth_identity_for_update, list_user_ids_by_status
 
 logger = logging.getLogger(__name__)
-
-
-class AccountDeletionStorageError(Exception):
-    def __init__(self, failed_storage_keys: list[str]) -> None:
-        self.failed_storage_keys = failed_storage_keys
-        super().__init__("Account media cleanup failed.")
 
 
 class AccountDeletionActiveImportError(Exception):
@@ -104,11 +97,49 @@ def _load_account_deletion_context(session: Session, user_id: str) -> AccountDel
     )
 
 
+def _delete_account_storage(
+    storage: StorageService,
+    storage_keys: tuple[str, ...],
+    *,
+    user_id: str,
+) -> list[str]:
+    failed_storage_keys: list[str] = []
+    for storage_key in storage_keys:
+        try:
+            storage.delete(storage_key)
+        except Exception as error:
+            failed_storage_keys.append(storage_key)
+            log_error(
+                logger,
+                "Account media cleanup failed.",
+                user_id=user_id,
+                storage_key=storage_key,
+                error_type=type(error).__name__,
+            )
+    return failed_storage_keys
+
+
+def _delete_pending_user(user_id: str) -> bool:
+    with db_session() as session:
+        user = session.scalar(
+            select(User)
+            .where(
+                User.id == user_id,
+                User.status == UserStatus.DELETION_PENDING,
+            )
+            .with_for_update()
+        )
+        if user is None:
+            return False
+        session.delete(user)
+    return True
+
+
 def process_account_deletion(
     user_id: str,
     *,
     storage: StorageService | None = None,
-) -> AccountDeletionProcessingResult | None:
+) -> AccountDeletionProcessingResult:
     try:
         with db_session() as session:
             context = _load_account_deletion_context(session, user_id)
@@ -129,34 +160,74 @@ def process_account_deletion(
         )
 
     if context.auth_user_id is not None:
-        provider = get_auth_provider()
-        if provider.provider is not context.auth_provider:
-            raise AuthProviderError("Authentication provider does not match the user identity.")
-        provider.delete_user(context.auth_user_id)
-
-    resolved_storage = storage or LocalStorageService(get_settings().upload_dir)
-    failed_storage_keys: list[str] = []
-    for storage_key in context.storage_keys:
         try:
-            resolved_storage.delete(storage_key)
-        except Exception as error:
-            failed_storage_keys.append(storage_key)
+            provider = get_auth_provider()
+            if provider.provider is not context.auth_provider:
+                raise AuthProviderError("Authentication provider does not match the user identity.")
+            provider.delete_user(context.auth_user_id)
+        except AuthProviderError as error:
             log_error(
                 logger,
-                "Account media cleanup failed.",
+                "Account identity deletion failed.",
                 user_id=user_id,
-                storage_key=storage_key,
-                error=repr(error),
+                error_type=type(error).__name__,
             )
-    if failed_storage_keys:
-        raise AccountDeletionStorageError(failed_storage_keys)
+            return AccountDeletionProcessingResult(
+                user_id=user_id,
+                disposition=AccountDeletionProcessingDisposition.RETRYABLE_FAILURE,
+            )
 
-    with db_session() as session:
-        user = session.get(User, user_id)
-        if user is None or user.status is not UserStatus.DELETION_PENDING:
-            return
-        session.delete(user)
+    try:
+        resolved_storage = storage if storage is not None else get_account_deletion_storage()
+    except Exception as error:
+        log_error(
+            logger,
+            "Account deletion storage is unavailable.",
+            user_id=user_id,
+            error_type=type(error).__name__,
+        )
+        return AccountDeletionProcessingResult(
+            user_id=user_id,
+            disposition=AccountDeletionProcessingDisposition.RETRYABLE_FAILURE,
+        )
+
+    failed_storage_keys = _delete_account_storage(
+        resolved_storage,
+        context.storage_keys,
+        user_id=user_id,
+    )
+    if failed_storage_keys:
+        return AccountDeletionProcessingResult(
+            user_id=user_id,
+            disposition=AccountDeletionProcessingDisposition.RETRYABLE_FAILURE,
+            failed_storage_key_count=len(failed_storage_keys),
+        )
+
+    try:
+        deleted = _delete_pending_user(user_id)
+    except Exception as error:
+        log_error(
+            logger,
+            "Account database deletion failed.",
+            user_id=user_id,
+            error_type=type(error).__name__,
+        )
+        return AccountDeletionProcessingResult(
+            user_id=user_id,
+            disposition=AccountDeletionProcessingDisposition.RETRYABLE_FAILURE,
+        )
+
+    if not deleted:
+        return AccountDeletionProcessingResult(
+            user_id=user_id,
+            disposition=AccountDeletionProcessingDisposition.NOOP,
+        )
+
     log_info(logger, "Account deletion completed.", user_id=user_id)
+    return AccountDeletionProcessingResult(
+        user_id=user_id,
+        disposition=AccountDeletionProcessingDisposition.COMPLETED,
+    )
 
 
 def requeue_pending_account_deletions() -> list[str]:

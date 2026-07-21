@@ -58,15 +58,22 @@ def test_account_deletion_processing_result_is_frozen() -> None:
         result.user_id = "other"
 
 
-def setup_deletion(monkeypatch, tmp_path: Path, *, provider_error: Exception | None = None, failing_key: str | None = None):
+def setup_deletion(
+    monkeypatch,
+    tmp_path: Path,
+    *,
+    provider_error: Exception | None = None,
+    failing_key: str | None = None,
+    provider_type: AuthProviderType = AuthProviderType.CLERK,
+):
     engine = create_engine(f"sqlite:///{tmp_path / 'deletion.db'}")
     Base.metadata.create_all(engine)
     session_factory = sessionmaker(bind=engine, expire_on_commit=False)
     provider = StubAuthProvider(provider_error)
+    provider.provider = provider_type
     storage = StubStorage(failing_key)
     monkeypatch.setattr("app.db.session.SessionLocal", session_factory)
     monkeypatch.setattr(deletion_module, "get_auth_provider", lambda: provider)
-    monkeypatch.setattr(deletion_module, "LocalStorageService", lambda _root: storage)
     return session_factory, provider, storage
 
 
@@ -157,8 +164,12 @@ def test_process_account_deletion_removes_provider_identity_unique_media_and_use
     session_factory, provider, storage = setup_deletion(monkeypatch, tmp_path)
     add_pending_user_with_media(session_factory)
 
-    deletion_module.process_account_deletion("user-1")
+    result = deletion_module.process_account_deletion("user-1", storage=storage)
 
+    assert result == AccountDeletionProcessingResult(
+        user_id="user-1",
+        disposition=AccountDeletionProcessingDisposition.COMPLETED,
+    )
     assert provider.deleted_user_ids == ["auth-user"]
     assert storage.deleted_keys == ["recipe.jpg", "shared.jpg", "upload.jpg"]
     with session_factory() as session:
@@ -173,9 +184,12 @@ def test_process_account_deletion_stops_before_storage_when_provider_fails(monke
     )
     add_pending_user_with_media(session_factory)
 
-    with pytest.raises(AuthProviderError):
-        deletion_module.process_account_deletion("user-1")
+    result = deletion_module.process_account_deletion("user-1", storage=storage)
 
+    assert result == AccountDeletionProcessingResult(
+        user_id="user-1",
+        disposition=AccountDeletionProcessingDisposition.RETRYABLE_FAILURE,
+    )
     assert provider.deleted_user_ids == ["auth-user"]
     assert storage.deleted_keys == []
     with session_factory() as session:
@@ -186,13 +200,111 @@ def test_process_account_deletion_preserves_database_when_storage_fails(monkeypa
     session_factory, provider, storage = setup_deletion(monkeypatch, tmp_path, failing_key="shared.jpg")
     add_pending_user_with_media(session_factory)
 
-    with pytest.raises(deletion_module.AccountDeletionStorageError):
-        deletion_module.process_account_deletion("user-1")
+    result = deletion_module.process_account_deletion("user-1", storage=storage)
 
+    assert result == AccountDeletionProcessingResult(
+        user_id="user-1",
+        disposition=AccountDeletionProcessingDisposition.RETRYABLE_FAILURE,
+        failed_storage_key_count=1,
+    )
     assert provider.deleted_user_ids == ["auth-user"]
     assert storage.deleted_keys == ["recipe.jpg", "shared.jpg", "upload.jpg"]
     with session_factory() as session:
         assert session.get(User, "user-1").status is UserStatus.DELETION_PENDING
+
+
+def test_process_account_deletion_retries_provider_mismatch(monkeypatch, tmp_path):
+    session_factory, provider, storage = setup_deletion(
+        monkeypatch,
+        tmp_path,
+        provider_type="OTHER",
+    )
+    add_pending_user_with_media(session_factory)
+
+    result = deletion_module.process_account_deletion("user-1", storage=storage)
+
+    assert result.disposition is AccountDeletionProcessingDisposition.RETRYABLE_FAILURE
+    assert result.failed_storage_key_count == 0
+    assert provider.deleted_user_ids == []
+    assert storage.deleted_keys == []
+    with session_factory() as session:
+        assert session.get(User, "user-1").status is UserStatus.DELETION_PENDING
+
+
+def test_process_account_deletion_retries_storage_factory_failure(monkeypatch, tmp_path, caplog):
+    session_factory, provider, _storage = setup_deletion(monkeypatch, tmp_path)
+    add_pending_user_with_media(session_factory)
+    monkeypatch.setattr(
+        deletion_module,
+        "get_account_deletion_storage",
+        lambda: (_ for _ in ()).throw(RuntimeError("S3 account-deletion storage is not implemented yet.")),
+        raising=False,
+    )
+
+    result = deletion_module.process_account_deletion("user-1")
+
+    assert result.disposition is AccountDeletionProcessingDisposition.RETRYABLE_FAILURE
+    assert result.failed_storage_key_count == 0
+    assert provider.deleted_user_ids == ["auth-user"]
+    assert "auth-user" not in caplog.text
+    assert "user@example.test" not in caplog.text
+    with session_factory() as session:
+        assert session.get(User, "user-1").status is UserStatus.DELETION_PENDING
+
+
+def test_process_account_deletion_retries_final_database_failure(monkeypatch, tmp_path):
+    session_factory, provider, storage = setup_deletion(monkeypatch, tmp_path)
+    add_pending_user_with_media(session_factory)
+    monkeypatch.setattr(
+        deletion_module,
+        "_delete_pending_user",
+        lambda _user_id: (_ for _ in ()).throw(RuntimeError("database unavailable")),
+        raising=False,
+    )
+
+    result = deletion_module.process_account_deletion("user-1", storage=storage)
+
+    assert result.disposition is AccountDeletionProcessingDisposition.RETRYABLE_FAILURE
+    assert provider.deleted_user_ids == ["auth-user"]
+    assert storage.deleted_keys == ["recipe.jpg", "shared.jpg", "upload.jpg"]
+    with session_factory() as session:
+        assert session.get(User, "user-1").status is UserStatus.DELETION_PENDING
+
+
+def test_process_account_deletion_returns_noop_when_concurrent_worker_finishes(monkeypatch, tmp_path):
+    _session_factory, provider, storage = setup_deletion(monkeypatch, tmp_path)
+    add_pending_user_with_media(_session_factory)
+    monkeypatch.setattr(deletion_module, "_delete_pending_user", lambda _user_id: False, raising=False)
+
+    result = deletion_module.process_account_deletion("user-1", storage=storage)
+
+    assert result.disposition is AccountDeletionProcessingDisposition.NOOP
+    assert provider.deleted_user_ids == ["auth-user"]
+    assert storage.deleted_keys == ["recipe.jpg", "shared.jpg", "upload.jpg"]
+
+
+def test_process_account_deletion_completes_after_partial_cleanup_retry(monkeypatch, tmp_path):
+    session_factory, provider, storage = setup_deletion(monkeypatch, tmp_path, failing_key="shared.jpg")
+    add_pending_user_with_media(session_factory)
+
+    first = deletion_module.process_account_deletion("user-1", storage=storage)
+    storage.failing_key = None
+    second = deletion_module.process_account_deletion("user-1", storage=storage)
+    third = deletion_module.process_account_deletion("user-1", storage=storage)
+
+    assert first.disposition is AccountDeletionProcessingDisposition.RETRYABLE_FAILURE
+    assert first.failed_storage_key_count == 1
+    assert second.disposition is AccountDeletionProcessingDisposition.COMPLETED
+    assert third.disposition is AccountDeletionProcessingDisposition.NOOP
+    assert provider.deleted_user_ids == ["auth-user", "auth-user"]
+    assert storage.deleted_keys == [
+        "recipe.jpg",
+        "shared.jpg",
+        "upload.jpg",
+        "recipe.jpg",
+        "shared.jpg",
+        "upload.jpg",
+    ]
 
 
 def test_process_account_deletion_ignores_non_pending_or_missing_user(monkeypatch, tmp_path):
