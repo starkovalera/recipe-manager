@@ -1,4 +1,6 @@
-from sqlalchemy import select
+from datetime import datetime
+
+from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models import ImportJob, ImportJobStatus
@@ -15,6 +17,35 @@ def list_internal_import_jobs(session: Session, *, owner_id: str | None = None) 
 
 def get_import_job_unscoped(session: Session, job_id: str) -> ImportJob | None:
     return session.get(ImportJob, job_id)
+
+
+def get_import_job_unscoped_for_update(session: Session, job_id: str) -> ImportJob | None:
+    return session.scalar(select(ImportJob).where(ImportJob.id == job_id).with_for_update())
+
+
+def list_stale_import_job_ids(
+    session: Session,
+    *,
+    cutoff: datetime,
+    limit: int,
+) -> list[str]:
+    statement = (
+        select(ImportJob.id)
+        .where(
+            or_(
+                and_(ImportJob.status == ImportJobStatus.QUEUED, ImportJob.updated_at <= cutoff),
+                and_(
+                    ImportJob.status == ImportJobStatus.RUNNING,
+                    ImportJob.started_at.is_not(None),
+                    ImportJob.started_at <= cutoff,
+                ),
+            )
+        )
+        .order_by(ImportJob.updated_at, ImportJob.id)
+        .limit(limit)
+        .with_for_update(skip_locked=True)
+    )
+    return list(session.scalars(statement))
 
 
 def get_import_job(session: Session, job_id: str, owner_id: str) -> ImportJob | None:

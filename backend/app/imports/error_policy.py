@@ -41,6 +41,13 @@ IMPORT_ERROR_POLICIES = {
         manual_retry=True,
         description="Required secondary URL or video evidence could not be loaded.",
     ),
+    ImportProcessingErrorCode.STALE_IMPORT_RECOVERY: ImportErrorPolicy(
+        import_job_error_code=ImportJobErrorCode.IMPORT_PROCESSING_FAILED,
+        stage=ImportErrorStage.PROCESSING,
+        automatic_retry=True,
+        manual_retry=True,
+        description="A queued or running import was recovered after exceeding the stale-processing threshold.",
+    ),
     ImportExtractionErrorCode.RESULT_PARSE_FAILED: ImportErrorPolicy(
         import_job_error_code=ImportJobErrorCode.IMPORT_EXTRACTION_FAILED,
         stage=ImportErrorStage.EXTRACTION,
