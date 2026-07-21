@@ -447,6 +447,23 @@ Do not send:
 - authentication tokens;
 - credentials.
 
+The active P8A maintenance operations are:
+
+```text
+pending_outbox_reconciliation
+stale_import_reconciliation
+stale_embedding_reconciliation
+stale_recipe_deletion_reconciliation
+expired_invitation_cleanup
+stale_account_deletion_reconciliation
+integrity_check
+```
+
+The storage-backed `failed_import_artifact_cleanup`,
+`orphaned_upload_cleanup`, and `temporary_resource_cleanup` operations remain
+deferred until P9 provides S3. They will be implemented as P8B after P9; they
+are not executable maintenance operations in P8A.
+
 ### Initial event-source settings
 
 Use:

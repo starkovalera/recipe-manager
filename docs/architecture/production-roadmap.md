@@ -61,6 +61,13 @@ remain pending across provider, storage, database, and active-import retries.
 PREVIEW retries are aligned to three total executions. Production media cleanup
 remains fail-closed until P9 supplies the S3 storage provider.
 
+Iteration 7 covers P8A. The maintenance queue gains a strict operation-only
+partial-batch Lambda adapter, a shared dispatcher, and bounded reconciliation
+for pending outbox messages, stale imports, stale embeddings, stale recipe
+deletions, expired invitations, stale account deletions, and read-only
+integrity checks. Generic storage-backed cleanup remains deferred until P9
+provides S3, after which the remaining P8B operations will be added.
+
 ## Phase 2 — Terraform, IAM, and Secrets Foundation
 
 - Bootstrap remote Terraform state and GitHub OIDC.
