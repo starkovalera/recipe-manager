@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.core.config import get_settings
+from app.db import session as session_module
 from app.db.base import Base
 from app.db.session import get_session
 from app.local.users import ensure_default_user
@@ -62,6 +63,7 @@ def client_with_session():
     engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False}, poolclass=StaticPool)
     Base.metadata.create_all(engine)
     SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
+    session_module.SessionLocal = SessionLocal
 
     def override_session() -> Generator[Session, None, None]:
         session = SessionLocal()
@@ -218,7 +220,7 @@ def test_delete_recipe_succeeds_when_media_cleanup_fails(tmp_path, monkeypatch):
         if storage_key == "source.jpg":
             raise OSError("storage unavailable")
 
-    monkeypatch.setattr("app.services.recipes.LocalStorageService.delete", fail_delete)
+    monkeypatch.setattr("app.recipes.deletion_storage.LocalStorageService.delete", fail_delete)
 
     response = client.delete(f"/recipes/{recipe_id}")
 
