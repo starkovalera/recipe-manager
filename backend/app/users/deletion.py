@@ -21,6 +21,7 @@ from app.models import ImportJob, ImportJobSource, Recipe, RecipeImage, User, Us
 from app.queueing.constants import QueueMessageType
 from app.queueing.outbox import dispatch_outbox_message, schedule_outbox_message
 from app.storage.local import LocalStorageService
+from app.users.constants import AccountDeletionProcessingDisposition
 from app.users.queries import get_user_by_auth_identity_for_update, list_user_ids_by_status
 
 logger = logging.getLogger(__name__)
@@ -48,6 +49,13 @@ class AccountDeletionContext:
 class AccountDeletionRequest:
     user: User
     outbox_message_id: str
+
+
+@dataclass(frozen=True)
+class AccountDeletionProcessingResult:
+    user_id: str
+    disposition: AccountDeletionProcessingDisposition
+    failed_storage_key_count: int = 0
 
 
 def request_account_deletion(session: Session, identity: AuthenticatedIdentity) -> AccountDeletionRequest:

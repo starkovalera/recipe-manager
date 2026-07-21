@@ -1,3 +1,4 @@
+from dataclasses import FrozenInstanceError
 from pathlib import Path
 
 import pytest
@@ -10,6 +11,8 @@ from app.db.base import Base
 from app.models import ImportJob, ImportJobSource, ImportJobStatus, QueueOutboxMessage, Recipe, RecipeImage, SourceType, User, UserStatus
 from app.queueing.constants import QueueMessageType, QueueOutboxStatus
 from app.users import deletion as deletion_module, reconcile_deletions
+from app.users.constants import AccountDeletionProcessingDisposition
+from app.users.deletion import AccountDeletionProcessingResult
 
 
 class StubAuthProvider:
@@ -34,6 +37,25 @@ class StubStorage:
         self.deleted_keys.append(storage_key)
         if storage_key == self.failing_key:
             raise OSError("storage unavailable")
+
+
+def test_account_deletion_processing_result_is_frozen() -> None:
+    result = AccountDeletionProcessingResult(
+        user_id="user-1",
+        disposition=AccountDeletionProcessingDisposition.NOOP,
+    )
+
+    assert [disposition.value for disposition in AccountDeletionProcessingDisposition] == [
+        "COMPLETED",
+        "NOOP",
+        "WAITING_FOR_IMPORTS",
+        "RETRYABLE_FAILURE",
+    ]
+    assert result.user_id == "user-1"
+    assert result.disposition is AccountDeletionProcessingDisposition.NOOP
+    assert result.failed_storage_key_count == 0
+    with pytest.raises(FrozenInstanceError):
+        result.user_id = "other"
 
 
 def setup_deletion(monkeypatch, tmp_path: Path, *, provider_error: Exception | None = None, failing_key: str | None = None):
