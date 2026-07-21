@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 from dataclasses import FrozenInstanceError
 from pathlib import Path
 
@@ -283,6 +284,27 @@ def test_process_account_deletion_returns_noop_when_concurrent_worker_finishes(m
     assert storage.deleted_keys == ["recipe.jpg", "shared.jpg", "upload.jpg"]
 
 
+def test_delete_pending_user_locks_candidate_for_update(monkeypatch) -> None:
+    class CapturingSession:
+        statement = None
+
+        def scalar(self, statement):
+            self.statement = statement
+            return None
+
+    session = CapturingSession()
+
+    @contextmanager
+    def session_context():
+        yield session
+
+    monkeypatch.setattr(deletion_module, "db_session", session_context)
+
+    assert deletion_module._delete_pending_user("user-1") is False
+    assert session.statement is not None
+    assert session.statement._for_update_arg is not None
+
+
 def test_process_account_deletion_completes_after_partial_cleanup_retry(monkeypatch, tmp_path):
     session_factory, provider, storage = setup_deletion(monkeypatch, tmp_path, failing_key="shared.jpg")
     add_pending_user_with_media(session_factory)
@@ -308,12 +330,17 @@ def test_process_account_deletion_completes_after_partial_cleanup_retry(monkeypa
 
 
 def test_process_account_deletion_ignores_non_pending_or_missing_user(monkeypatch, tmp_path):
-    session_factory, provider, storage = setup_deletion(monkeypatch, tmp_path)
+    session_factory, provider, _storage = setup_deletion(monkeypatch, tmp_path)
     with session_factory.begin() as session:
         session.add(User(id="active-user", auth_user_id="auth-user", email="user@example.test"))
+    monkeypatch.setattr(
+        deletion_module,
+        "get_account_deletion_storage",
+        lambda: (_ for _ in ()).throw(AssertionError("storage must not be resolved")),
+    )
 
-    active = deletion_module.process_account_deletion("active-user", storage=storage)
-    missing = deletion_module.process_account_deletion("missing-user", storage=storage)
+    active = deletion_module.process_account_deletion("active-user")
+    missing = deletion_module.process_account_deletion("missing-user")
 
     assert active == AccountDeletionProcessingResult(
         user_id="active-user",
@@ -324,11 +351,10 @@ def test_process_account_deletion_ignores_non_pending_or_missing_user(monkeypatc
         disposition=AccountDeletionProcessingDisposition.NOOP,
     )
     assert provider.deleted_user_ids == []
-    assert storage.deleted_keys == []
 
 
 def test_process_account_deletion_waits_for_active_imports(monkeypatch, tmp_path):
-    session_factory, provider, storage = setup_deletion(monkeypatch, tmp_path)
+    session_factory, provider, _storage = setup_deletion(monkeypatch, tmp_path)
     with session_factory.begin() as session:
         user = User(
             id="user-1",
@@ -338,15 +364,19 @@ def test_process_account_deletion_waits_for_active_imports(monkeypatch, tmp_path
         )
         user.import_jobs.append(ImportJob(id="job-1", client_id="client-1"))
         session.add(user)
+    monkeypatch.setattr(
+        deletion_module,
+        "get_account_deletion_storage",
+        lambda: (_ for _ in ()).throw(AssertionError("storage must not be resolved")),
+    )
 
-    result = deletion_module.process_account_deletion("user-1", storage=storage)
+    result = deletion_module.process_account_deletion("user-1")
 
     assert result == AccountDeletionProcessingResult(
         user_id="user-1",
         disposition=AccountDeletionProcessingDisposition.WAITING_FOR_IMPORTS,
     )
     assert provider.deleted_user_ids == []
-    assert storage.deleted_keys == []
     with session_factory() as session:
         assert session.get(User, "user-1").status is UserStatus.DELETION_PENDING
 
