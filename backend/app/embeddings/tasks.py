@@ -2,7 +2,7 @@ import dramatiq
 
 from app.core.config import get_settings
 from app.core.dramatiq import broker as _broker  # noqa: F401
-from app.embeddings.outcomes import EmbeddingProcessingDisposition
+from app.embeddings.constants import EmbeddingProcessingDisposition
 from app.embeddings.processing import process_recipe_embedding
 
 RETRYABLE_DISPOSITIONS = {

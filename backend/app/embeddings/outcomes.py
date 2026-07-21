@@ -1,13 +1,6 @@
 from dataclasses import dataclass
-from enum import StrEnum
 
-
-class EmbeddingProcessingDisposition(StrEnum):
-    SUCCEEDED = "SUCCEEDED"
-    NOOP = "NOOP"
-    REQUEUED = "REQUEUED"
-    BUSY = "BUSY"
-    RETRYABLE_FAILURE = "RETRYABLE_FAILURE"
+from app.embeddings.constants import EmbeddingProcessingDisposition
 
 
 @dataclass(frozen=True)

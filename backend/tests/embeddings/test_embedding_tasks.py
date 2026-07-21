@@ -1,7 +1,8 @@
 import pytest
 
 from app.embeddings import tasks
-from app.embeddings.outcomes import EmbeddingProcessingDisposition, EmbeddingProcessingResult
+from app.embeddings.constants import EmbeddingProcessingDisposition
+from app.embeddings.outcomes import EmbeddingProcessingResult
 
 
 def result(disposition: EmbeddingProcessingDisposition) -> EmbeddingProcessingResult:

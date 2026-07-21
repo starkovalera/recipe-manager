@@ -3,7 +3,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.embeddings.outcomes import EmbeddingProcessingDisposition, EmbeddingProcessingResult
+from app.embeddings.constants import EmbeddingProcessingDisposition
+from app.embeddings.outcomes import EmbeddingProcessingResult
 from app.lambdas import embeddings as embedding_lambda
 from app.lambdas.sqs import InvalidSqsRecordError
 

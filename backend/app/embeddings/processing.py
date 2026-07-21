@@ -5,10 +5,11 @@ from time import perf_counter
 from sqlalchemy.orm import Session
 
 from app.db.session import db_session
+from app.embeddings.constants import EmbeddingProcessingDisposition
 from app.embeddings.events import add_embedding_event
 from app.embeddings.input import RecipeEmbeddingInput, build_recipe_embedding_input
 from app.embeddings.logging import bind_embedding_logger
-from app.embeddings.outcomes import EmbeddingProcessingDisposition, EmbeddingProcessingResult
+from app.embeddings.outcomes import EmbeddingProcessingResult
 from app.embeddings.planning import prepare_recipe_embedding
 from app.embeddings.queries import (
     get_active_recipe_for_embedding_for_update,

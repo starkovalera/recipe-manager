@@ -4,9 +4,9 @@ from sqlalchemy.orm import Session
 
 from app.db.base import Base
 from app.embeddings.queries import (
-    build_active_recipe_for_embedding_for_update_statement,
     get_active_recipe_for_embedding_for_update,
     get_recipe_for_embedding,
+    select_active_recipe_for_embedding_for_update_statement,
 )
 from app.local.users import ensure_default_user
 from app.models import (
@@ -102,7 +102,7 @@ def test_get_active_recipe_for_embedding_for_update_excludes_pending_recipe() ->
 
 
 def test_active_recipe_embedding_claim_statement_locks_recipe_row() -> None:
-    statement = build_active_recipe_for_embedding_for_update_statement("recipe-1")
+    statement = select_active_recipe_for_embedding_for_update_statement("recipe-1")
     sql = str(statement.compile(dialect=postgresql.dialect()))
 
     assert "recipes.status =" in sql

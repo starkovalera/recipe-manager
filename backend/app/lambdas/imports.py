@@ -20,10 +20,6 @@ logger = bind_logger(logging.getLogger(__name__), component="recipes.lambda.impo
 __all__ = ["InvalidSqsRecordError", "handler"]
 
 
-def _parse_message(record: Mapping[str, Any]) -> ImportJobQueueMessage:
-    return ImportJobQueueMessage.model_validate_json(require_body(record))
-
-
 def _process_record(
     record: Mapping[str, Any],
     *,
@@ -33,7 +29,7 @@ def _process_record(
     import_job_id: str | None = None
 
     try:
-        message = _parse_message(record)
+        message = ImportJobQueueMessage.model_validate_json(require_body(record))
         import_job_id = message.import_job_id
         result = process_import_job(import_job_id)
     except Exception as error:

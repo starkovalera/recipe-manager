@@ -1,6 +1,7 @@
 from app import worker
 from app.embeddings import tasks as embedding_tasks
-from app.embeddings.outcomes import EmbeddingProcessingDisposition, EmbeddingProcessingResult
+from app.embeddings.constants import EmbeddingProcessingDisposition
+from app.embeddings.outcomes import EmbeddingProcessingResult
 from app.users import tasks as user_tasks
 
 

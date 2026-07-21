@@ -5,7 +5,7 @@ from sqlalchemy.sql import Select
 from app.models import Recipe, RecipeEmbedding, RecipeEmbeddingStatus, RecipeReviewFlag, RecipeReviewFlagStatus, RecipeStatus
 
 
-def build_active_recipe_for_embedding_for_update_statement(recipe_id: str) -> Select:
+def select_active_recipe_for_embedding_for_update_statement(recipe_id: str) -> Select:
     return (
         select(Recipe)
         .where(
@@ -25,7 +25,7 @@ def get_active_recipe_for_embedding_for_update(
     session: Session,
     recipe_id: str,
 ) -> Recipe | None:
-    return session.scalar(build_active_recipe_for_embedding_for_update_statement(recipe_id))
+    return session.scalar(select_active_recipe_for_embedding_for_update_statement(recipe_id))
 
 
 def get_recipe_for_embedding(

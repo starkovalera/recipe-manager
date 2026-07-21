@@ -159,7 +159,7 @@ def test_embedding_lambda_handler_keeps_infrastructure_boundary() -> None:
             imported_symbols.update((module, alias.name) for alias in node.names)
 
     required_symbols = {
-        ("app.embeddings.outcomes", "EmbeddingProcessingDisposition"),
+        ("app.embeddings.constants", "EmbeddingProcessingDisposition"),
         ("app.embeddings.processing", "process_recipe_embedding"),
         ("app.queueing.messages", "RecipeEmbeddingQueueMessage"),
     }

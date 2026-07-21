@@ -3,7 +3,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from app.core.logging import bind_logger
-from app.embeddings.outcomes import EmbeddingProcessingDisposition
+from app.embeddings.constants import EmbeddingProcessingDisposition
 from app.embeddings.processing import process_recipe_embedding
 from app.lambdas.sqs import (
     PartialBatchResponse,
@@ -22,10 +22,6 @@ RETRYABLE_DISPOSITIONS = {
 }
 
 
-def _parse_message(record: Mapping[str, Any]) -> RecipeEmbeddingQueueMessage:
-    return RecipeEmbeddingQueueMessage.model_validate_json(require_body(record))
-
-
 def _process_record(
     record: Mapping[str, Any],
     *,
@@ -35,7 +31,7 @@ def _process_record(
     recipe_id: str | None = None
 
     try:
-        message = _parse_message(record)
+        message = RecipeEmbeddingQueueMessage.model_validate_json(require_body(record))
         recipe_id = message.recipe_id
         result = process_recipe_embedding(recipe_id)
     except Exception as error:
