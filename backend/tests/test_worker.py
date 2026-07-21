@@ -3,6 +3,8 @@ from app.embeddings import tasks as embedding_tasks
 from app.embeddings.constants import EmbeddingProcessingDisposition
 from app.embeddings.outcomes import EmbeddingProcessingResult
 from app.users import tasks as user_tasks
+from app.users.constants import AccountDeletionProcessingDisposition
+from app.users.deletion import AccountDeletionProcessingResult
 
 
 def test_worker_entrypoint_discovers_import_tasks():
@@ -30,9 +32,17 @@ def test_embedding_actor_calls_processing_orchestrator(monkeypatch):
 
 def test_account_deletion_actor_calls_processing_orchestrator(monkeypatch):
     processed: list[str] = []
-    monkeypatch.setattr(user_tasks, "process_account_deletion", processed.append)
+
+    def process(user_id: str) -> AccountDeletionProcessingResult:
+        processed.append(user_id)
+        return AccountDeletionProcessingResult(
+            user_id=user_id,
+            disposition=AccountDeletionProcessingDisposition.COMPLETED,
+        )
+
+    monkeypatch.setattr(user_tasks, "process_account_deletion", process)
 
     user_tasks.delete_account_task.fn("user-1")
 
     assert processed == ["user-1"]
-    assert user_tasks.delete_account_task.options["max_retries"] == 3
+    assert user_tasks.delete_account_task.options["max_retries"] == 2

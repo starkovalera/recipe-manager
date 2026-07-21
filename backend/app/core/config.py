@@ -91,7 +91,7 @@ class Settings(BaseSettings):
     sqs_imports_queue_url: str | None = None
     sqs_embeddings_queue_url: str | None = None
     sqs_account_deletion_queue_url: str | None = None
-    account_deletion_task_max_retries: int = Field(default=3, ge=0)
+    account_deletion_task_max_retries: int = Field(default=2, ge=0)
 
     clerk_secret_key: str | None = None
     clerk_api_url: str = "https://api.clerk.com"
