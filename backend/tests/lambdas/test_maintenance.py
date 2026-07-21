@@ -62,6 +62,4 @@ def test_maintenance_lambda_rejects_missing_message_id() -> None:
 @pytest.mark.parametrize("body", [None, 1, "not-json", '{"operation":"integrity_check","extra":1}'])
 def test_maintenance_lambda_marks_invalid_body_failed(body) -> None:
     record = {"messageId": "one", "body": body}
-    assert maintenance.handler({"Records": [record]}, object()) == {
-        "batchItemFailures": [{"itemIdentifier": "one"}]
-    }
+    assert maintenance.handler({"Records": [record]}, object()) == {"batchItemFailures": [{"itemIdentifier": "one"}]}

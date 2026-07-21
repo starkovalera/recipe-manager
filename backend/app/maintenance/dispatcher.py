@@ -4,7 +4,7 @@ from app.maintenance.accounts import reconcile_stale_account_deletions
 from app.maintenance.constants import MaintenanceOperation
 from app.maintenance.embeddings import reconcile_stale_embeddings
 from app.maintenance.imports import reconcile_stale_imports
-from app.maintenance.integrity import check_integrity
+from app.maintenance.integrity import run_integrity_check
 from app.maintenance.invitations import cleanup_expired_invitations
 from app.maintenance.outbox import reconcile_pending_outbox
 from app.maintenance.recipes import reconcile_stale_recipe_deletions
@@ -19,7 +19,7 @@ MAINTENANCE_OPERATION_HANDLERS: dict[MaintenanceOperation, MaintenanceHandler] =
     MaintenanceOperation.STALE_RECIPE_DELETION_RECONCILIATION: reconcile_stale_recipe_deletions,
     MaintenanceOperation.EXPIRED_INVITATION_CLEANUP: cleanup_expired_invitations,
     MaintenanceOperation.STALE_ACCOUNT_DELETION_RECONCILIATION: reconcile_stale_account_deletions,
-    MaintenanceOperation.INTEGRITY_CHECK: check_integrity,
+    MaintenanceOperation.INTEGRITY_CHECK: run_integrity_check,
 }
 
 

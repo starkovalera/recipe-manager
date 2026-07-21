@@ -45,8 +45,9 @@ def test_stale_recipe_deletion_processes_bounded_candidates(monkeypatch) -> None
     monkeypatch.setattr(
         maintenance_recipes,
         "process_recipe_deletion",
-        lambda recipe_id: processed.append(recipe_id)
-        or RecipeDeletionProcessingResult(recipe_id, RecipeDeletionProcessingDisposition.COMPLETED),
+        lambda recipe_id: (
+            processed.append(recipe_id) or RecipeDeletionProcessingResult(recipe_id, RecipeDeletionProcessingDisposition.COMPLETED)
+        ),
     )
 
     result = maintenance_recipes.reconcile_stale_recipe_deletions()
@@ -74,9 +75,7 @@ def test_stale_recipe_deletion_continues_and_aggregates_retryable_failure(monkey
         "process_recipe_deletion",
         lambda recipe_id: RecipeDeletionProcessingResult(
             recipe_id,
-            RecipeDeletionProcessingDisposition.RETRYABLE_FAILURE
-            if recipe_id == "one"
-            else RecipeDeletionProcessingDisposition.NOOP,
+            RecipeDeletionProcessingDisposition.RETRYABLE_FAILURE if recipe_id == "one" else RecipeDeletionProcessingDisposition.NOOP,
         ),
     )
 

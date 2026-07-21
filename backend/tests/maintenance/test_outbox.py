@@ -1,7 +1,7 @@
 from types import SimpleNamespace
 
-from app.maintenance.constants import MaintenanceOperation, MaintenanceProcessingDisposition
 from app.maintenance import outbox as maintenance_outbox
+from app.maintenance.constants import MaintenanceOperation, MaintenanceProcessingDisposition
 
 
 def test_reconcile_pending_outbox_reports_exact_counters(monkeypatch) -> None:

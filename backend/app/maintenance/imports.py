@@ -59,9 +59,7 @@ def reconcile_stale_imports() -> MaintenanceProcessingResult:
                 )
             else:
                 job.set_queued_for_retry()
-                scheduled_message_ids.append(
-                    schedule_outbox_message(session, QueueMessageType.IMPORT_JOB, job.id).id
-                )
+                scheduled_message_ids.append(schedule_outbox_message(session, QueueMessageType.IMPORT_JOB, job.id).id)
 
             build_job_event(
                 session,

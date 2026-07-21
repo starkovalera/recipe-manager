@@ -22,11 +22,7 @@ def reconcile_pending_outbox() -> MaintenanceProcessingResult:
     failure_count = sum(not dispatch_outbox_message(message_id) for message_id in message_ids)
     return MaintenanceProcessingResult(
         operation=MaintenanceOperation.PENDING_OUTBOX_RECONCILIATION,
-        disposition=(
-            MaintenanceProcessingDisposition.RETRYABLE_FAILURE
-            if failure_count
-            else MaintenanceProcessingDisposition.COMPLETED
-        ),
+        disposition=(MaintenanceProcessingDisposition.RETRYABLE_FAILURE if failure_count else MaintenanceProcessingDisposition.COMPLETED),
         scanned_count=len(message_ids),
         changed_count=len(message_ids) - failure_count,
         failure_count=failure_count,

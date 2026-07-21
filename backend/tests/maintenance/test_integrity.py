@@ -19,11 +19,11 @@ def test_integrity_check_is_noop_for_consistent_database(monkeypatch) -> None:
     factory = _factory()
     monkeypatch.setattr(session_module, "SessionLocal", factory)
 
-    result = integrity.check_integrity()
+    result = integrity.run_integrity_check()
 
     assert result.disposition is MaintenanceProcessingDisposition.NOOP
     assert result.anomaly_count == 0
-    assert set(integrity.INTEGRITY_CHECKS) == {
+    assert {check.invariant for check in integrity.INTEGRITY_CHECKS} == {
         "successful_import_missing_recipe",
         "ready_embedding_missing_data",
         "running_embedding_missing_attempt_timestamp",
@@ -40,7 +40,7 @@ def test_integrity_check_reports_anomaly_counts_without_mutation(monkeypatch) ->
         session.commit()
     monkeypatch.setattr(session_module, "SessionLocal", factory)
 
-    result = integrity.check_integrity()
+    result = integrity.run_integrity_check()
 
     assert result.disposition is MaintenanceProcessingDisposition.ANOMALIES_FOUND
     assert result.anomaly_count == 1
@@ -51,9 +51,13 @@ def test_integrity_check_reports_anomaly_counts_without_mutation(monkeypatch) ->
 def test_integrity_query_failure_is_retryable(monkeypatch) -> None:
     factory = _factory()
     monkeypatch.setattr(session_module, "SessionLocal", factory)
-    monkeypatch.setitem(integrity.INTEGRITY_CHECKS, "broken", lambda _session: (_ for _ in ()).throw(RuntimeError("db")))
+    monkeypatch.setattr(
+        integrity,
+        "INTEGRITY_CHECKS",
+        (*integrity.INTEGRITY_CHECKS, integrity.IntegrityCheck("broken", lambda _session: (_ for _ in ()).throw(RuntimeError("db")))),
+    )
 
-    result = integrity.check_integrity()
+    result = integrity.run_integrity_check()
 
     assert result.disposition is MaintenanceProcessingDisposition.RETRYABLE_FAILURE
     assert result.failure_count == 1

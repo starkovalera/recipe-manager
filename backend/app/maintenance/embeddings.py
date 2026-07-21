@@ -32,11 +32,7 @@ def reconcile_stale_embeddings() -> MaintenanceProcessingResult:
                 RecipeEmbeddingStatus.STALE,
             }:
                 continue
-            stale_timestamp = (
-                embedding.last_attempt_at
-                if embedding.status is RecipeEmbeddingStatus.RUNNING
-                else embedding.updated_at
-            )
+            stale_timestamp = embedding.last_attempt_at if embedding.status is RecipeEmbeddingStatus.RUNNING else embedding.updated_at
             if stale_timestamp is not None and stale_timestamp.tzinfo is None:
                 stale_timestamp = stale_timestamp.replace(tzinfo=timezone.utc)
             if stale_timestamp is None or stale_timestamp > cutoff:
@@ -54,9 +50,7 @@ def reconcile_stale_embeddings() -> MaintenanceProcessingResult:
                     event_type=RecipeEmbeddingEventType.STALE_REQUEUED,
                     payload={"reason": "maintenance_stale_recovery"},
                 )
-            message_ids.append(
-                schedule_outbox_message(session, QueueMessageType.RECIPE_EMBEDDING, recipe_id).id
-            )
+            message_ids.append(schedule_outbox_message(session, QueueMessageType.RECIPE_EMBEDDING, recipe_id).id)
             changed_count += 1
 
     failure_count = sum(not dispatch_outbox_message(message_id) for message_id in message_ids)

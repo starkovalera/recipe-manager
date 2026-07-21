@@ -38,9 +38,7 @@ def reconcile_stale_account_deletions() -> MaintenanceProcessingResult:
                 continue
             if has_pending_outbox_message(session, QueueMessageType.ACCOUNT_DELETION, user.id):
                 continue
-            message_ids.append(
-                schedule_outbox_message(session, QueueMessageType.ACCOUNT_DELETION, user.id).id
-            )
+            message_ids.append(schedule_outbox_message(session, QueueMessageType.ACCOUNT_DELETION, user.id).id)
 
     failure_count = sum(not dispatch_outbox_message(message_id) for message_id in message_ids)
     if failure_count:

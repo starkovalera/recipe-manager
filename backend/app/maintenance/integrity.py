@@ -27,81 +27,115 @@ class IntegrityAnomalyCount:
     count: int
 
 
+@dataclass(frozen=True)
+class IntegrityCheck:
+    invariant: str
+    count: Callable[[Session], int]
+
+
 def _successful_import_missing_recipe(session: Session) -> int:
-    return session.scalar(
-        select(func.count()).select_from(ImportJob).where(
-            ImportJob.status.in_({ImportJobStatus.SUCCEEDED, ImportJobStatus.SUCCEEDED_WITH_FLAGS}),
-            ImportJob.created_recipe_id.is_(None),
+    return (
+        session.scalar(
+            select(func.count())
+            .select_from(ImportJob)
+            .where(
+                ImportJob.status.in_({ImportJobStatus.SUCCEEDED, ImportJobStatus.SUCCEEDED_WITH_FLAGS}),
+                ImportJob.created_recipe_id.is_(None),
+            )
         )
-    ) or 0
+        or 0
+    )
 
 
 def _ready_embedding_missing_data(session: Session) -> int:
-    return session.scalar(
-        select(func.count()).select_from(RecipeEmbedding).where(
-            RecipeEmbedding.status == RecipeEmbeddingStatus.READY,
-            or_(
-                RecipeEmbedding.embedding.is_(None),
-                RecipeEmbedding.input_hash.is_(None),
-                RecipeEmbedding.model.is_(None),
-            ),
+    return (
+        session.scalar(
+            select(func.count())
+            .select_from(RecipeEmbedding)
+            .where(
+                RecipeEmbedding.status == RecipeEmbeddingStatus.READY,
+                or_(
+                    RecipeEmbedding.embedding.is_(None),
+                    RecipeEmbedding.input_hash.is_(None),
+                    RecipeEmbedding.model.is_(None),
+                ),
+            )
         )
-    ) or 0
+        or 0
+    )
 
 
 def _running_embedding_missing_attempt_timestamp(session: Session) -> int:
-    return session.scalar(
-        select(func.count()).select_from(RecipeEmbedding).where(
-            RecipeEmbedding.status == RecipeEmbeddingStatus.RUNNING,
-            RecipeEmbedding.last_attempt_at.is_(None),
+    return (
+        session.scalar(
+            select(func.count())
+            .select_from(RecipeEmbedding)
+            .where(
+                RecipeEmbedding.status == RecipeEmbeddingStatus.RUNNING,
+                RecipeEmbedding.last_attempt_at.is_(None),
+            )
         )
-    ) or 0
+        or 0
+    )
 
 
 def _pending_user_missing_deletion_timestamp(session: Session) -> int:
-    return session.scalar(
-        select(func.count()).select_from(User).where(
-            User.status == UserStatus.DELETION_PENDING,
-            User.deletion_requested_at.is_(None),
+    return (
+        session.scalar(
+            select(func.count())
+            .select_from(User)
+            .where(
+                User.status == UserStatus.DELETION_PENDING,
+                User.deletion_requested_at.is_(None),
+            )
         )
-    ) or 0
+        or 0
+    )
 
 
 def _published_outbox_missing_published_timestamp(session: Session) -> int:
-    return session.scalar(
-        select(func.count()).select_from(QueueOutboxMessage).where(
-            QueueOutboxMessage.status == QueueOutboxStatus.PUBLISHED,
-            QueueOutboxMessage.published_at.is_(None),
+    return (
+        session.scalar(
+            select(func.count())
+            .select_from(QueueOutboxMessage)
+            .where(
+                QueueOutboxMessage.status == QueueOutboxStatus.PUBLISHED,
+                QueueOutboxMessage.published_at.is_(None),
+            )
         )
-    ) or 0
+        or 0
+    )
 
 
 def _foreign_recipe_cover_image(session: Session) -> int:
-    return session.scalar(
-        select(func.count())
-        .select_from(Recipe)
-        .join(RecipeImage, RecipeImage.id == Recipe.cover_image_id)
-        .where(RecipeImage.recipe_id != Recipe.id)
-    ) or 0
+    return (
+        session.scalar(
+            select(func.count())
+            .select_from(Recipe)
+            .join(RecipeImage, RecipeImage.id == Recipe.cover_image_id)
+            .where(RecipeImage.recipe_id != Recipe.id)
+        )
+        or 0
+    )
 
 
-INTEGRITY_CHECKS: dict[str, Callable[[Session], int]] = {
-    "successful_import_missing_recipe": _successful_import_missing_recipe,
-    "ready_embedding_missing_data": _ready_embedding_missing_data,
-    "running_embedding_missing_attempt_timestamp": _running_embedding_missing_attempt_timestamp,
-    "pending_user_missing_deletion_timestamp": _pending_user_missing_deletion_timestamp,
-    "published_outbox_missing_published_timestamp": _published_outbox_missing_published_timestamp,
-    "foreign_recipe_cover_image": _foreign_recipe_cover_image,
-}
+INTEGRITY_CHECKS = (
+    IntegrityCheck("successful_import_missing_recipe", _successful_import_missing_recipe),
+    IntegrityCheck("ready_embedding_missing_data", _ready_embedding_missing_data),
+    IntegrityCheck("running_embedding_missing_attempt_timestamp", _running_embedding_missing_attempt_timestamp),
+    IntegrityCheck("pending_user_missing_deletion_timestamp", _pending_user_missing_deletion_timestamp),
+    IntegrityCheck("published_outbox_missing_published_timestamp", _published_outbox_missing_published_timestamp),
+    IntegrityCheck("foreign_recipe_cover_image", _foreign_recipe_cover_image),
+)
 
 
-def check_integrity() -> MaintenanceProcessingResult:
+def run_integrity_check() -> MaintenanceProcessingResult:
     anomaly_counts: list[IntegrityAnomalyCount] = []
     failure_count = 0
     with db_session() as session:
-        for invariant, check in INTEGRITY_CHECKS.items():
+        for check in INTEGRITY_CHECKS:
             try:
-                anomaly_counts.append(IntegrityAnomalyCount(invariant, check(session)))
+                anomaly_counts.append(IntegrityAnomalyCount(check.invariant, check.count(session)))
             except Exception:
                 failure_count += 1
 
