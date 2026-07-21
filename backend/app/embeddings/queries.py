@@ -1,7 +1,31 @@
 from sqlalchemy import exists, select
 from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.sql import Select
 
 from app.models import Recipe, RecipeEmbedding, RecipeEmbeddingStatus, RecipeReviewFlag, RecipeReviewFlagStatus, RecipeStatus
+
+
+def select_active_recipe_for_embedding_for_update_statement(recipe_id: str) -> Select:
+    return (
+        select(Recipe)
+        .where(
+            Recipe.id == recipe_id,
+            Recipe.status == RecipeStatus.ACTIVE,
+        )
+        .options(
+            selectinload(Recipe.ingredients),
+            selectinload(Recipe.review_flags),
+            selectinload(Recipe.embedding),
+        )
+        .with_for_update()
+    )
+
+
+def get_active_recipe_for_embedding_for_update(
+    session: Session,
+    recipe_id: str,
+) -> Recipe | None:
+    return session.scalar(select_active_recipe_for_embedding_for_update_statement(recipe_id))
 
 
 def get_recipe_for_embedding(

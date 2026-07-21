@@ -5,18 +5,20 @@ from time import perf_counter
 from sqlalchemy.orm import Session
 
 from app.db.session import db_session
+from app.embeddings.constants import EmbeddingProcessingDisposition
 from app.embeddings.events import add_embedding_event
 from app.embeddings.input import RecipeEmbeddingInput, build_recipe_embedding_input
 from app.embeddings.logging import bind_embedding_logger
+from app.embeddings.outcomes import EmbeddingProcessingResult
 from app.embeddings.planning import prepare_recipe_embedding
 from app.embeddings.queries import (
+    get_active_recipe_for_embedding_for_update,
     get_or_create_recipe_embedding,
     get_recipe_embedding,
     get_recipe_for_embedding,
-    has_open_review_flags,
 )
 from app.embeddings.runtime import get_embedding_provider
-from app.models import RecipeEmbeddingEventType, RecipeEmbeddingStatus
+from app.models import RecipeEmbeddingEventType, RecipeEmbeddingStatus, RecipeReviewFlagStatus
 from app.queueing.constants import QueueMessageType
 from app.queueing.outbox import dispatch_outbox_message, schedule_outbox_message
 
@@ -30,20 +32,42 @@ class EmbeddingProcessingContext:
     embedding_input: RecipeEmbeddingInput
 
 
+@dataclass(frozen=True)
+class EmbeddingStartResult:
+    context: EmbeddingProcessingContext | None
+    result: EmbeddingProcessingResult | None
+
+    def __post_init__(self) -> None:
+        if (self.context is None) == (self.result is None):
+            raise ValueError("EmbeddingStartResult requires exactly one context or result.")
+
+
 def start_recipe_embedding(
     session: Session,
     recipe_id: str,
     *,
     provider_name: str,
     model: str,
-) -> EmbeddingProcessingContext | None:
-    recipe = get_recipe_for_embedding(session, recipe_id)
+) -> EmbeddingStartResult:
+    recipe = get_active_recipe_for_embedding_for_update(session, recipe_id)
     if recipe is None:
-        return None
+        return EmbeddingStartResult(
+            context=None,
+            result=EmbeddingProcessingResult(
+                recipe_id=recipe_id,
+                disposition=EmbeddingProcessingDisposition.NOOP,
+            ),
+        )
 
-    if has_open_review_flags(session, recipe.id):
+    if any(flag.status is RecipeReviewFlagStatus.OPEN for flag in recipe.review_flags):
         prepare_recipe_embedding(session, recipe)
-        return None
+        return EmbeddingStartResult(
+            context=None,
+            result=EmbeddingProcessingResult(
+                recipe_id=recipe.id,
+                disposition=EmbeddingProcessingDisposition.NOOP,
+            ),
+        )
 
     embedding_input = build_recipe_embedding_input(recipe)
     embedding = get_or_create_recipe_embedding(session, recipe.id, model=model)
@@ -55,7 +79,22 @@ def start_recipe_embedding(
             event_type=RecipeEmbeddingEventType.ALREADY_READY,
             payload={"model": model, "inputHash": embedding_input.input_hash},
         )
-        return None
+        return EmbeddingStartResult(
+            context=None,
+            result=EmbeddingProcessingResult(
+                recipe_id=recipe.id,
+                disposition=EmbeddingProcessingDisposition.NOOP,
+            ),
+        )
+
+    if embedding.status == RecipeEmbeddingStatus.RUNNING:
+        return EmbeddingStartResult(
+            context=None,
+            result=EmbeddingProcessingResult(
+                recipe_id=recipe.id,
+                disposition=EmbeddingProcessingDisposition.BUSY,
+            ),
+        )
 
     embedding.status = RecipeEmbeddingStatus.RUNNING
     embedding.model = model
@@ -68,12 +107,15 @@ def start_recipe_embedding(
         event_type=RecipeEmbeddingEventType.STARTED,
         payload={"model": model, "inputHash": embedding_input.input_hash},
     )
-    return EmbeddingProcessingContext(
-        recipe_id=recipe.id,
-        owner_id=recipe.owner_id,
-        provider_name=provider_name,
-        model=model,
-        embedding_input=embedding_input,
+    return EmbeddingStartResult(
+        context=EmbeddingProcessingContext(
+            recipe_id=recipe.id,
+            owner_id=recipe.owner_id,
+            provider_name=provider_name,
+            model=model,
+            embedding_input=embedding_input,
+        ),
+        result=None,
     )
 
 
@@ -175,17 +217,21 @@ def fail_recipe_embedding(
     return embedding.failed_attempts
 
 
-def process_recipe_embedding(recipe_id: str) -> None:
+def process_recipe_embedding(recipe_id: str) -> EmbeddingProcessingResult:
     provider_name, provider = get_embedding_provider()
     with db_session() as session:
-        context = start_recipe_embedding(
+        start_result = start_recipe_embedding(
             session,
             recipe_id,
             provider_name=provider_name,
             model=provider.model,
         )
+    if start_result.result is not None:
+        return start_result.result
+
+    context = start_result.context
     if context is None:
-        return
+        raise RuntimeError("Embedding claim returned neither context nor result.")
 
     log = bind_embedding_logger(
         recipe_id=context.recipe_id,
@@ -208,7 +254,11 @@ def process_recipe_embedding(recipe_id: str) -> None:
             failed_attempts=failed_attempts,
             duration_ms=int((perf_counter() - started_at) * 1000),
         )
-        raise
+        return EmbeddingProcessingResult(
+            recipe_id=context.recipe_id,
+            disposition=EmbeddingProcessingDisposition.RETRYABLE_FAILURE,
+            failed_attempts=failed_attempts,
+        )
     duration_ms = int((perf_counter() - started_at) * 1000)
 
     with db_session() as session:
@@ -222,6 +272,13 @@ def process_recipe_embedding(recipe_id: str) -> None:
     if outbox_message_id is not None:
         dispatch_outbox_message(outbox_message_id)
         log.info("Embedding input changed during provider call", duration_ms=duration_ms)
-        return
+        return EmbeddingProcessingResult(
+            recipe_id=context.recipe_id,
+            disposition=EmbeddingProcessingDisposition.REQUEUED,
+        )
 
     log.info("Embedding saved", duration_ms=duration_ms)
+    return EmbeddingProcessingResult(
+        recipe_id=context.recipe_id,
+        disposition=EmbeddingProcessingDisposition.SUCCEEDED,
+    )

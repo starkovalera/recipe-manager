@@ -3,21 +3,23 @@ from collections.abc import Mapping
 from typing import Any
 
 from app.core.logging import bind_logger
-from app.imports.jobs import process_import_job
-from app.imports.outcomes import ImportProcessingDisposition
+from app.embeddings.constants import EmbeddingProcessingDisposition
+from app.embeddings.processing import process_recipe_embedding
 from app.lambdas.sqs import (
-    InvalidSqsRecordError,
     PartialBatchResponse,
     get_aws_request_id,
     require_body,
     require_message_id,
     require_records,
 )
-from app.queueing.messages import ImportJobQueueMessage
+from app.queueing.messages import RecipeEmbeddingQueueMessage
 
-logger = bind_logger(logging.getLogger(__name__), component="recipes.lambda.import")
+logger = bind_logger(logging.getLogger(__name__), component="recipes.lambda.embedding")
 
-__all__ = ["InvalidSqsRecordError", "handler"]
+RETRYABLE_DISPOSITIONS = {
+    EmbeddingProcessingDisposition.BUSY,
+    EmbeddingProcessingDisposition.RETRYABLE_FAILURE,
+}
 
 
 def _process_record(
@@ -26,31 +28,30 @@ def _process_record(
     aws_request_id: str | None,
 ) -> tuple[str, bool]:
     message_id = require_message_id(record)
-    import_job_id: str | None = None
+    recipe_id: str | None = None
 
     try:
-        message = ImportJobQueueMessage.model_validate_json(require_body(record))
-        import_job_id = message.import_job_id
-        result = process_import_job(import_job_id)
+        message = RecipeEmbeddingQueueMessage.model_validate_json(require_body(record))
+        recipe_id = message.recipe_id
+        result = process_recipe_embedding(recipe_id)
     except Exception as error:
         logger.error(
-            "Import Lambda record processing failed.",
+            "Embedding Lambda record processing failed.",
             aws_request_id=aws_request_id,
             sqs_message_id=message_id,
-            import_job_id=import_job_id,
+            recipe_id=recipe_id,
             error_type=type(error).__name__,
         )
         return message_id, False
 
-    failed = result.disposition is ImportProcessingDisposition.RETRYABLE_FAILURE
     logger.info(
-        "Import Lambda record processed.",
+        "Embedding Lambda record processed.",
         aws_request_id=aws_request_id,
         sqs_message_id=message_id,
-        import_job_id=import_job_id,
+        recipe_id=recipe_id,
         disposition=result.disposition.value,
     )
-    return message_id, not failed
+    return message_id, result.disposition not in RETRYABLE_DISPOSITIONS
 
 
 def handler(

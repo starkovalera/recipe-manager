@@ -83,6 +83,7 @@ class Settings(BaseSettings):
     max_parallel_imports_per_client: int = 3
     max_import_attempts: int = Field(default=3, ge=1)
     import_task_max_retries: int = Field(default=0, ge=0)
+    embedding_task_max_retries: int = Field(default=2, ge=0)
     stale_import_minutes: int = 30
     outbox_reconcile_batch_size: int = Field(default=100, ge=1, le=1000)
     redis_url: str | None = None
