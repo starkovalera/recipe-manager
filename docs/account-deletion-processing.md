@@ -120,14 +120,14 @@ cleanup before P9.
 
 ## Maintenance recovery
 
-P8 will find stale `DELETION_PENDING` users and republish ID-only account
-deletion work through the durable outbox/queue boundary. It will not perform
-deletion inside the maintenance dispatcher.
+Maintenance finds stale `DELETION_PENDING` users without active imports or an
+existing pending intent, then atomically schedules and dispatches ID-only
+account-deletion work. Maintenance never executes account deletion directly.
 
 ## Deferred work
 
 - S3 storage deletion and production media access belong to P9/P10.
-- Scheduled stale-pending recovery belongs to P8.
+- Scheduled stale-pending recovery is implemented by P8A maintenance.
 - Infrastructure, Lambda packaging, queue/DLQ resources, and alarms are
   separate production phases.
 - Optional completion email and provider/local reconciliation remain future

@@ -280,7 +280,7 @@ Important failure behavior:
 - Any failed media deletion leaves the local user and owned database rows intact in `DELETION_PENDING`.
 - Database deletion happens only after provider and media cleanup succeed. User-owned rows such as recipes, tags, collections, import jobs, embeddings through recipes, notifications, settings, and roles are removed through ORM/database cascades.
 - A new verified `user.deleted` webhook atomically records its idempotency row, transitions the internal user to `DELETION_PENDING`, and creates a pending outbox message for the same worker before post-commit dispatch.
-- `python -m app.queueing.reconcile_outbox` dispatches one bounded batch of existing pending outbox rows. `python -m app.users.reconcile_deletions` creates and dispatches a fresh durable deletion intent for every current pending user. Scheduled stale-pending recovery remains future work.
+- `python -m app.queueing.reconcile_outbox` remains backward compatible. The maintenance dispatcher now handles bounded pending-outbox delivery and stale account-deletion scheduling without executing deletion directly.
 
 ## Authorization Rules
 

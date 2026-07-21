@@ -120,7 +120,9 @@ mutating the embedding, or calling the provider.
 ## Crash while `RUNNING` and P8 recovery
 
 A crash after the claim commit can leave an embedding in `RUNNING`. Duplicates
-remain `BUSY`; P8 maintenance owns detection and recovery of stale running rows.
+remain `BUSY`; maintenance detects stale `RUNNING` rows, changes them to
+`STALE`, records `STALE_REQUEUED`, and creates a durable outbox intent without
+calling the embedding provider.
 
 ## Logging and sensitive-data rules
 
