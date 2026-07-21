@@ -6,6 +6,8 @@ from app.queueing.types import QueuePublisher
 APP_ROOT = Path(__file__).resolve().parents[2] / "app"
 IMPORT_LAMBDA_PATH = APP_ROOT / "lambdas" / "imports.py"
 EMBEDDING_LAMBDA_PATH = APP_ROOT / "lambdas" / "embeddings.py"
+ACCOUNT_DELETION_LAMBDA_PATH = APP_ROOT / "lambdas" / "account_deletion.py"
+ACCOUNT_DELETION_PROCESSING_PATH = APP_ROOT / "users" / "deletion.py"
 
 TRANSPORT_SYMBOL_ALLOWED_MODULES = {
     "get_queue_publisher": {
@@ -177,6 +179,55 @@ def test_embedding_lambda_handler_keeps_infrastructure_boundary() -> None:
         "app.queueing.outbox",
         "app.queueing.provider",
         "app.queueing.sqs",
+    )
+    prohibited_modules = {
+        module for module in imported_modules if any(module == prefix or module.startswith(f"{prefix}.") for prefix in prohibited_prefixes)
+    }
+
+    assert prohibited_modules == set()
+
+
+def test_account_deletion_processing_uses_storage_boundary() -> None:
+    content = ACCOUNT_DELETION_PROCESSING_PATH.read_text(encoding="utf-8")
+
+    assert "LocalStorageService" not in content
+    assert "app.storage.local" not in content
+
+
+def test_account_deletion_lambda_handler_keeps_infrastructure_boundary() -> None:
+    tree = ast.parse(
+        ACCOUNT_DELETION_LAMBDA_PATH.read_text(encoding="utf-8"),
+        filename=str(ACCOUNT_DELETION_LAMBDA_PATH),
+    )
+    imported_symbols: set[tuple[str, str]] = set()
+    imported_modules: set[str] = set()
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            imported_modules.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            module = node.module or ""
+            imported_modules.add(module)
+            imported_symbols.update((module, alias.name) for alias in node.names)
+
+    required_symbols = {
+        ("app.queueing.messages", "AccountDeletionQueueMessage"),
+        ("app.users.constants", "AccountDeletionProcessingDisposition"),
+        ("app.users.deletion", "process_account_deletion"),
+    }
+    assert required_symbols <= imported_symbols
+
+    prohibited_prefixes = (
+        "boto3",
+        "sqlalchemy",
+        "sqlmodel",
+        "app.auth",
+        "app.db",
+        "app.models",
+        "app.queueing.outbox",
+        "app.queueing.provider",
+        "app.queueing.sqs",
+        "app.storage",
     )
     prohibited_modules = {
         module for module in imported_modules if any(module == prefix or module.startswith(f"{prefix}.") for prefix in prohibited_prefixes)

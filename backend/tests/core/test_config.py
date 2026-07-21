@@ -260,6 +260,19 @@ def test_embedding_task_retry_setting_rejects_negative_values():
         Settings(app_env=AppEnv.TEST, embedding_task_max_retries=-1, _env_file=None)
 
 
+def test_account_deletion_task_retry_setting_defaults_to_two_and_accepts_zero():
+    default_settings = Settings(app_env=AppEnv.TEST, _env_file=None)
+    disabled_settings = Settings(app_env=AppEnv.TEST, account_deletion_task_max_retries=0, _env_file=None)
+
+    assert default_settings.account_deletion_task_max_retries == 2
+    assert disabled_settings.account_deletion_task_max_retries == 0
+
+
+def test_account_deletion_task_retry_setting_rejects_negative_values():
+    with pytest.raises(ValidationError, match="account_deletion_task_max_retries"):
+        Settings(app_env=AppEnv.TEST, account_deletion_task_max_retries=-1, _env_file=None)
+
+
 def test_app_env_defaults_to_production_when_environment_is_absent(monkeypatch):
     monkeypatch.delenv("APP_ENV", raising=False)
     settings = build_sqs_settings(app_env=AppEnv.PROD)

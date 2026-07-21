@@ -55,6 +55,12 @@ explicit success, no-op, requeued, busy, or retryable-failure outcomes. PREVIEW
 Dramatiq retries are aligned to three total executions. Packaging, AWS
 infrastructure, and stale-running maintenance remain deferred.
 
+Iteration 6 covers P7 only. The account-deletion queue gains a partial-batch
+Lambda adapter around an explicit idempotent deletion outcome. Pending users
+remain pending across provider, storage, database, and active-import retries.
+PREVIEW retries are aligned to three total executions. Production media cleanup
+remains fail-closed until P9 supplies the S3 storage provider.
+
 ## Phase 2 — Terraform, IAM, and Secrets Foundation
 
 - Bootstrap remote Terraform state and GitHub OIDC.
