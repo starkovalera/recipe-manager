@@ -132,12 +132,12 @@ INTEGRITY_CHECKS = (
 def run_integrity_check() -> MaintenanceProcessingResult:
     anomaly_counts: list[IntegrityAnomalyCount] = []
     failure_count = 0
-    with db_session() as session:
-        for check in INTEGRITY_CHECKS:
-            try:
+    for check in INTEGRITY_CHECKS:
+        try:
+            with db_session() as session:
                 anomaly_counts.append(IntegrityAnomalyCount(check.invariant, check.count(session)))
-            except Exception:
-                failure_count += 1
+        except Exception:
+            failure_count += 1
 
     anomaly_count = sum(item.count for item in anomaly_counts)
     if failure_count:

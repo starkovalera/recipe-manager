@@ -18,6 +18,12 @@ def cleanup_expired_invitations() -> MaintenanceProcessingResult:
             limit=get_settings().maintenance_batch_size,
         )
 
+    if not invitation_ids:
+        return MaintenanceProcessingResult(
+            operation=MaintenanceOperation.EXPIRED_INVITATION_CLEANUP,
+            disposition=MaintenanceProcessingDisposition.NOOP,
+        )
+
     changed_count = 0
     failure_count = 0
     provider = get_auth_provider()

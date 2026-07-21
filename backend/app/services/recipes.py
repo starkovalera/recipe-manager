@@ -26,8 +26,8 @@ from app.models import (
     SourceType,
 )
 from app.queueing.outbox import dispatch_outbox_message
-from app.recipes.filters import RecipeListFilters
 from app.recipes.deletion import process_recipe_deletion
+from app.recipes.filters import RecipeListFilters
 from app.recipes.queries import (
     count_recipes,
     get_recipe as query_recipe,

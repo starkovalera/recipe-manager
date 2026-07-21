@@ -86,3 +86,16 @@ def test_fresh_invitation_is_ignored(monkeypatch) -> None:
 
     assert maintenance_invitations.cleanup_expired_invitations().disposition is MaintenanceProcessingDisposition.NOOP
     assert provider.revoked == []
+
+
+def test_empty_invitation_batch_does_not_resolve_provider(monkeypatch) -> None:
+    factory = _factory()
+    monkeypatch.setattr(session_module, "SessionLocal", factory)
+    monkeypatch.setattr(maintenance_invitations, "get_settings", lambda: SimpleNamespace(maintenance_batch_size=100))
+    monkeypatch.setattr(
+        maintenance_invitations,
+        "get_auth_provider",
+        lambda: (_ for _ in ()).throw(AssertionError("provider must not be resolved")),
+    )
+
+    assert maintenance_invitations.cleanup_expired_invitations().disposition is MaintenanceProcessingDisposition.NOOP
