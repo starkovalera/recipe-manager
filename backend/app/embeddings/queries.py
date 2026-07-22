@@ -1,4 +1,6 @@
-from sqlalchemy import exists, select
+from datetime import datetime
+
+from sqlalchemy import and_, exists, or_, select
 from sqlalchemy.orm import Session, selectinload
 from sqlalchemy.sql import Select
 
@@ -70,6 +72,49 @@ def list_internal_recipe_embeddings(
 
 def get_recipe_embedding(session: Session, recipe_id: str) -> RecipeEmbedding | None:
     return session.get(RecipeEmbedding, recipe_id)
+
+
+def get_active_recipe_embedding_for_update(session: Session, recipe_id: str) -> RecipeEmbedding | None:
+    return session.scalar(
+        select(RecipeEmbedding)
+        .join(Recipe)
+        .where(
+            RecipeEmbedding.recipe_id == recipe_id,
+            Recipe.status == RecipeStatus.ACTIVE,
+        )
+        .options(selectinload(RecipeEmbedding.recipe))
+        .with_for_update()
+    )
+
+
+def list_stale_recipe_embedding_ids(
+    session: Session,
+    *,
+    cutoff: datetime,
+    limit: int,
+) -> list[str]:
+    statement = (
+        select(RecipeEmbedding.recipe_id)
+        .join(Recipe)
+        .where(
+            Recipe.status == RecipeStatus.ACTIVE,
+            or_(
+                and_(
+                    RecipeEmbedding.status == RecipeEmbeddingStatus.RUNNING,
+                    RecipeEmbedding.last_attempt_at.is_not(None),
+                    RecipeEmbedding.last_attempt_at <= cutoff,
+                ),
+                and_(
+                    RecipeEmbedding.status == RecipeEmbeddingStatus.STALE,
+                    RecipeEmbedding.updated_at <= cutoff,
+                ),
+            ),
+        )
+        .order_by(RecipeEmbedding.updated_at, RecipeEmbedding.recipe_id)
+        .limit(limit)
+        .with_for_update(skip_locked=True)
+    )
+    return list(session.scalars(statement))
 
 
 def get_recipe_embedding_with_recipe(

@@ -86,6 +86,10 @@ class Settings(BaseSettings):
     embedding_task_max_retries: int = Field(default=2, ge=0)
     stale_import_minutes: int = 30
     outbox_reconcile_batch_size: int = Field(default=100, ge=1, le=1000)
+    maintenance_batch_size: int = Field(default=100, ge=1, le=1000)
+    stale_embedding_minutes: int = Field(default=30, ge=1)
+    stale_recipe_deletion_minutes: int = Field(default=60, ge=1)
+    stale_account_deletion_minutes: int = Field(default=60, ge=1)
     redis_url: str | None = None
     aws_region: str | None = None
     sqs_imports_queue_url: str | None = None

@@ -43,7 +43,7 @@ from app.notifications.notification_data import ImportStartedNotification, build
 from app.queueing.constants import QueueMessageType
 from app.queueing.outbox import schedule_outbox_message
 from app.storage.base import StorageService
-from app.storage.local import LocalStorageService
+from app.storage.runtime import get_storage_service
 
 logger = bind_logger(logging.getLogger(__name__), component=IMPORT_LOG_COMPONENT)
 
@@ -150,7 +150,7 @@ def create_import_job(
     storage: StorageService | None = None
     saved_storage_keys: list[str] = []
     try:
-        storage = LocalStorageService(get_settings().upload_dir)
+        storage = get_storage_service()
         with db_transaction(session):
             existing = get_import_job_by_dedupe_key(session, owner_id, dedupe_key)
             if existing is not None:

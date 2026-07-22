@@ -26,6 +26,7 @@ explicit entry.
 |---|---|---|---:|---:|
 | `UNEXPECTED_ERROR` | `IMPORT_FAILED` | `INTERNAL` | Yes | Yes, while attempts remain |
 | `SECONDARY_RESOURCE_UPLOADING_FAILED` | `IMPORT_PROCESSING_FAILED` | `PROCESSING` | Yes | Yes, while attempts remain |
+| `STALE_IMPORT_RECOVERY` | `IMPORT_PROCESSING_FAILED` | `PROCESSING` | Yes | Yes, while attempts remain |
 | `RESULT_PARSE_FAILED` | `IMPORT_EXTRACTION_FAILED` | `EXTRACTION` | Yes | Yes, while attempts remain |
 | `INVALID_EXTRACTION_RESULT` | `IMPORT_EXTRACTION_FAILED` | `EXTRACTION` | Yes | Yes, while attempts remain |
 | `EXTRACTOR_UNAVAILABLE` | `IMPORT_EXTRACTION_FAILED` | `EXTRACTION` | Yes | Yes, while attempts remain |

@@ -1,8 +1,26 @@
-from sqlalchemy import select
+from sqlalchemy import exists, select
 from sqlalchemy.orm import Session
 
 from app.models import QueueOutboxMessage
-from app.queueing.constants import QueueOutboxStatus
+from app.queueing.constants import QueueMessageType, QueueOutboxStatus
+
+
+def has_pending_outbox_message(
+    session: Session,
+    message_type: QueueMessageType,
+    entity_id: str,
+) -> bool:
+    return bool(
+        session.scalar(
+            select(
+                exists().where(
+                    QueueOutboxMessage.status == QueueOutboxStatus.PENDING,
+                    QueueOutboxMessage.message_type == message_type,
+                    QueueOutboxMessage.entity_id == entity_id,
+                )
+            )
+        )
+    )
 
 
 def get_outbox_message(

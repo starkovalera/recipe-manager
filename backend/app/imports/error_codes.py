@@ -10,6 +10,7 @@ class ImportGeneralErrorCode:
 
 class ImportProcessingErrorCode:
     SECONDARY_RESOURCE_UPLOADING_FAILED = "SECONDARY_RESOURCE_UPLOADING_FAILED"
+    STALE_IMPORT_RECOVERY = "STALE_IMPORT_RECOVERY"
 
 
 class ImportExtractionErrorCode:

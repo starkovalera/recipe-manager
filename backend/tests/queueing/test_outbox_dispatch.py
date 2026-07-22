@@ -23,6 +23,7 @@ from app.queueing.constants import QueueMessageType, QueueOutboxStatus
 from app.queueing.outbox import dispatch_outbox_message, schedule_outbox_message
 from app.queueing.queries import (
     get_outbox_message,
+    has_pending_outbox_message,
     list_pending_outbox_message_ids,
 )
 from app.queueing.sqs import SqsQueuePublisher
@@ -30,6 +31,29 @@ from app.queueing.sqs import SqsQueuePublisher
 IMPORTS_QUEUE_URL = "https://sqs.example.test/000/imports"
 EMBEDDINGS_QUEUE_URL = "https://sqs.example.test/000/embeddings"
 ACCOUNT_DELETION_QUEUE_URL = "https://sqs.example.test/000/account-deletion"
+
+
+def test_has_pending_outbox_message_matches_status_type_and_entity() -> None:
+    session_factory = create_session_factory()
+    with session_factory() as session:
+        session.add_all(
+            [
+                QueueOutboxMessage(
+                    message_type=QueueMessageType.IMPORT_JOB,
+                    entity_id="job-1",
+                ),
+                QueueOutboxMessage(
+                    message_type=QueueMessageType.IMPORT_JOB,
+                    entity_id="job-2",
+                    status=QueueOutboxStatus.PUBLISHED,
+                ),
+            ]
+        )
+        session.commit()
+
+        assert has_pending_outbox_message(session, QueueMessageType.IMPORT_JOB, "job-1") is True
+        assert has_pending_outbox_message(session, QueueMessageType.IMPORT_JOB, "job-2") is False
+        assert has_pending_outbox_message(session, QueueMessageType.RECIPE_EMBEDDING, "job-1") is False
 
 
 def create_session_factory():

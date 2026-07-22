@@ -2,6 +2,8 @@ from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
+from app.maintenance.constants import MaintenanceOperation
+
 EntityId = Annotated[
     str,
     StringConstraints(
@@ -29,3 +31,7 @@ class RecipeEmbeddingQueueMessage(QueueMessage):
 
 class AccountDeletionQueueMessage(QueueMessage):
     user_id: EntityId = Field(alias="userId")
+
+
+class MaintenanceQueueMessage(QueueMessage):
+    operation: MaintenanceOperation

@@ -45,7 +45,7 @@ from app.notifications.notification_data import (
 from app.queueing.outbox import dispatch_outbox_message
 from app.services.search_text import refresh_recipe_search_text
 from app.storage.base import StorageService
-from app.storage.local import LocalStorageService
+from app.storage.runtime import get_storage_service
 from app.tags.queries import list_active_tags
 
 logger = bind_logger(logging.getLogger(__name__), component=IMPORT_LOG_COMPONENT)
@@ -150,7 +150,7 @@ def save_import(
 
 def process_import_job(job_id: str) -> ImportProcessingResult:
     settings = get_settings()
-    storage = LocalStorageService(settings.upload_dir)
+    storage = get_storage_service(settings)
     import_config = ImportConfig.from_settings(settings)
 
     with db_session() as session:

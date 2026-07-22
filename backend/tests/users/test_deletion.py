@@ -237,7 +237,7 @@ def test_process_account_deletion_retries_storage_factory_failure(monkeypatch, t
     add_pending_user_with_media(session_factory)
     monkeypatch.setattr(
         deletion_module,
-        "get_account_deletion_storage",
+        "get_storage_service",
         lambda: (_ for _ in ()).throw(RuntimeError("S3 account-deletion storage is not implemented yet.")),
         raising=False,
     )
@@ -335,7 +335,7 @@ def test_process_account_deletion_ignores_non_pending_or_missing_user(monkeypatc
         session.add(User(id="active-user", auth_user_id="auth-user", email="user@example.test"))
     monkeypatch.setattr(
         deletion_module,
-        "get_account_deletion_storage",
+        "get_storage_service",
         lambda: (_ for _ in ()).throw(AssertionError("storage must not be resolved")),
     )
 
@@ -366,7 +366,7 @@ def test_process_account_deletion_waits_for_active_imports(monkeypatch, tmp_path
         session.add(user)
     monkeypatch.setattr(
         deletion_module,
-        "get_account_deletion_storage",
+        "get_storage_service",
         lambda: (_ for _ in ()).throw(AssertionError("storage must not be resolved")),
     )
 

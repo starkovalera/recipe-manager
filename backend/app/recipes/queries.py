@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Any
 
 from sqlalchemy import Select, func, select
@@ -29,16 +30,37 @@ def get_recipe(
 def get_recipe_for_deletion(
     session: Session,
     recipe_id: str,
-    owner_id: str,
+    owner_id: str | None,
     *,
     status: RecipeStatus | None = RecipeStatus.ACTIVE,
     for_update: bool = False,
 ) -> Recipe | None:
-    query = select(Recipe).where(Recipe.id == recipe_id, Recipe.owner_id == owner_id).options(selectinload(Recipe.images))
+    query = select(Recipe).where(Recipe.id == recipe_id).options(selectinload(Recipe.images))
+    if owner_id is not None:
+        query = query.where(Recipe.owner_id == owner_id)
     query = apply_recipe_status_filter(query, status)
     if for_update:
         query = query.with_for_update()
     return session.scalar(query)
+
+
+def list_stale_recipe_deletion_ids(
+    session: Session,
+    *,
+    cutoff: datetime,
+    limit: int,
+) -> list[str]:
+    statement = (
+        select(Recipe.id)
+        .where(
+            Recipe.status == RecipeStatus.DELETION_PENDING,
+            Recipe.updated_at <= cutoff,
+        )
+        .order_by(Recipe.updated_at, Recipe.id)
+        .limit(limit)
+        .with_for_update(skip_locked=True)
+    )
+    return list(session.scalars(statement))
 
 
 def apply_recipe_list_filters(query: Select[Any], filters: RecipeListFilters) -> Select[Any]:

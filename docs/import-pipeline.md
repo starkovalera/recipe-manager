@@ -135,6 +135,11 @@ flowchart TD
   Concurrent retry is protected by the backend. The accepted retry state,
   notification, and pending outbox message commit atomically; immediate
   dispatch failure leaves that durable state available for reconciliation.
+- Maintenance recovers imports that remain `QUEUED` or `RUNNING` beyond
+  `STALE_IMPORT_MINUTES`. A missing queued intent is recreated. A stale running
+  job uses the central `STALE_IMPORT_RECOVERY` policy: attempts remaining return
+  it to `QUEUED` with a new durable intent, while exhausted attempts produce a
+  terminal failure event and notification.
 - `IMPORT_STARTED` and `IMPORT_FAILED` events include current and maximum attempt
   counts. Events are currently not directly associated with an attempt row or
   attempt id.

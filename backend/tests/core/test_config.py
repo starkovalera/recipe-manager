@@ -219,6 +219,30 @@ def test_outbox_reconcile_batch_size_defaults_to_one_hundred():
     assert settings.outbox_reconcile_batch_size == 100
 
 
+def test_maintenance_settings_have_safe_defaults():
+    settings = Settings(app_env=AppEnv.TEST, _env_file=None)
+
+    assert settings.maintenance_batch_size == 100
+    assert settings.stale_embedding_minutes == 30
+    assert settings.stale_recipe_deletion_minutes == 60
+    assert settings.stale_account_deletion_minutes == 60
+
+
+@pytest.mark.parametrize("batch_size", [0, 1001])
+def test_maintenance_batch_size_rejects_values_outside_bounds(batch_size):
+    with pytest.raises(ValidationError):
+        Settings(app_env=AppEnv.TEST, maintenance_batch_size=batch_size, _env_file=None)
+
+
+@pytest.mark.parametrize(
+    "field_name",
+    ["stale_embedding_minutes", "stale_recipe_deletion_minutes", "stale_account_deletion_minutes"],
+)
+def test_maintenance_stale_thresholds_reject_zero(field_name):
+    with pytest.raises(ValidationError):
+        Settings(app_env=AppEnv.TEST, **{field_name: 0}, _env_file=None)
+
+
 @pytest.mark.parametrize("batch_size", [0, 1001])
 def test_outbox_reconcile_batch_size_rejects_values_outside_bounds(batch_size):
     with pytest.raises(ValidationError):

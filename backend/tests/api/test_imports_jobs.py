@@ -694,7 +694,7 @@ def test_create_import_remains_queued_when_immediate_outbox_dispatch_fails(monke
 def test_outbox_schedule_failure_rolls_back_import_creation_and_deletes_uploaded_files(monkeypatch):
     client, SessionLocal = client_with_session_factory()
     storage = RecordingStorage()
-    monkeypatch.setattr(import_create, "LocalStorageService", lambda upload_dir: storage)
+    monkeypatch.setattr(import_create, "get_storage_service", lambda: storage)
 
     def schedule_then_fail(session, message_type, entity_id):
         schedule_outbox_message(session, message_type, entity_id)
@@ -810,7 +810,7 @@ def test_upload_failure_rolls_back_import_creation_and_deletes_saved_files(
 ):
     client, SessionLocal = client_with_session_factory()
     storage = RecordingStorage(fail_on_save=fail_on_save)
-    monkeypatch.setattr(import_create, "LocalStorageService", lambda upload_dir: storage)
+    monkeypatch.setattr(import_create, "get_storage_service", lambda: storage)
 
     response = client.post(
         "/imports",
@@ -839,7 +839,7 @@ def test_upload_failure_rolls_back_import_creation_and_deletes_saved_files(
 def test_audit_write_failure_rolls_back_import_creation_and_deletes_uploaded_files(monkeypatch, failing_builder: str):
     client, SessionLocal = client_with_session_factory()
     storage = RecordingStorage()
-    monkeypatch.setattr(import_create, "LocalStorageService", lambda upload_dir: storage)
+    monkeypatch.setattr(import_create, "get_storage_service", lambda: storage)
 
     def fail_audit_write(*args, **kwargs):
         raise RuntimeError("audit write failed")
@@ -866,10 +866,10 @@ def test_audit_write_failure_rolls_back_import_creation_and_deletes_uploaded_fil
 def test_storage_initialization_failure_returns_import_creation_error(monkeypatch):
     client = client_with_session()
 
-    def fail_storage_initialization(upload_dir):
+    def fail_storage_initialization():
         raise OSError("storage unavailable")
 
-    monkeypatch.setattr(import_create, "LocalStorageService", fail_storage_initialization)
+    monkeypatch.setattr(import_create, "get_storage_service", fail_storage_initialization)
 
     response = client.post(
         "/imports",
@@ -884,7 +884,7 @@ def test_storage_initialization_failure_returns_import_creation_error(monkeypatc
 def test_commit_failure_rolls_back_import_creation_and_deletes_uploaded_files(monkeypatch):
     client, SessionLocal = client_with_session_factory()
     storage = RecordingStorage()
-    monkeypatch.setattr(import_create, "LocalStorageService", lambda upload_dir: storage)
+    monkeypatch.setattr(import_create, "get_storage_service", lambda: storage)
     commit_count = 0
 
     def fail_creation_commit(session):
