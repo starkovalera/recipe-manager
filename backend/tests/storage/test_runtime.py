@@ -9,6 +9,7 @@ from app.storage.constants import StorageLocation
 from app.storage.errors import StorageConfigurationError
 from app.storage.local import LocalStorageService
 from app.storage.runtime import get_storage_location_to_locator, get_storage_service
+from app.storage.s3 import S3StorageService
 
 
 def test_storage_service_uses_local_provider_in_preview(tmp_path: Path) -> None:
@@ -26,7 +27,7 @@ def test_storage_service_uses_local_provider_in_preview(tmp_path: Path) -> None:
     assert storage.path_for_response(StorageLocation.USER_MEDIA, "file.jpg").parent == tmp_path.resolve()
 
 
-def test_storage_service_rejects_s3_until_provider_exists() -> None:
+def test_storage_service_uses_s3_provider() -> None:
     settings = Settings(
         app_env=AppEnv.PROD,
         database_url="postgresql+psycopg://user:pass@db.example.test/app",
@@ -41,8 +42,9 @@ def test_storage_service_rejects_s3_until_provider_exists() -> None:
         _env_file=None,
     )
 
-    with pytest.raises(RuntimeError, match="S3.*not implemented"):
-        get_storage_service(settings)
+    storage = get_storage_service(settings)
+
+    assert isinstance(storage, S3StorageService)
 
 
 def test_local_storage_service_requires_upload_dir() -> None:
