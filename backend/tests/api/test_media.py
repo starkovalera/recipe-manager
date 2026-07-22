@@ -14,7 +14,7 @@ def test_media_serves_saved_files(tmp_path, monkeypatch):
     monkeypatch.setenv("UPLOAD_DIR", str(upload_dir))
     get_settings.cache_clear()
 
-    response = TestClient(create_app()).get("/media/image.jpg")
+    response = TestClient(create_app()).get("/legacy-media/image.jpg")
 
     assert response.status_code == 200
     assert response.content == b"image-bytes"
@@ -41,7 +41,7 @@ def test_media_rejects_path_traversal(tmp_path, monkeypatch):
     monkeypatch.setenv("UPLOAD_DIR", str(upload_dir))
     get_settings.cache_clear()
 
-    response = TestClient(create_app()).get("/media/../secret.txt")
+    response = TestClient(create_app()).get("/legacy-media/../secret.txt")
 
     assert response.status_code in {400, 404}
     get_settings.cache_clear()

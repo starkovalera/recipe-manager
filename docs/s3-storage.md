@@ -75,6 +75,13 @@ Missing reads map to `StorageObjectNotFoundError`; delete remains idempotent.
 AWS credentials use the standard boto3 credential chain and are not application
 settings.
 
+LOCAL media URLs preserve that distinction at the API and gateway boundary.
+Canonical nested keys use
+`/media/{namespace}/{kind}/{owner_id}/{entity_id}/{object_name}`; legacy flat
+keys use `/legacy-media/{storage_key}`. This fixed-depth split is required by
+the local KrakenD CE router and keeps both key formats reachable without
+ambiguous routes.
+
 ## P9 and P10 boundary
 
 Backend services and workers can save, read, and delete private S3 objects after

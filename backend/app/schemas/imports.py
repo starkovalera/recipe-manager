@@ -3,6 +3,7 @@ from datetime import datetime
 from pydantic import Field, computed_field
 
 from app.core.config import get_settings
+from app.media.presentation import build_media_url
 from app.models import ImportJobSource, SourceType
 from app.schemas.base import CamelModel
 
@@ -17,7 +18,7 @@ class ImportJobSourceOut(CamelModel):
     @computed_field
     @property
     def media_url(self) -> str | None:
-        return f"/media/{self.image_storage_key}" if self.image_storage_key else None
+        return build_media_url(self.image_storage_key) if self.image_storage_key else None
 
 
 class ImportJobOut(CamelModel):

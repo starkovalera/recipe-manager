@@ -5,6 +5,7 @@ from typing import Any, Literal
 
 from pydantic import ConfigDict, Field, SerializerFunctionWrapHandler, computed_field, model_serializer
 
+from app.media.presentation import build_media_url
 from app.models import (
     Collection,
     Ingredient,
@@ -79,7 +80,7 @@ class RecipeImageOut(CamelModel):
     @computed_field
     @property
     def media_url(self) -> str:
-        return f"/media/{self.storage_key}"
+        return build_media_url(self.storage_key)
 
 
 class CoverOptionOut(CamelModel):
