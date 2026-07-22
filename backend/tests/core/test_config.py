@@ -17,6 +17,7 @@ def clear_infrastructure_environment(monkeypatch):
         "REDIS_URL",
         "UPLOAD_DIR",
         "AWS_REGION",
+        "S3_USER_MEDIA_BUCKET_NAME",
         "SQS_IMPORTS_QUEUE_URL",
         "SQS_EMBEDDINGS_QUEUE_URL",
         "SQS_ACCOUNT_DELETION_QUEUE_URL",
@@ -32,6 +33,7 @@ def build_sqs_settings(**overrides):
         "storage_provider": StorageProvider.S3,
         "clerk_secret_key": "test-clerk-secret",
         "aws_region": "eu-west-1",
+        "s3_user_media_bucket_name": "recipe-manager-test-user-media",
         "sqs_imports_queue_url": "https://sqs.eu-west-1.amazonaws.com/000000000000/imports",
         "sqs_embeddings_queue_url": "https://sqs.eu-west-1.amazonaws.com/000000000000/embeddings",
         "sqs_account_deletion_queue_url": ("https://sqs.eu-west-1.amazonaws.com/000000000000/account-deletion"),
@@ -167,6 +169,44 @@ def test_prod_accepts_explicit_target_providers():
     assert settings.storage_provider is StorageProvider.S3
     assert settings.redis_url is None
     assert settings.upload_dir is None
+    assert settings.s3_user_media_bucket_name == "recipe-manager-test-user-media"
+
+
+@pytest.mark.parametrize(
+    ("field_name", "environment_name"),
+    [
+        ("aws_region", "AWS_REGION"),
+        ("s3_user_media_bucket_name", "S3_USER_MEDIA_BUCKET_NAME"),
+    ],
+)
+def test_s3_provider_requires_region_and_bucket_in_every_environment(field_name, environment_name):
+    values = {
+        "app_env": AppEnv.TEST,
+        "storage_provider": StorageProvider.S3,
+        "aws_region": "eu-west-1",
+        "s3_user_media_bucket_name": "recipe-manager-test-user-media",
+        "_env_file": None,
+    }
+    values[field_name] = None
+
+    with pytest.raises(ValidationError, match=environment_name):
+        Settings(**values)
+
+
+def test_s3_provider_treats_blank_bucket_as_missing():
+    with pytest.raises(ValidationError, match="S3_USER_MEDIA_BUCKET_NAME"):
+        Settings(
+            app_env=AppEnv.TEST,
+            storage_provider=StorageProvider.S3,
+            aws_region="eu-west-1",
+            s3_user_media_bucket_name="   ",
+            _env_file=None,
+        )
+
+
+def test_settings_do_not_define_aws_credentials():
+    assert "aws_access_key_id" not in Settings.model_fields
+    assert "aws_secret_access_key" not in Settings.model_fields
 
 
 @pytest.mark.parametrize(

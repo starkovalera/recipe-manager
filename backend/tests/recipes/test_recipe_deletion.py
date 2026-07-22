@@ -6,6 +6,7 @@ from app.db import session as session_module
 from app.db.base import Base
 from app.models import Recipe, RecipeImage, RecipeStatus, User
 from app.recipes.deletion import RecipeDeletionProcessingDisposition, process_recipe_deletion
+from app.storage.constants import StorageLocation
 
 
 def _factory():
@@ -17,10 +18,10 @@ def _factory():
 class RecordingStorage:
     def __init__(self, failing_key: str | None = None) -> None:
         self.failing_key = failing_key
-        self.deleted: list[str] = []
+        self.deleted: list[tuple[StorageLocation, str]] = []
 
-    def delete(self, storage_key: str) -> None:
-        self.deleted.append(storage_key)
+    def delete(self, location: StorageLocation, storage_key: str) -> None:
+        self.deleted.append((location, storage_key))
         if storage_key == self.failing_key:
             raise OSError("failure")
 
@@ -47,7 +48,10 @@ def test_recipe_deletion_removes_each_unique_key_and_recipe(monkeypatch) -> None
     result = process_recipe_deletion("recipe-1", storage=storage)
 
     assert result.disposition is RecipeDeletionProcessingDisposition.COMPLETED
-    assert storage.deleted == ["one.jpg", "two.jpg"]
+    assert storage.deleted == [
+        (StorageLocation.USER_MEDIA, "one.jpg"),
+        (StorageLocation.USER_MEDIA, "two.jpg"),
+    ]
     with factory() as session:
         assert session.get(Recipe, "recipe-1") is None
 
@@ -62,9 +66,34 @@ def test_recipe_deletion_storage_failure_leaves_recipe_pending_and_attempts_all_
 
     assert result.disposition is RecipeDeletionProcessingDisposition.RETRYABLE_FAILURE
     assert result.failed_storage_key_count == 1
-    assert storage.deleted == ["one.jpg", "two.jpg"]
+    assert storage.deleted == [
+        (StorageLocation.USER_MEDIA, "one.jpg"),
+        (StorageLocation.USER_MEDIA, "two.jpg"),
+    ]
     with factory() as session:
         assert session.get(Recipe, "recipe-1").status is RecipeStatus.DELETION_PENDING
+
+
+def test_recipe_deletion_retries_after_s3_style_object_failure(monkeypatch) -> None:
+    factory = _factory()
+    _add_pending_recipe(factory)
+    monkeypatch.setattr(session_module, "SessionLocal", factory)
+    storage = RecordingStorage(failing_key="one.jpg")
+
+    first = process_recipe_deletion("recipe-1", storage=storage)
+    storage.failing_key = None
+    second = process_recipe_deletion("recipe-1", storage=storage)
+
+    assert first.disposition is RecipeDeletionProcessingDisposition.RETRYABLE_FAILURE
+    assert second.disposition is RecipeDeletionProcessingDisposition.COMPLETED
+    assert storage.deleted == [
+        (StorageLocation.USER_MEDIA, "one.jpg"),
+        (StorageLocation.USER_MEDIA, "two.jpg"),
+        (StorageLocation.USER_MEDIA, "one.jpg"),
+        (StorageLocation.USER_MEDIA, "two.jpg"),
+    ]
+    with factory() as session:
+        assert session.get(Recipe, "recipe-1") is None
 
 
 def test_recipe_deletion_is_noop_for_missing_or_active_recipe(monkeypatch) -> None:

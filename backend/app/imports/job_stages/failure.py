@@ -8,6 +8,7 @@ from app.imports.storage_cleanup import cleanup_import_storage
 from app.models import ImportEventType, ImportJob
 from app.notifications.notification_data import ImportFailedNotification, build_notification
 from app.storage.base import StorageService
+from app.storage.constants import StorageLocation
 
 
 def process_import_failure(
@@ -80,9 +81,9 @@ def process_import_failure(
         pass
 
     if cleanup_storage:
-        cleanup_import_storage(storage, secondary_storage_keys)
+        cleanup_import_storage(storage, StorageLocation.USER_MEDIA, secondary_storage_keys)
         if terminal:
-            cleanup_import_storage(storage, primary_storage_keys)
+            cleanup_import_storage(storage, StorageLocation.USER_MEDIA, primary_storage_keys)
 
     return ImportProcessingResult(
         import_job_id=job_id,

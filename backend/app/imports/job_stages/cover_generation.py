@@ -1,4 +1,5 @@
 import logging
+from dataclasses import dataclass
 
 import anyio
 
@@ -19,6 +20,8 @@ from app.models import (
     SourceType,
 )
 from app.storage.base import StorageService
+from app.storage.constants import StorageLocation, StoragePurpose
+from app.storage.types import StorageWriteContext
 
 logger = logging.getLogger(IMPORT_LOG_COMPONENT)
 
@@ -36,47 +39,94 @@ def _cover_candidate_ref(source_ref: str | None, accepted_refs: set[str]) -> str
     return image_ref if image_ref in accepted_refs else None
 
 
-def build_cover_image(
+@dataclass(frozen=True)
+class PreparedCoverImage:
+    storage_key: str
+    original_name: str
+    mime_type: str
+    size_bytes: int
+
+
+def _select_cover_candidate(
+    extracted_recipe: ExtractedRecipe,
+    accepted_refs: set[str],
+) -> ImportCoverCandidate | None:
+    candidate = extracted_recipe.cover_candidate
+    if candidate is None:
+        return None
+    candidate_ref = _cover_candidate_ref(candidate.source_ref, accepted_refs)
+    if candidate_ref is None:
+        return None
+
+    settings = get_settings()
+    return anyio.run(
+        choose_cover_candidate,
+        CoverGuardInput(
+            candidate=ImportCoverCandidate(source_ref=candidate_ref, crop=candidate.crop),
+            accepted_image_refs=list(accepted_refs),
+            fallback_candidates=[],
+            enabled=settings.enable_cover_candidate_guard,
+            max_fallback_candidates=settings.max_cover_fallback_candidates,
+        ),
+        None,
+    )
+
+
+def prepare_cover_image(
     job: ImportJobContext,
-    recipe: Recipe,
     extracted_recipe: ExtractedRecipe,
     content_recipe_resources: list[RecipeResource],
     extraction_id_by_resource: dict[RecipeResource, str],
     storage: StorageService,
-    secondary_storage_keys: list[str],
-) -> RecipeImage | None:
+) -> PreparedCoverImage | None:
     image_by_ref: dict[str, RecipeImage] = {
         extraction_id_by_resource[resource]: resource.image for resource in content_recipe_resources if resource.image is not None
     }
-    candidate_ref = _cover_candidate_ref(
-        extracted_recipe.cover_candidate.source_ref if extracted_recipe.cover_candidate else None,
-        set(image_by_ref.keys()),
-    )
-    if candidate_ref is None or extracted_recipe.cover_candidate is None:
-        return None
-
-    chosen = anyio.run(
-        choose_cover_candidate,
-        CoverGuardInput(
-            candidate=ImportCoverCandidate(source_ref=candidate_ref, crop=extracted_recipe.cover_candidate.crop),
-            accepted_image_refs=list(image_by_ref.keys()),
-            fallback_candidates=[],
-            enabled=get_settings().enable_cover_candidate_guard,
-            max_fallback_candidates=get_settings().max_cover_fallback_candidates,
-        ),
-        None,
-    )
+    chosen = _select_cover_candidate(extracted_recipe, set(image_by_ref))
     if chosen is None:
         return None
 
     source_image = image_by_ref[chosen.source_ref]
-    cover_file = create_cover_image(storage, source_image.storage_key, chosen.crop, auto_crop_full_image=True)
-    secondary_storage_keys.append(cover_file.storage_key)
-    cover_image = RecipeImage(
+    cover_file = create_cover_image(
+        storage,
+        StorageLocation.USER_MEDIA,
+        source_image.storage_key,
+        context=StorageWriteContext(
+            owner_id=job.owner_id,
+            purpose=StoragePurpose.IMPORT_DERIVED,
+            entity_id=job.id,
+        ),
+        crop=chosen.crop,
+        auto_crop_full_image=True,
+    )
+    bind_logger(
+        logger,
+        component=IMPORT_LOG_COMPONENT,
+        owner_id=job.owner_id,
+        import_job_id=job.id,
+        source_ref=chosen.source_ref,
+        storage_key=cover_file.storage_key,
+    ).info("Cover image generated")
+    return PreparedCoverImage(
         storage_key=cover_file.storage_key,
         original_name=cover_file.original_name,
         mime_type=cover_file.mime_type,
         size_bytes=cover_file.size_bytes,
+    )
+
+
+def attach_cover_image(
+    job: ImportJobContext,
+    recipe: Recipe,
+    prepared: PreparedCoverImage | None,
+) -> RecipeImage | None:
+    if prepared is None:
+        return None
+    cover_image = RecipeImage(
+        storage_key=prepared.storage_key,
+        original_name=prepared.original_name,
+        mime_type=prepared.mime_type,
+        size_bytes=prepared.size_bytes,
         position=0,
     )
     recipe.images.append(cover_image)
@@ -92,12 +142,4 @@ def build_cover_image(
         )
     )
     recipe.cover_image = cover_image
-    bind_logger(
-        logger,
-        component=IMPORT_LOG_COMPONENT,
-        owner_id=job.owner_id,
-        import_job_id=job.id,
-        source_ref=chosen.source_ref,
-        storage_key=cover_file.storage_key,
-    ).info("Cover image generated")
     return cover_image

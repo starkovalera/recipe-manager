@@ -5,6 +5,8 @@ from io import BytesIO
 from PIL import Image
 
 from app.storage.base import StorageService, StoredFile
+from app.storage.constants import StorageLocation
+from app.storage.types import StorageWriteContext
 
 SUPPORTED_IMAGE_TYPES = {"image/jpeg": "JPEG", "image/png": "PNG", "image/webp": "WEBP"}
 
@@ -104,13 +106,11 @@ def _crop_box(width: int, height: int, crop: dict[str, float] | None) -> tuple[i
     return (left, top, right, bottom)
 
 
-def create_cover_image(
-    storage: StorageService,
-    source_storage_key: str,
+def render_cover_image(
+    source_bytes: bytes,
     crop: dict[str, float] | None = None,
     auto_crop_full_image: bool = False,
-) -> StoredFile:
-    source_bytes = storage.read(source_storage_key)
+) -> bytes:
     with Image.open(BytesIO(source_bytes)) as source:
         image = source.convert("RGB")
         detected_crop = _detect_embedded_photo_crop(image) if auto_crop_full_image else None
@@ -118,4 +118,27 @@ def create_cover_image(
         cropped.thumbnail((1200, 1200))
         output = BytesIO()
         cropped.save(output, format="JPEG", quality=88)
-    return storage.save(output.getvalue(), "cover.jpg", "image/jpeg")
+    return output.getvalue()
+
+
+def create_cover_image(
+    storage: StorageService,
+    location: StorageLocation,
+    source_storage_key: str,
+    *,
+    context: StorageWriteContext,
+    crop: dict[str, float] | None = None,
+    auto_crop_full_image: bool = False,
+) -> StoredFile:
+    cover_bytes = render_cover_image(
+        storage.read(location, source_storage_key),
+        crop,
+        auto_crop_full_image,
+    )
+    return storage.save(
+        location,
+        cover_bytes,
+        "cover.jpg",
+        "image/jpeg",
+        context=context,
+    )

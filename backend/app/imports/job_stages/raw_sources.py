@@ -19,6 +19,8 @@ from app.imports.source_loading.url_loaders.types import LoadedUrlContent
 from app.imports.source_loading.video_processors.types import FirstPassVideoSources, VideoSourceProcessor
 from app.models import RecipeResourceOrigin, SourceType
 from app.storage.base import StorageService
+from app.storage.constants import StorageLocation, StoragePurpose
+from app.storage.types import StorageWriteContext
 
 logger = logging.getLogger(IMPORT_LOG_COMPONENT)
 
@@ -46,6 +48,7 @@ class RawSourceBuildContext:
     url_content_loader: UrlContentService
     video_processor: VideoSourceProcessor
     config: ImportConfig
+    storage_write_context: StorageWriteContext
 
 
 @dataclass(frozen=True)
@@ -80,6 +83,11 @@ def build_raw_sources(
         url_content_loader=url_content_loader,
         video_processor=video_processor,
         config=import_config,
+        storage_write_context=StorageWriteContext(
+            owner_id=job.owner_id,
+            purpose=StoragePurpose.IMPORT_DERIVED,
+            entity_id=job.id,
+        ),
     )
     imported_author_name: str | None = None
     raw_sources: list[RawSource] = []
@@ -95,7 +103,7 @@ def build_raw_sources(
                     type=SourceType.IMAGE,
                     source=RecipeResourceOrigin.MANUAL,
                     image_storage_key=job_source.image_storage_key,
-                    image_bytes=storage.read(job_source.image_storage_key),
+                    image_bytes=storage.read(StorageLocation.USER_MEDIA, job_source.image_storage_key),
                     mime_type=job_source.mime_type,
                     original_name=job_source.original_name or "upload",
                     position=len(raw_sources),
@@ -202,7 +210,13 @@ def _append_url_raw_sources(
         )
     for remote_image in loaded_url.images[:remaining_images]:
         try:
-            saved = context.storage.save(remote_image.bytes, remote_image.original_name, remote_image.mime_type)
+            saved = context.storage.save(
+                StorageLocation.USER_MEDIA,
+                remote_image.bytes,
+                remote_image.original_name,
+                remote_image.mime_type,
+                context=context.storage_write_context,
+            )
         except Exception as error:
             secondary_resource_results.append(
                 SecondaryResourceLoadResult(
@@ -312,7 +326,13 @@ def _append_url_video_raw_sources(
         if image_count >= context.config.max_import_images:
             break
         try:
-            saved = context.storage.save(poster.bytes, poster.original_name, poster.mime_type)
+            saved = context.storage.save(
+                StorageLocation.USER_MEDIA,
+                poster.bytes,
+                poster.original_name,
+                poster.mime_type,
+                context=context.storage_write_context,
+            )
         except Exception as error:
             secondary_resource_results.append(
                 SecondaryResourceLoadResult(

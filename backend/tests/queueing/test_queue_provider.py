@@ -13,6 +13,7 @@ def create_sqs_settings() -> Settings:
         storage_provider=StorageProvider.S3,
         clerk_secret_key="test-clerk-secret",
         aws_region="eu-west-1",
+        s3_user_media_bucket_name="recipe-manager-test-user-media",
         sqs_imports_queue_url="https://sqs.example.test/000/imports",
         sqs_embeddings_queue_url="https://sqs.example.test/000/embeddings",
         sqs_account_deletion_queue_url="https://sqs.example.test/000/account-deletion",

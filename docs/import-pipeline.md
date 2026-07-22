@@ -154,5 +154,5 @@ flowchart TD
 - Review/status behavior for a non-sole URL that yields no successfully loaded
   secondary resources.
 - Explicit event-to-attempt association.
-- Full live Instagram/Threads scraping resilience, cloud storage, real auth and
+- Full live Instagram/Threads scraping resilience, real auth and
   permissions, mobile-specific flows, and generated frontend API types.

@@ -7,6 +7,7 @@ from app.db.session import db_session
 from app.models import RecipeStatus
 from app.recipes.queries import get_recipe_for_deletion
 from app.storage.base import StorageService
+from app.storage.constants import StorageLocation
 from app.storage.runtime import get_storage_service
 
 logger = logging.getLogger(__name__)
@@ -50,7 +51,7 @@ def process_recipe_deletion(
     failed_storage_key_count = 0
     for storage_key in storage_keys:
         try:
-            resolved_storage.delete(storage_key)
+            resolved_storage.delete(StorageLocation.USER_MEDIA, storage_key)
         except Exception as error:
             failed_storage_key_count += 1
             log_error(

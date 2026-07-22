@@ -13,7 +13,7 @@ from app.imports.config import ImportConfig
 from app.imports.constants import IMPORT_LOG_COMPONENT
 from app.imports.events import build_job_event
 from app.imports.job_context import ImportJobContext
-from app.imports.job_stages.cover_generation import build_cover_image
+from app.imports.job_stages.cover_generation import PreparedCoverImage, attach_cover_image, prepare_cover_image
 from app.imports.job_stages.extracted_recipe import normalize_extracted_recipe, validate_extracted_recipe
 from app.imports.job_stages.extraction import extract, validate_extraction_result
 from app.imports.job_stages.extraction_sources import ExtractionContext, build_extraction_context
@@ -44,7 +44,6 @@ from app.notifications.notification_data import (
 )
 from app.queueing.outbox import dispatch_outbox_message
 from app.services.search_text import refresh_recipe_search_text
-from app.storage.base import StorageService
 from app.storage.runtime import get_storage_service
 from app.tags.queries import list_active_tags
 
@@ -87,23 +86,14 @@ def save_import(
     extraction_context: ExtractionContext,
     extracted_recipe: ExtractedRecipe,
     import_config: ImportConfig,
-    storage: StorageService,
-    secondary_storage_keys: list[str],
+    prepared_cover: PreparedCoverImage | None,
 ) -> ImportResult:
     job: ImportJob | None = session.get(ImportJob, job_context.id)
     if job is None:
         raise RuntimeError(f"Import job {job_context.id} not found while persisting import success.")
 
     build_recipe(recipe, extracted_recipe, list_active_tags(session, job_context.owner_id), job_context)
-    build_cover_image(
-        job_context,
-        recipe,
-        extracted_recipe,
-        content_recipe_resources,
-        extraction_context.extraction_id_by_resource,
-        storage,
-        secondary_storage_keys,
-    )
+    attach_cover_image(job_context, recipe, prepared_cover)
     has_ignored_primary_resource = build_recipe_resources(
         recipe,
         recipe_resources,
@@ -225,6 +215,16 @@ def process_import_job(job_id: str) -> ImportProcessingResult:
             extraction_context.extraction_sources,
         )
 
+        prepared_cover = prepare_cover_image(
+            job_context,
+            extracted_recipe,
+            content_recipe_resources,
+            extraction_context.extraction_id_by_resource,
+            storage,
+        )
+        if prepared_cover is not None:
+            secondary_storage_keys.append(prepared_cover.storage_key)
+
         with db_session() as session:
             import_result = save_import(
                 session=session,
@@ -235,8 +235,7 @@ def process_import_job(job_id: str) -> ImportProcessingResult:
                 extraction_context=extraction_context,
                 extracted_recipe=extracted_recipe,
                 import_config=import_config,
-                storage=storage,
-                secondary_storage_keys=secondary_storage_keys,
+                prepared_cover=prepared_cover,
             )
 
         log_recipe_created(import_result.job)

@@ -81,18 +81,19 @@ def test_sqs_send_message_calls_stay_in_sqs_adapter():
     assert violations == [], "SQS send_message calls found outside the SQS queue adapter:\n" + "\n".join(violations)
 
 
-def test_boto3_imports_stay_in_sqs_adapter():
+def test_boto3_imports_stay_in_aws_adapters():
     violations: list[str] = []
+    allowed_modules = {"queueing/sqs.py", "storage/s3.py"}
 
     for path in APP_ROOT.rglob("*.py"):
         relative_path = path.relative_to(APP_ROOT).as_posix()
-        if relative_path == "queueing/sqs.py":
+        if relative_path in allowed_modules:
             continue
         lines = path.read_text(encoding="utf-8").splitlines()
         if any(line.strip() == "import boto3" or line.strip().startswith("from boto3") for line in lines):
             violations.append(relative_path)
 
-    assert violations == [], "boto3 imports found outside the SQS queue adapter:\n" + "\n".join(violations)
+    assert violations == [], "boto3 imports found outside AWS adapters:\n" + "\n".join(violations)
 
 
 def test_queue_publisher_protocol_keeps_supported_operations():

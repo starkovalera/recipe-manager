@@ -6,6 +6,7 @@ from app.imports.job_context import ImportJobContext
 from app.media.images import image_to_data_url
 from app.models import RecipeResource
 from app.storage.base import StorageService
+from app.storage.constants import StorageLocation
 from app.tags.queries import list_active_tags
 
 
@@ -28,7 +29,7 @@ def _build_extraction_sources(
             type=resource.type.value,
             storage_key=resource.image.storage_key if resource.image else None,
             data_url=image_to_data_url(
-                storage.read(resource.image.storage_key),
+                storage.read(StorageLocation.USER_MEDIA, resource.image.storage_key),
                 resource.image.mime_type,
             )
             if resource.image

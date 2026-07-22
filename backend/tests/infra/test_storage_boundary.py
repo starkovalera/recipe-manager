@@ -2,6 +2,7 @@ from pathlib import Path
 
 APP_ROOT = Path(__file__).resolve().parents[2] / "app"
 ALLOWED_LOCAL_STORAGE_IMPORTS = {
+    APP_ROOT / "api" / "routes" / "media.py",
     APP_ROOT / "storage" / "runtime.py",
 }
 

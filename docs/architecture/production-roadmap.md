@@ -68,6 +68,14 @@ deletions, expired invitations, stale account deletions, and read-only
 integrity checks. Generic storage-backed cleanup remains deferred until P9
 provides S3, after which the remaining P8B operations will be added.
 
+Iteration 8 covers P9 only. The centralized storage boundary gains logical
+locations, purpose-first keys, a local adapter with nested-key compatibility,
+and a lazy boto3 S3 adapter for private user media. Import uploads and cover
+generation move storage I/O outside database transactions. Client media access,
+S3 infrastructure, and storage-backed maintenance remain deferred. The exact
+runtime, key, compensation, and P9/P10 contracts are documented in
+[`s3-storage.md`](../s3-storage.md).
+
 ## Phase 2 — Terraform, IAM, and Secrets Foundation
 
 - Bootstrap remote Terraform state and GitHub OIDC.
