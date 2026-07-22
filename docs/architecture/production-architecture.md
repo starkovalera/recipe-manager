@@ -847,14 +847,18 @@ covers
 Store metadata in PostgreSQL:
 
 ```text
-owner_id
 object_key
 resource_type
 mime_type
 size
-checksum
 created_at
 ```
+
+P9 keeps the existing `RecipeImage` and `ImportJobSource` persistence model:
+the database stores object key, MIME type, size, and existing domain metadata.
+Bucket, logical location, and write purpose are implied by the current
+user-media contract and are not persisted. Checksums remain deferred until a
+concrete integrity or deduplication use case requires them.
 
 Requirements:
 
