@@ -5,9 +5,9 @@ from enum import StrEnum
 from app.core.logging import log_error, log_info
 from app.db.session import db_session
 from app.models import RecipeStatus
-from app.recipes.deletion_storage import get_recipe_deletion_storage
 from app.recipes.queries import get_recipe_for_deletion
 from app.storage.base import StorageService
+from app.storage.runtime import get_storage_service
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +42,7 @@ def process_recipe_deletion(
         storage_keys = tuple(sorted({image.storage_key for image in recipe.images}))
 
     try:
-        resolved_storage = storage if storage is not None else get_recipe_deletion_storage()
+        resolved_storage = storage if storage is not None else get_storage_service()
     except Exception as error:
         log_error(logger, "Recipe deletion storage is unavailable.", recipe_id=recipe_id, error_type=type(error).__name__)
         return RecipeDeletionProcessingResult(recipe_id, RecipeDeletionProcessingDisposition.RETRYABLE_FAILURE)

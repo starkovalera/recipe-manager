@@ -220,7 +220,7 @@ def test_delete_recipe_succeeds_when_media_cleanup_fails(tmp_path, monkeypatch):
         if storage_key == "source.jpg":
             raise OSError("storage unavailable")
 
-    monkeypatch.setattr("app.recipes.deletion_storage.LocalStorageService.delete", fail_delete)
+    monkeypatch.setattr("app.storage.local.LocalStorageService.delete", fail_delete)
 
     response = client.delete(f"/recipes/{recipe_id}")
 

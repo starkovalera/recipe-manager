@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Protocol
 
 
@@ -18,4 +19,7 @@ class StorageService(Protocol):
         raise NotImplementedError
 
     def delete(self, storage_key: str) -> None:
+        raise NotImplementedError
+
+    def path_for_response(self, storage_key: str) -> Path:
         raise NotImplementedError

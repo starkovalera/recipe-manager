@@ -20,8 +20,8 @@ from app.models import ImportJob, ImportJobSource, Recipe, RecipeImage, User, Us
 from app.queueing.constants import QueueMessageType
 from app.queueing.outbox import dispatch_outbox_message, schedule_outbox_message
 from app.storage.base import StorageService
+from app.storage.runtime import get_storage_service
 from app.users.constants import AccountDeletionProcessingDisposition
-from app.users.deletion_storage import get_account_deletion_storage
 from app.users.queries import get_user_by_auth_identity_for_update, list_user_ids_by_status
 
 logger = logging.getLogger(__name__)
@@ -178,7 +178,7 @@ def process_account_deletion(
             )
 
     try:
-        resolved_storage = storage if storage is not None else get_account_deletion_storage()
+        resolved_storage = storage if storage is not None else get_storage_service()
     except Exception as error:
         log_error(
             logger,
