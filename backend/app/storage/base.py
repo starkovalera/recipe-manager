@@ -1,25 +1,23 @@
-from dataclasses import dataclass
-from pathlib import Path
 from typing import Protocol
 
-
-@dataclass(frozen=True)
-class StoredFile:
-    storage_key: str
-    original_name: str
-    mime_type: str
-    size_bytes: int
+from app.storage.constants import StorageLocation
+from app.storage.types import StorageWriteContext, StoredFile
 
 
 class StorageService(Protocol):
-    def save(self, content: bytes, original_name: str, mime_type: str) -> StoredFile:
+    def save(
+        self,
+        location: StorageLocation,
+        content: bytes,
+        original_name: str,
+        mime_type: str,
+        *,
+        context: StorageWriteContext,
+    ) -> StoredFile:
         raise NotImplementedError
 
-    def read(self, storage_key: str) -> bytes:
+    def read(self, location: StorageLocation, storage_key: str) -> bytes:
         raise NotImplementedError
 
-    def delete(self, storage_key: str) -> None:
-        raise NotImplementedError
-
-    def path_for_response(self, storage_key: str) -> Path:
+    def delete(self, location: StorageLocation, storage_key: str) -> None:
         raise NotImplementedError
