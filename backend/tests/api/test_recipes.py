@@ -37,6 +37,7 @@ from app.models import (
     User,
 )
 from app.recipes.queries import list_recipes as query_recipes
+from app.storage.constants import StorageLocation
 from tests.api.support import install_local_user_override
 
 
@@ -215,7 +216,8 @@ def test_delete_recipe_succeeds_when_media_cleanup_fails(tmp_path, monkeypatch):
         session.commit()
     attempted_keys: list[str] = []
 
-    def fail_delete(_storage, storage_key: str) -> None:
+    def fail_delete(_storage, location, storage_key: str) -> None:
+        assert location is StorageLocation.USER_MEDIA
         attempted_keys.append(storage_key)
         if storage_key == "source.jpg":
             raise OSError("storage unavailable")
