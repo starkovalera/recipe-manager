@@ -92,6 +92,7 @@ class Settings(BaseSettings):
     stale_account_deletion_minutes: int = Field(default=60, ge=1)
     redis_url: str | None = None
     aws_region: str | None = None
+    s3_user_media_bucket_name: str | None = None
     sqs_imports_queue_url: str | None = None
     sqs_embeddings_queue_url: str | None = None
     sqs_account_deletion_queue_url: str | None = None
@@ -123,6 +124,7 @@ class Settings(BaseSettings):
         "storage_provider",
         "redis_url",
         "aws_region",
+        "s3_user_media_bucket_name",
         "sqs_imports_queue_url",
         "sqs_embeddings_queue_url",
         "sqs_account_deletion_queue_url",
@@ -140,6 +142,13 @@ class Settings(BaseSettings):
             "SQS_IMPORTS_QUEUE_URL": self.sqs_imports_queue_url,
             "SQS_EMBEDDINGS_QUEUE_URL": self.sqs_embeddings_queue_url,
             "SQS_ACCOUNT_DELETION_QUEUE_URL": self.sqs_account_deletion_queue_url,
+        }
+        return [name for name, value in required.items() if not value]
+
+    def _missing_s3_settings(self) -> list[str]:
+        required = {
+            "AWS_REGION": self.aws_region,
+            "S3_USER_MEDIA_BUCKET_NAME": self.s3_user_media_bucket_name,
         }
         return [name for name, value in required.items() if not value]
 
@@ -178,6 +187,12 @@ class Settings(BaseSettings):
             }
             if len(queue_urls) != 3:
                 raise ValueError("SQS queue URLs must be distinct.")
+
+        if self.storage_provider is StorageProvider.S3:
+            missing = self._missing_s3_settings()
+            if missing:
+                joined = ", ".join(missing)
+                raise ValueError(f"STORAGE_PROVIDER=S3 requires: {joined}.")
 
         if self.app_env is not AppEnv.TEST and not self.clerk_secret_key:
             raise ValueError("Clerk identity configuration is required outside TEST.")
