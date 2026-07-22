@@ -47,6 +47,31 @@ class PreparedCoverImage:
     size_bytes: int
 
 
+def _select_cover_candidate(
+    extracted_recipe: ExtractedRecipe,
+    accepted_refs: set[str],
+) -> ImportCoverCandidate | None:
+    candidate = extracted_recipe.cover_candidate
+    if candidate is None:
+        return None
+    candidate_ref = _cover_candidate_ref(candidate.source_ref, accepted_refs)
+    if candidate_ref is None:
+        return None
+
+    settings = get_settings()
+    return anyio.run(
+        choose_cover_candidate,
+        CoverGuardInput(
+            candidate=ImportCoverCandidate(source_ref=candidate_ref, crop=candidate.crop),
+            accepted_image_refs=list(accepted_refs),
+            fallback_candidates=[],
+            enabled=settings.enable_cover_candidate_guard,
+            max_fallback_candidates=settings.max_cover_fallback_candidates,
+        ),
+        None,
+    )
+
+
 def prepare_cover_image(
     job: ImportJobContext,
     extracted_recipe: ExtractedRecipe,
@@ -57,24 +82,7 @@ def prepare_cover_image(
     image_by_ref: dict[str, RecipeImage] = {
         extraction_id_by_resource[resource]: resource.image for resource in content_recipe_resources if resource.image is not None
     }
-    candidate_ref = _cover_candidate_ref(
-        extracted_recipe.cover_candidate.source_ref if extracted_recipe.cover_candidate else None,
-        set(image_by_ref.keys()),
-    )
-    if candidate_ref is None or extracted_recipe.cover_candidate is None:
-        return None
-
-    chosen = anyio.run(
-        choose_cover_candidate,
-        CoverGuardInput(
-            candidate=ImportCoverCandidate(source_ref=candidate_ref, crop=extracted_recipe.cover_candidate.crop),
-            accepted_image_refs=list(image_by_ref.keys()),
-            fallback_candidates=[],
-            enabled=get_settings().enable_cover_candidate_guard,
-            max_fallback_candidates=get_settings().max_cover_fallback_candidates,
-        ),
-        None,
-    )
+    chosen = _select_cover_candidate(extracted_recipe, set(image_by_ref))
     if chosen is None:
         return None
 

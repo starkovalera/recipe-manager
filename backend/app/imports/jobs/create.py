@@ -1,9 +1,7 @@
 import logging
 from dataclasses import dataclass
-from io import BytesIO
 
 from fastapi import UploadFile
-from PIL import Image
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -11,25 +9,20 @@ from app.core.config import get_settings
 from app.core.errors import (
     ActiveImportExistsError,
     ApiError,
-    FileTooLargeError,
     ImportCreationError,
-    InvalidFileTypeError,
-    NoImportSourcesError,
-    TextTooLongError,
-    TooManyFilesError,
 )
 from app.core.logging import bind_logger
 from app.db.session import db_transaction
 from app.imports.constants import (
     ACTIVE_IMPORT_STATUSES,
     IMPORT_LOG_COMPONENT,
-    SUPPORTED_UPLOAD_TYPES,
 )
 from app.imports.events import build_job_event
 from app.imports.queries import (
     count_import_jobs_by_statuses,
     get_import_job_by_dedupe_key,
 )
+from app.imports.request_validation import validate_import_request
 from app.imports.storage_cleanup import cleanup_import_storage
 from app.media.images import ValidatedImage
 from app.models import (
@@ -59,66 +52,19 @@ class ImportJobCreationResult:
     outbox_message_id: str | None
 
 
-def _validate_import_request(
-    text: str | None,
-    url: str | None,
-    files: list[UploadFile],
-) -> tuple[str | None, str | None, list[ValidatedImage]]:
-    settings = get_settings()
-    normalized_text = text.strip() if text else None
-    normalized_url = url.strip() if url else None
-    validated_images = []
-
-    if not normalized_text and not normalized_url and not files:
-        raise NoImportSourcesError()
-
-    if normalized_text and len(normalized_text) > settings.max_import_text_chars:
-        raise TextTooLongError(max_length=settings.max_import_text_chars)
-
-    if len(files) > settings.max_import_images:
-        raise TooManyFilesError(max_files=settings.max_import_images)
-
-    for upload in files:
-        content_type = upload.content_type or ""
-        original_filename = upload.filename or "upload"
-        if content_type not in SUPPORTED_UPLOAD_TYPES:
-            raise InvalidFileTypeError(content_type=content_type, filename=original_filename)
-
-        content = upload.file.read()
-        if len(content) > settings.max_upload_bytes:
-            raise FileTooLargeError(max_size_bytes=settings.max_upload_bytes)
-        try:
-            with Image.open(BytesIO(content)) as image:
-                image.verify()
-        except (OSError, ValueError) as error:
-            raise InvalidFileTypeError(
-                content_type=content_type,
-                filename=original_filename,
-                original_error=str(error),
-            ) from error
-        validated_images.append(
-            ValidatedImage(
-                content=content,
-                mime_type=content_type,
-                original_name=original_filename,
-            )
-        )
-    return normalized_text, normalized_url, validated_images
-
-
-def _preflight_import_creation(
+def _get_existing_import_or_validate_capacity(
     session: Session,
+    *,
     owner_id: str,
     dedupe_key: str,
     max_active_imports: int,
 ) -> ImportJob | None:
-    with db_transaction(session):
-        existing = get_import_job_by_dedupe_key(session, owner_id, dedupe_key)
-        if existing is not None:
-            return existing
-        active_import_count = count_import_jobs_by_statuses(session, owner_id, ACTIVE_IMPORT_STATUSES)
-        if active_import_count >= max_active_imports:
-            raise ActiveImportExistsError(max_active_imports=max_active_imports)
+    existing = get_import_job_by_dedupe_key(session, owner_id, dedupe_key)
+    if existing is not None:
+        return existing
+    active_import_count = count_import_jobs_by_statuses(session, owner_id, ACTIVE_IMPORT_STATUSES)
+    if active_import_count >= max_active_imports:
+        raise ActiveImportExistsError(max_active_imports=max_active_imports)
     return None
 
 
@@ -171,6 +117,34 @@ def _upload_primary_sources(
     return sources, storage_keys
 
 
+def _build_text_and_url_sources(
+    text: str | None,
+    url: str | None,
+    *,
+    start_position: int,
+) -> list[ImportJobSource]:
+    sources: list[ImportJobSource] = []
+    if text is not None:
+        sources.append(
+            ImportJobSource(
+                type=SourceType.TEXT,
+                status=ImportSourceStatus.READY,
+                text=text,
+                position=start_position,
+            )
+        )
+    if url is not None:
+        sources.append(
+            ImportJobSource(
+                type=SourceType.URL,
+                status=ImportSourceStatus.READY,
+                url=url,
+                position=start_position + len(sources),
+            )
+        )
+    return sources
+
+
 def _persist_import_job(
     session: Session,
     *,
@@ -181,14 +155,16 @@ def _persist_import_job(
     dedupe_key: str,
     sources: list[ImportJobSource],
     max_active_imports: int,
-) -> tuple[ImportJob, str | None, bool]:
+) -> ImportJobCreationResult:
     with db_transaction(session):
-        existing = get_import_job_by_dedupe_key(session, owner_id, dedupe_key)
+        existing = _get_existing_import_or_validate_capacity(
+            session,
+            owner_id=owner_id,
+            dedupe_key=dedupe_key,
+            max_active_imports=max_active_imports,
+        )
         if existing is not None:
-            return existing, None, False
-        active_import_count = count_import_jobs_by_statuses(session, owner_id, ACTIVE_IMPORT_STATUSES)
-        if active_import_count >= max_active_imports:
-            raise ActiveImportExistsError(max_active_imports=max_active_imports)
+            return ImportJobCreationResult(job=existing, was_created=False, outbox_message_id=None)
 
         job = ImportJob(
             id=job_id,
@@ -214,7 +190,7 @@ def _persist_import_job(
             entity_id=job.id,
         )
         outbox_message = schedule_outbox_message(session, QueueMessageType.IMPORT_JOB, job.id)
-    return job, outbox_message.id, True
+    return ImportJobCreationResult(job=job, was_created=True, outbox_message_id=outbox_message.id)
 
 
 def create_import_job(
@@ -227,7 +203,7 @@ def create_import_job(
     files: list[UploadFile] | None = None,
     idempotency_key: str | None = None,
 ) -> ImportJobCreationResult:
-    normalized_text, normalized_url, validated_images = _validate_import_request(text, url, files or [])
+    request = validate_import_request(text, url, files or [])
 
     normalized_idempotency_key = idempotency_key.strip()[:128] if idempotency_key else ""
     dedupe_key = normalized_idempotency_key or client_import_id
@@ -235,46 +211,35 @@ def create_import_job(
 
     storage: StorageService | None = None
     saved_storage_keys: list[str] = []
+    uploads_attached_to_job = False
     job_id = new_id()
     try:
-        existing = _preflight_import_creation(
-            session,
-            owner_id,
-            dedupe_key,
-            settings.max_parallel_imports_per_client,
-        )
+        with db_transaction(session):
+            existing = _get_existing_import_or_validate_capacity(
+                session,
+                owner_id=owner_id,
+                dedupe_key=dedupe_key,
+                max_active_imports=settings.max_parallel_imports_per_client,
+            )
         if existing is not None:
             return ImportJobCreationResult(job=existing, was_created=False, outbox_message_id=None)
 
         storage = get_storage_service()
         sources, saved_storage_keys = _upload_primary_sources(
             storage,
-            validated_images,
+            request.images,
             owner_id=owner_id,
             job_id=job_id,
         )
-        resource_position = len(sources)
-        if normalized_text:
-            sources.append(
-                ImportJobSource(
-                    type=SourceType.TEXT,
-                    status=ImportSourceStatus.READY,
-                    text=normalized_text,
-                    position=resource_position,
-                )
+        sources.extend(
+            _build_text_and_url_sources(
+                request.text,
+                request.url,
+                start_position=len(sources),
             )
-            resource_position += 1
-        if normalized_url:
-            sources.append(
-                ImportJobSource(
-                    type=SourceType.URL,
-                    status=ImportSourceStatus.READY,
-                    url=normalized_url,
-                    position=resource_position,
-                )
-            )
+        )
 
-        job, outbox_message_id, was_created = _persist_import_job(
+        result = _persist_import_job(
             session,
             job_id=job_id,
             owner_id=owner_id,
@@ -284,12 +249,10 @@ def create_import_job(
             sources=sources,
             max_active_imports=settings.max_parallel_imports_per_client,
         )
-        if not was_created:
-            cleanup_import_storage(storage, StorageLocation.USER_MEDIA, saved_storage_keys)
-            return ImportJobCreationResult(job=job, was_created=False, outbox_message_id=None)
+        if not result.was_created:
+            return result
+        uploads_attached_to_job = True
     except IntegrityError as error:
-        if storage is not None:
-            cleanup_import_storage(storage, StorageLocation.USER_MEDIA, saved_storage_keys)
         existing = get_import_job_by_dedupe_key(session, owner_id, dedupe_key)
         if existing is not None:
             return ImportJobCreationResult(job=existing, was_created=False, outbox_message_id=None)
@@ -302,12 +265,8 @@ def create_import_job(
         )
         raise ImportCreationError() from error
     except ApiError:
-        if storage is not None and saved_storage_keys:
-            cleanup_import_storage(storage, StorageLocation.USER_MEDIA, saved_storage_keys)
         raise
     except Exception as error:
-        if storage is not None:
-            cleanup_import_storage(storage, StorageLocation.USER_MEDIA, saved_storage_keys)
         logger.error(
             "Import job creation failed.",
             owner_id=owner_id,
@@ -317,16 +276,15 @@ def create_import_job(
             error=repr(error),
         )
         raise ImportCreationError() from error
+    finally:
+        if storage is not None and saved_storage_keys and not uploads_attached_to_job:
+            cleanup_import_storage(storage, StorageLocation.USER_MEDIA, saved_storage_keys)
 
     logger.info(
         "Import job was created.",
-        job=job.to_dict(),
-        has_text=normalized_text is not None,
-        has_url=normalized_url is not None,
-        attachment_count=len(validated_images),
+        job=result.job.to_dict(),
+        has_text=request.text is not None,
+        has_url=request.url is not None,
+        attachment_count=len(request.images),
     )
-    return ImportJobCreationResult(
-        job=job,
-        was_created=True,
-        outbox_message_id=outbox_message_id,
-    )
+    return result

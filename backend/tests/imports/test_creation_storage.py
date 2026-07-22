@@ -128,7 +128,7 @@ def test_unexpected_preflight_failure_uses_import_creation_error(monkeypatch, se
     def fail_preflight(*_args) -> None:
         raise RuntimeError("database unavailable")
 
-    monkeypatch.setattr(create_module, "_preflight_import_creation", fail_preflight)
+    monkeypatch.setattr(create_module, "_get_existing_import_or_validate_capacity", fail_preflight)
 
     with pytest.raises(ImportCreationError):
         create_import_job(
