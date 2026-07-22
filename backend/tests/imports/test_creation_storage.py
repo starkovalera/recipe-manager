@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from starlette.datastructures import Headers
 
 from app.core.config import get_settings
-from app.core.errors import ActiveImportExistsError
+from app.core.errors import ActiveImportExistsError, ImportCreationError
 from app.db.base import Base
 from app.imports.jobs import create as create_module
 from app.imports.jobs.create import create_import_job
@@ -121,4 +121,21 @@ def test_cleanup_failure_does_not_mask_authoritative_creation_error(monkeypatch,
             text=None,
             url=None,
             files=[upload("one.jpg")],
+        )
+
+
+def test_unexpected_preflight_failure_uses_import_creation_error(monkeypatch, session: Session) -> None:
+    def fail_preflight(*_args) -> None:
+        raise RuntimeError("database unavailable")
+
+    monkeypatch.setattr(create_module, "_preflight_import_creation", fail_preflight)
+
+    with pytest.raises(ImportCreationError):
+        create_import_job(
+            session,
+            owner_id="owner-1",
+            client_id="client-1",
+            client_import_id="import-1",
+            text="Recipe",
+            url=None,
         )

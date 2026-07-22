@@ -233,19 +233,19 @@ def create_import_job(
     dedupe_key = normalized_idempotency_key or client_import_id
     settings = get_settings()
 
-    existing = _preflight_import_creation(
-        session,
-        owner_id,
-        dedupe_key,
-        settings.max_parallel_imports_per_client,
-    )
-    if existing is not None:
-        return ImportJobCreationResult(job=existing, was_created=False, outbox_message_id=None)
-
     storage: StorageService | None = None
     saved_storage_keys: list[str] = []
     job_id = new_id()
     try:
+        existing = _preflight_import_creation(
+            session,
+            owner_id,
+            dedupe_key,
+            settings.max_parallel_imports_per_client,
+        )
+        if existing is not None:
+            return ImportJobCreationResult(job=existing, was_created=False, outbox_message_id=None)
+
         storage = get_storage_service()
         sources, saved_storage_keys = _upload_primary_sources(
             storage,
