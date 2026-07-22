@@ -14,6 +14,7 @@ from app.queueing.constants import QueueMessageType, QueueOutboxStatus
 from app.users import deletion as deletion_module, reconcile_deletions
 from app.users.constants import AccountDeletionProcessingDisposition
 from app.users.deletion import AccountDeletionProcessingResult
+from app.storage.constants import StorageLocation
 
 
 class StubAuthProvider:
@@ -34,7 +35,8 @@ class StubStorage:
         self.failing_key = failing_key
         self.deleted_keys: list[str] = []
 
-    def delete(self, storage_key: str) -> None:
+    def delete(self, location: StorageLocation, storage_key: str) -> None:
+        assert location is StorageLocation.USER_MEDIA
         self.deleted_keys.append(storage_key)
         if storage_key == self.failing_key:
             raise OSError("storage unavailable")

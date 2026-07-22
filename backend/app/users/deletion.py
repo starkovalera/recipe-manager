@@ -20,6 +20,7 @@ from app.models import ImportJob, ImportJobSource, Recipe, RecipeImage, User, Us
 from app.queueing.constants import QueueMessageType
 from app.queueing.outbox import dispatch_outbox_message, schedule_outbox_message
 from app.storage.base import StorageService
+from app.storage.constants import StorageLocation
 from app.storage.runtime import get_storage_service
 from app.users.constants import AccountDeletionProcessingDisposition
 from app.users.queries import get_user_by_auth_identity_for_update, list_user_ids_by_status
@@ -106,7 +107,7 @@ def _delete_account_storage(
     failed_storage_keys: list[str] = []
     for storage_key in storage_keys:
         try:
-            storage.delete(storage_key)
+            storage.delete(StorageLocation.USER_MEDIA, storage_key)
         except Exception as error:
             failed_storage_keys.append(storage_key)
             log_error(

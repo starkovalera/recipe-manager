@@ -27,18 +27,21 @@ from app.models import (
     Notification,
     NotificationType,
 )
+from app.storage.constants import StorageLocation
 
 
 class FakeStorage:
     def __init__(self) -> None:
         self.deleted_keys: list[str] = []
 
-    def delete(self, storage_key: str) -> None:
+    def delete(self, location: StorageLocation, storage_key: str) -> None:
+        assert location is StorageLocation.USER_MEDIA
         self.deleted_keys.append(storage_key)
 
 
 class PartiallyFailingStorage(FakeStorage):
-    def delete(self, storage_key: str) -> None:
+    def delete(self, location: StorageLocation, storage_key: str) -> None:
+        assert location is StorageLocation.USER_MEDIA
         self.deleted_keys.append(storage_key)
         if storage_key == "upload-1":
             raise OSError("delete failed")
@@ -326,7 +329,7 @@ def test_process_import_failure_handles_missing_error_as_retryable_unexpected_er
 def test_cleanup_import_storage_attempts_every_key_when_one_delete_fails() -> None:
     storage = PartiallyFailingStorage()
 
-    cleanup_import_storage(storage, ["upload-1", "upload-2"])
+    cleanup_import_storage(storage, StorageLocation.USER_MEDIA, ["upload-1", "upload-2"])
 
     assert storage.deleted_keys == ["upload-1", "upload-2"]
 
