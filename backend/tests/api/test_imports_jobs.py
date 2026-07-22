@@ -44,6 +44,8 @@ from app.models import (
 from app.queueing.constants import QueueMessageType, QueueOutboxStatus
 from app.queueing.outbox import schedule_outbox_message
 from app.storage.base import StoredFile
+from app.storage.constants import StorageLocation, StoragePurpose
+from app.storage.types import StorageWriteContext
 from tests.api.support import install_local_user_override
 from tests.imports.runtime_overrides import (
     reset_url_content_service,
@@ -150,8 +152,20 @@ class RecordingStorage:
         self.fail_on_save = fail_on_save
         self.saved_keys: list[str] = []
         self.deleted_keys: list[str] = []
+        self.write_contexts: list[StorageWriteContext] = []
 
-    def save(self, content: bytes, original_name: str, mime_type: str) -> StoredFile:
+    def save(
+        self,
+        location: StorageLocation,
+        content: bytes,
+        original_name: str,
+        mime_type: str,
+        *,
+        context: StorageWriteContext,
+    ) -> StoredFile:
+        assert location is StorageLocation.USER_MEDIA
+        assert context.purpose is StoragePurpose.IMPORT_SOURCE
+        self.write_contexts.append(context)
         save_number = len(self.saved_keys) + 1
         if save_number == self.fail_on_save:
             raise OSError(f"save {save_number} failed")
@@ -164,7 +178,8 @@ class RecordingStorage:
             size_bytes=len(content),
         )
 
-    def delete(self, storage_key: str) -> None:
+    def delete(self, location: StorageLocation, storage_key: str) -> None:
+        assert location is StorageLocation.USER_MEDIA
         self.deleted_keys.append(storage_key)
 
 
@@ -890,7 +905,7 @@ def test_commit_failure_rolls_back_import_creation_and_deletes_uploaded_files(mo
     def fail_creation_commit(session):
         nonlocal commit_count
         commit_count += 1
-        if commit_count == 2:
+        if commit_count == 3:
             raise RuntimeError("commit failed")
 
     event.listen(SessionLocal, "before_commit", fail_creation_commit)

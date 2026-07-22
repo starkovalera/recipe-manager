@@ -4,6 +4,7 @@ from io import BytesIO
 
 from fastapi import UploadFile
 from PIL import Image
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
@@ -38,12 +39,15 @@ from app.models import (
     ImportJobStatus,
     ImportSourceStatus,
     SourceType,
+    new_id,
 )
 from app.notifications.notification_data import ImportStartedNotification, build_notification
 from app.queueing.constants import QueueMessageType
 from app.queueing.outbox import schedule_outbox_message
 from app.storage.base import StorageService
+from app.storage.constants import StorageLocation, StoragePurpose
 from app.storage.runtime import get_storage_service
+from app.storage.types import StorageWriteContext
 
 logger = bind_logger(logging.getLogger(__name__), component=IMPORT_LOG_COMPONENT)
 
@@ -102,34 +106,115 @@ def _validate_import_request(
     return normalized_text, normalized_url, validated_images
 
 
-def _create_image_source(
-    image: ValidatedImage,
-    position: int,
+def _preflight_import_creation(
+    session: Session,
+    owner_id: str,
+    dedupe_key: str,
+    max_active_imports: int,
+) -> ImportJob | None:
+    with db_transaction(session):
+        existing = get_import_job_by_dedupe_key(session, owner_id, dedupe_key)
+        if existing is not None:
+            return existing
+        active_import_count = count_import_jobs_by_statuses(session, owner_id, ACTIVE_IMPORT_STATUSES)
+        if active_import_count >= max_active_imports:
+            raise ActiveImportExistsError(max_active_imports=max_active_imports)
+    return None
+
+
+def _upload_primary_sources(
     storage: StorageService,
-    saved_storage_keys: list[str],
-) -> ImportJobSource:
-    try:
-        saved = storage.save(image.content, image.original_name, image.mime_type)
-        saved_storage_keys.append(saved.storage_key)
-    except Exception as error:
-        logger.error(
-            "Primary import resource upload failed.",
-            error=repr(error),
-            resource_position=position,
-            resource_type=SourceType.IMAGE.value,
-            original_name=image.original_name,
-            content_type=image.mime_type,
-        )
-        raise
-    return ImportJobSource(
-        type=SourceType.IMAGE,
-        status=ImportSourceStatus.READY,
-        image_storage_key=saved.storage_key,
-        original_name=saved.original_name,
-        mime_type=saved.mime_type,
-        size_bytes=saved.size_bytes,
-        position=position,
+    images: list[ValidatedImage],
+    *,
+    owner_id: str,
+    job_id: str,
+) -> tuple[list[ImportJobSource], list[str]]:
+    sources: list[ImportJobSource] = []
+    storage_keys: list[str] = []
+    context = StorageWriteContext(
+        owner_id=owner_id,
+        purpose=StoragePurpose.IMPORT_SOURCE,
+        entity_id=job_id,
     )
+    for position, image in enumerate(images):
+        try:
+            saved = storage.save(
+                StorageLocation.USER_MEDIA,
+                image.content,
+                image.original_name,
+                image.mime_type,
+                context=context,
+            )
+            storage_keys.append(saved.storage_key)
+        except Exception as error:
+            logger.error(
+                "Primary import resource upload failed.",
+                error=repr(error),
+                resource_position=position,
+                resource_type=SourceType.IMAGE.value,
+                original_name=image.original_name,
+                content_type=image.mime_type,
+            )
+            cleanup_import_storage(storage, StorageLocation.USER_MEDIA, storage_keys)
+            raise
+        sources.append(
+            ImportJobSource(
+                type=SourceType.IMAGE,
+                status=ImportSourceStatus.READY,
+                image_storage_key=saved.storage_key,
+                original_name=saved.original_name,
+                mime_type=saved.mime_type,
+                size_bytes=saved.size_bytes,
+                position=position,
+            )
+        )
+    return sources, storage_keys
+
+
+def _persist_import_job(
+    session: Session,
+    *,
+    job_id: str,
+    owner_id: str,
+    client_id: str,
+    client_import_id: str,
+    dedupe_key: str,
+    sources: list[ImportJobSource],
+    max_active_imports: int,
+) -> tuple[ImportJob, str | None, bool]:
+    with db_transaction(session):
+        existing = get_import_job_by_dedupe_key(session, owner_id, dedupe_key)
+        if existing is not None:
+            return existing, None, False
+        active_import_count = count_import_jobs_by_statuses(session, owner_id, ACTIVE_IMPORT_STATUSES)
+        if active_import_count >= max_active_imports:
+            raise ActiveImportExistsError(max_active_imports=max_active_imports)
+
+        job = ImportJob(
+            id=job_id,
+            owner_id=owner_id,
+            client_id=client_id,
+            client_import_id=client_import_id,
+            dedupe_key=dedupe_key,
+            status=ImportJobStatus.QUEUED,
+            sources=sources,
+        )
+        session.add(job)
+        build_job_event(
+            session,
+            import_job_id=job.id,
+            event_type=ImportEventType.IMPORT_CREATED,
+            client_import_id=client_import_id,
+            dedupe_key=dedupe_key,
+        )
+        build_notification(
+            session,
+            ImportStartedNotification,
+            owner_id=job.owner_id,
+            entity_id=job.id,
+        )
+        outbox_message = schedule_outbox_message(session, QueueMessageType.IMPORT_JOB, job.id)
+    return job, outbox_message.id, True
 
 
 def create_import_job(
@@ -146,91 +231,83 @@ def create_import_job(
 
     normalized_idempotency_key = idempotency_key.strip()[:128] if idempotency_key else ""
     dedupe_key = normalized_idempotency_key or client_import_id
+    settings = get_settings()
+
+    existing = _preflight_import_creation(
+        session,
+        owner_id,
+        dedupe_key,
+        settings.max_parallel_imports_per_client,
+    )
+    if existing is not None:
+        return ImportJobCreationResult(job=existing, was_created=False, outbox_message_id=None)
 
     storage: StorageService | None = None
     saved_storage_keys: list[str] = []
+    job_id = new_id()
     try:
         storage = get_storage_service()
-        with db_transaction(session):
-            existing = get_import_job_by_dedupe_key(session, owner_id, dedupe_key)
-            if existing is not None:
-                return ImportJobCreationResult(
-                    job=existing,
-                    was_created=False,
-                    outbox_message_id=None,
+        sources, saved_storage_keys = _upload_primary_sources(
+            storage,
+            validated_images,
+            owner_id=owner_id,
+            job_id=job_id,
+        )
+        resource_position = len(sources)
+        if normalized_text:
+            sources.append(
+                ImportJobSource(
+                    type=SourceType.TEXT,
+                    status=ImportSourceStatus.READY,
+                    text=normalized_text,
+                    position=resource_position,
                 )
-
-            settings = get_settings()
-            active_import_count = count_import_jobs_by_statuses(session, owner_id, ACTIVE_IMPORT_STATUSES)
-            if active_import_count >= settings.max_parallel_imports_per_client:
-                raise ActiveImportExistsError(max_active_imports=settings.max_parallel_imports_per_client)
-
-            job = ImportJob(
-                owner_id=owner_id,
-                client_id=client_id,
-                client_import_id=client_import_id,
-                dedupe_key=dedupe_key,
-                status=ImportJobStatus.QUEUED,
             )
-            session.add(job)
-            session.flush()
-
-            resource_position = 0
-            for image in validated_images:
-                job.sources.append(
-                    _create_image_source(
-                        image,
-                        resource_position,
-                        storage,
-                        saved_storage_keys,
-                    )
+            resource_position += 1
+        if normalized_url:
+            sources.append(
+                ImportJobSource(
+                    type=SourceType.URL,
+                    status=ImportSourceStatus.READY,
+                    url=normalized_url,
+                    position=resource_position,
                 )
-                resource_position += 1
-            if normalized_text:
-                job.sources.append(
-                    ImportJobSource(
-                        type=SourceType.TEXT,
-                        status=ImportSourceStatus.READY,
-                        text=normalized_text,
-                        position=resource_position,
-                    )
-                )
-                resource_position += 1
-            if normalized_url:
-                job.sources.append(
-                    ImportJobSource(
-                        type=SourceType.URL,
-                        status=ImportSourceStatus.READY,
-                        url=normalized_url,
-                        position=resource_position,
-                    )
-                )
+            )
 
-            build_job_event(
-                session,
-                import_job_id=job.id,
-                event_type=ImportEventType.IMPORT_CREATED,
-                client_import_id=client_import_id,
-                dedupe_key=dedupe_key,
-            )
-            build_notification(
-                session,
-                ImportStartedNotification,
-                owner_id=job.owner_id,
-                entity_id=job.id,
-            )
-            outbox_message = schedule_outbox_message(
-                session,
-                QueueMessageType.IMPORT_JOB,
-                job.id,
-            )
+        job, outbox_message_id, was_created = _persist_import_job(
+            session,
+            job_id=job_id,
+            owner_id=owner_id,
+            client_id=client_id,
+            client_import_id=client_import_id,
+            dedupe_key=dedupe_key,
+            sources=sources,
+            max_active_imports=settings.max_parallel_imports_per_client,
+        )
+        if not was_created:
+            cleanup_import_storage(storage, StorageLocation.USER_MEDIA, saved_storage_keys)
+            return ImportJobCreationResult(job=job, was_created=False, outbox_message_id=None)
+    except IntegrityError as error:
+        if storage is not None:
+            cleanup_import_storage(storage, StorageLocation.USER_MEDIA, saved_storage_keys)
+        existing = get_import_job_by_dedupe_key(session, owner_id, dedupe_key)
+        if existing is not None:
+            return ImportJobCreationResult(job=existing, was_created=False, outbox_message_id=None)
+        logger.error(
+            "Import job creation failed after a uniqueness conflict.",
+            owner_id=owner_id,
+            client_import_id=client_import_id,
+            dedupe_key=dedupe_key,
+            error=repr(error),
+        )
+        raise ImportCreationError() from error
     except ApiError:
         if storage is not None and saved_storage_keys:
-            cleanup_import_storage(storage, saved_storage_keys)
+            cleanup_import_storage(storage, StorageLocation.USER_MEDIA, saved_storage_keys)
         raise
     except Exception as error:
         if storage is not None:
-            cleanup_import_storage(storage, saved_storage_keys)
+            cleanup_import_storage(storage, StorageLocation.USER_MEDIA, saved_storage_keys)
         logger.error(
             "Import job creation failed.",
             owner_id=owner_id,
@@ -251,5 +328,5 @@ def create_import_job(
     return ImportJobCreationResult(
         job=job,
         was_created=True,
-        outbox_message_id=outbox_message.id,
+        outbox_message_id=outbox_message_id,
     )
