@@ -59,7 +59,10 @@ def test_local_storage_reads_and_deletes_legacy_flat_key(tmp_path: Path) -> None
     assert not legacy_path.exists()
 
 
-@pytest.mark.parametrize("storage_key", ["../outside", "nested/../../outside", "/absolute", "C:\\absolute"])
+@pytest.mark.parametrize(
+    "storage_key",
+    ["../outside", "nested/../../outside", "..\\outside", "/absolute", "C:\\absolute"],
+)
 def test_local_storage_rejects_keys_outside_location(tmp_path: Path, storage_key: str) -> None:
     storage = build_storage(tmp_path)
 

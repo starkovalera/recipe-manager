@@ -1,5 +1,5 @@
 from collections.abc import Mapping
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 
 from app.storage.base import StorageService
 from app.storage.constants import StorageLocation
@@ -30,6 +30,10 @@ class LocalStorageService(StorageService):
         root = self._roots.get(location)
         if root is None:
             raise StorageConfigurationError(f"Storage location {location.value} is not configured.")
+        posix_key = PurePosixPath(storage_key)
+        windows_key = PureWindowsPath(storage_key)
+        if posix_key.is_absolute() or windows_key.is_absolute() or ".." in posix_key.parts or ".." in windows_key.parts:
+            raise ValueError(f"Storage key resolves outside storage root: {storage_key}")
         path = (root / storage_key).resolve()
         if root != path and root not in path.parents:
             raise ValueError(f"Storage key resolves outside storage root: {storage_key}")
