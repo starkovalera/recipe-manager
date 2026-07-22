@@ -23,7 +23,7 @@ def test_storage_service_uses_local_provider_in_preview(tmp_path: Path) -> None:
     storage = get_storage_service(settings)
 
     assert isinstance(storage, LocalStorageService)
-    assert storage.root == tmp_path.resolve()
+    assert storage.path_for_response(StorageLocation.USER_MEDIA, "file.jpg").parent == tmp_path.resolve()
 
 
 def test_storage_service_rejects_s3_until_provider_exists() -> None:

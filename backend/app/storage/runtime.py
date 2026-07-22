@@ -30,7 +30,7 @@ def get_storage_service(settings: Settings | None = None) -> StorageService:
 
     if resolved_settings.storage_provider is StorageProvider.LOCAL:
         location_to_locator = get_storage_location_to_locator(resolved_settings)
-        return LocalStorageService(location_to_locator[StorageLocation.USER_MEDIA])
+        return LocalStorageService(location_to_locator=location_to_locator)
 
     if resolved_settings.storage_provider is StorageProvider.S3:
         raise RuntimeError("S3 storage is not implemented yet.")
