@@ -52,7 +52,7 @@ class ImportJobCreationResult:
     outbox_message_id: str | None
 
 
-def _get_existing_import_or_validate_capacity(
+def _get_existing_import(
     session: Session,
     *,
     owner_id: str,
@@ -68,7 +68,7 @@ def _get_existing_import_or_validate_capacity(
     return None
 
 
-def _upload_primary_sources(
+def _build_image_sources(
     storage: StorageService,
     images: list[ValidatedImage],
     *,
@@ -157,7 +157,7 @@ def _persist_import_job(
     max_active_imports: int,
 ) -> ImportJobCreationResult:
     with db_transaction(session):
-        existing = _get_existing_import_or_validate_capacity(
+        existing = _get_existing_import(
             session,
             owner_id=owner_id,
             dedupe_key=dedupe_key,
@@ -215,7 +215,7 @@ def create_import_job(
     job_id = new_id()
     try:
         with db_transaction(session):
-            existing = _get_existing_import_or_validate_capacity(
+            existing = _get_existing_import(
                 session,
                 owner_id=owner_id,
                 dedupe_key=dedupe_key,
@@ -225,7 +225,7 @@ def create_import_job(
             return ImportJobCreationResult(job=existing, was_created=False, outbox_message_id=None)
 
         storage = get_storage_service()
-        sources, saved_storage_keys = _upload_primary_sources(
+        sources, saved_storage_keys = _build_image_sources(
             storage,
             request.images,
             owner_id=owner_id,

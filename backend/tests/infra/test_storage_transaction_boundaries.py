@@ -34,7 +34,7 @@ def test_domain_modules_do_not_import_s3_adapter_or_bucket_settings() -> None:
 
 def test_import_storage_work_precedes_persistence_boundaries() -> None:
     creation_source = inspect.getsource(create_import_job)
-    assert creation_source.index("_upload_primary_sources(") < creation_source.index("_persist_import_job(")
+    assert creation_source.index("_build_image_sources(") < creation_source.index("_persist_import_job(")
 
     processing_source = inspect.getsource(process_import_job)
     assert processing_source.index("prepare_cover_image(") < processing_source.index("save_import(")
