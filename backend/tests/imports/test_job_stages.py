@@ -39,17 +39,37 @@ from app.models import (
     SourceType,
     Tag,
 )
+from app.storage.constants import StorageLocation, StoragePurpose
+from app.storage.types import StorageWriteContext, StoredFile
 
 
 class MemoryStorage:
     def __init__(self, files: dict[str, bytes]):
         self.files = files
+        self.saved: list[tuple[StorageLocation, StorageWriteContext, str]] = []
 
-    def read(self, storage_key: str) -> bytes:
+    def read(self, location: StorageLocation, storage_key: str) -> bytes:
+        assert location is StorageLocation.USER_MEDIA
         return self.files[storage_key]
 
-    def save(self, content: bytes, original_name: str, mime_type: str):
-        stored = type("StoredFile", (), {"storage_key": f"secondary/{original_name}"})()
+    def save(
+        self,
+        location: StorageLocation,
+        content: bytes,
+        original_name: str,
+        mime_type: str,
+        *,
+        context: StorageWriteContext,
+    ) -> StoredFile:
+        assert location is StorageLocation.USER_MEDIA
+        assert context.purpose is StoragePurpose.IMPORT_DERIVED
+        stored = StoredFile(
+            storage_key=f"secondary/{original_name}",
+            original_name=original_name,
+            mime_type=mime_type,
+            size_bytes=len(content),
+        )
+        self.saved.append((location, context, stored.storage_key))
         self.files[stored.storage_key] = content
         return stored
 
@@ -134,7 +154,7 @@ def extraction_context() -> ExtractionContext:
 
 
 def import_job() -> ImportJob:
-    return ImportJob(owner_id="user-1", client_id="client-1", status=ImportJobStatus.RUNNING)
+    return ImportJob(id="job-1", owner_id="user-1", client_id="client-1", status=ImportJobStatus.RUNNING)
 
 
 def import_job_context() -> ImportJobContext:
@@ -192,10 +212,12 @@ def test_build_raw_sources_keeps_partial_url_content_and_reports_failed_transcri
         error="RuntimeError('transcription failed')",
     )
 
+    storage = MemoryStorage({})
+    secondary_storage_keys: list[str] = []
     result = build_raw_sources(
         job,
-        MemoryStorage({}),
-        secondary_storage_keys=[],
+        storage,
+        secondary_storage_keys=secondary_storage_keys,
         url_content_loader=StaticUrlContentService(
             LoadedUrlContent(
                 url="https://example.com/post",
@@ -226,6 +248,18 @@ def test_build_raw_sources_keeps_partial_url_content_and_reports_failed_transcri
         (SourceType.IMAGE, RecipeResourceOrigin.URL_VIDEO),
     ]
     assert transcript_failure in result.secondary_resource_results
+    assert secondary_storage_keys == ["secondary/poster-video.jpg"]
+    assert storage.saved == [
+        (
+            StorageLocation.USER_MEDIA,
+            StorageWriteContext(
+                owner_id="user-1",
+                purpose=StoragePurpose.IMPORT_DERIVED,
+                entity_id="job-1",
+            ),
+            "secondary/poster-video.jpg",
+        )
+    ]
 
 
 def test_build_raw_sources_rejects_sole_url_with_only_video_posters():
@@ -365,7 +399,7 @@ def test_extract_calls_provider_without_recording_extractor_events():
             "tags": "quick, dinner",
         }
     ]
-    assert job_context.to_dict()["id"] is None
+    assert job_context.to_dict()["id"] == "job-1"
 
 
 def test_extract_maps_provider_exception_to_extractor_unavailable():
