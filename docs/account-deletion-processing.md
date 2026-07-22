@@ -112,11 +112,11 @@ bodies, or storage-key inventories.
 
 ## Production storage boundary
 
-PREVIEW resolves `LocalStorageService` through the account-deletion storage
-boundary. P7 does not implement S3 deletion. Selecting the S3 provider fails
-explicitly until P9 supplies that adapter; there is no fallback to Lambda-local
-disk. Consequently, the P7 production handler is not deployable for media
-cleanup before P9.
+PREVIEW resolves the LOCAL adapter and production resolves the S3 adapter
+through the same centralized storage boundary. Account deletion passes
+`StorageLocation.USER_MEDIA` explicitly, attempts every unique key, and treats
+an already-missing S3 object as success. There is no fallback to Lambda-local
+disk.
 
 ## Maintenance recovery
 
@@ -126,7 +126,7 @@ account-deletion work. Maintenance never executes account deletion directly.
 
 ## Deferred work
 
-- S3 storage deletion and production media access belong to P9/P10.
+- S3 storage deletion is implemented by P9; client media access belongs to P10.
 - Scheduled stale-pending recovery is implemented by P8A maintenance.
 - Infrastructure, Lambda packaging, queue/DLQ resources, and alarms are
   separate production phases.

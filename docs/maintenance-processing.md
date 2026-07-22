@@ -78,7 +78,8 @@ the recipe `DELETION_PENDING`. After successful storage cleanup, a fresh locked
 transaction deletes the still-pending recipe. A database failure also leaves it
 pending. Maintenance applies this processor to stale pending recipe IDs.
 
-Production S3 selection remains fail-closed until P9 implements S3.
+Recipe deletion uses the configured LOCAL or S3 provider through the shared
+storage boundary. S3 missing-object deletes are idempotent success.
 
 ### Invitations
 
@@ -103,7 +104,7 @@ time, and foreign recipe cover images. Anomalies are reported but never repaired
 
 ## Deferred P8B
 
-These operations remain non-executable until P9 provides S3:
+These storage-inventory operations remain intentionally deferred to P8B:
 
 ```text
 failed_import_artifact_cleanup

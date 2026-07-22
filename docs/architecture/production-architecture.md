@@ -860,6 +860,20 @@ Bucket, logical location, and write purpose are implied by the current
 user-media contract and are not persisted. Checksums remain deferred until a
 concrete integrity or deduplication use case requires them.
 
+The P9 user-media key contract is purpose-first:
+
+```text
+imports/source/{owner}/{job}/{uuid}.{ext}
+imports/derived/{owner}/{job}/{uuid}.{ext}
+recipes/media/{owner}/{recipe}/{uuid}.{ext}
+temporary/{owner}/{operation}/{uuid}.{ext}
+```
+
+There is no `users/` prefix. Primary import uploads and cover preparation run
+outside database transactions with explicit compensation. Internal workers can
+save, read, and delete S3 objects; client media access remains fail-closed until
+P10 adds short-lived presigned access.
+
 Requirements:
 
 - Block Public Access;

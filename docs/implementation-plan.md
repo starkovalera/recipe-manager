@@ -104,7 +104,7 @@ Implement profile selection in backend settings with `APP_ENV`, default `PROD` s
 - `APP_ENV=PROD`
   - Requires an explicit PostgreSQL `DATABASE_URL`, `QUEUE_PROVIDER=SQS`, and `STORAGE_PROVIDER=S3`.
   - Rejects SQLite, `REDIS_URL`, `UPLOAD_DIR`, Dramatiq, and local storage.
-  - SQS and S3 adapters are delivered in later production iterations; no fallback provider is selected.
+  - SQS and S3 adapters are implemented; no fallback provider is selected.
 
 ### Runtime and Queue Boundary Invariants
 
@@ -124,6 +124,11 @@ Implement profile selection in backend settings with `APP_ENV`, default `PROD` s
 - Each accepted user-initiated account deletion request atomically persists the `DELETION_PENDING` state when first requested and a new pending `ACCOUNT_DELETION` outbox message. Repeated requests while deletion is pending create new durable intents. Immediate dispatch happens only after commit, and dispatch failure does not revert the pending account state or remove the outbox message.
 - Each new verified `user.deleted` webhook atomically persists its `svix-id` idempotency record and, when the local user exists, the user's `DELETION_PENDING` state plus a pending `ACCOUNT_DELETION` outbox message. A duplicate `svix-id` creates and dispatches nothing; an unknown local user records the processed webhook without an outbox message. Immediate dispatch occurs only after commit, and dispatch failure does not change the successful webhook response or remove the pending intent.
 - Manual account-deletion reconciliation creates one pending `ACCOUNT_DELETION` outbox message per `DELETION_PENDING` user in a single committed database operation, then dispatches those message IDs after commit. It reports failed user IDs through the existing contract, and `python -m app.users.reconcile_deletions` keeps a nonzero exit code when any immediate dispatch fails.
+- Storage provider selection is centralized in `get_storage_service()` and does not select a logical location. Every save, read, and delete names `StorageLocation.USER_MEDIA` explicitly; LOCAL resolves it to a `Path`, while S3 resolves it to a private bucket name.
+- User-media object keys are purpose-first: `imports/source/{owner}/{job}/`, `imports/derived/{owner}/{job}/`, `recipes/media/{owner}/{recipe}/`, or `temporary/{owner}/{operation}/`, followed by a generated UUID and allowlisted extension. Keys never include a `users/` prefix or the original filename.
+- Primary import uploads and cover guard/read/render/save work run outside persistence transactions. Their generated keys are tracked immediately and compensated on duplicate, limit, persistence, retryable-processing, or terminal-processing paths according to existing import ownership rules.
+- Recipe and account deletion perform storage cleanup outside database transactions, attempt all unique keys, and keep the domain object pending when any deletion fails. Missing S3 objects are an idempotent delete success.
+- S3 client media access is fail-closed until P10. `/media` serves LOCAL paths only and returns `503 MEDIA_ACCESS_NOT_AVAILABLE` for S3 without reading the object or generating a public/presigned URL.
 
 Add explicit scripts or documented commands for both modes:
 
