@@ -11,10 +11,10 @@ from app.auth.types import AuthenticatedIdentity, AuthProviderError
 from app.db.base import Base
 from app.models import ImportJob, ImportJobSource, ImportJobStatus, QueueOutboxMessage, Recipe, RecipeImage, SourceType, User, UserStatus
 from app.queueing.constants import QueueMessageType, QueueOutboxStatus
+from app.storage.constants import StorageLocation
 from app.users import deletion as deletion_module, reconcile_deletions
 from app.users.constants import AccountDeletionProcessingDisposition
 from app.users.deletion import AccountDeletionProcessingResult
-from app.storage.constants import StorageLocation
 
 
 class StubAuthProvider:

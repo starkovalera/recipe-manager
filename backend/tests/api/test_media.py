@@ -34,6 +34,7 @@ def test_media_serves_nested_local_keys(tmp_path, monkeypatch):
     assert response.status_code == 200
     assert response.content == b"nested-image"
 
+
 def test_media_rejects_path_traversal(tmp_path, monkeypatch):
     upload_dir = tmp_path / "uploads"
     upload_dir.mkdir()
