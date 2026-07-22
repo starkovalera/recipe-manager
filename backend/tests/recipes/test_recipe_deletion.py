@@ -74,6 +74,28 @@ def test_recipe_deletion_storage_failure_leaves_recipe_pending_and_attempts_all_
         assert session.get(Recipe, "recipe-1").status is RecipeStatus.DELETION_PENDING
 
 
+def test_recipe_deletion_retries_after_s3_style_object_failure(monkeypatch) -> None:
+    factory = _factory()
+    _add_pending_recipe(factory)
+    monkeypatch.setattr(session_module, "SessionLocal", factory)
+    storage = RecordingStorage(failing_key="one.jpg")
+
+    first = process_recipe_deletion("recipe-1", storage=storage)
+    storage.failing_key = None
+    second = process_recipe_deletion("recipe-1", storage=storage)
+
+    assert first.disposition is RecipeDeletionProcessingDisposition.RETRYABLE_FAILURE
+    assert second.disposition is RecipeDeletionProcessingDisposition.COMPLETED
+    assert storage.deleted == [
+        (StorageLocation.USER_MEDIA, "one.jpg"),
+        (StorageLocation.USER_MEDIA, "two.jpg"),
+        (StorageLocation.USER_MEDIA, "one.jpg"),
+        (StorageLocation.USER_MEDIA, "two.jpg"),
+    ]
+    with factory() as session:
+        assert session.get(Recipe, "recipe-1") is None
+
+
 def test_recipe_deletion_is_noop_for_missing_or_active_recipe(monkeypatch) -> None:
     factory = _factory()
     with factory() as session:
