@@ -4,6 +4,7 @@ from enum import StrEnum
 class MaintenanceOperation(StrEnum):
     PENDING_OUTBOX_RECONCILIATION = "pending_outbox_reconciliation"
     STALE_IMPORT_RECONCILIATION = "stale_import_reconciliation"
+    FAILED_IMPORT_ARTIFACT_CLEANUP = "failed_import_artifact_cleanup"
     STALE_EMBEDDING_RECONCILIATION = "stale_embedding_reconciliation"
     STALE_RECIPE_DELETION_RECONCILIATION = "stale_recipe_deletion_reconciliation"
     EXPIRED_INVITATION_CLEANUP = "expired_invitation_cleanup"

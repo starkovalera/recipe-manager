@@ -3,6 +3,7 @@ from collections.abc import Callable
 from app.maintenance.accounts import reconcile_stale_account_deletions
 from app.maintenance.constants import MaintenanceOperation
 from app.maintenance.embeddings import reconcile_stale_embeddings
+from app.maintenance.failed_import_artifacts import cleanup_failed_import_artifacts
 from app.maintenance.imports import reconcile_stale_imports
 from app.maintenance.integrity import run_integrity_check
 from app.maintenance.invitations import cleanup_expired_invitations
@@ -15,6 +16,7 @@ MaintenanceHandler = Callable[[], MaintenanceProcessingResult]
 MAINTENANCE_OPERATION_HANDLERS: dict[MaintenanceOperation, MaintenanceHandler] = {
     MaintenanceOperation.PENDING_OUTBOX_RECONCILIATION: reconcile_pending_outbox,
     MaintenanceOperation.STALE_IMPORT_RECONCILIATION: reconcile_stale_imports,
+    MaintenanceOperation.FAILED_IMPORT_ARTIFACT_CLEANUP: cleanup_failed_import_artifacts,
     MaintenanceOperation.STALE_EMBEDDING_RECONCILIATION: reconcile_stale_embeddings,
     MaintenanceOperation.STALE_RECIPE_DELETION_RECONCILIATION: reconcile_stale_recipe_deletions,
     MaintenanceOperation.EXPIRED_INVITATION_CLEANUP: cleanup_expired_invitations,
