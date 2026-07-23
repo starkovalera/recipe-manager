@@ -17,6 +17,7 @@ def test_storage_service_uses_local_provider_in_preview(tmp_path: Path) -> None:
         app_env=AppEnv.PREVIEW,
         clerk_secret_key="test-clerk-secret",
         upload_dir=tmp_path,
+        system_artifacts_dir=tmp_path / "system-artifacts",
         storage_provider=StorageProvider.LOCAL,
         _env_file=None,
     )
@@ -35,6 +36,7 @@ def test_storage_service_uses_s3_provider() -> None:
         storage_provider=StorageProvider.S3,
         aws_region="eu-west-1",
         s3_user_media_bucket_name="recipe-manager-test-user-media",
+        s3_system_artifacts_bucket_name="recipe-manager-test-system-artifacts",
         sqs_imports_queue_url="https://example.test/imports",
         sqs_embeddings_queue_url="https://example.test/embeddings",
         sqs_account_deletion_queue_url="https://example.test/account-deletion",
@@ -51,6 +53,7 @@ def test_local_storage_service_requires_upload_dir() -> None:
     settings = SimpleNamespace(
         storage_provider=StorageProvider.LOCAL,
         upload_dir=None,
+        system_artifacts_dir=Path("system-artifacts"),
     )
 
     with pytest.raises(StorageConfigurationError, match="UPLOAD_DIR"):
@@ -61,11 +64,14 @@ def test_local_storage_location_maps_to_path(tmp_path: Path) -> None:
     settings = SimpleNamespace(
         storage_provider=StorageProvider.LOCAL,
         upload_dir=tmp_path,
+        system_artifacts_dir=tmp_path / "system-artifacts",
         s3_user_media_bucket_name=None,
+        s3_system_artifacts_bucket_name=None,
     )
 
     assert get_storage_location_to_locator(settings) == {
         StorageLocation.USER_MEDIA: tmp_path,
+        StorageLocation.SYSTEM_ARTIFACTS: tmp_path / "system-artifacts",
     }
 
 
@@ -73,11 +79,14 @@ def test_s3_storage_location_maps_to_bucket_name() -> None:
     settings = SimpleNamespace(
         storage_provider=StorageProvider.S3,
         upload_dir=None,
+        system_artifacts_dir=None,
         s3_user_media_bucket_name="recipe-manager-test-user-media",
+        s3_system_artifacts_bucket_name="recipe-manager-test-system-artifacts",
     )
 
     assert get_storage_location_to_locator(settings) == {
         StorageLocation.USER_MEDIA: "recipe-manager-test-user-media",
+        StorageLocation.SYSTEM_ARTIFACTS: "recipe-manager-test-system-artifacts",
     }
 
 
@@ -85,7 +94,9 @@ def test_storage_location_mapping_rejects_unconfigured_provider() -> None:
     settings = SimpleNamespace(
         storage_provider=None,
         upload_dir=None,
+        system_artifacts_dir=None,
         s3_user_media_bucket_name=None,
+        s3_system_artifacts_bucket_name=None,
     )
 
     with pytest.raises(StorageConfigurationError, match="provider"):

@@ -9,5 +9,6 @@ TERMINAL_IMPORT_STATUSES = {
     ImportJobStatus.SUCCEEDED,
     ImportJobStatus.SUCCEEDED_WITH_FLAGS,
     ImportJobStatus.FAILED,
+    ImportJobStatus.FAILED_ARTIFACTS_REMOVED,
     ImportJobStatus.CANCELLED,
 }

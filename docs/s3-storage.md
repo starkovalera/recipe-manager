@@ -7,16 +7,18 @@ code selects one `StorageProvider`, then each operation names its logical
 ## Vocabulary
 
 - `StorageProvider` selects the `LOCAL` or `S3` implementation.
-- `StorageLocation` selects a logical root or bucket for an operation. P9 has
-  only `USER_MEDIA`.
+- `StorageLocation` selects a logical root or bucket for an operation:
+  `USER_MEDIA` or private `SYSTEM_ARTIFACTS`.
 - `StorageLocator` is provider-specific: a local `Path` or an S3 bucket name.
-- `StoragePurpose` selects the object-key prefix class.
-- `StorageWriteContext` is the immutable owner/entity namespace used to build a
-  key.
+- `StorageUserPurpose` selects a user-media key prefix.
+- `StorageSystemPurpose` selects a private operational-artifact key prefix.
+- `StorageSaveContext` is the protocol implemented by immutable
+  `StorageUserContext` and `StorageSystemContext` key builders.
 
 `get_storage_service()` selects only the provider. The centralized runtime
-mapping resolves `USER_MEDIA` to `UPLOAD_DIR` for LOCAL and
-`S3_USER_MEDIA_BUCKET_NAME` for S3.
+mapping resolves `USER_MEDIA` to `UPLOAD_DIR`/`S3_USER_MEDIA_BUCKET_NAME` and
+`SYSTEM_ARTIFACTS` to `SYSTEM_ARTIFACTS_DIR`/
+`S3_SYSTEM_ARTIFACTS_BUCKET_NAME`.
 
 ## Object keys
 
@@ -26,12 +28,19 @@ P9 uses purpose-first keys and never adds a `users/` prefix:
 imports/source/{owner}/{job}/{uuid}.{ext}
 imports/derived/{owner}/{job}/{uuid}.{ext}
 recipes/media/{owner}/{recipe}/{uuid}.{ext}
-temporary/{owner}/{operation}/{uuid}.{ext}
+maintenance/reports/{report-type}/{yyyy}/{mm}/{dd}/{timestamp}-{report-id}.json
 ```
 
 The extension is derived only from an allowlisted original-name suffix. The
 original filename is not embedded in the key. Owner and entity identifiers are
 validated before key construction.
+
+Storage-key safety belongs to the selected provider. LOCAL interprets keys with
+the current runtime's `Path` rules and requires the resolved path to remain
+inside the configured location root. S3 treats non-empty keys as opaque object
+identifiers and does not apply filesystem path rules. Application media and
+destructive maintenance still require canonical purpose-first keys under the
+expected nested domain prefix.
 
 ## Persistence
 
@@ -69,18 +78,18 @@ processing error.
 
 ## Provider behavior
 
-LOCAL supports nested purpose-first keys and legacy flat keys. S3 uses a lazy
-boto3 client and exact `put_object`, `get_object`, and `delete_object` calls.
+LOCAL supports nested purpose-first keys. S3 uses a lazy boto3 client and exact
+`put_object`, `get_object`, and `delete_object` calls.
 Missing reads map to `StorageObjectNotFoundError`; delete remains idempotent.
+Both adapters implement bounded `list_objects`: LOCAL uses a sorted key cursor,
+while S3 uses its opaque continuation token. The shared `StorageService`
+implements `list_all_objects` by consuming those provider-specific pages.
 AWS credentials use the standard boto3 credential chain and are not application
 settings.
 
-LOCAL media URLs preserve that distinction at the API and gateway boundary.
-Canonical nested keys use
-`/media/{namespace}/{kind}/{owner_id}/{entity_id}/{object_name}`; legacy flat
-keys use `/legacy-media/{storage_key}`. This fixed-depth split is required by
-the local KrakenD CE router and keeps both key formats reachable without
-ambiguous routes.
+LOCAL media URLs use the canonical fixed-depth route
+`/media/{namespace}/{kind}/{owner_id}/{entity_id}/{object_name}` required by the
+local KrakenD CE router.
 
 ## P9 and P10 boundary
 
@@ -91,5 +100,6 @@ building a public URL, or generating a presigned URL. LOCAL keeps its existing
 `FileResponse` behavior.
 
 Bucket creation, policies, encryption, lifecycle rules, versioning, and IAM are
-deferred to Terraform infrastructure work. Storage-backed maintenance operations
-such as orphan cleanup remain deferred to P8B.
+deferred to Terraform infrastructure work. P8B1 adds failed-import cleanup,
+read-only orphan detection, and private maintenance reports; destructive orphan
+cleanup remains deferred.

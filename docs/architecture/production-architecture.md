@@ -447,11 +447,13 @@ Do not send:
 - authentication tokens;
 - credentials.
 
-The active P8A maintenance operations are:
+The active P8A/P8B1 maintenance operations are:
 
 ```text
 pending_outbox_reconciliation
 stale_import_reconciliation
+failed_import_artifact_cleanup
+orphaned_upload_detection
 stale_embedding_reconciliation
 stale_recipe_deletion_reconciliation
 expired_invitation_cleanup
@@ -459,10 +461,9 @@ stale_account_deletion_reconciliation
 integrity_check
 ```
 
-The storage-backed `failed_import_artifact_cleanup`,
-`orphaned_upload_cleanup`, and `temporary_resource_cleanup` operations remain
-deferred until P9 provides S3. They will be implemented as P8B after P9; they
-are not executable maintenance operations in P8A.
+`failed_import_artifact_cleanup` and read-only `orphaned_upload_detection` are
+implemented against the provider-neutral storage boundary. Destructive
+`orphaned_upload_cleanup` and `temporary_resource_cleanup` remain deferred.
 
 ### Initial event-source settings
 
@@ -693,15 +694,15 @@ Maintenance handles abnormal incomplete processing, for example:
 
 ### Included operations
 
-The initial maintenance scope is exactly:
+The active maintenance scope is exactly:
 
 ```text
 stale_import_reconciliation
 failed_import_artifact_cleanup
-orphaned_upload_cleanup
+orphaned_upload_detection
 stale_embedding_reconciliation
+stale_recipe_deletion_reconciliation
 expired_invitation_cleanup
-temporary_resource_cleanup
 stale_account_deletion_reconciliation
 integrity_check
 ```
@@ -715,14 +716,15 @@ integrity_check
 
 #### `failed_import_artifact_cleanup`
 
-- delete temporary video/audio/frame artifacts from failed imports;
-- remove abandoned cover candidates;
-- preserve `ImportJob`, `JobEvent`, error code, and minimal diagnostic context.
+- remove safe retained source/derived objects from old `FAILED` imports;
+- preserve the import history and move fully cleaned jobs to
+  `FAILED_ARTIFACTS_REMOVED`;
+- leave unsafe or partially cleaned jobs as `FAILED` and write a private report.
 
-#### `orphaned_upload_cleanup`
+#### `orphaned_upload_detection`
 
 - find S3 objects not referenced by valid records after a safety delay;
-- delete only confirmed orphaned objects;
+- write a private anomaly report and never delete objects;
 - do not infer deletion from a single transient database failure.
 
 #### `stale_embedding_reconciliation`

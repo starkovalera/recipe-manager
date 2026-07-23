@@ -16,12 +16,22 @@ def get_storage_location_to_locator(
     if settings.storage_provider is StorageProvider.LOCAL:
         if settings.upload_dir is None:
             raise StorageConfigurationError("UPLOAD_DIR is required for local storage.")
-        return {StorageLocation.USER_MEDIA: settings.upload_dir}
+        if settings.system_artifacts_dir is None:
+            raise StorageConfigurationError("SYSTEM_ARTIFACTS_DIR is required for local storage.")
+        return {
+            StorageLocation.USER_MEDIA: settings.upload_dir,
+            StorageLocation.SYSTEM_ARTIFACTS: settings.system_artifacts_dir,
+        }
 
     if settings.storage_provider is StorageProvider.S3:
         if not settings.s3_user_media_bucket_name:
             raise StorageConfigurationError("S3_USER_MEDIA_BUCKET_NAME is required for S3 storage.")
-        return {StorageLocation.USER_MEDIA: settings.s3_user_media_bucket_name}
+        if not settings.s3_system_artifacts_bucket_name:
+            raise StorageConfigurationError("S3_SYSTEM_ARTIFACTS_BUCKET_NAME is required for S3 storage.")
+        return {
+            StorageLocation.USER_MEDIA: settings.s3_user_media_bucket_name,
+            StorageLocation.SYSTEM_ARTIFACTS: settings.s3_system_artifacts_bucket_name,
+        }
 
     raise StorageConfigurationError("Storage provider is not configured.")
 

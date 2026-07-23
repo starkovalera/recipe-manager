@@ -16,8 +16,10 @@ def clear_infrastructure_environment(monkeypatch):
         "STORAGE_PROVIDER",
         "REDIS_URL",
         "UPLOAD_DIR",
+        "SYSTEM_ARTIFACTS_DIR",
         "AWS_REGION",
         "S3_USER_MEDIA_BUCKET_NAME",
+        "S3_SYSTEM_ARTIFACTS_BUCKET_NAME",
         "SQS_IMPORTS_QUEUE_URL",
         "SQS_EMBEDDINGS_QUEUE_URL",
         "SQS_ACCOUNT_DELETION_QUEUE_URL",
@@ -34,6 +36,7 @@ def build_sqs_settings(**overrides):
         "clerk_secret_key": "test-clerk-secret",
         "aws_region": "eu-west-1",
         "s3_user_media_bucket_name": "recipe-manager-test-user-media",
+        "s3_system_artifacts_bucket_name": "recipe-manager-test-system-artifacts",
         "sqs_imports_queue_url": "https://sqs.eu-west-1.amazonaws.com/000000000000/imports",
         "sqs_embeddings_queue_url": "https://sqs.eu-west-1.amazonaws.com/000000000000/embeddings",
         "sqs_account_deletion_queue_url": ("https://sqs.eu-west-1.amazonaws.com/000000000000/account-deletion"),
@@ -63,6 +66,9 @@ def test_preview_uses_local_infrastructure_defaults():
     assert settings.redis_url == "redis://127.0.0.1:6379/0"
     assert settings.upload_dir is not None
     assert settings.upload_dir == Path(__file__).resolve().parents[2] / "storage" / "preview" / "uploads"
+    assert settings.system_artifacts_dir == Path(__file__).resolve().parents[2] / "storage" / "preview" / "system-artifacts"
+    assert settings.failed_import_artifact_retention_hours == 720
+    assert settings.orphaned_upload_min_age_hours == 24
 
 
 def test_preview_dramatiq_does_not_require_aws_queue_settings():
@@ -170,6 +176,7 @@ def test_prod_accepts_explicit_target_providers():
     assert settings.redis_url is None
     assert settings.upload_dir is None
     assert settings.s3_user_media_bucket_name == "recipe-manager-test-user-media"
+    assert settings.s3_system_artifacts_bucket_name == "recipe-manager-test-system-artifacts"
 
 
 @pytest.mark.parametrize(
@@ -177,6 +184,7 @@ def test_prod_accepts_explicit_target_providers():
     [
         ("aws_region", "AWS_REGION"),
         ("s3_user_media_bucket_name", "S3_USER_MEDIA_BUCKET_NAME"),
+        ("s3_system_artifacts_bucket_name", "S3_SYSTEM_ARTIFACTS_BUCKET_NAME"),
     ],
 )
 def test_s3_provider_requires_region_and_bucket_in_every_environment(field_name, environment_name):
@@ -185,6 +193,7 @@ def test_s3_provider_requires_region_and_bucket_in_every_environment(field_name,
         "storage_provider": StorageProvider.S3,
         "aws_region": "eu-west-1",
         "s3_user_media_bucket_name": "recipe-manager-test-user-media",
+        "s3_system_artifacts_bucket_name": "recipe-manager-test-system-artifacts",
         "_env_file": None,
     }
     values[field_name] = None
@@ -200,7 +209,16 @@ def test_s3_provider_treats_blank_bucket_as_missing():
             storage_provider=StorageProvider.S3,
             aws_region="eu-west-1",
             s3_user_media_bucket_name="   ",
+            s3_system_artifacts_bucket_name="recipe-manager-test-system-artifacts",
             _env_file=None,
+        )
+
+
+def test_s3_provider_requires_distinct_storage_buckets():
+    with pytest.raises(ValidationError, match="distinct"):
+        build_sqs_settings(
+            s3_user_media_bucket_name="same-bucket",
+            s3_system_artifacts_bucket_name="same-bucket",
         )
 
 

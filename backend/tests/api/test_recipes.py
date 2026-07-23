@@ -40,6 +40,11 @@ from app.recipes.queries import list_recipes as query_recipes
 from app.storage.constants import StorageLocation
 from tests.api.support import install_local_user_override
 
+SOURCE_IMAGE_KEY = "recipes/media/local-user/test-recipe/source.jpg"
+SECOND_IMAGE_KEY = "recipes/media/local-user/test-recipe/second.jpg"
+COVER_IMAGE_KEY = "recipes/media/local-user/test-recipe/cover.jpg"
+URL_IMAGE_KEY = "recipes/media/local-user/test-recipe/url-image.jpg"
+
 
 class StaticEmbeddingProvider:
     model = "test-embedding"
@@ -96,7 +101,7 @@ def seed_recipe(SessionLocal):
         tag = Tag(owner_id=user.id, name="quick")
         recipe.tags.append(tag)
         source_image = RecipeImage(
-            storage_key="source.jpg",
+            storage_key=SOURCE_IMAGE_KEY,
             original_name="source.jpg",
             mime_type="image/jpeg",
             size_bytes=10,
@@ -168,7 +173,9 @@ def test_delete_recipe_preserves_import_history_and_deletes_recipe_media(tmp_pat
     get_settings.cache_clear()
     client, SessionLocal = client_with_session()
     recipe_id, _ = seed_recipe(SessionLocal)
-    (tmp_path / "source.jpg").write_bytes(b"recipe image")
+    source_path = tmp_path / SOURCE_IMAGE_KEY
+    source_path.parent.mkdir(parents=True)
+    source_path.write_bytes(b"recipe image")
 
     with SessionLocal() as session:
         user = ensure_default_user(session)
@@ -188,7 +195,7 @@ def test_delete_recipe_preserves_import_history_and_deletes_recipe_media(tmp_pat
     response = client.delete(f"/recipes/{recipe_id}")
 
     assert response.status_code == 204
-    assert not (tmp_path / "source.jpg").exists()
+    assert not source_path.exists()
     with SessionLocal() as session:
         job = session.get(ImportJob, job_id)
         assert job is not None
@@ -206,7 +213,7 @@ def test_delete_recipe_succeeds_when_media_cleanup_fails(tmp_path, monkeypatch):
         assert recipe is not None
         recipe.images.append(
             RecipeImage(
-                storage_key="second.jpg",
+                storage_key=SECOND_IMAGE_KEY,
                 original_name="second.jpg",
                 mime_type="image/jpeg",
                 size_bytes=10,
@@ -219,7 +226,7 @@ def test_delete_recipe_succeeds_when_media_cleanup_fails(tmp_path, monkeypatch):
     def fail_delete(_storage, location, storage_key: str) -> None:
         assert location is StorageLocation.USER_MEDIA
         attempted_keys.append(storage_key)
-        if storage_key == "source.jpg":
+        if storage_key == SOURCE_IMAGE_KEY:
             raise OSError("storage unavailable")
 
     monkeypatch.setattr("app.storage.local.LocalStorageService.delete", fail_delete)
@@ -227,7 +234,7 @@ def test_delete_recipe_succeeds_when_media_cleanup_fails(tmp_path, monkeypatch):
     response = client.delete(f"/recipes/{recipe_id}")
 
     assert response.status_code == 204
-    assert attempted_keys == ["second.jpg", "source.jpg"]
+    assert attempted_keys == [SECOND_IMAGE_KEY, SOURCE_IMAGE_KEY]
     with SessionLocal() as session:
         recipe = session.get(Recipe, recipe_id)
         assert recipe is not None
@@ -241,7 +248,9 @@ def test_delete_recipe_keeps_pending_status_when_final_database_delete_fails(tmp
     get_settings.cache_clear()
     client, SessionLocal = client_with_session()
     recipe_id, _ = seed_recipe(SessionLocal)
-    (tmp_path / "source.jpg").write_bytes(b"recipe image")
+    source_path = tmp_path / SOURCE_IMAGE_KEY
+    source_path.parent.mkdir(parents=True)
+    source_path.write_bytes(b"recipe image")
     original_commit = Session.commit
 
     def fail_final_commit(session: Session) -> None:
@@ -254,7 +263,7 @@ def test_delete_recipe_keeps_pending_status_when_final_database_delete_fails(tmp
     response = client.delete(f"/recipes/{recipe_id}")
 
     assert response.status_code == 204
-    assert not (tmp_path / "source.jpg").exists()
+    assert not source_path.exists()
     with SessionLocal() as session:
         recipe = session.get(Recipe, recipe_id)
         assert recipe is not None
@@ -467,14 +476,14 @@ def test_cover_options_select_source_image_for_generated_cover():
         user = ensure_default_user(session)
         recipe = Recipe(owner_id=user.id, title="Soup", instructions=["Heat water"])
         source_image = RecipeImage(
-            storage_key="source.jpg",
+            storage_key=SOURCE_IMAGE_KEY,
             original_name="source.jpg",
             mime_type="image/jpeg",
             size_bytes=10,
             position=0,
         )
         cover_image = RecipeImage(
-            storage_key="cover.jpg",
+            storage_key=COVER_IMAGE_KEY,
             original_name="cover.jpg",
             mime_type="image/jpeg",
             size_bytes=10,
@@ -821,7 +830,7 @@ def test_delete_url_source_hides_children_but_keeps_current_cover_image_source()
         user = ensure_default_user(session)
         recipe = Recipe(owner_id=user.id, title="Soup", instructions=["Heat water"])
         source_image = RecipeImage(
-            storage_key="url-image.jpg",
+            storage_key=URL_IMAGE_KEY,
             original_name="url-image.jpg",
             mime_type="image/jpeg",
             size_bytes=10,

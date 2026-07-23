@@ -61,7 +61,14 @@ export type AccountDeletionResult = { status: "DELETION_PENDING" };
 
 export type ImportJob = {
   jobId: string;
-  status: "queued" | "running" | "succeeded" | "succeeded_with_flags" | "failed" | "cancelled";
+  status:
+    | "queued"
+    | "running"
+    | "succeeded"
+    | "succeeded_with_flags"
+    | "failed"
+    | "failed_artifacts_removed"
+    | "cancelled";
   createdRecipeId?: string | null;
   errorCode?: string | null;
   errorMessage?: string | null;

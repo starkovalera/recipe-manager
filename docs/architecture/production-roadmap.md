@@ -76,6 +76,13 @@ S3 infrastructure, and storage-backed maintenance remain deferred. The exact
 runtime, key, compensation, and P9/P10 contracts are documented in
 [`s3-storage.md`](../s3-storage.md).
 
+Iteration 9 covers P8B1. Storage saves use a shared context protocol with
+separate user and system purposes; private system artifacts receive their own
+logical location. Maintenance can list paginated LOCAL/S3 objects, finalize
+retained artifacts for old failed imports, detect old orphan candidates without
+deleting them, and write conditional JSON diagnostics. Destructive orphan and
+temporary cleanup, report API/UI, and AWS bucket/IAM provisioning remain deferred.
+
 ## Phase 2 — Terraform, IAM, and Secrets Foundation
 
 - Bootstrap remote Terraform state and GitHub OIDC.

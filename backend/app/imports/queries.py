@@ -1,9 +1,10 @@
 from datetime import datetime
 
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, exists, or_, select
 from sqlalchemy.orm import Session, selectinload
 
-from app.models import ImportJob, ImportJobStatus
+from app.models import ImportJob, ImportJobSource, ImportJobStatus, QueueOutboxMessage
+from app.queueing.constants import QueueMessageType, QueueOutboxStatus
 
 
 def list_internal_import_jobs(session: Session, *, owner_id: str | None = None) -> list[ImportJob]:
@@ -46,6 +47,38 @@ def list_stale_import_job_ids(
         .with_for_update(skip_locked=True)
     )
     return list(session.scalars(statement))
+
+
+def list_failed_import_artifact_cleanup_candidate_ids(
+    session: Session,
+    *,
+    cutoff: datetime,
+    limit: int,
+) -> list[str]:
+    pending_import_message = exists().where(
+        QueueOutboxMessage.status == QueueOutboxStatus.PENDING,
+        QueueOutboxMessage.message_type == QueueMessageType.IMPORT_JOB,
+        QueueOutboxMessage.entity_id == ImportJob.id,
+    )
+    statement = (
+        select(ImportJob.id)
+        .where(
+            ImportJob.status == ImportJobStatus.FAILED,
+            ImportJob.finished_at.is_not(None),
+            ImportJob.finished_at <= cutoff,
+            ImportJob.created_recipe_id.is_(None),
+            ~pending_import_message,
+        )
+        .order_by(ImportJob.finished_at, ImportJob.id)
+        .limit(limit)
+    )
+    return list(session.scalars(statement))
+
+
+def list_import_job_sources(session: Session, import_job_id: str) -> list[ImportJobSource]:
+    return list(
+        session.scalars(select(ImportJobSource).where(ImportJobSource.import_job_id == import_job_id).order_by(ImportJobSource.position))
+    )
 
 
 def get_import_job(session: Session, job_id: str, owner_id: str) -> ImportJob | None:

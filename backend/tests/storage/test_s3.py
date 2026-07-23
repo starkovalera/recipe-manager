@@ -1,12 +1,22 @@
+from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
 from botocore.exceptions import ClientError, EndpointConnectionError
 
-from app.storage.constants import StorageLocation, StoragePurpose
+from app.storage.constants import StorageLocation, StorageUserPurpose
 from app.storage.errors import StorageConfigurationError, StorageObjectNotFoundError, StorageOperationError
 from app.storage.s3 import S3StorageService
-from app.storage.types import StorageWriteContext
+from app.storage.types import StorageUserContext
+
+
+@dataclass(frozen=True)
+class FixedContext:
+    key: str
+
+    def build_storage_key(self, *, original_name: str, mime_type: str) -> str:
+        return self.key
 
 
 class RecordingBody:
@@ -31,6 +41,7 @@ class RecordingClient:
         self.put_calls: list[dict] = []
         self.get_calls: list[dict] = []
         self.delete_calls: list[dict] = []
+        self.list_calls: list[dict] = []
         self.body = RecordingBody()
         self.error: Exception | None = None
 
@@ -52,10 +63,28 @@ class RecordingClient:
             raise self.error
         return {}
 
+    def list_objects_v2(self, **kwargs):
+        self.list_calls.append(kwargs)
+        if self.error is not None:
+            raise self.error
+        return {
+            "Contents": [
+                {
+                    "Key": "imports/source/owner-1/job-1/image.jpg",
+                    "Size": 5,
+                    "LastModified": datetime(2026, 7, 23, 10, 0, tzinfo=timezone.utc),
+                }
+            ],
+            "NextContinuationToken": "opaque-token",
+        }
+
 
 def build_storage(client=None) -> S3StorageService:
     return S3StorageService(
-        location_to_locator={StorageLocation.USER_MEDIA: "recipe-manager-test-user-media"},
+        location_to_locator={
+            StorageLocation.USER_MEDIA: "recipe-manager-test-user-media",
+            StorageLocation.SYSTEM_ARTIFACTS: "recipe-manager-test-system-artifacts",
+        },
         region_name="eu-west-1",
         client=client,
     )
@@ -66,14 +95,26 @@ def test_s3_storage_validates_bucket_and_region() -> None:
         S3StorageService(location_to_locator={}, region_name="eu-west-1")
     with pytest.raises(StorageConfigurationError, match="bucket"):
         S3StorageService(
-            location_to_locator={StorageLocation.USER_MEDIA: Path("uploads")},
+            location_to_locator={
+                StorageLocation.USER_MEDIA: Path("uploads"),
+                StorageLocation.SYSTEM_ARTIFACTS: "recipe-manager-test-system-artifacts",
+            },
             region_name="eu-west-1",
         )
     with pytest.raises(StorageConfigurationError, match="bucket"):
-        S3StorageService(location_to_locator={StorageLocation.USER_MEDIA: "   "}, region_name="eu-west-1")
+        S3StorageService(
+            location_to_locator={
+                StorageLocation.USER_MEDIA: "   ",
+                StorageLocation.SYSTEM_ARTIFACTS: "recipe-manager-test-system-artifacts",
+            },
+            region_name="eu-west-1",
+        )
     with pytest.raises(StorageConfigurationError, match="region"):
         S3StorageService(
-            location_to_locator={StorageLocation.USER_MEDIA: "recipe-manager-test-user-media"},
+            location_to_locator={
+                StorageLocation.USER_MEDIA: "recipe-manager-test-user-media",
+                StorageLocation.SYSTEM_ARTIFACTS: "recipe-manager-test-system-artifacts",
+            },
             region_name="   ",
         )
 
@@ -90,8 +131,8 @@ def test_s3_client_is_created_lazily_once(monkeypatch) -> None:
     storage = build_storage()
     assert calls == []
 
-    storage.delete(StorageLocation.USER_MEDIA, "legacy.jpg")
-    storage.delete(StorageLocation.USER_MEDIA, "legacy.jpg")
+    storage.delete(StorageLocation.USER_MEDIA, "recipes/media/owner/recipe/image.jpg")
+    storage.delete(StorageLocation.USER_MEDIA, "recipes/media/owner/recipe/image.jpg")
 
     assert calls == [{"service_name": "s3", "region_name": "eu-west-1"}]
 
@@ -100,17 +141,17 @@ def test_injected_s3_client_bypasses_boto3(monkeypatch) -> None:
     client = RecordingClient()
     monkeypatch.setattr("app.storage.s3.boto3.client", lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError()))
 
-    build_storage(client).delete(StorageLocation.USER_MEDIA, "legacy.jpg")
+    build_storage(client).delete(StorageLocation.USER_MEDIA, "recipes/media/owner/recipe/image.jpg")
 
-    assert client.delete_calls == [{"Bucket": "recipe-manager-test-user-media", "Key": "legacy.jpg"}]
+    assert client.delete_calls == [{"Bucket": "recipe-manager-test-user-media", "Key": "recipes/media/owner/recipe/image.jpg"}]
 
 
 def test_s3_save_uses_exact_put_object_request() -> None:
     client = RecordingClient()
     storage = build_storage(client)
-    context = StorageWriteContext(
+    context = StorageUserContext(
         owner_id="owner-1",
-        purpose=StoragePurpose.IMPORT_SOURCE,
+        purpose=StorageUserPurpose.IMPORT_SOURCE,
         entity_id="job-1",
     )
 
@@ -134,6 +175,21 @@ def test_s3_save_uses_exact_put_object_request() -> None:
     assert saved.original_name == "original.png"
     assert saved.mime_type == "image/png"
     assert saved.size_bytes == 5
+
+
+def test_s3_storage_uses_context_generated_key() -> None:
+    client = RecordingClient()
+
+    saved = build_storage(client).save(
+        StorageLocation.USER_MEDIA,
+        b"report",
+        "ignored.json",
+        "application/json",
+        context=FixedContext("custom/report.json"),
+    )
+
+    assert saved.storage_key == "custom/report.json"
+    assert client.put_calls[0]["Key"] == "custom/report.json"
 
 
 def test_s3_read_returns_bytes_and_closes_body() -> None:
@@ -186,7 +242,7 @@ def test_s3_provider_failures_map_to_storage_operation_error(error: Exception) -
     client = RecordingClient()
     client.error = error
     storage = build_storage(client)
-    context = StorageWriteContext("owner-1", StoragePurpose.TEMPORARY, "operation-1")
+    context = StorageUserContext("owner-1", StorageUserPurpose.IMPORT_DERIVED, "operation-1")
 
     with pytest.raises(StorageOperationError):
         storage.save(StorageLocation.USER_MEDIA, b"x", "x.bin", "application/octet-stream", context=context)
@@ -205,3 +261,64 @@ def test_s3_delete_uses_exact_request_without_head() -> None:
         {"Bucket": "recipe-manager-test-user-media", "Key": "missing-is-success"},
     ]
     assert not hasattr(client, "head_calls")
+
+
+@pytest.mark.parametrize("storage_key", ["../object", "C:\\object", "/absolute", "folder/../object"])
+def test_s3_treats_nonblank_storage_keys_as_opaque(storage_key: str) -> None:
+    storage = build_storage(RecordingClient())
+
+    assert storage.is_safe_key(StorageLocation.USER_MEDIA, storage_key) is True
+
+
+def test_s3_list_objects_maps_first_page() -> None:
+    client = RecordingClient()
+
+    page = build_storage(client).list_objects(
+        StorageLocation.USER_MEDIA,
+        prefix="imports/source/",
+        limit=2,
+    )
+
+    assert client.list_calls == [
+        {
+            "Bucket": "recipe-manager-test-user-media",
+            "Prefix": "imports/source/",
+            "MaxKeys": 2,
+        }
+    ]
+    assert page.objects[0].storage_key == "imports/source/owner-1/job-1/image.jpg"
+    assert page.objects[0].size_bytes == 5
+    assert page.objects[0].last_modified_at == datetime(2026, 7, 23, 10, 0, tzinfo=timezone.utc)
+    assert page.next_cursor == "opaque-token"
+
+
+def test_s3_list_objects_passes_continuation_token() -> None:
+    client = RecordingClient()
+
+    build_storage(client).list_objects(
+        StorageLocation.USER_MEDIA,
+        prefix="imports/source/",
+        limit=2,
+        cursor="opaque-token",
+    )
+
+    assert client.list_calls == [
+        {
+            "Bucket": "recipe-manager-test-user-media",
+            "Prefix": "imports/source/",
+            "MaxKeys": 2,
+            "ContinuationToken": "opaque-token",
+        }
+    ]
+
+
+def test_s3_list_objects_wraps_provider_and_malformed_response_errors() -> None:
+    provider_client = RecordingClient()
+    provider_client.error = EndpointConnectionError(endpoint_url="https://s3.example.test")
+    with pytest.raises(StorageOperationError, match="listing failed"):
+        build_storage(provider_client).list_objects(StorageLocation.USER_MEDIA, prefix="imports/", limit=10)
+
+    malformed_client = RecordingClient()
+    malformed_client.list_objects_v2 = lambda **kwargs: {"Contents": [{"Key": "missing-fields"}]}
+    with pytest.raises(StorageOperationError, match="response"):
+        build_storage(malformed_client).list_objects(StorageLocation.USER_MEDIA, prefix="imports/", limit=10)

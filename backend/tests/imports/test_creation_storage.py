@@ -13,15 +13,15 @@ from app.db.base import Base
 from app.imports.jobs import create as create_module
 from app.imports.jobs.create import create_import_job
 from app.models import User
-from app.storage.constants import StorageLocation, StoragePurpose
-from app.storage.types import StorageWriteContext, StoredFile
+from app.storage.constants import StorageLocation, StorageUserPurpose
+from app.storage.types import StorageUserContext, StoredFile
 
 
 class RecordingStorage:
     def __init__(self, session: Session, *, fail_delete: bool = False) -> None:
         self.session = session
         self.fail_delete = fail_delete
-        self.saved: list[tuple[StorageLocation, StorageWriteContext, str]] = []
+        self.saved: list[tuple[StorageLocation, StorageUserContext, str]] = []
         self.deleted: list[tuple[StorageLocation, str]] = []
 
     def save(
@@ -31,7 +31,7 @@ class RecordingStorage:
         original_name: str,
         mime_type: str,
         *,
-        context: StorageWriteContext,
+        context: StorageUserContext,
     ) -> StoredFile:
         assert not self.session.in_transaction()
         storage_key = f"saved-{len(self.saved) + 1}.jpg"
@@ -83,7 +83,7 @@ def test_primary_uploads_run_between_database_transactions_with_one_job_context(
     assert [location for location, _, _ in storage.saved] == [StorageLocation.USER_MEDIA] * 2
     assert {context.entity_id for _, context, _ in storage.saved} == {result.job.id}
     assert {context.owner_id for _, context, _ in storage.saved} == {"owner-1"}
-    assert {context.purpose for _, context, _ in storage.saved} == {StoragePurpose.IMPORT_SOURCE}
+    assert {context.purpose for _, context, _ in storage.saved} == {StorageUserPurpose.IMPORT_SOURCE}
 
 
 def test_authoritative_limit_failure_cleans_only_current_request_uploads(monkeypatch, session: Session) -> None:

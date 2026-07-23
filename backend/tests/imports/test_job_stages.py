@@ -39,14 +39,14 @@ from app.models import (
     SourceType,
     Tag,
 )
-from app.storage.constants import StorageLocation, StoragePurpose
-from app.storage.types import StorageWriteContext, StoredFile
+from app.storage.constants import StorageLocation, StorageUserPurpose
+from app.storage.types import StorageUserContext, StoredFile
 
 
 class MemoryStorage:
     def __init__(self, files: dict[str, bytes]):
         self.files = files
-        self.saved: list[tuple[StorageLocation, StorageWriteContext, str]] = []
+        self.saved: list[tuple[StorageLocation, StorageUserContext, str]] = []
 
     def read(self, location: StorageLocation, storage_key: str) -> bytes:
         assert location is StorageLocation.USER_MEDIA
@@ -59,10 +59,10 @@ class MemoryStorage:
         original_name: str,
         mime_type: str,
         *,
-        context: StorageWriteContext,
+        context: StorageUserContext,
     ) -> StoredFile:
         assert location is StorageLocation.USER_MEDIA
-        assert context.purpose is StoragePurpose.IMPORT_DERIVED
+        assert context.purpose is StorageUserPurpose.IMPORT_DERIVED
         stored = StoredFile(
             storage_key=f"secondary/{original_name}",
             original_name=original_name,
@@ -252,9 +252,9 @@ def test_build_raw_sources_keeps_partial_url_content_and_reports_failed_transcri
     assert storage.saved == [
         (
             StorageLocation.USER_MEDIA,
-            StorageWriteContext(
+            StorageUserContext(
                 owner_id="user-1",
-                purpose=StoragePurpose.IMPORT_DERIVED,
+                purpose=StorageUserPurpose.IMPORT_DERIVED,
                 entity_id="job-1",
             ),
             "secondary/poster-video.jpg",

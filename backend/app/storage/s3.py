@@ -1,4 +1,5 @@
 from collections.abc import Mapping
+from datetime import datetime, timezone
 from typing import Any
 
 import boto3
@@ -7,8 +8,7 @@ from botocore.exceptions import BotoCoreError, ClientError
 from app.storage.base import StorageService
 from app.storage.constants import StorageLocation
 from app.storage.errors import StorageConfigurationError, StorageObjectNotFoundError, StorageOperationError
-from app.storage.keys import build_storage_key
-from app.storage.types import StorageLocator, StorageWriteContext, StoredFile
+from app.storage.types import StorageLocator, StorageObjectInfo, StorageObjectPage, StorageSaveContext, StoredFile
 
 
 def _read_response_body(body: Any) -> bytes:
@@ -62,6 +62,10 @@ class S3StorageService(StorageService):
             raise StorageConfigurationError(f"Storage location {location.value} is not configured.")
         return bucket
 
+    def is_safe_key(self, location: StorageLocation, storage_key: str) -> bool:
+        self._bucket_for(location)
+        return bool(storage_key)
+
     def save(
         self,
         location: StorageLocation,
@@ -69,9 +73,9 @@ class S3StorageService(StorageService):
         original_name: str,
         mime_type: str,
         *,
-        context: StorageWriteContext,
+        context: StorageSaveContext,
     ) -> StoredFile:
-        storage_key = build_storage_key(context, mime_type=mime_type)
+        storage_key = context.build_storage_key(original_name=original_name, mime_type=mime_type)
         try:
             self._get_client().put_object(
                 Bucket=self._bucket_for(location),
@@ -117,3 +121,54 @@ class S3StorageService(StorageService):
             )
         except (BotoCoreError, ClientError) as error:
             raise StorageOperationError("S3 storage delete failed.") from error
+
+    def list_objects(
+        self,
+        location: StorageLocation,
+        *,
+        prefix: str,
+        limit: int,
+        cursor: str | None = None,
+    ) -> StorageObjectPage:
+        if not 1 <= limit <= 1000:
+            raise ValueError("Storage listing limit must be between 1 and 1000.")
+
+        request = {
+            "Bucket": self._bucket_for(location),
+            "Prefix": prefix,
+            "MaxKeys": limit,
+        }
+        if cursor is not None:
+            request["ContinuationToken"] = cursor
+        try:
+            response = self._get_client().list_objects_v2(**request)
+        except (BotoCoreError, ClientError) as error:
+            raise StorageOperationError("S3 storage listing failed.") from error
+
+        try:
+            contents = response.get("Contents", [])
+            if not isinstance(contents, list):
+                raise TypeError
+            objects = []
+            for item in contents:
+                storage_key = item["Key"]
+                size_bytes = item["Size"]
+                last_modified_at = item["LastModified"]
+                if not isinstance(storage_key, str) or not isinstance(size_bytes, int) or not isinstance(last_modified_at, datetime):
+                    raise TypeError
+                if last_modified_at.tzinfo is None:
+                    last_modified_at = last_modified_at.replace(tzinfo=timezone.utc)
+                objects.append(
+                    StorageObjectInfo(
+                        storage_key=storage_key,
+                        size_bytes=size_bytes,
+                        last_modified_at=last_modified_at.astimezone(timezone.utc),
+                    )
+                )
+            next_cursor = response.get("NextContinuationToken")
+            if next_cursor is not None and not isinstance(next_cursor, str):
+                raise TypeError
+        except (KeyError, TypeError) as error:
+            raise StorageOperationError("S3 storage listing response is invalid.") from error
+
+        return StorageObjectPage(objects=tuple(objects), next_cursor=next_cursor)

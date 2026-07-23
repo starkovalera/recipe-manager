@@ -1,11 +1,11 @@
 from collections.abc import Mapping
-from pathlib import Path, PurePosixPath, PureWindowsPath
+from datetime import datetime, timezone
+from pathlib import Path
 
 from app.storage.base import StorageService
 from app.storage.constants import StorageLocation
 from app.storage.errors import StorageConfigurationError, StorageObjectNotFoundError, StorageOperationError
-from app.storage.keys import build_storage_key
-from app.storage.types import StorageLocator, StorageWriteContext, StoredFile
+from app.storage.types import StorageLocator, StorageObjectInfo, StorageObjectPage, StorageSaveContext, StoredFile
 
 
 class LocalStorageService(StorageService):
@@ -30,14 +30,20 @@ class LocalStorageService(StorageService):
         root = self._roots.get(location)
         if root is None:
             raise StorageConfigurationError(f"Storage location {location.value} is not configured.")
-        posix_key = PurePosixPath(storage_key)
-        windows_key = PureWindowsPath(storage_key)
-        if posix_key.is_absolute() or windows_key.is_absolute() or ".." in posix_key.parts or ".." in windows_key.parts:
+        runtime_key = Path(storage_key)
+        if runtime_key.is_absolute() or ".." in runtime_key.parts:
             raise ValueError(f"Storage key resolves outside storage root: {storage_key}")
-        path = (root / storage_key).resolve()
+        path = (root / runtime_key).resolve()
         if root != path and root not in path.parents:
             raise ValueError(f"Storage key resolves outside storage root: {storage_key}")
         return path
+
+    def is_safe_key(self, location: StorageLocation, storage_key: str) -> bool:
+        try:
+            self._path_for(location, storage_key)
+        except ValueError:
+            return False
+        return True
 
     def save(
         self,
@@ -46,9 +52,9 @@ class LocalStorageService(StorageService):
         original_name: str,
         mime_type: str,
         *,
-        context: StorageWriteContext,
+        context: StorageSaveContext,
     ) -> StoredFile:
-        storage_key = build_storage_key(context, mime_type=mime_type)
+        storage_key = context.build_storage_key(original_name=original_name, mime_type=mime_type)
         path = self._path_for(location, storage_key)
         try:
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -80,3 +86,48 @@ class LocalStorageService(StorageService):
 
     def path_for_response(self, location: StorageLocation, storage_key: str) -> Path:
         return self._path_for(location, storage_key)
+
+    def list_objects(
+        self,
+        location: StorageLocation,
+        *,
+        prefix: str,
+        limit: int,
+        cursor: str | None = None,
+    ) -> StorageObjectPage:
+        if not 1 <= limit <= 1000:
+            raise ValueError("Storage listing limit must be between 1 and 1000.")
+        try:
+            self._path_for(location, prefix or ".")
+        except ValueError as error:
+            raise ValueError("Storage listing prefix must be a safe relative prefix.") from error
+        if cursor is not None:
+            self._path_for(location, cursor)
+
+        root = self._roots[location]
+        try:
+            keys = sorted(
+                path.relative_to(root).as_posix()
+                for path in root.rglob("*")
+                if path.is_file()
+                and path.relative_to(root).as_posix().startswith(prefix)
+                and (cursor is None or path.relative_to(root).as_posix() > cursor)
+            )
+            selected_keys = keys[: limit + 1]
+            has_more = len(selected_keys) > limit
+            selected_keys = selected_keys[:limit]
+            objects = tuple(
+                StorageObjectInfo(
+                    storage_key=key,
+                    size_bytes=(root / key).stat().st_size,
+                    last_modified_at=datetime.fromtimestamp((root / key).stat().st_mtime, timezone.utc),
+                )
+                for key in selected_keys
+            )
+        except OSError as error:
+            raise StorageOperationError("Local storage listing failed.") from error
+
+        return StorageObjectPage(
+            objects=objects,
+            next_cursor=selected_keys[-1] if has_more else None,
+        )

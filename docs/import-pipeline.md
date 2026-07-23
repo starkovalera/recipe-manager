@@ -74,6 +74,12 @@ flowchart TD
   class extractor extractor;
 ```
 
+Immediate terminal cleanup remains best-effort. A scheduled maintenance safety
+net revisits old `FAILED` jobs that have no created recipe or pending import
+outbox message. It removes safe retained source/derived keys and finalizes the
+job as `FAILED_ARTIFACTS_REMOVED`; unsafe keys or storage/DB failures keep the
+job `FAILED` and produce a private diagnostic report.
+
 ## Source Model and Capacity
 
 - `ImportJobSource` stores primary user inputs: manual text, manual images, and
