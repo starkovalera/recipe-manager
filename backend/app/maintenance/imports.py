@@ -16,6 +16,12 @@ from app.queueing.queries import has_pending_outbox_message
 
 
 def reconcile_stale_imports() -> MaintenanceProcessingResult:
+    """Select stale queued/running imports and recover or terminally fail them.
+
+    The operation mutates job state, events, notifications, and outbox rows and
+    may publish queue messages. It is not read-only and excludes fresh jobs and
+    jobs that already have pending delivery intents.
+    """
     settings = get_settings()
     cutoff = datetime.now(timezone.utc) - timedelta(minutes=settings.stale_import_minutes)
     with db_session() as session:

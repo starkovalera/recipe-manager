@@ -168,7 +168,12 @@ def _finalize_cleanup(
 
 
 def cleanup_failed_import_artifacts() -> MaintenanceProcessingResult:
-    """Remove retained artifacts for old failed imports without holding a DB transaction during storage calls."""
+    """Select old failed imports and remove their retained source/derived artifacts.
+
+    The operation deletes safe storage objects, clears their DB references, and
+    finalizes job state/events. It is not read-only; it excludes jobs with a recipe,
+    pending queue intent, unsafe key, or retention window that has not elapsed.
+    """
     settings = get_settings()
     storage = get_storage_service(settings)
     started_at = datetime.now(timezone.utc)

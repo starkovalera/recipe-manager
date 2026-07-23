@@ -113,7 +113,12 @@ INTEGRITY_CHECKS = (
 
 
 def run_integrity_check() -> MaintenanceProcessingResult:
-    """Report configured database invariant violations without mutating domain records."""
+    """Select configured DB invariant violations and report their record IDs.
+
+    This read-only diagnostic writes a report only for anomalies or failures. It
+    never repairs domain records and excludes all checks not explicitly registered
+    in ``INTEGRITY_CHECKS``.
+    """
     settings = get_settings()
     storage = get_storage_service(settings)
     started_at = datetime.now(timezone.utc)

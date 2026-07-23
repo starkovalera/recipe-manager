@@ -10,6 +10,12 @@ from app.maintenance.types import MaintenanceProcessingResult
 
 
 def cleanup_expired_invitations() -> MaintenanceProcessingResult:
+    """Select expired pending invitations and revoke them at the auth provider.
+
+    Successful provider revocation mutates the local invitation status. The
+    operation is not read-only and excludes accepted, revoked, fresh, or already
+    expired invitations.
+    """
     now = datetime.now(timezone.utc)
     with db_session() as session:
         invitation_ids = list_expired_pending_invitation_ids(

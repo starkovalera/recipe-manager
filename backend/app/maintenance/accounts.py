@@ -14,6 +14,11 @@ from app.users.queries import get_user_for_update, list_stale_account_deletion_u
 
 
 def reconcile_stale_account_deletions() -> MaintenanceProcessingResult:
+    """Select stale deletion-pending users and create durable deletion intents.
+
+    The operation mutates outbox rows and may publish queue messages. It is not
+    read-only and excludes users with active imports or an existing pending intent.
+    """
     settings = get_settings()
     cutoff = datetime.now(timezone.utc) - timedelta(minutes=settings.stale_account_deletion_minutes)
     with db_session() as session:

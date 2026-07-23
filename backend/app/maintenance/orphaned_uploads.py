@@ -80,7 +80,12 @@ def _build_anomaly(
 
 
 def detect_orphaned_uploads() -> MaintenanceProcessingResult:
-    """Report old unreferenced user-media objects without deleting or repairing them."""
+    """Select old user-media objects and report missing durable DB references.
+
+    This read-only diagnostic only writes an operational report. It never mutates
+    domain records or deletes storage objects, and it excludes fresh and referenced
+    objects from orphan findings.
+    """
     settings = get_settings()
     storage = get_storage_service(settings)
     started_at = datetime.now(timezone.utc)

@@ -7,6 +7,11 @@ from app.queueing.queries import list_pending_outbox_message_ids
 
 
 def reconcile_pending_outbox() -> MaintenanceProcessingResult:
+    """Select pending outbox rows and publish them, updating delivery state.
+
+    This operation has broker side effects and is not read-only. It excludes
+    already-published rows and does not mutate the referenced domain entities.
+    """
     with db_session() as session:
         message_ids = list_pending_outbox_message_ids(
             session,

@@ -20,7 +20,6 @@ def test_maintenance_does_not_execute_account_deletion_or_embedding_provider() -
 
 def test_deferred_storage_operations_have_no_executable_handlers() -> None:
     deferred = {
-        "failed_import_artifact_cleanup",
         "orphaned_upload_cleanup",
         "temporary_resource_cleanup",
     }

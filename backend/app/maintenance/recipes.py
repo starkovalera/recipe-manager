@@ -9,6 +9,11 @@ from app.recipes.queries import list_stale_recipe_deletion_ids
 
 
 def reconcile_stale_recipe_deletions() -> MaintenanceProcessingResult:
+    """Select stale deletion-pending recipes and retry their deletion workflow.
+
+    The operation may delete media and database records through the shared
+    deletion processor. It is not read-only and excludes active or fresh recipes.
+    """
     settings = get_settings()
     cutoff = datetime.now(timezone.utc) - timedelta(minutes=settings.stale_recipe_deletion_minutes)
     with db_session() as session:

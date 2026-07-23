@@ -13,6 +13,12 @@ from app.queueing.queries import has_pending_outbox_message
 
 
 def reconcile_stale_embeddings() -> MaintenanceProcessingResult:
+    """Select stale embedding work and requeue it without calling the provider.
+
+    The operation mutates embedding state/events and outbox rows and may publish
+    queue messages. It is not read-only and excludes fresh work and embeddings
+    that already have pending delivery intents.
+    """
     settings = get_settings()
     cutoff = datetime.now(timezone.utc) - timedelta(minutes=settings.stale_embedding_minutes)
     with db_session() as session:

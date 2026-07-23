@@ -8,10 +8,12 @@ from app.maintenance.types import MaintenanceProcessingDisposition, MaintenanceP
 from app.queueing.messages import MaintenanceQueueMessage
 
 
-def test_maintenance_operations_are_exactly_the_active_p8a_set() -> None:
+def test_maintenance_operations_are_exactly_the_active_set() -> None:
     assert {operation.value for operation in MaintenanceOperation} == {
         "pending_outbox_reconciliation",
         "stale_import_reconciliation",
+        "failed_import_artifact_cleanup",
+        "orphaned_upload_detection",
         "stale_embedding_reconciliation",
         "stale_recipe_deletion_reconciliation",
         "expired_invitation_cleanup",
