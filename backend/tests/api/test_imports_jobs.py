@@ -329,6 +329,21 @@ def test_retry_rejects_non_failed_and_exhausted_imports():
     assert exhausted.json()["errorCode"] == "IMPORT_ATTEMPTS_EXHAUSTED"
 
 
+def test_retry_rejects_import_with_removed_artifacts():
+    client, SessionLocal = client_with_session_factory()
+    job_id = create_failed_import(client, SessionLocal, client_import_id="cleaned-retry")
+    with SessionLocal() as session:
+        job = session.get(ImportJob, job_id)
+        assert job is not None
+        job.status = ImportJobStatus.FAILED_ARTIFACTS_REMOVED
+        session.commit()
+
+    response = client.post(f"/imports/{job_id}/retry")
+
+    assert response.status_code == 409
+    assert response.json()["errorCode"] == "IMPORT_NOT_RETRYABLE"
+
+
 def test_second_retry_request_is_rejected_after_first_requeues_job(monkeypatch):
     client, SessionLocal = client_with_session_factory()
     job_id = create_failed_import(client, SessionLocal, client_import_id="double-retry")

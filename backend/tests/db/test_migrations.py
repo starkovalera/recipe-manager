@@ -389,3 +389,22 @@ def test_secondary_resource_failure_event_migration_adds_postgres_enum_value(mon
     migration.upgrade()
 
     assert any("ADD VALUE IF NOT EXISTS 'IMPORT_SECONDARY_RESOURCE_UPLOAD_FAILED'" in statement for statement in statements)
+
+
+def test_failed_import_artifact_cleanup_migration_adds_postgres_enum_values(monkeypatch):
+    migration_path = Path(__file__).resolve().parents[2] / "alembic" / "versions" / "20260723_0030_failed_import_artifact_cleanup.py"
+    spec = importlib.util.spec_from_file_location("migration_0030", migration_path)
+    assert spec is not None and spec.loader is not None
+    migration = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(migration)
+    statements: list[str] = []
+    fake_op = SimpleNamespace(
+        get_context=lambda: SimpleNamespace(dialect=SimpleNamespace(name="postgresql")),
+        execute=statements.append,
+    )
+    monkeypatch.setattr(migration, "op", fake_op)
+
+    migration.upgrade()
+
+    assert any("'FAILED_ARTIFACTS_REMOVED'" in statement for statement in statements)
+    assert any("'IMPORT_ARTIFACTS_REMOVED'" in statement for statement in statements)

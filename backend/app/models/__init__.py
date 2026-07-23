@@ -54,6 +54,7 @@ class ImportJobStatus(str, enum.Enum):
     SUCCEEDED = "succeeded"
     SUCCEEDED_WITH_FLAGS = "succeeded_with_flags"
     FAILED = "failed"
+    FAILED_ARTIFACTS_REMOVED = "failed_artifacts_removed"
     CANCELLED = "cancelled"
 
 
@@ -74,6 +75,7 @@ class ImportEventType(str, enum.Enum):
     EXTRACTOR_SUCCEEDED = "EXTRACTOR_SUCCEEDED"
     RECIPE_CREATED = "RECIPE_CREATED"
     IMPORT_FAILED = "IMPORT_FAILED"
+    IMPORT_ARTIFACTS_REMOVED = "IMPORT_ARTIFACTS_REMOVED"
 
 
 class NotificationType(str, enum.Enum):
