@@ -1,0 +1,6 @@
+interface:
+  display_name: "Product UI/UX Design"
+  short_description: "Research, wireframe, prototype, and critique product interfaces"
+  default_prompt: "Use $product-ui-ux-design to design this product interface without modifying production code."
+policy:
+  allow_implicit_invocation: true
