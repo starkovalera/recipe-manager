@@ -1,0 +1,271 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1500" viewBox="0 0 1920 1500" role="img" aria-labelledby="title desc">
+  <title id="title">Recipe Detail low-fidelity comparison: import flags entry behavior</title>
+  <desc id="desc">Three-column storyboard comparing the no-flags control, Import Info-first behavior, and Default View with status behavior on desktop and mobile.</desc>
+  <defs>
+    <style>
+      text { font-family: Arial, Helvetica, sans-serif; fill: #1f2933; }
+      .page-title { font-size: 30px; font-weight: 700; }
+      .subtitle { font-size: 16px; fill: #52606d; }
+      .variant { font-size: 22px; font-weight: 700; }
+      .label { font-size: 13px; font-weight: 700; letter-spacing: 1px; fill: #52606d; }
+      .h1 { font-size: 18px; font-weight: 700; }
+      .h2 { font-size: 14px; font-weight: 700; }
+      .body { font-size: 12px; }
+      .small { font-size: 11px; fill: #52606d; }
+      .tiny { font-size: 10px; fill: #52606d; }
+      .screen { fill: #ffffff; stroke: #52606d; stroke-width: 2; }
+      .panel { fill: #f5f7fa; stroke: #9aa5b1; stroke-width: 1.5; }
+      .button { fill: #ffffff; stroke: #7b8794; stroke-width: 1.2; rx: 4; }
+      .primary { fill: #d9e2ec; stroke: #52606d; stroke-width: 1.5; rx: 4; }
+      .status { fill: #fff8df; stroke: #8d6e16; stroke-width: 1.5; }
+      .flag { fill: #fffdf5; stroke: #8d6e16; stroke-width: 1; }
+      .rule { stroke: #cbd2d9; stroke-width: 1; }
+      .dash { stroke: #9aa5b1; stroke-width: 1.5; stroke-dasharray: 6 5; fill: none; }
+      .arrow { stroke: #334e68; stroke-width: 2; fill: none; marker-end: url(#arrowhead); }
+      .invariant { fill: #eef2f6; stroke: #7b8794; stroke-width: 1.5; }
+    </style>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#334e68" />
+    </marker>
+  </defs>
+
+  <rect width="1920" height="1500" fill="#f8fafc" />
+  <text x="48" y="52" class="page-title">U1 — Entry behavior when imported recipes have unresolved flags</text>
+  <text x="48" y="82" class="subtitle">Low fidelity · same recipe and approved structure · only entry destination and status treatment change</text>
+
+  <rect x="48" y="105" width="1824" height="42" class="invariant" rx="5" />
+  <text x="66" y="131" class="body">Shared recipe: Smoky Tomato &amp; Butter Bean Stew · Instagram video · Marta Cooks · 45 min · 4 servings · neutral “Import info” action</text>
+
+  <!-- Variant headings -->
+  <text x="48" y="188" class="label">CONTROL</text>
+  <text x="48" y="216" class="variant">No unresolved flags</text>
+  <text x="662" y="188" class="label">VARIANT A · STARTING HYPOTHESIS</text>
+  <text x="662" y="216" class="variant">Open Import Info first</text>
+  <text x="1276" y="188" class="label">VARIANT B</text>
+  <text x="1276" y="216" class="variant">Default View with status</text>
+
+  <!-- Entry nodes -->
+  <rect x="48" y="240" width="560" height="42" class="panel" rx="5" />
+  <text x="68" y="266" class="body">User opens saved recipe from recipe list or direct link</text>
+  <path d="M328 282 L328 318" class="arrow" />
+
+  <rect x="662" y="240" width="560" height="42" class="panel" rx="5" />
+  <text x="682" y="266" class="body">User opens the same saved recipe · 3 unresolved import items</text>
+  <path d="M942 282 L942 318" class="arrow" />
+
+  <rect x="1276" y="240" width="560" height="42" class="panel" rx="5" />
+  <text x="1296" y="266" class="body">User opens the same saved recipe · 3 unresolved import items</text>
+  <path d="M1556 282 L1556 318" class="arrow" />
+
+  <!-- Control desktop screen -->
+  <rect x="48" y="318" width="560" height="492" class="screen" rx="6" />
+  <text x="66" y="343" class="label">DEFAULT RECIPE VIEW · DESKTOP</text>
+  <line x1="48" y1="356" x2="608" y2="356" class="rule" />
+  <rect x="66" y="376" width="76" height="76" class="panel" />
+  <line x1="66" y1="376" x2="142" y2="452" class="rule" />
+  <line x1="142" y1="376" x2="66" y2="452" class="rule" />
+  <text x="158" y="393" class="h1">Smoky Tomato &amp;</text>
+  <text x="158" y="415" class="h1">Butter Bean Stew</text>
+  <text x="158" y="438" class="small">Instagram video · Marta Cooks · 45 min · 4 servings</text>
+  <text x="420" y="384" class="small">Collections</text>
+  <text x="420" y="402" class="body">Weeknight · Pantry</text>
+  <text x="420" y="426" class="small">Tags</text>
+  <text x="420" y="444" class="body">vegan · smoky · +2</text>
+  <rect x="158" y="466" width="86" height="28" class="primary" />
+  <text x="176" y="484" class="body">Cook / Focus</text>
+  <rect x="252" y="466" width="50" height="28" class="button" />
+  <text x="266" y="484" class="body">Edit</text>
+  <rect x="310" y="466" width="82" height="28" class="button" />
+  <text x="325" y="484" class="body">Import info</text>
+  <rect x="400" y="466" width="34" height="28" class="button" />
+  <text x="411" y="484" class="body">•••</text>
+  <text x="66" y="522" class="h2">Ingredients</text>
+  <text x="274" y="522" class="h2">Instructions</text>
+  <line x1="250" y1="510" x2="250" y2="744" class="rule" />
+  <text x="66" y="548" class="body">2 × 400 g butter beans</text>
+  <text x="66" y="570" class="body">1 tbsp smoked paprika</text>
+  <text x="66" y="592" class="body">800 g crushed tomatoes</text>
+  <text x="66" y="614" class="body">2 garlic cloves, sliced</text>
+  <text x="66" y="636" class="body">150 ml vegetable stock</text>
+  <text x="66" y="658" class="small">+ 7 more ingredients</text>
+  <text x="274" y="548" class="body">1. Warm oil; soften garlic for 2 minutes.</text>
+  <text x="274" y="574" class="body">2. Stir in paprika, tomatoes, and stock.</text>
+  <text x="274" y="600" class="body">3. Add beans; simmer uncovered for 25 minutes.</text>
+  <text x="274" y="626" class="body">4. Finish with lemon and chopped parsley.</text>
+  <text x="274" y="652" class="small">+ 4 more steps</text>
+  <line x1="66" y1="682" x2="232" y2="682" class="rule" />
+  <text x="66" y="707" class="h2">Estimated nutrition</text>
+  <text x="66" y="729" class="small">430 kcal · 21 g protein · per serving</text>
+  <line x1="274" y1="682" x2="586" y2="682" class="rule" />
+  <text x="274" y="707" class="h2">Cooking notes</text>
+  <text x="274" y="729" class="small">Add stock gradually if the tomatoes are thin.</text>
+  <text x="66" y="782" class="small">No warning banner. “Import info” remains neutral and available.</text>
+
+  <!-- Variant A desktop screen -->
+  <rect x="662" y="318" width="560" height="492" class="screen" rx="6" />
+  <text x="680" y="343" class="label">IMPORT INFO · DESKTOP SPLIT VIEW</text>
+  <line x1="662" y1="356" x2="1222" y2="356" class="rule" />
+  <text x="680" y="386" class="h1">Review imported recipe</text>
+  <text x="680" y="409" class="small">Smoky Tomato &amp; Butter Bean Stew</text>
+  <rect x="1079" y="373" width="123" height="30" class="button" />
+  <text x="1100" y="392" class="body">View recipe →</text>
+  <rect x="680" y="428" width="522" height="52" class="status" rx="4" />
+  <text x="696" y="449" class="h2">3 items need review</text>
+  <text x="696" y="468" class="small">Check conflicting time, uncertain quantity, and ignored media.</text>
+  <line x1="936" y1="496" x2="936" y2="782" class="rule" />
+  <text x="680" y="522" class="label">EXTRACTED RESULT</text>
+  <text x="680" y="552" class="h2">Ingredients</text>
+  <text x="680" y="575" class="body">2 × 400 g butter beans</text>
+  <text x="680" y="597" class="body">1–2 tbsp smoked paprika</text>
+  <text x="680" y="619" class="body">800 g crushed tomatoes</text>
+  <text x="680" y="650" class="h2">Instructions</text>
+  <text x="680" y="673" class="body">1. Warm oil; soften garlic.</text>
+  <text x="680" y="695" class="body">2. Simmer beans for 45 minutes.</text>
+  <text x="680" y="732" class="small">Result stays visible while evidence is inspected.</text>
+  <text x="954" y="522" class="label">REVIEW &amp; SOURCES</text>
+  <rect x="954" y="540" width="248" height="58" class="flag" rx="3" />
+  <text x="966" y="560" class="h2">Cooking time conflicts</text>
+  <text x="966" y="580" class="small">Caption 35 min · transcript 45 min</text>
+  <rect x="954" y="608" width="248" height="58" class="flag" rx="3" />
+  <text x="966" y="628" class="h2">Quantity uncertain</text>
+  <text x="966" y="648" class="small">“1–2 tbsp smoked paprika”</text>
+  <rect x="954" y="676" width="248" height="58" class="flag" rx="3" />
+  <text x="966" y="696" class="h2">1 image ignored</text>
+  <text x="966" y="716" class="small">Packaging photo · inspect source</text>
+  <text x="954" y="758" class="small">Used sources · Ignored · Deleted · Debug role</text>
+  <text x="680" y="782" class="small">Explicit “View recipe” continues to Default View; browser Back returns to prior location.</text>
+
+  <!-- Variant B desktop screen -->
+  <rect x="1276" y="318" width="560" height="492" class="screen" rx="6" />
+  <text x="1294" y="343" class="label">DEFAULT RECIPE VIEW · DESKTOP</text>
+  <line x1="1276" y1="356" x2="1836" y2="356" class="rule" />
+  <rect x="1294" y="376" width="76" height="76" class="panel" />
+  <line x1="1294" y1="376" x2="1370" y2="452" class="rule" />
+  <line x1="1370" y1="376" x2="1294" y2="452" class="rule" />
+  <text x="1386" y="393" class="h1">Smoky Tomato &amp;</text>
+  <text x="1386" y="415" class="h1">Butter Bean Stew</text>
+  <text x="1386" y="438" class="small">Instagram video · Marta Cooks · 45 min · 4 servings</text>
+  <text x="1648" y="384" class="small">Collections</text>
+  <text x="1648" y="402" class="body">Weeknight · Pantry</text>
+  <text x="1648" y="426" class="small">Tags</text>
+  <text x="1648" y="444" class="body">vegan · smoky · +2</text>
+  <rect x="1386" y="466" width="86" height="28" class="primary" />
+  <text x="1404" y="484" class="body">Cook / Focus</text>
+  <rect x="1480" y="466" width="50" height="28" class="button" />
+  <text x="1494" y="484" class="body">Edit</text>
+  <rect x="1538" y="466" width="82" height="28" class="button" />
+  <text x="1553" y="484" class="body">Import info</text>
+  <rect x="1628" y="466" width="34" height="28" class="button" />
+  <text x="1639" y="484" class="body">•••</text>
+  <rect x="1294" y="510" width="524" height="50" class="status" rx="4" />
+  <text x="1310" y="531" class="h2">3 import items need review</text>
+  <text x="1310" y="550" class="small">Some imported details may be uncertain.  Review import →</text>
+  <text x="1294" y="591" class="h2">Ingredients</text>
+  <text x="1502" y="591" class="h2">Instructions</text>
+  <line x1="1478" y1="578" x2="1478" y2="744" class="rule" />
+  <text x="1294" y="617" class="body">2 × 400 g butter beans</text>
+  <text x="1294" y="639" class="body">1–2 tbsp smoked paprika</text>
+  <text x="1294" y="661" class="body">800 g crushed tomatoes</text>
+  <text x="1294" y="683" class="body">2 garlic cloves, sliced</text>
+  <text x="1294" y="705" class="small">+ 8 more ingredients</text>
+  <text x="1502" y="617" class="body">1. Warm oil; soften garlic for 2 minutes.</text>
+  <text x="1502" y="643" class="body">2. Stir in paprika, tomatoes, and stock.</text>
+  <text x="1502" y="669" class="body">3. Add beans; simmer for 45 minutes.</text>
+  <text x="1502" y="695" class="small">+ 5 more steps</text>
+  <text x="1294" y="782" class="small">Status is separate from the neutral “Import info” action; detailed flags stay elsewhere.</text>
+
+  <!-- Desktop tradeoffs -->
+  <text x="48" y="846" class="h2">Control proves the normal rule</text>
+  <text x="48" y="868" class="small">No flags → ordinary Default View → no warning.</text>
+  <text x="662" y="846" class="h2">Strength: review task is unmistakable</text>
+  <text x="662" y="868" class="small">Risk: unexpected landing may interrupt a usable recipe.</text>
+  <text x="1276" y="846" class="h2">Strength: predictable recipe landing</text>
+  <text x="1276" y="868" class="small">Risk: status can be skipped while uncertain content is used.</text>
+
+  <!-- Mobile flows -->
+  <line x1="48" y1="902" x2="1836" y2="902" class="rule" />
+  <text x="48" y="937" class="label">MOBILE ENTRY AND RETURN FLOW · 390 × 844 INTENT</text>
+
+  <!-- Control phones -->
+  <rect x="72" y="968" width="208" height="326" class="screen" rx="18" />
+  <text x="92" y="997" class="label">DEFAULT VIEW</text>
+  <text x="92" y="1026" class="h2">Smoky Tomato &amp;</text>
+  <text x="92" y="1045" class="h2">Butter Bean Stew</text>
+  <text x="92" y="1066" class="tiny">Instagram · Marta · 45 min · 4 servings</text>
+  <rect x="92" y="1080" width="84" height="26" class="primary" />
+  <text x="105" y="1097" class="tiny">Cook / Focus</text>
+  <rect x="184" y="1080" width="76" height="26" class="button" />
+  <text x="196" y="1097" class="tiny">Import info</text>
+  <line x1="92" y1="1124" x2="260" y2="1124" class="rule" />
+  <text x="92" y="1148" class="h2">Ingredients</text>
+  <text x="92" y="1170" class="body">12 items · visible first</text>
+  <text x="92" y="1202" class="h2">Instructions</text>
+  <text x="92" y="1224" class="body">8 numbered steps</text>
+  <text x="92" y="1270" class="tiny">No status treatment.</text>
+  <path d="M280 1130 L350 1130" class="arrow" />
+  <text x="288" y="1115" class="tiny">Import info</text>
+  <rect x="350" y="1012" width="208" height="238" class="screen" rx="18" />
+  <text x="370" y="1041" class="label">IMPORT INFO</text>
+  <text x="370" y="1072" class="h2">No review needed</text>
+  <text x="370" y="1095" class="small">Imported result</text>
+  <text x="370" y="1117" class="small">Sources used</text>
+  <text x="370" y="1139" class="small">Ignored sources: 0</text>
+  <rect x="370" y="1170" width="92" height="28" class="button" />
+  <text x="385" y="1188" class="body">View recipe</text>
+
+  <!-- Variant A phones -->
+  <rect x="686" y="968" width="208" height="326" class="screen" rx="18" />
+  <text x="706" y="997" class="label">IMPORT INFO FIRST</text>
+  <text x="706" y="1026" class="h2">Review imported recipe</text>
+  <rect x="706" y="1042" width="168" height="54" class="status" rx="4" />
+  <text x="718" y="1064" class="h2">3 items need review</text>
+  <text x="718" y="1084" class="tiny">Time · quantity · image</text>
+  <text x="706" y="1122" class="h2">Extracted result</text>
+  <text x="706" y="1144" class="small">Ingredients · Instructions</text>
+  <text x="706" y="1178" class="h2">Review &amp; sources</text>
+  <text x="706" y="1200" class="small">Sequential panels, not columns</text>
+  <rect x="706" y="1230" width="98" height="30" class="primary" />
+  <text x="718" y="1249" class="body">View recipe →</text>
+  <path d="M894 1130 L964 1130" class="arrow" />
+  <text x="907" y="1115" class="tiny">Continue</text>
+  <rect x="964" y="1012" width="208" height="238" class="screen" rx="18" />
+  <text x="984" y="1041" class="label">DEFAULT VIEW</text>
+  <text x="984" y="1072" class="h2">Smoky Tomato &amp;</text>
+  <text x="984" y="1091" class="h2">Butter Bean Stew</text>
+  <text x="984" y="1120" class="small">Ingredients · Instructions</text>
+  <text x="984" y="1142" class="small">Neutral Import info action</text>
+  <text x="984" y="1180" class="tiny">Back does not loop into review.</text>
+
+  <!-- Variant B phones -->
+  <rect x="1300" y="968" width="208" height="326" class="screen" rx="18" />
+  <text x="1320" y="997" class="label">DEFAULT + STATUS</text>
+  <text x="1320" y="1026" class="h2">Smoky Tomato &amp;</text>
+  <text x="1320" y="1045" class="h2">Butter Bean Stew</text>
+  <rect x="1320" y="1063" width="168" height="66" class="status" rx="4" />
+  <text x="1332" y="1085" class="h2">3 import items</text>
+  <text x="1332" y="1104" class="tiny">Some details may be uncertain.</text>
+  <text x="1332" y="1120" class="tiny">Review import →</text>
+  <text x="1320" y="1160" class="h2">Ingredients</text>
+  <text x="1320" y="1182" class="small">12 items · first content</text>
+  <text x="1320" y="1214" class="h2">Instructions</text>
+  <text x="1320" y="1236" class="small">8 numbered steps</text>
+  <path d="M1508 1130 L1578 1130" class="arrow" />
+  <text x="1514" y="1115" class="tiny">Review import</text>
+  <rect x="1578" y="1012" width="208" height="238" class="screen" rx="18" />
+  <text x="1598" y="1041" class="label">IMPORT INFO</text>
+  <text x="1598" y="1072" class="h2">3 items need review</text>
+  <text x="1598" y="1098" class="small">Extracted result</text>
+  <text x="1598" y="1120" class="small">Review &amp; sources</text>
+  <rect x="1598" y="1150" width="92" height="28" class="button" />
+  <text x="1613" y="1168" class="body">View recipe</text>
+  <text x="1598" y="1210" class="tiny">Close/back returns to same</text>
+  <text x="1598" y="1226" class="tiny">Default View position.</text>
+
+  <!-- Invariants and approval question -->
+  <rect x="48" y="1340" width="1788" height="76" class="invariant" rx="5" />
+  <text x="66" y="1368" class="h2">Fixed across the comparison</text>
+  <text x="66" y="1392" class="body">Neutral Import info action · no icon in that action · same recipe data and approved layout · no warning when flags are absent · details stay in Import Info</text>
+
+  <text x="48" y="1460" class="h2">Decision to approve after critique:</text>
+  <text x="330" y="1460" class="body">Does every unresolved import flag justify Variant A, or is Variant B more predictable for a usable saved recipe?</text>
+</svg>

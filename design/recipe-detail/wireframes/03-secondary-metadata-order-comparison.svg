@@ -1,0 +1,135 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1400" viewBox="0 0 1800 1400" role="img" aria-labelledby="title desc">
+  <title id="title">U2 refinement comparing secondary metadata order</title>
+  <desc id="desc">Two controlled Recipe Detail header variants. B1 places Collections and Tags above Difficulty and Personal rating. B2 places Difficulty and Personal rating above Collections and Tags. Desktop and mobile orders are shown.</desc>
+  <style>
+    .bg{fill:#f5f7f9}.paper{fill:#fff;stroke:#536474;stroke-width:2}.soft{fill:#eef2f5;stroke:#8796a4;stroke-width:1.5}.focus{fill:#e6edf2;stroke:#39566f;stroke-width:2}.status{fill:#fff8df;stroke:#a78220;stroke-width:1.5}.muted{fill:#f8fafb;stroke:#c1cbd3;stroke-width:1.2}.rule{stroke:#c9d1d8;stroke-width:1.5}.h1{font:700 30px Arial,sans-serif;fill:#142534}.h2{font:700 20px Arial,sans-serif;fill:#142534}.h3{font:700 15px Arial,sans-serif;fill:#142534}.body{font:13px Arial,sans-serif;fill:#243746}.small{font:11px Arial,sans-serif;fill:#4b5f70}.tiny{font:10px Arial,sans-serif;fill:#526575}.label{font:700 13px Arial,sans-serif;letter-spacing:1.2px;fill:#4b5f70}
+  </style>
+  <rect class="bg" width="1800" height="1400"/>
+  <text x="44" y="52" class="h1">U2 refinement — order inside the upper-right metadata area</text>
+  <text x="44" y="82" class="body">Low fidelity · Variant B foundation in both columns · only the order of three metadata rows changes</text>
+  <rect x="44" y="102" width="1712" height="44" rx="5" class="soft"/>
+  <text x="62" y="129" class="body">Fixed: same recipe · no cover · long title · same actions · same status · same +N disclosure · same content · same widths</text>
+
+  <!-- B1 -->
+  <text x="44" y="184" class="label">B1 · ORIGINAL VARIANT B ORDER</text>
+  <text x="44" y="212" class="h2">Collections and Tags first</text>
+  <rect x="44" y="236" width="832" height="570" rx="7" class="paper"/>
+  <text x="62" y="264" class="label">DEFAULT RECIPE VIEW · DESKTOP</text>
+  <line x1="44" y1="280" x2="876" y2="280" class="rule"/>
+  <rect x="62" y="300" width="90" height="90" class="muted"/>
+  <text x="84" y="342" class="small">No cover</text>
+  <text x="84" y="360" class="small">available</text>
+  <text x="172" y="325" class="h2">Charred Aubergine, Butter Bean &amp;</text>
+  <text x="172" y="351" class="h2">Preserved Lemon Weeknight Traybake</text>
+  <text x="172" y="378" class="small">Instagram video · Marta Cooks · 55 min · 6 servings</text>
+  <rect x="606" y="298" width="250" height="132" rx="5" class="focus"/>
+  <text x="622" y="321" class="small">1 · Collections</text>
+  <text x="622" y="343" class="body">Weeknight · Traybakes · +18</text>
+  <text x="622" y="372" class="small">2 · Tags</text>
+  <text x="622" y="394" class="body">vegan · smoky · +48</text>
+  <line x1="622" y1="405" x2="840" y2="405" class="rule"/>
+  <text x="622" y="423" class="body">3 · Moderate · Rating 4.5/5</text>
+  <rect x="172" y="420" width="105" height="32" rx="4" class="focus"/>
+  <text x="190" y="441" class="body">Cook / Focus</text>
+  <rect x="286" y="420" width="52" height="32" rx="4" class="paper"/>
+  <text x="299" y="441" class="body">Edit</text>
+  <rect x="347" y="420" width="86" height="32" rx="4" class="paper"/>
+  <text x="359" y="441" class="body">Import info</text>
+  <rect x="442" y="420" width="35" height="32" rx="4" class="paper"/>
+  <text x="455" y="440" class="body">•••</text>
+  <rect x="62" y="474" width="796" height="56" rx="5" class="status"/>
+  <text x="78" y="498" class="h3">3 imported details need review</text>
+  <text x="78" y="519" class="small">Some details may be uncertain. Review import →</text>
+  <line x1="286" y1="553" x2="286" y2="768" class="rule"/>
+  <text x="62" y="580" class="h3">Ingredients</text>
+  <text x="62" y="606" class="body">2 large aubergines</text>
+  <text x="62" y="630" class="body">2 × 400 g butter beans</text>
+  <text x="62" y="654" class="body">1 preserved lemon</text>
+  <text x="62" y="678" class="body">1–2 tbsp smoked paprika</text>
+  <text x="62" y="705" class="small">+ 16 more ingredients</text>
+  <text x="310" y="580" class="h3">Instructions</text>
+  <text x="310" y="606" class="body">1. Heat the oven and prepare two shallow trays.</text>
+  <text x="310" y="630" class="body">2. Char the aubergine until deeply browned.</text>
+  <text x="310" y="654" class="body">3. Add beans, tomatoes, lemon, and paprika.</text>
+  <text x="310" y="678" class="body">4. Roast; finish with tahini and herbs.</text>
+  <text x="310" y="705" class="small">+ 6 more steps</text>
+  <text x="62" y="786" class="small">Secondary reading order: Collections → Tags → Difficulty / Personal rating</text>
+
+  <!-- B2 -->
+  <text x="924" y="184" class="label">B2 · SWAPPED ORDER</text>
+  <text x="924" y="212" class="h2">Difficulty and rating first</text>
+  <rect x="924" y="236" width="832" height="570" rx="7" class="paper"/>
+  <text x="942" y="264" class="label">DEFAULT RECIPE VIEW · DESKTOP</text>
+  <line x1="924" y1="280" x2="1756" y2="280" class="rule"/>
+  <rect x="942" y="300" width="90" height="90" class="muted"/>
+  <text x="964" y="342" class="small">No cover</text>
+  <text x="964" y="360" class="small">available</text>
+  <text x="1052" y="325" class="h2">Charred Aubergine, Butter Bean &amp;</text>
+  <text x="1052" y="351" class="h2">Preserved Lemon Weeknight Traybake</text>
+  <text x="1052" y="378" class="small">Instagram video · Marta Cooks · 55 min · 6 servings</text>
+  <rect x="1486" y="298" width="250" height="132" rx="5" class="focus"/>
+  <text x="1502" y="324" class="body">1 · Moderate · Rating 4.5/5</text>
+  <line x1="1502" y1="340" x2="1720" y2="340" class="rule"/>
+  <text x="1502" y="365" class="small">2 · Collections</text>
+  <text x="1502" y="387" class="body">Weeknight · Traybakes · +18</text>
+  <text x="1502" y="410" class="small">3 · Tags</text>
+  <text x="1502" y="427" class="body">vegan · smoky · +48</text>
+  <rect x="1052" y="420" width="105" height="32" rx="4" class="focus"/>
+  <text x="1070" y="441" class="body">Cook / Focus</text>
+  <rect x="1166" y="420" width="52" height="32" rx="4" class="paper"/>
+  <text x="1179" y="441" class="body">Edit</text>
+  <rect x="1227" y="420" width="86" height="32" rx="4" class="paper"/>
+  <text x="1239" y="441" class="body">Import info</text>
+  <rect x="1322" y="420" width="35" height="32" rx="4" class="paper"/>
+  <text x="1335" y="440" class="body">•••</text>
+  <rect x="942" y="474" width="796" height="56" rx="5" class="status"/>
+  <text x="958" y="498" class="h3">3 imported details need review</text>
+  <text x="958" y="519" class="small">Some details may be uncertain. Review import →</text>
+  <line x1="1166" y1="553" x2="1166" y2="768" class="rule"/>
+  <text x="942" y="580" class="h3">Ingredients</text>
+  <text x="942" y="606" class="body">2 large aubergines</text>
+  <text x="942" y="630" class="body">2 × 400 g butter beans</text>
+  <text x="942" y="654" class="body">1 preserved lemon</text>
+  <text x="942" y="678" class="body">1–2 tbsp smoked paprika</text>
+  <text x="942" y="705" class="small">+ 16 more ingredients</text>
+  <text x="1190" y="580" class="h3">Instructions</text>
+  <text x="1190" y="606" class="body">1. Heat the oven and prepare two shallow trays.</text>
+  <text x="1190" y="630" class="body">2. Char the aubergine until deeply browned.</text>
+  <text x="1190" y="654" class="body">3. Add beans, tomatoes, lemon, and paprika.</text>
+  <text x="1190" y="678" class="body">4. Roast; finish with tahini and herbs.</text>
+  <text x="1190" y="705" class="small">+ 6 more steps</text>
+  <text x="942" y="786" class="small">Secondary reading order: Difficulty / Personal rating → Collections → Tags</text>
+
+  <text x="44" y="846" class="h3">B1 strength: category-first grouping follows the broad organization structure</text>
+  <text x="44" y="870" class="small">Risk: the two cook-decision signals are last and easiest to miss.</text>
+  <text x="924" y="846" class="h3">B2 strength: useful decision signals lead without entering the primary identity region</text>
+  <text x="924" y="870" class="small">Risk: the top line may look more important than Tags and Collections even though all remain secondary.</text>
+  <line x1="44" y1="900" x2="1756" y2="900" class="rule"/>
+
+  <!-- mobile -->
+  <text x="44" y="940" class="label">MOBILE SECONDARY-METADATA ORDER · ALL PRIMARY CONTENT ABOVE IS IDENTICAL</text>
+  <rect x="150" y="970" width="560" height="280" rx="8" class="paper"/>
+  <text x="168" y="1000" class="label">B1 · CATEGORY FIRST</text>
+  <text x="168" y="1032" class="small">Collections</text>
+  <text x="168" y="1055" class="body">Weeknight · Traybakes · +18</text>
+  <text x="168" y="1090" class="small">Tags</text>
+  <text x="168" y="1113" class="body">vegan · smoky · +48</text>
+  <line x1="168" y1="1133" x2="692" y2="1133" class="rule"/>
+  <text x="168" y="1162" class="body">Moderate · Rating 4.5/5</text>
+  <text x="168" y="1215" class="small">The actionable cooking judgment arrives after two dense disclosure rows.</text>
+
+  <rect x="1090" y="970" width="560" height="280" rx="8" class="paper"/>
+  <text x="1108" y="1000" class="label">B2 · DECISION SIGNALS FIRST</text>
+  <text x="1108" y="1037" class="body">Moderate · Rating 4.5/5</text>
+  <line x1="1108" y1="1057" x2="1632" y2="1057" class="rule"/>
+  <text x="1108" y="1090" class="small">Collections</text>
+  <text x="1108" y="1113" class="body">Weeknight · Traybakes · +18</text>
+  <text x="1108" y="1148" class="small">Tags</text>
+  <text x="1108" y="1171" class="body">vegan · smoky · +48</text>
+  <text x="1108" y="1215" class="small">Difficulty and rating are found sooner without delaying primary actions or review status.</text>
+
+  <rect x="44" y="1282" width="1712" height="72" rx="5" class="soft"/>
+  <text x="62" y="1310" class="h3">Decision to approve</text>
+  <text x="62" y="1335" class="body">B1: Collections → Tags → Difficulty / Rating · B2: Difficulty / Rating → Collections → Tags</text>
+  <text x="44" y="1382" class="small">Order-only comparison. Spacing, colors, borders, typography, and token styling remain schematic.</text>
+</svg>
