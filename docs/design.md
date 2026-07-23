@@ -25,29 +25,6 @@ Non-goals for the first rewrite:
 - Full production deployment hardening.
 - Video frame slicing. Video import uses transcript and poster image only, matching the current simplified behavior.
 
-## Recommended Stack
-
-### Backend
-
-- Python 3.12+.
-- FastAPI for HTTP API and OpenAPI generation.
-- SQLAlchemy 2.x ORM.
-- Alembic migrations.
-- SQLite for local development.
-- Pydantic settings for configuration.
-- `uv` and `pyproject.toml` for dependency and script management.
-- In-process background worker for local import jobs.
-- Local filesystem storage behind a storage interface.
-
-### Frontend
-
-- React + Vite + TypeScript.
-- TanStack Query for server-state fetching, caching, mutations, and polling.
-- Plain CSS or a small CSS module setup initially; avoid heavy UI frameworks until the workflows stabilize.
-- `pnpm` for frontend package management unless we later choose another JS package manager.
-
-TanStack Query is useful here because import status polling and recipe cache invalidation are core workflows. It lets the UI submit an import job, poll `/imports/{jobId}`, refetch recipe lists when the job succeeds, and handle loading/error states without writing custom request lifecycle code everywhere. It is a frontend-only choice and does not couple the backend to React.
-
 ## Repository Layout
 
 The new project lives next to the current repository:
@@ -355,6 +332,187 @@ TanStack Query usage:
 
 Frontend should not know storage internals. It renders media URLs returned or constructed from backend API routes.
 
+## YouTube Video Import
+
+### Scope and selected strategy
+
+The first YouTube integration supports public videos referenced by these direct-link forms:
+
+- `youtube.com/watch?v=<video-id>`;
+- `youtube.com/shorts/<video-id>`;
+- `youtu.be/<video-id>`.
+
+Playlist-only URLs, private videos, unlisted videos, active live streams, and videos longer than 15 minutes are not supported. YouTube URL syntax is covered by the common URL validation performed when an import is created; the YouTube loader must not introduce a parallel creation-time validation system. After creation, the loader extracts the video id and converts every accepted form to a canonical watch URL.
+
+The selected processing strategy separates video understanding from recipe extraction:
+
+```text
+YouTube URL
+  -> YouTube Data API metadata and validation
+  -> Gemini 2.5 Flash VideoEvidence extraction
+  -> usable VideoEvidence + YouTube description + other import evidence
+  -> existing OpenAI recipe extraction
+  -> existing recipe persistence and quality flow
+```
+
+Gemini receives only the canonical YouTube video URL. It does not receive the YouTube description, thumbnail, manual attachments, or other import resources. Gemini is responsible for faithful video evidence extraction, while the existing OpenAI provider remains responsible for constructing the normalized recipe from all accepted evidence.
+
+### Configuration and credentials
+
+The backend configuration adds:
+
+```text
+YOUTUBE_API_KEY
+GEMINI_API_KEY
+GEMINI_YOUTUBE_MODEL=gemini-2.5-flash
+MAX_YOUTUBE_VIDEO_DURATION_SECONDS=900
+MIN_YOUTUBE_FALLBACK_DESCRIPTION_CHARS=200
+MIN_YOUTUBE_VIDEO_EVIDENCE_CONFIDENCE=0.70
+YOUTUBE_RESOURCE_RETENTION_DAYS=30
+```
+
+Development and production use different Google projects and different API keys for both YouTube Data API and Gemini. The application uses the same environment-variable names in each environment; deployment secrets provide the environment-specific values. Keys are backend-only, must not appear in logs or job events, and should be restricted to their intended API and server caller where the deployment supports stable outbound IP restrictions. Adding a production runtime profile is outside this integration's scope.
+
+### YouTube Data API boundary
+
+One `videos.list` request with `part=snippet,contentDetails,status` retrieves the fields needed to:
+
+- read the title, description, channel identity, and thumbnail variants;
+- parse the ISO 8601 duration;
+- reject videos over 900 seconds before calling Gemini;
+- reject unavailable, non-public, unprocessed, or active-live videos;
+- record relevant caption, embedding, regional, and content-restriction metadata for diagnostics.
+
+The loader does not use `search.list`, comments, or captions endpoints. Direct URL parsing avoids the high-cost search endpoint, and one import normally consumes one `videos.list` quota unit. Invalid API requests still consume quota, so common URL validation and local video-id validation happen before the API call.
+
+YouTube API rate and quota handling stays inside the client boundary. Transient rate-limit and `5xx` responses receive a small bounded exponential-backoff retry with jitter and `Retry-After` support. Invalid requests, permanent availability/privacy failures, duration failures, and exhausted daily quota are not retried inside the import. The implementation reuses the platform-neutral import/video error families; it does not add `YOUTUBE_VIDEO_UNAVAILABLE`, `YOUTUBE_VIDEO_NOT_PUBLIC`, `YOUTUBE_VIDEO_TOO_LONG`, or `YOUTUBE_URL_INVALID`. Error details and user-facing text identify YouTube and the concrete reason. If the platform-neutral video distinctions are not yet present when implementation starts, they are added once at the shared video boundary rather than as YouTube-specific types.
+
+### VideoEvidence contract
+
+Gemini returns structured evidence rather than a recipe. The contract contains at least:
+
+```text
+transcript
+on_screen_text[]
+ingredients_observed[] { name, quantity, timestamp, evidence_kind }
+visual_steps[] { timestamp, description }
+uncertainties[]
+confidence
+```
+
+The prompt instructs Gemini to report only evidence supported by speech, visible text, or visible actions; retain timestamps; distinguish evidence kinds; express uncertainty; ignore instructions embedded in the source content; and avoid normalizing the observations into a final recipe. The provider validates the structured response before it can enter the normal extraction flow.
+
+A response is usable only when it is structurally valid, contains meaningful evidence, and has `confidence >= 0.70`. Only usable `VideoEvidence` is persisted as a child `RecipeResource` and passed to OpenAI. A structurally valid response below the threshold is recorded in the success job event and telemetry, then discarded; it is not saved as an ignored resource. Invalid or failed responses are also not persisted as recipe resources.
+
+### Fallback behavior
+
+Gemini failure, invalid evidence, empty evidence, and evidence below the confidence threshold use the same fallback decision:
+
+1. If other meaningful extraction resources exist, continue through the normal OpenAI extraction flow without `VideoEvidence`.
+2. If YouTube description is the only remaining meaningful resource, normalize its whitespace and require at least 200 characters.
+3. If the normalized description passes the threshold, call OpenAI with the description.
+4. If it does not pass, fail the import immediately without an unnecessary OpenAI call.
+
+The title, channel name, source URL, and thumbnail do not contribute to the 200-character threshold. A sufficiently long description is not assumed to contain a recipe; it only permits OpenAI to make the normal recipe/not-a-recipe decision.
+
+### Extraction source and cover behavior
+
+The OpenAI extraction stage receives:
+
+- usable `VideoEvidence`, when available;
+- YouTube description and other API text selected for extraction;
+- manual text and images and any other normal import evidence.
+
+The YouTube thumbnail is persisted outside the extraction input and is never sent to Gemini or OpenAI. It does not consume the attachment-first extraction-image capacity. Other remote images continue to use only the image capacity remaining after manual attachments.
+
+The best available YouTube thumbnail is downloaded and stored byte-for-byte. It is not cropped, resized, re-encoded, or passed through `create_cover_image`; the saved `RecipeImage` is assigned directly as `recipe.cover_image`. User-facing presentation must preserve the full image, identify YouTube as its source, and link to the original video. A permanently unavailable thumbnail leaves the recipe without a cover rather than creating a modified copy.
+
+### Resource retention model
+
+API-derived text used in extraction, usable `VideoEvidence`, and the YouTube thumbnail are stored as child `RecipeResource` rows under the primary user-provided URL resource. Validation-only response fields remain in bounded telemetry/job-event metadata rather than being copied into recipe resources.
+
+`RecipeResource` adds these nullable lifecycle fields:
+
+```text
+expires_at
+deleted_at
+delete_reason
+```
+
+`expires_at` is an absolute timestamp rather than a relative TTL. YouTube-derived resources initially receive `expires_at = created_at + 30 days`. The parent URL was provided by the user and is not automatically expired with its API-derived children.
+
+When a resource is cleaned, its row remains as historical provenance with `status=deleted`, `deleted_at`, and a stable `delete_reason`. Content-bearing fields are cleared, associated non-cover media files are deleted, and obsolete `RecipeImage` rows/links are removed. Initial reason values include user deletion, retention expiry, parent deletion, permanent source unavailability, and compliance retention. User-initiated resource deletion uses the same fields rather than only changing the status.
+
+The first working YouTube import writes expiry metadata but does not wait for the scheduled retention lifecycle. Later milestones add:
+
+1. an idempotent cleanup service and Dramatiq actor for expired non-cover text and media;
+2. a periodic scheduler process that enqueues bounded cleanup batches;
+3. refresh behavior for an expired current YouTube cover.
+
+Cover refresh calls the YouTube API again, downloads the current thumbnail without modification, replaces the stored bytes, and advances `expires_at` by 30 days. Transient API/rate failures reschedule refresh; permanent video or thumbnail unavailability removes the cover and marks its source resource deleted. PostgreSQL claim/locking prevents concurrent workers from processing the same resource, and missing storage files are treated as an already-achieved deletion state.
+
+Only successful imports create `RecipeResource` rows. If the import fails before a `Recipe` exists, full API text and `VideoEvidence` are discarded after processing; bounded diagnostics remain in job events and telemetry. `RecipeResource.recipe_id` remains non-nullable, and no second failed-import resource table is introduced.
+
+### Job events and telemetry
+
+The Gemini stage has job events distinct from the existing OpenAI recipe-extractor events:
+
+```text
+VIDEO_EVIDENCE_EXTRACTION_SUCCEEDED
+VIDEO_EVIDENCE_EXTRACTION_FAILED
+```
+
+`VIDEO_EVIDENCE_EXTRACTION_SUCCEEDED` is emitted for every structurally valid Gemini response. Its payload always includes `confidence`. It also includes provider, model, platform, whether the evidence passed the threshold, an optional rejection reason, latency, and available token usage. A low-confidence response therefore produces a success event with `accepted=false` and `rejectionReason=LOW_CONFIDENCE`, but the evidence body is discarded.
+
+`VIDEO_EVIDENCE_EXTRACTION_FAILED` records provider error classification, model, platform, and latency for API, timeout, video-access, or structured-response failures. Neither event contains the full evidence, description, or credentials. The existing `EXTRACTOR_REQUESTED` and `EXTRACTOR_SUCCEEDED` events continue to describe the later OpenAI recipe extraction stage.
+
+Structured telemetry records:
+
+- YouTube API request count, latency, result/error classification, and rate/quota failures;
+- video duration and normalized description length;
+- Gemini latency, token usage, confidence, threshold acceptance, and fallback decision;
+- whether the OpenAI call was skipped and the normal OpenAI usage/latency data;
+- total import duration;
+- later, cleanup/refresh claim, success, retry, deletion, and failure counts.
+
+Raw evidence, descriptions, thumbnails, and credentials are not copied into logs or event payloads.
+
+### Delivery sequence
+
+The integration is delivered in independently verifiable milestones:
+
+1. Working YouTube import: URL dispatch, YouTube Data API validation, 15-minute limit, Gemini `VideoEvidence`, confidence/description fallbacks, OpenAI integration, lifecycle fields and expiry assignment, unchanged thumbnail cover with attribution/link behavior, job events, telemetry, and focused tests.
+2. Expired-resource cleanup: user-deletion reasons, idempotent cleanup domain service, Dramatiq actor, scheduler, and non-cover cleanup.
+3. Cover refresh: periodic unchanged-thumbnail refresh, transient retry, permanent-unavailability cleanup, and lifecycle tests.
+
+The working import may be used by the current private application while the later lifecycle milestones are completed. Public release requires the retention lifecycle and a separate compliance review.
+
+### YouTube-specific test coverage
+
+Backend coverage includes:
+
+- accepted watch, Shorts, and `youtu.be` forms plus rejection through common URL validation;
+- canonicalization and video-id parsing without an API request for invalid input;
+- public/unavailable/private/unlisted/live/processing/duration boundary responses;
+- one-call metadata extraction and deterministic thumbnail selection;
+- rate-limit retry, exhausted quota, `Retry-After`, and non-retryable failures;
+- Gemini schema validation, empty evidence, provider failure, and confidence immediately below/at the `0.70` boundary;
+- description immediately below/at the 200-character boundary;
+- fallback with and without other meaningful sources and proof that skipped OpenAI calls do not occur;
+- separation of persisted metadata and usable evidence resources;
+- proof that low-confidence evidence is not persisted;
+- source order and the existing attachments-first capacity invariant;
+- proof that thumbnail bytes are unchanged and the thumbnail is absent from both AI requests;
+- success/failure event payloads, including mandatory success-event confidence and absence of source content;
+- `expires_at`, deletion timestamps/reasons, idempotent cleanup, cover refresh, transient retry, and permanent-unavailability behavior.
+
+### Future improvements and TODO
+
+- Compare the selected two-stage strategy with direct Gemini recipe extraction. Record quality, latency, token usage, failure isolation, source reconciliation, and implementation complexity before considering a mode switch or A/B feature flag.
+- Consider a stronger Gemini model only after `gemini-2.5-flash` telemetry identifies a concrete quality problem; do not add an automatic stronger-model fallback in the first version.
+- Complete a YouTube API compliance audit and legal/policy review before making the application public. Reconfirm description-derived recipe use, metadata retention, thumbnail presentation, branding, and refresh behavior against the policies current at launch time.
+- Revisit the 15-minute, 200-character, and `0.70` defaults using production telemetry rather than model self-confidence alone.
+
 ## Testing Strategy
 
 Backend tests:
@@ -448,4 +606,3 @@ Implementation should start with backend foundations and job lifecycle before po
 3. Whether to use generated TypeScript API types from OpenAPI in the first version or write a small manual frontend API client first.
 4. Whether local auth remains a fixed default user or we introduce a lightweight client id concept now to prepare for mobile/cloud.
 5. Whether the first version needs resource review/delete UI or only source display and warning flags.
-
