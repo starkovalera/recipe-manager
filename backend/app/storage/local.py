@@ -1,6 +1,6 @@
 from collections.abc import Mapping
 from datetime import datetime, timezone
-from pathlib import Path, PurePosixPath, PureWindowsPath
+from pathlib import Path
 
 from app.storage.base import StorageService
 from app.storage.constants import StorageLocation
@@ -30,14 +30,20 @@ class LocalStorageService(StorageService):
         root = self._roots.get(location)
         if root is None:
             raise StorageConfigurationError(f"Storage location {location.value} is not configured.")
-        posix_key = PurePosixPath(storage_key)
-        windows_key = PureWindowsPath(storage_key)
-        if posix_key.is_absolute() or windows_key.is_absolute() or ".." in posix_key.parts or ".." in windows_key.parts:
+        runtime_key = Path(storage_key)
+        if runtime_key.is_absolute() or ".." in runtime_key.parts:
             raise ValueError(f"Storage key resolves outside storage root: {storage_key}")
-        path = (root / storage_key).resolve()
+        path = (root / runtime_key).resolve()
         if root != path and root not in path.parents:
             raise ValueError(f"Storage key resolves outside storage root: {storage_key}")
         return path
+
+    def is_safe_key(self, location: StorageLocation, storage_key: str) -> bool:
+        try:
+            self._path_for(location, storage_key)
+        except ValueError:
+            return False
+        return True
 
     def save(
         self,
@@ -91,10 +97,10 @@ class LocalStorageService(StorageService):
     ) -> StorageObjectPage:
         if not 1 <= limit <= 1000:
             raise ValueError("Storage listing limit must be between 1 and 1000.")
-        posix_prefix = PurePosixPath(prefix or ".")
-        windows_prefix = PureWindowsPath(prefix or ".")
-        if posix_prefix.is_absolute() or windows_prefix.is_absolute() or ".." in posix_prefix.parts or ".." in windows_prefix.parts:
-            raise ValueError("Storage listing prefix must be a safe relative prefix.")
+        try:
+            self._path_for(location, prefix or ".")
+        except ValueError as error:
+            raise ValueError("Storage listing prefix must be a safe relative prefix.") from error
         if cursor is not None:
             self._path_for(location, cursor)
 

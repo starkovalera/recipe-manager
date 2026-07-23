@@ -35,6 +35,13 @@ The extension is derived only from an allowlisted original-name suffix. The
 original filename is not embedded in the key. Owner and entity identifiers are
 validated before key construction.
 
+Storage-key safety belongs to the selected provider. LOCAL interprets keys with
+the current runtime's `Path` rules and requires the resolved path to remain
+inside the configured location root. S3 treats non-empty keys as opaque object
+identifiers and does not apply filesystem path rules. Destructive maintenance
+still validates expected nested domain prefixes independently; flat keys are
+accepted only for legacy compatibility.
+
 ## Persistence
 
 `StoredFile` is a transient adapter result. Existing `ImportJobSource` and

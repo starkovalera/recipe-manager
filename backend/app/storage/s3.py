@@ -1,6 +1,5 @@
 from collections.abc import Mapping
 from datetime import datetime, timezone
-from pathlib import PurePosixPath, PureWindowsPath
 from typing import Any
 
 import boto3
@@ -62,6 +61,10 @@ class S3StorageService(StorageService):
         if bucket is None:
             raise StorageConfigurationError(f"Storage location {location.value} is not configured.")
         return bucket
+
+    def is_safe_key(self, location: StorageLocation, storage_key: str) -> bool:
+        self._bucket_for(location)
+        return bool(storage_key)
 
     def save(
         self,
@@ -129,10 +132,6 @@ class S3StorageService(StorageService):
     ) -> StorageObjectPage:
         if not 1 <= limit <= 1000:
             raise ValueError("Storage listing limit must be between 1 and 1000.")
-        posix_prefix = PurePosixPath(prefix or ".")
-        windows_prefix = PureWindowsPath(prefix or ".")
-        if posix_prefix.is_absolute() or windows_prefix.is_absolute() or ".." in posix_prefix.parts or ".." in windows_prefix.parts:
-            raise ValueError("Storage listing prefix must be a safe relative prefix.")
 
         request = {
             "Bucket": self._bucket_for(location),

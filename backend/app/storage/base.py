@@ -5,6 +5,9 @@ from app.storage.types import StorageObjectPage, StorageSaveContext, StoredFile
 
 
 class StorageService(Protocol):
+    def is_safe_key(self, location: StorageLocation, storage_key: str) -> bool:
+        raise NotImplementedError
+
     def save(
         self,
         location: StorageLocation,

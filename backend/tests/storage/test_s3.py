@@ -263,6 +263,13 @@ def test_s3_delete_uses_exact_request_without_head() -> None:
     assert not hasattr(client, "head_calls")
 
 
+@pytest.mark.parametrize("storage_key", ["../object", "C:\\object", "/absolute", "folder/../object"])
+def test_s3_treats_nonblank_storage_keys_as_opaque(storage_key: str) -> None:
+    storage = build_storage(RecordingClient())
+
+    assert storage.is_safe_key(StorageLocation.USER_MEDIA, storage_key) is True
+
+
 def test_s3_list_objects_maps_first_page() -> None:
     client = RecordingClient()
 

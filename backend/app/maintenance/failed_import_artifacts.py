@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from pathlib import PurePosixPath, PureWindowsPath
 from uuid import uuid4
 
 from sqlalchemy.orm import Session
@@ -92,17 +91,8 @@ def _cleanup_snapshot_storage(storage: StorageService, snapshot: FailedImportArt
     suspicious_keys = []
     for key in referenced_keys:
         belongs_to_job = key.startswith(snapshot.source_prefix) or key.startswith(snapshot.derived_prefix)
-        posix_key = PurePosixPath(key)
-        windows_key = PureWindowsPath(key)
-        safe_legacy_key = (
-            "/" not in key
-            and "\\" not in key
-            and not posix_key.is_absolute()
-            and not windows_key.is_absolute()
-            and ".." not in posix_key.parts
-            and ".." not in windows_key.parts
-        )
-        if not belongs_to_job and not safe_legacy_key:
+        is_legacy_key = "/" not in key
+        if not storage.is_safe_key(StorageLocation.USER_MEDIA, key) or not belongs_to_job and not is_legacy_key:
             suspicious_keys.append(key)
     safe_referenced_keys = [key for key in referenced_keys if key not in suspicious_keys]
     safe_keys = sorted(set(source_keys) | set(derived_keys) | set(safe_referenced_keys))

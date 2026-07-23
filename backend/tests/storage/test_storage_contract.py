@@ -43,10 +43,12 @@ def test_storage_service_requires_location_and_save_context() -> None:
     save = inspect.signature(StorageService.save)
     read = inspect.signature(StorageService.read)
     delete = inspect.signature(StorageService.delete)
+    is_safe_key = inspect.signature(StorageService.is_safe_key)
 
     assert list(save.parameters) == ["self", "location", "content", "original_name", "mime_type", "context"]
     assert save.parameters["context"].kind is inspect.Parameter.KEYWORD_ONLY
     assert save.parameters["context"].annotation is StorageSaveContext
     assert list(read.parameters) == ["self", "location", "storage_key"]
     assert list(delete.parameters) == ["self", "location", "storage_key"]
+    assert list(is_safe_key.parameters) == ["self", "location", "storage_key"]
     assert not hasattr(StorageService, "path_for_response")

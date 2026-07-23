@@ -27,10 +27,14 @@ from app.storage.types import StorageObjectInfo, StorageObjectPage, StoredFile
 
 
 class MemoryStorage:
-    def __init__(self, objects: dict[str, bytes]) -> None:
+    def __init__(self, objects: dict[str, bytes], *, unsafe_keys: set[str] | None = None) -> None:
         self.objects = objects
+        self.unsafe_keys = unsafe_keys or set()
         self.deleted: list[str] = []
         self.saved_reports: list[bytes] = []
+
+    def is_safe_key(self, location, storage_key):
+        return storage_key not in self.unsafe_keys
 
     def list_objects(self, location, *, prefix, limit, cursor=None):
         keys = sorted(key for key in self.objects if key.startswith(prefix) and (cursor is None or key > cursor))
@@ -182,6 +186,21 @@ def test_cleanup_reports_suspicious_nested_reference_without_deleting_it(monkeyp
     with factory() as session:
         job = session.get(ImportJob, "job-1")
         assert job is not None and job.status is ImportJobStatus.FAILED
+
+
+def test_cleanup_reports_provider_unsafe_legacy_reference_without_deleting_it(monkeypatch) -> None:
+    factory = build_factory()
+    unsafe_key = "legacy.jpg"
+    add_job(factory, job_id="job-1", storage_keys=(unsafe_key,))
+    storage = MemoryStorage({unsafe_key: b"legacy"}, unsafe_keys={unsafe_key})
+    configure(monkeypatch, factory, storage)
+
+    result = failed_import_artifacts.cleanup_failed_import_artifacts()
+
+    assert result.disposition is MaintenanceProcessingDisposition.ANOMALIES_FOUND
+    assert unsafe_key in storage.objects
+    assert storage.deleted == []
+    assert len(storage.saved_reports) == 1
 
 
 def test_cleanup_reports_listing_failure_and_keeps_job_retryable(monkeypatch) -> None:
