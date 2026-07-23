@@ -7,8 +7,7 @@ from botocore.exceptions import BotoCoreError, ClientError
 from app.storage.base import StorageService
 from app.storage.constants import StorageLocation
 from app.storage.errors import StorageConfigurationError, StorageObjectNotFoundError, StorageOperationError
-from app.storage.keys import build_storage_key
-from app.storage.types import StorageLocator, StorageWriteContext, StoredFile
+from app.storage.types import StorageLocator, StorageSaveContext, StoredFile
 
 
 def _read_response_body(body: Any) -> bytes:
@@ -69,9 +68,9 @@ class S3StorageService(StorageService):
         original_name: str,
         mime_type: str,
         *,
-        context: StorageWriteContext,
+        context: StorageSaveContext,
     ) -> StoredFile:
-        storage_key = build_storage_key(context, mime_type=mime_type)
+        storage_key = context.build_storage_key(original_name=original_name, mime_type=mime_type)
         try:
             self._get_client().put_object(
                 Bucket=self._bucket_for(location),

@@ -1,7 +1,7 @@
 from typing import Protocol
 
 from app.storage.constants import StorageLocation
-from app.storage.types import StorageWriteContext, StoredFile
+from app.storage.types import StorageSaveContext, StoredFile
 
 
 class StorageService(Protocol):
@@ -12,7 +12,7 @@ class StorageService(Protocol):
         original_name: str,
         mime_type: str,
         *,
-        context: StorageWriteContext,
+        context: StorageSaveContext,
     ) -> StoredFile:
         raise NotImplementedError
 

@@ -20,8 +20,8 @@ from app.models import (
     SourceType,
 )
 from app.storage.base import StorageService
-from app.storage.constants import StorageLocation, StoragePurpose
-from app.storage.types import StorageWriteContext
+from app.storage.constants import StorageLocation, StorageUserPurpose
+from app.storage.types import StorageUserContext
 
 logger = logging.getLogger(IMPORT_LOG_COMPONENT)
 
@@ -91,9 +91,9 @@ def prepare_cover_image(
         storage,
         StorageLocation.USER_MEDIA,
         source_image.storage_key,
-        context=StorageWriteContext(
+        context=StorageUserContext(
             owner_id=job.owner_id,
-            purpose=StoragePurpose.IMPORT_DERIVED,
+            purpose=StorageUserPurpose.IMPORT_DERIVED,
             entity_id=job.id,
         ),
         crop=chosen.crop,

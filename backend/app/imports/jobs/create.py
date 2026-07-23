@@ -38,9 +38,9 @@ from app.notifications.notification_data import ImportStartedNotification, build
 from app.queueing.constants import QueueMessageType
 from app.queueing.outbox import schedule_outbox_message
 from app.storage.base import StorageService
-from app.storage.constants import StorageLocation, StoragePurpose
+from app.storage.constants import StorageLocation, StorageUserPurpose
 from app.storage.runtime import get_storage_service
-from app.storage.types import StorageWriteContext
+from app.storage.types import StorageUserContext
 
 logger = bind_logger(logging.getLogger(__name__), component=IMPORT_LOG_COMPONENT)
 
@@ -77,9 +77,9 @@ def _build_image_sources(
 ) -> tuple[list[ImportJobSource], list[str]]:
     sources: list[ImportJobSource] = []
     storage_keys: list[str] = []
-    context = StorageWriteContext(
+    context = StorageUserContext(
         owner_id=owner_id,
-        purpose=StoragePurpose.IMPORT_SOURCE,
+        purpose=StorageUserPurpose.IMPORT_SOURCE,
         entity_id=job_id,
     )
     for position, image in enumerate(images):

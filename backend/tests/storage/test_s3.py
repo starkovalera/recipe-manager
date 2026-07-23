@@ -1,12 +1,21 @@
+from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
 from botocore.exceptions import ClientError, EndpointConnectionError
 
-from app.storage.constants import StorageLocation, StoragePurpose
+from app.storage.constants import StorageLocation, StorageUserPurpose
 from app.storage.errors import StorageConfigurationError, StorageObjectNotFoundError, StorageOperationError
 from app.storage.s3 import S3StorageService
-from app.storage.types import StorageWriteContext
+from app.storage.types import StorageUserContext
+
+
+@dataclass(frozen=True)
+class FixedContext:
+    key: str
+
+    def build_storage_key(self, *, original_name: str, mime_type: str) -> str:
+        return self.key
 
 
 class RecordingBody:
@@ -108,9 +117,9 @@ def test_injected_s3_client_bypasses_boto3(monkeypatch) -> None:
 def test_s3_save_uses_exact_put_object_request() -> None:
     client = RecordingClient()
     storage = build_storage(client)
-    context = StorageWriteContext(
+    context = StorageUserContext(
         owner_id="owner-1",
-        purpose=StoragePurpose.IMPORT_SOURCE,
+        purpose=StorageUserPurpose.IMPORT_SOURCE,
         entity_id="job-1",
     )
 
@@ -134,6 +143,21 @@ def test_s3_save_uses_exact_put_object_request() -> None:
     assert saved.original_name == "original.png"
     assert saved.mime_type == "image/png"
     assert saved.size_bytes == 5
+
+
+def test_s3_storage_uses_context_generated_key() -> None:
+    client = RecordingClient()
+
+    saved = build_storage(client).save(
+        StorageLocation.USER_MEDIA,
+        b"report",
+        "ignored.json",
+        "application/json",
+        context=FixedContext("custom/report.json"),
+    )
+
+    assert saved.storage_key == "custom/report.json"
+    assert client.put_calls[0]["Key"] == "custom/report.json"
 
 
 def test_s3_read_returns_bytes_and_closes_body() -> None:
@@ -186,7 +210,7 @@ def test_s3_provider_failures_map_to_storage_operation_error(error: Exception) -
     client = RecordingClient()
     client.error = error
     storage = build_storage(client)
-    context = StorageWriteContext("owner-1", StoragePurpose.TEMPORARY, "operation-1")
+    context = StorageUserContext("owner-1", StorageUserPurpose.IMPORT_DERIVED, "operation-1")
 
     with pytest.raises(StorageOperationError):
         storage.save(StorageLocation.USER_MEDIA, b"x", "x.bin", "application/octet-stream", context=context)

@@ -44,8 +44,8 @@ from app.models import (
 from app.queueing.constants import QueueMessageType, QueueOutboxStatus
 from app.queueing.outbox import schedule_outbox_message
 from app.storage.base import StoredFile
-from app.storage.constants import StorageLocation, StoragePurpose
-from app.storage.types import StorageWriteContext
+from app.storage.constants import StorageLocation, StorageUserPurpose
+from app.storage.types import StorageUserContext
 from tests.api.support import install_local_user_override
 from tests.imports.runtime_overrides import (
     reset_url_content_service,
@@ -152,7 +152,7 @@ class RecordingStorage:
         self.fail_on_save = fail_on_save
         self.saved_keys: list[str] = []
         self.deleted_keys: list[str] = []
-        self.write_contexts: list[StorageWriteContext] = []
+        self.write_contexts: list[StorageUserContext] = []
 
     def save(
         self,
@@ -161,10 +161,10 @@ class RecordingStorage:
         original_name: str,
         mime_type: str,
         *,
-        context: StorageWriteContext,
+        context: StorageUserContext,
     ) -> StoredFile:
         assert location is StorageLocation.USER_MEDIA
-        assert context.purpose is StoragePurpose.IMPORT_SOURCE
+        assert context.purpose is StorageUserPurpose.IMPORT_SOURCE
         self.write_contexts.append(context)
         save_number = len(self.saved_keys) + 1
         if save_number == self.fail_on_save:

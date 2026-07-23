@@ -4,8 +4,7 @@ from pathlib import Path, PurePosixPath, PureWindowsPath
 from app.storage.base import StorageService
 from app.storage.constants import StorageLocation
 from app.storage.errors import StorageConfigurationError, StorageObjectNotFoundError, StorageOperationError
-from app.storage.keys import build_storage_key
-from app.storage.types import StorageLocator, StorageWriteContext, StoredFile
+from app.storage.types import StorageLocator, StorageSaveContext, StoredFile
 
 
 class LocalStorageService(StorageService):
@@ -46,9 +45,9 @@ class LocalStorageService(StorageService):
         original_name: str,
         mime_type: str,
         *,
-        context: StorageWriteContext,
+        context: StorageSaveContext,
     ) -> StoredFile:
-        storage_key = build_storage_key(context, mime_type=mime_type)
+        storage_key = context.build_storage_key(original_name=original_name, mime_type=mime_type)
         path = self._path_for(location, storage_key)
         try:
             path.parent.mkdir(parents=True, exist_ok=True)

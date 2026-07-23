@@ -1,11 +1,20 @@
+from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
 
-from app.storage.constants import StorageLocation, StoragePurpose
+from app.storage.constants import StorageLocation, StorageUserPurpose
 from app.storage.errors import StorageConfigurationError, StorageObjectNotFoundError
 from app.storage.local import LocalStorageService
-from app.storage.types import StorageWriteContext
+from app.storage.types import StorageUserContext
+
+
+@dataclass(frozen=True)
+class FixedContext:
+    key: str
+
+    def build_storage_key(self, *, original_name: str, mime_type: str) -> str:
+        return self.key
 
 
 def build_storage(tmp_path: Path) -> LocalStorageService:
@@ -23,9 +32,9 @@ def test_local_storage_requires_configured_path_locator(tmp_path: Path) -> None:
 
 def test_local_storage_saves_reads_and_deletes_nested_key(tmp_path: Path) -> None:
     storage = build_storage(tmp_path)
-    context = StorageWriteContext(
+    context = StorageUserContext(
         owner_id="owner-1",
-        purpose=StoragePurpose.IMPORT_SOURCE,
+        purpose=StorageUserPurpose.IMPORT_SOURCE,
         entity_id="job-1",
     )
 
@@ -47,6 +56,21 @@ def test_local_storage_saves_reads_and_deletes_nested_key(tmp_path: Path) -> Non
     storage.delete(StorageLocation.USER_MEDIA, saved.storage_key)
     with pytest.raises(StorageObjectNotFoundError):
         storage.read(StorageLocation.USER_MEDIA, saved.storage_key)
+
+
+def test_local_storage_uses_context_generated_key(tmp_path: Path) -> None:
+    storage = build_storage(tmp_path)
+
+    saved = storage.save(
+        StorageLocation.USER_MEDIA,
+        b"report",
+        "ignored.json",
+        "application/json",
+        context=FixedContext("custom/report.json"),
+    )
+
+    assert saved.storage_key == "custom/report.json"
+    assert storage.read(StorageLocation.USER_MEDIA, saved.storage_key) == b"report"
 
 
 def test_local_storage_reads_and_deletes_legacy_flat_key(tmp_path: Path) -> None:

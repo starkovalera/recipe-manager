@@ -6,7 +6,7 @@ from PIL import Image
 
 from app.storage.base import StorageService, StoredFile
 from app.storage.constants import StorageLocation
-from app.storage.types import StorageWriteContext
+from app.storage.types import StorageUserContext
 
 SUPPORTED_IMAGE_TYPES = {"image/jpeg": "JPEG", "image/png": "PNG", "image/webp": "WEBP"}
 
@@ -126,7 +126,7 @@ def create_cover_image(
     location: StorageLocation,
     source_storage_key: str,
     *,
-    context: StorageWriteContext,
+    context: StorageUserContext,
     crop: dict[str, float] | None = None,
     auto_crop_full_image: bool = False,
 ) -> StoredFile:
