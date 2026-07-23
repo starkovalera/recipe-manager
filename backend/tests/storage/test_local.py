@@ -82,16 +82,6 @@ def test_local_storage_uses_context_generated_key(tmp_path: Path) -> None:
     assert storage.read(StorageLocation.USER_MEDIA, saved.storage_key) == b"report"
 
 
-def test_local_storage_reads_and_deletes_legacy_flat_key(tmp_path: Path) -> None:
-    storage = build_storage(tmp_path)
-    legacy_path = tmp_path / "uploads" / "legacy.jpg"
-    legacy_path.write_bytes(b"legacy")
-
-    assert storage.read(StorageLocation.USER_MEDIA, "legacy.jpg") == b"legacy"
-    storage.delete(StorageLocation.USER_MEDIA, "legacy.jpg")
-    assert not legacy_path.exists()
-
-
 @pytest.mark.parametrize(
     "storage_key",
     ["../outside", "nested/../../outside", "/absolute"],
@@ -114,14 +104,14 @@ def test_local_storage_rejects_windows_paths_outside_location(tmp_path: Path, st
 
 def test_local_storage_exposes_local_path_for_response(tmp_path: Path) -> None:
     storage = build_storage(tmp_path)
+    storage_key = "recipes/media/owner-1/recipe-1/image.jpg"
 
-    assert storage.path_for_response(StorageLocation.USER_MEDIA, "legacy.jpg") == (tmp_path / "uploads" / "legacy.jpg").resolve()
+    assert storage.path_for_response(StorageLocation.USER_MEDIA, storage_key) == (tmp_path / "uploads" / storage_key).resolve()
 
 
 def test_local_storage_key_safety_uses_runtime_path_rules(tmp_path: Path) -> None:
     storage = build_storage(tmp_path)
 
-    assert storage.is_safe_key(StorageLocation.USER_MEDIA, "legacy.jpg") is True
     assert storage.is_safe_key(StorageLocation.USER_MEDIA, "imports/source/job/image.jpg") is True
     assert storage.is_safe_key(StorageLocation.USER_MEDIA, "../outside.jpg") is False
     assert storage.is_safe_key(StorageLocation.USER_MEDIA, "/absolute.jpg") is False

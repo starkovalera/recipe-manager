@@ -22,19 +22,21 @@ from app.models import (
     User,
 )
 from app.queueing.constants import QueueMessageType
+from app.storage.base import StorageService
 from app.storage.constants import StorageLocation
 from app.storage.types import StorageObjectInfo, StorageObjectPage, StoredFile
 
 
 class MemoryStorage:
-    def __init__(self, objects: dict[str, bytes], *, unsafe_keys: set[str] | None = None) -> None:
+    list_all_objects = StorageService.list_all_objects
+
+    def __init__(self, objects: dict[str, bytes]) -> None:
         self.objects = objects
-        self.unsafe_keys = unsafe_keys or set()
         self.deleted: list[str] = []
         self.saved_reports: list[bytes] = []
 
     def is_safe_key(self, location, storage_key):
-        return storage_key not in self.unsafe_keys
+        return True
 
     def list_objects(self, location, *, prefix, limit, cursor=None):
         keys = sorted(key for key in self.objects if key.startswith(prefix) and (cursor is None or key > cursor))
@@ -138,17 +140,15 @@ def test_cleanup_excludes_ineligible_candidates(monkeypatch) -> None:
     assert result.scanned_count == 0
 
 
-def test_cleanup_removes_nested_legacy_and_unreferenced_artifacts(monkeypatch) -> None:
+def test_cleanup_removes_nested_referenced_and_unreferenced_artifacts(monkeypatch) -> None:
     factory = build_factory()
     source_prefix = "imports/source/owner-1/job-1/"
     derived_prefix = "imports/derived/owner-1/job-1/"
     nested_key = f"{source_prefix}nested.jpg"
-    legacy_key = "legacy.jpg"
-    add_job(factory, job_id="job-1", storage_keys=(nested_key, legacy_key))
+    add_job(factory, job_id="job-1", storage_keys=(nested_key,))
     storage = MemoryStorage(
         {
             nested_key: b"nested",
-            legacy_key: b"legacy",
             f"{source_prefix}leftover.jpg": b"leftover",
             f"{derived_prefix}audio.mp3": b"audio",
             f"{derived_prefix}poster.jpg": b"poster",
@@ -188,17 +188,17 @@ def test_cleanup_reports_suspicious_nested_reference_without_deleting_it(monkeyp
         assert job is not None and job.status is ImportJobStatus.FAILED
 
 
-def test_cleanup_reports_provider_unsafe_legacy_reference_without_deleting_it(monkeypatch) -> None:
+def test_cleanup_reports_flat_reference_without_deleting_it(monkeypatch) -> None:
     factory = build_factory()
-    unsafe_key = "legacy.jpg"
-    add_job(factory, job_id="job-1", storage_keys=(unsafe_key,))
-    storage = MemoryStorage({unsafe_key: b"legacy"}, unsafe_keys={unsafe_key})
+    flat_key = "image.jpg"
+    add_job(factory, job_id="job-1", storage_keys=(flat_key,))
+    storage = MemoryStorage({flat_key: b"image"})
     configure(monkeypatch, factory, storage)
 
     result = failed_import_artifacts.cleanup_failed_import_artifacts()
 
     assert result.disposition is MaintenanceProcessingDisposition.ANOMALIES_FOUND
-    assert unsafe_key in storage.objects
+    assert flat_key in storage.objects
     assert storage.deleted == []
     assert len(storage.saved_reports) == 1
 

@@ -151,7 +151,7 @@ def run_integrity_check() -> MaintenanceProcessingResult:
         disposition=disposition,
         parameters={},
         summary={"anomalyCount": anomaly_count, "failureCount": failure_count},
-        details={"checks": [{"invariant": item.invariant, "count": item.count, "records": item.records} for item in check_results]},
+        details={"checks": [{"invariant": item.invariant, "count": item.count, "records": list(item.records)} for item in check_results]},
         errors=tuple(errors),
     )
     try:

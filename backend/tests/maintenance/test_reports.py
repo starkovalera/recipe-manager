@@ -2,6 +2,7 @@ import json
 from datetime import datetime, timezone
 
 import pytest
+from pydantic import ValidationError
 
 from app.maintenance.constants import MaintenanceOperation, MaintenanceProcessingDisposition
 from app.maintenance.reports import MaintenanceReport, save_maintenance_report_if_required
@@ -105,7 +106,6 @@ def test_reportable_result_is_saved_as_utf8_json(anomaly_count: int, failure_cou
 )
 def test_report_rejects_sensitive_or_non_json_details(details: dict[str, object]) -> None:
     report = build_report(anomaly_count=1)
-    report = MaintenanceReport(**{**report.__dict__, "details": details})
 
-    with pytest.raises(ValueError, match="report"):
-        save_maintenance_report_if_required(RecordingStorage(), report)
+    with pytest.raises(ValidationError):
+        MaintenanceReport(**{**report.model_dump(), "details": details})

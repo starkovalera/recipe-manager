@@ -1,11 +1,11 @@
-import json
 import logging
-from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
+
+from pydantic import BaseModel, ConfigDict, JsonValue, field_validator
 
 from app.core.logging import bind_logger
 from app.maintenance.constants import MaintenanceOperation, MaintenanceProcessingDisposition
+from app.schemas.base import to_camel
 from app.storage.base import StorageService
 from app.storage.constants import StorageLocation, StorageSystemPurpose
 from app.storage.types import StorageSystemContext, StoredFile
@@ -24,8 +24,15 @@ _FORBIDDEN_REPORT_KEYS = frozenset(
 )
 
 
-@dataclass(frozen=True)
-class MaintenanceReport:
+class MaintenanceReport(BaseModel):
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        extra="forbid",
+        frozen=True,
+        populate_by_name=True,
+        strict=True,
+    )
+
     schema_version: int
     report_id: str
     operation: MaintenanceOperation
@@ -33,13 +40,19 @@ class MaintenanceReport:
     started_at: datetime
     finished_at: datetime
     disposition: MaintenanceProcessingDisposition
-    parameters: dict[str, object]
+    parameters: dict[str, JsonValue]
     summary: dict[str, int]
-    details: dict[str, object]
-    errors: tuple[dict[str, object], ...]
+    details: dict[str, JsonValue]
+    errors: tuple[dict[str, JsonValue], ...]
+
+    @field_validator("parameters", "summary", "details", "errors")
+    @classmethod
+    def validate_report_fields(cls, value):
+        _validate_report_keys(value)
+        return value
 
 
-def _validate_report_value(value: object, *, key: str = "report") -> None:
+def _validate_report_keys(value: object, *, key: str = "report") -> None:
     normalized_key = "".join(character for character in key.casefold() if character.isalnum())
     if normalized_key in _FORBIDDEN_REPORT_KEYS:
         raise ValueError(f"Maintenance report field {key!r} is not allowed.")
@@ -49,31 +62,12 @@ def _validate_report_value(value: object, *, key: str = "report") -> None:
         for nested_key, nested_value in value.items():
             if not isinstance(nested_key, str):
                 raise ValueError("Maintenance report object keys must be strings.")
-            _validate_report_value(nested_value, key=nested_key)
+            _validate_report_keys(nested_value, key=nested_key)
         return
     if isinstance(value, (list, tuple)):
         for nested_value in value:
-            _validate_report_value(nested_value, key=key)
+            _validate_report_keys(nested_value, key=key)
         return
-    raise ValueError(f"Maintenance report field {key!r} is not JSON-safe.")
-
-
-def _serialize_report(report: MaintenanceReport) -> bytes:
-    report_payload: dict[str, Any] = {
-        "schemaVersion": report.schema_version,
-        "reportId": report.report_id,
-        "operation": report.operation.value,
-        "environment": report.environment,
-        "startedAt": report.started_at.isoformat(),
-        "finishedAt": report.finished_at.isoformat(),
-        "disposition": report.disposition.value,
-        "parameters": report.parameters,
-        "summary": report.summary,
-        "details": report.details,
-        "errors": report.errors,
-    }
-    _validate_report_value(report_payload)
-    return json.dumps(report_payload, ensure_ascii=False, sort_keys=True).encode("utf-8")
 
 
 def save_maintenance_report_if_required(
@@ -91,7 +85,7 @@ def save_maintenance_report_if_required(
         return None
 
     report_type = report.operation.value.replace("_", "-")
-    content = _serialize_report(report)
+    content = report.model_dump_json(by_alias=True).encode("utf-8")
     return storage.save(
         StorageLocation.SYSTEM_ARTIFACTS,
         content,

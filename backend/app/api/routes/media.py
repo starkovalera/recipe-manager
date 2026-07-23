@@ -25,8 +25,3 @@ def _get_local_media(storage_key: str) -> FileResponse:
 @router.get("/media/{namespace}/{kind}/{owner_id}/{entity_id}/{object_name}")
 def get_media(namespace: str, kind: str, owner_id: str, entity_id: str, object_name: str) -> FileResponse:
     return _get_local_media("/".join((namespace, kind, owner_id, entity_id, object_name)))
-
-
-@router.get("/legacy-media/{storage_key}")
-def get_legacy_media(storage_key: str) -> FileResponse:
-    return _get_local_media(storage_key)

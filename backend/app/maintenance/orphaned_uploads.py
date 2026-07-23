@@ -8,7 +8,6 @@ from app.core.config import get_settings
 from app.db.session import db_session
 from app.maintenance.constants import MaintenanceOperation, MaintenanceProcessingDisposition
 from app.maintenance.reports import MaintenanceReport, save_maintenance_report_if_required
-from app.maintenance.storage import list_all_storage_objects
 from app.maintenance.types import MaintenanceProcessingResult
 from app.models import ImportJobSource, RecipeImage
 from app.storage.constants import StorageLocation, StorageUserPurpose
@@ -96,7 +95,7 @@ def detect_orphaned_uploads() -> MaintenanceProcessingResult:
     for purpose in _DETECTION_PURPOSES:
         prefix = f"{STORAGE_USER_PURPOSE_PREFIXES[purpose]}/"
         try:
-            listed_objects.extend((purpose, item) for item in list_all_storage_objects(storage, StorageLocation.USER_MEDIA, prefix=prefix))
+            listed_objects.extend((purpose, item) for item in storage.list_all_objects(StorageLocation.USER_MEDIA, prefix=prefix))
         except Exception as error:
             errors.append(
                 {

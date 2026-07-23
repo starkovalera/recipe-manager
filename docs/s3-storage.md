@@ -38,9 +38,9 @@ validated before key construction.
 Storage-key safety belongs to the selected provider. LOCAL interprets keys with
 the current runtime's `Path` rules and requires the resolved path to remain
 inside the configured location root. S3 treats non-empty keys as opaque object
-identifiers and does not apply filesystem path rules. Destructive maintenance
-still validates expected nested domain prefixes independently; flat keys are
-accepted only for legacy compatibility.
+identifiers and does not apply filesystem path rules. Application media and
+destructive maintenance still require canonical purpose-first keys under the
+expected nested domain prefix.
 
 ## Persistence
 
@@ -78,20 +78,18 @@ processing error.
 
 ## Provider behavior
 
-LOCAL supports nested purpose-first keys and legacy flat keys. S3 uses a lazy
-boto3 client and exact `put_object`, `get_object`, and `delete_object` calls.
+LOCAL supports nested purpose-first keys. S3 uses a lazy boto3 client and exact
+`put_object`, `get_object`, and `delete_object` calls.
 Missing reads map to `StorageObjectNotFoundError`; delete remains idempotent.
 Both adapters implement bounded `list_objects`: LOCAL uses a sorted key cursor,
-while S3 uses its opaque continuation token.
+while S3 uses its opaque continuation token. The shared `StorageService`
+implements `list_all_objects` by consuming those provider-specific pages.
 AWS credentials use the standard boto3 credential chain and are not application
 settings.
 
-LOCAL media URLs preserve that distinction at the API and gateway boundary.
-Canonical nested keys use
-`/media/{namespace}/{kind}/{owner_id}/{entity_id}/{object_name}`; legacy flat
-keys use `/legacy-media/{storage_key}`. This fixed-depth split is required by
-the local KrakenD CE router and keeps both key formats reachable without
-ambiguous routes.
+LOCAL media URLs use the canonical fixed-depth route
+`/media/{namespace}/{kind}/{owner_id}/{entity_id}/{object_name}` required by the
+local KrakenD CE router.
 
 ## P9 and P10 boundary
 

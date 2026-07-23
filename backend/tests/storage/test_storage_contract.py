@@ -44,6 +44,7 @@ def test_storage_service_requires_location_and_save_context() -> None:
     read = inspect.signature(StorageService.read)
     delete = inspect.signature(StorageService.delete)
     is_safe_key = inspect.signature(StorageService.is_safe_key)
+    list_all_objects = inspect.signature(StorageService.list_all_objects)
 
     assert list(save.parameters) == ["self", "location", "content", "original_name", "mime_type", "context"]
     assert save.parameters["context"].kind is inspect.Parameter.KEYWORD_ONLY
@@ -51,4 +52,5 @@ def test_storage_service_requires_location_and_save_context() -> None:
     assert list(read.parameters) == ["self", "location", "storage_key"]
     assert list(delete.parameters) == ["self", "location", "storage_key"]
     assert list(is_safe_key.parameters) == ["self", "location", "storage_key"]
+    assert list(list_all_objects.parameters) == ["self", "location", "prefix"]
     assert not hasattr(StorageService, "path_for_response")

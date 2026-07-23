@@ -111,11 +111,6 @@
                       "public":  false
                   },
                   {
-                      "endpoint":  "/legacy-media/{storage_key}",
-                      "method":  "GET",
-                      "public":  false
-                  },
-                  {
                       "endpoint":  "/media/{namespace}/{kind}/{owner_id}/{entity_id}/{object_name}",
                       "method":  "GET",
                       "public":  false

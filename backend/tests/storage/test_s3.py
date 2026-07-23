@@ -131,8 +131,8 @@ def test_s3_client_is_created_lazily_once(monkeypatch) -> None:
     storage = build_storage()
     assert calls == []
 
-    storage.delete(StorageLocation.USER_MEDIA, "legacy.jpg")
-    storage.delete(StorageLocation.USER_MEDIA, "legacy.jpg")
+    storage.delete(StorageLocation.USER_MEDIA, "recipes/media/owner/recipe/image.jpg")
+    storage.delete(StorageLocation.USER_MEDIA, "recipes/media/owner/recipe/image.jpg")
 
     assert calls == [{"service_name": "s3", "region_name": "eu-west-1"}]
 
@@ -141,9 +141,9 @@ def test_injected_s3_client_bypasses_boto3(monkeypatch) -> None:
     client = RecordingClient()
     monkeypatch.setattr("app.storage.s3.boto3.client", lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError()))
 
-    build_storage(client).delete(StorageLocation.USER_MEDIA, "legacy.jpg")
+    build_storage(client).delete(StorageLocation.USER_MEDIA, "recipes/media/owner/recipe/image.jpg")
 
-    assert client.delete_calls == [{"Bucket": "recipe-manager-test-user-media", "Key": "legacy.jpg"}]
+    assert client.delete_calls == [{"Bucket": "recipe-manager-test-user-media", "Key": "recipes/media/owner/recipe/image.jpg"}]
 
 
 def test_s3_save_uses_exact_put_object_request() -> None:

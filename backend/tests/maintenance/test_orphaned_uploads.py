@@ -12,11 +12,14 @@ from app.db.base import Base
 from app.maintenance import orphaned_uploads
 from app.maintenance.constants import MaintenanceProcessingDisposition
 from app.models import ImportJob, ImportJobSource, ImportJobStatus, RecipeImage, SourceType, User
+from app.storage.base import StorageService
 from app.storage.constants import StorageLocation
 from app.storage.types import StorageObjectInfo, StorageObjectPage, StoredFile
 
 
 class PaginatedStorage:
+    list_all_objects = StorageService.list_all_objects
+
     def __init__(self, objects: dict[str, StorageObjectInfo]) -> None:
         self.objects = objects
         self.list_calls: list[dict] = []
