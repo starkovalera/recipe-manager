@@ -15,7 +15,12 @@ def jpeg_bytes(path: Path) -> bytes:
 
 
 def build_storage(tmp_path: Path) -> LocalStorageService:
-    return LocalStorageService(location_to_locator={StorageLocation.USER_MEDIA: tmp_path / "uploads"})
+    return LocalStorageService(
+        location_to_locator={
+            StorageLocation.USER_MEDIA: tmp_path / "uploads",
+            StorageLocation.SYSTEM_ARTIFACTS: tmp_path / "system-artifacts",
+        }
+    )
 
 
 def write_context(purpose: StorageUserPurpose) -> StorageUserContext:

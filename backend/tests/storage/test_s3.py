@@ -64,7 +64,10 @@ class RecordingClient:
 
 def build_storage(client=None) -> S3StorageService:
     return S3StorageService(
-        location_to_locator={StorageLocation.USER_MEDIA: "recipe-manager-test-user-media"},
+        location_to_locator={
+            StorageLocation.USER_MEDIA: "recipe-manager-test-user-media",
+            StorageLocation.SYSTEM_ARTIFACTS: "recipe-manager-test-system-artifacts",
+        },
         region_name="eu-west-1",
         client=client,
     )
@@ -75,14 +78,26 @@ def test_s3_storage_validates_bucket_and_region() -> None:
         S3StorageService(location_to_locator={}, region_name="eu-west-1")
     with pytest.raises(StorageConfigurationError, match="bucket"):
         S3StorageService(
-            location_to_locator={StorageLocation.USER_MEDIA: Path("uploads")},
+            location_to_locator={
+                StorageLocation.USER_MEDIA: Path("uploads"),
+                StorageLocation.SYSTEM_ARTIFACTS: "recipe-manager-test-system-artifacts",
+            },
             region_name="eu-west-1",
         )
     with pytest.raises(StorageConfigurationError, match="bucket"):
-        S3StorageService(location_to_locator={StorageLocation.USER_MEDIA: "   "}, region_name="eu-west-1")
+        S3StorageService(
+            location_to_locator={
+                StorageLocation.USER_MEDIA: "   ",
+                StorageLocation.SYSTEM_ARTIFACTS: "recipe-manager-test-system-artifacts",
+            },
+            region_name="eu-west-1",
+        )
     with pytest.raises(StorageConfigurationError, match="region"):
         S3StorageService(
-            location_to_locator={StorageLocation.USER_MEDIA: "recipe-manager-test-user-media"},
+            location_to_locator={
+                StorageLocation.USER_MEDIA: "recipe-manager-test-user-media",
+                StorageLocation.SYSTEM_ARTIFACTS: "recipe-manager-test-system-artifacts",
+            },
             region_name="   ",
         )
 

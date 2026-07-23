@@ -19,7 +19,10 @@ class FixedContext:
 
 def build_storage(tmp_path: Path) -> LocalStorageService:
     return LocalStorageService(
-        location_to_locator={StorageLocation.USER_MEDIA: tmp_path / "uploads"},
+        location_to_locator={
+            StorageLocation.USER_MEDIA: tmp_path / "uploads",
+            StorageLocation.SYSTEM_ARTIFACTS: tmp_path / "system-artifacts",
+        },
     )
 
 
@@ -27,7 +30,12 @@ def test_local_storage_requires_configured_path_locator(tmp_path: Path) -> None:
     with pytest.raises(StorageConfigurationError, match="USER_MEDIA"):
         LocalStorageService(location_to_locator={})
     with pytest.raises(StorageConfigurationError, match="Path"):
-        LocalStorageService(location_to_locator={StorageLocation.USER_MEDIA: "bucket-name"})
+        LocalStorageService(
+            location_to_locator={
+                StorageLocation.USER_MEDIA: "bucket-name",
+                StorageLocation.SYSTEM_ARTIFACTS: tmp_path / "system-artifacts",
+            }
+        )
 
 
 def test_local_storage_saves_reads_and_deletes_nested_key(tmp_path: Path) -> None:

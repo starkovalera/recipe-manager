@@ -10,7 +10,7 @@ from app.storage.types import StorageSaveContext, StorageSystemContext, StorageU
 
 
 def test_storage_enums_have_exact_iteration_9_values() -> None:
-    assert list(StorageLocation) == [StorageLocation.USER_MEDIA]
+    assert list(StorageLocation) == [StorageLocation.USER_MEDIA, StorageLocation.SYSTEM_ARTIFACTS]
     assert list(StorageUserPurpose) == [
         StorageUserPurpose.IMPORT_SOURCE,
         StorageUserPurpose.IMPORT_DERIVED,

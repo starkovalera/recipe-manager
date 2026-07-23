@@ -35,6 +35,12 @@ def _default_upload_dir(app_env: AppEnv) -> Path | None:
     return BACKEND_ROOT / "storage" / app_env.value.lower() / "uploads"
 
 
+def _default_system_artifacts_dir(app_env: AppEnv) -> Path | None:
+    if app_env is AppEnv.PROD:
+        return None
+    return BACKEND_ROOT / "storage" / app_env.value.lower() / "system-artifacts"
+
+
 def _default_redis_url(app_env: AppEnv) -> str | None:
     if app_env is AppEnv.PROD:
         return None
@@ -59,6 +65,7 @@ class Settings(BaseSettings):
     app_env: AppEnv = AppEnv.PROD
     database_url: str | None = None
     upload_dir: Path | None = None
+    system_artifacts_dir: Path | None = None
     queue_provider: QueueProvider | None = None
     storage_provider: StorageProvider | None = None
     cors_origins: list[str] = Field(
@@ -90,9 +97,12 @@ class Settings(BaseSettings):
     stale_embedding_minutes: int = Field(default=30, ge=1)
     stale_recipe_deletion_minutes: int = Field(default=60, ge=1)
     stale_account_deletion_minutes: int = Field(default=60, ge=1)
+    failed_import_artifact_retention_hours: int = Field(default=720, ge=1)
+    orphaned_upload_min_age_hours: int = Field(default=24, ge=1)
     redis_url: str | None = None
     aws_region: str | None = None
     s3_user_media_bucket_name: str | None = None
+    s3_system_artifacts_bucket_name: str | None = None
     sqs_imports_queue_url: str | None = None
     sqs_embeddings_queue_url: str | None = None
     sqs_account_deletion_queue_url: str | None = None
@@ -120,11 +130,13 @@ class Settings(BaseSettings):
     @field_validator(
         "database_url",
         "upload_dir",
+        "system_artifacts_dir",
         "queue_provider",
         "storage_provider",
         "redis_url",
         "aws_region",
         "s3_user_media_bucket_name",
+        "s3_system_artifacts_bucket_name",
         "sqs_imports_queue_url",
         "sqs_embeddings_queue_url",
         "sqs_account_deletion_queue_url",
@@ -149,6 +161,7 @@ class Settings(BaseSettings):
         required = {
             "AWS_REGION": self.aws_region,
             "S3_USER_MEDIA_BUCKET_NAME": self.s3_user_media_bucket_name,
+            "S3_SYSTEM_ARTIFACTS_BUCKET_NAME": self.s3_system_artifacts_bucket_name,
         }
         return [name for name, value in required.items() if not value]
 
@@ -156,6 +169,7 @@ class Settings(BaseSettings):
     def materialize_and_validate_environment_settings(self):
         self.database_url = self.database_url or _default_database_url(self.app_env)
         self.upload_dir = self.upload_dir or _default_upload_dir(self.app_env)
+        self.system_artifacts_dir = self.system_artifacts_dir or _default_system_artifacts_dir(self.app_env)
         self.queue_provider = self.queue_provider or _default_queue_provider(self.app_env)
         self.storage_provider = self.storage_provider or _default_storage_provider(self.app_env)
         self.redis_url = self.redis_url or _default_redis_url(self.app_env)
@@ -173,6 +187,8 @@ class Settings(BaseSettings):
                 raise ValueError("REDIS_URL is not supported in PROD.")
             if self.upload_dir:
                 raise ValueError("UPLOAD_DIR is not supported in PROD.")
+            if self.system_artifacts_dir:
+                raise ValueError("SYSTEM_ARTIFACTS_DIR is not supported in PROD.")
 
         if self.queue_provider is QueueProvider.SQS:
             missing = self._missing_sqs_settings()
@@ -193,6 +209,8 @@ class Settings(BaseSettings):
             if missing:
                 joined = ", ".join(missing)
                 raise ValueError(f"STORAGE_PROVIDER=S3 requires: {joined}.")
+            if self.s3_user_media_bucket_name == self.s3_system_artifacts_bucket_name:
+                raise ValueError("S3 storage bucket names must be distinct.")
 
         if self.app_env is not AppEnv.TEST and not self.clerk_secret_key:
             raise ValueError("Clerk identity configuration is required outside TEST.")

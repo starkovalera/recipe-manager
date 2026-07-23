@@ -26,7 +26,12 @@ def test_media_serves_nested_local_keys(tmp_path, monkeypatch):
     nested = upload_dir / "recipes" / "media" / "owner-1" / "recipe-1"
     nested.mkdir(parents=True)
     (nested / "image.jpg").write_bytes(b"nested-image")
-    storage = LocalStorageService(location_to_locator={StorageLocation.USER_MEDIA: upload_dir})
+    storage = LocalStorageService(
+        location_to_locator={
+            StorageLocation.USER_MEDIA: upload_dir,
+            StorageLocation.SYSTEM_ARTIFACTS: tmp_path / "system-artifacts",
+        }
+    )
     monkeypatch.setattr(media_routes, "get_storage_service", lambda: storage)
 
     response = TestClient(create_app()).get("/media/recipes/media/owner-1/recipe-1/image.jpg")
