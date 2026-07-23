@@ -7,6 +7,7 @@ from app.maintenance.failed_import_artifacts import cleanup_failed_import_artifa
 from app.maintenance.imports import reconcile_stale_imports
 from app.maintenance.integrity import run_integrity_check
 from app.maintenance.invitations import cleanup_expired_invitations
+from app.maintenance.orphaned_uploads import detect_orphaned_uploads
 from app.maintenance.outbox import reconcile_pending_outbox
 from app.maintenance.recipes import reconcile_stale_recipe_deletions
 from app.maintenance.types import MaintenanceProcessingResult
@@ -17,6 +18,7 @@ MAINTENANCE_OPERATION_HANDLERS: dict[MaintenanceOperation, MaintenanceHandler] =
     MaintenanceOperation.PENDING_OUTBOX_RECONCILIATION: reconcile_pending_outbox,
     MaintenanceOperation.STALE_IMPORT_RECONCILIATION: reconcile_stale_imports,
     MaintenanceOperation.FAILED_IMPORT_ARTIFACT_CLEANUP: cleanup_failed_import_artifacts,
+    MaintenanceOperation.ORPHANED_UPLOAD_DETECTION: detect_orphaned_uploads,
     MaintenanceOperation.STALE_EMBEDDING_RECONCILIATION: reconcile_stale_embeddings,
     MaintenanceOperation.STALE_RECIPE_DELETION_RECONCILIATION: reconcile_stale_recipe_deletions,
     MaintenanceOperation.EXPIRED_INVITATION_CLEANUP: cleanup_expired_invitations,

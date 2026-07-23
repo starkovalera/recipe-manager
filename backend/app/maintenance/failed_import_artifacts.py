@@ -15,6 +15,7 @@ from app.imports.queries import (
 )
 from app.maintenance.constants import MaintenanceOperation, MaintenanceProcessingDisposition
 from app.maintenance.reports import MaintenanceReport, save_maintenance_report_if_required
+from app.maintenance.storage import list_all_storage_objects
 from app.maintenance.types import MaintenanceProcessingResult
 from app.models import ImportEventType, ImportJob, ImportJobStatus
 from app.queueing.constants import QueueMessageType
@@ -80,25 +81,13 @@ def _load_cleanup_snapshot(job_id: str, *, cutoff: datetime) -> FailedImportArti
         )
 
 
-def _list_all_keys(storage: StorageService, prefix: str) -> list[str]:
-    keys: list[str] = []
-    cursor: str | None = None
-    while True:
-        page = storage.list_objects(
-            StorageLocation.USER_MEDIA,
-            prefix=prefix,
-            limit=1000,
-            cursor=cursor,
-        )
-        keys.extend(item.storage_key for item in page.objects)
-        if page.next_cursor is None:
-            return keys
-        cursor = page.next_cursor
-
-
 def _cleanup_snapshot_storage(storage: StorageService, snapshot: FailedImportArtifactSnapshot) -> dict[str, object]:
-    source_keys = _list_all_keys(storage, snapshot.source_prefix)
-    derived_keys = _list_all_keys(storage, snapshot.derived_prefix)
+    source_keys = [
+        item.storage_key for item in list_all_storage_objects(storage, StorageLocation.USER_MEDIA, prefix=snapshot.source_prefix)
+    ]
+    derived_keys = [
+        item.storage_key for item in list_all_storage_objects(storage, StorageLocation.USER_MEDIA, prefix=snapshot.derived_prefix)
+    ]
     referenced_keys = [source.storage_key for source in snapshot.sources if source.storage_key is not None]
     suspicious_keys = []
     for key in referenced_keys:
@@ -131,7 +120,10 @@ def _cleanup_snapshot_storage(storage: StorageService, snapshot: FailedImportArt
                 }
             )
 
-    remaining_keys = sorted(set(_list_all_keys(storage, snapshot.source_prefix)) | set(_list_all_keys(storage, snapshot.derived_prefix)))
+    remaining_keys = sorted(
+        {item.storage_key for item in list_all_storage_objects(storage, StorageLocation.USER_MEDIA, prefix=snapshot.source_prefix)}
+        | {item.storage_key for item in list_all_storage_objects(storage, StorageLocation.USER_MEDIA, prefix=snapshot.derived_prefix)}
+    )
     return {
         "importJobId": snapshot.import_job_id,
         "ownerId": snapshot.owner_id,
