@@ -1,3 +1,4 @@
+import os
 from datetime import timezone
 from pathlib import Path
 
@@ -22,10 +23,23 @@ def test_list_objects_rejects_invalid_limit(tmp_path: Path, limit: int) -> None:
         build_storage(tmp_path).list_objects(StorageLocation.USER_MEDIA, prefix="imports/source/", limit=limit)
 
 
-@pytest.mark.parametrize("prefix", ["/absolute", "C:\\absolute", "../outside", "nested/../../outside"])
+@pytest.mark.parametrize("prefix", ["/absolute", "../outside", "nested/../../outside"])
 def test_list_objects_rejects_unsafe_prefix(tmp_path: Path, prefix: str) -> None:
     with pytest.raises(ValueError, match="prefix"):
         build_storage(tmp_path).list_objects(StorageLocation.USER_MEDIA, prefix=prefix, limit=10)
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows path semantics are runtime-specific.")
+def test_list_objects_rejects_windows_absolute_prefix_on_windows(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="prefix"):
+        build_storage(tmp_path).list_objects(StorageLocation.USER_MEDIA, prefix="C:\\absolute", limit=10)
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX path semantics are runtime-specific.")
+def test_list_objects_accepts_windows_style_prefix_as_opaque_on_posix(tmp_path: Path) -> None:
+    page = build_storage(tmp_path).list_objects(StorageLocation.USER_MEDIA, prefix="C:\\absolute", limit=10)
+
+    assert page.objects == ()
 
 
 def test_local_list_objects_is_recursive_sorted_and_paginated(tmp_path: Path) -> None:
