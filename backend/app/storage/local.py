@@ -1,10 +1,11 @@
 from collections.abc import Mapping
+from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath, PureWindowsPath
 
 from app.storage.base import StorageService
 from app.storage.constants import StorageLocation
 from app.storage.errors import StorageConfigurationError, StorageObjectNotFoundError, StorageOperationError
-from app.storage.types import StorageLocator, StorageSaveContext, StoredFile
+from app.storage.types import StorageLocator, StorageObjectInfo, StorageObjectPage, StorageSaveContext, StoredFile
 
 
 class LocalStorageService(StorageService):
@@ -79,3 +80,48 @@ class LocalStorageService(StorageService):
 
     def path_for_response(self, location: StorageLocation, storage_key: str) -> Path:
         return self._path_for(location, storage_key)
+
+    def list_objects(
+        self,
+        location: StorageLocation,
+        *,
+        prefix: str,
+        limit: int,
+        cursor: str | None = None,
+    ) -> StorageObjectPage:
+        if not 1 <= limit <= 1000:
+            raise ValueError("Storage listing limit must be between 1 and 1000.")
+        posix_prefix = PurePosixPath(prefix or ".")
+        windows_prefix = PureWindowsPath(prefix or ".")
+        if posix_prefix.is_absolute() or windows_prefix.is_absolute() or ".." in posix_prefix.parts or ".." in windows_prefix.parts:
+            raise ValueError("Storage listing prefix must be a safe relative prefix.")
+        if cursor is not None:
+            self._path_for(location, cursor)
+
+        root = self._roots[location]
+        try:
+            keys = sorted(
+                path.relative_to(root).as_posix()
+                for path in root.rglob("*")
+                if path.is_file()
+                and path.relative_to(root).as_posix().startswith(prefix)
+                and (cursor is None or path.relative_to(root).as_posix() > cursor)
+            )
+            selected_keys = keys[: limit + 1]
+            has_more = len(selected_keys) > limit
+            selected_keys = selected_keys[:limit]
+            objects = tuple(
+                StorageObjectInfo(
+                    storage_key=key,
+                    size_bytes=(root / key).stat().st_size,
+                    last_modified_at=datetime.fromtimestamp((root / key).stat().st_mtime, timezone.utc),
+                )
+                for key in selected_keys
+            )
+        except OSError as error:
+            raise StorageOperationError("Local storage listing failed.") from error
+
+        return StorageObjectPage(
+            objects=objects,
+            next_cursor=selected_keys[-1] if has_more else None,
+        )

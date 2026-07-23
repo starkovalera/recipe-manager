@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -40,6 +41,7 @@ class RecordingClient:
         self.put_calls: list[dict] = []
         self.get_calls: list[dict] = []
         self.delete_calls: list[dict] = []
+        self.list_calls: list[dict] = []
         self.body = RecordingBody()
         self.error: Exception | None = None
 
@@ -60,6 +62,21 @@ class RecordingClient:
         if self.error is not None:
             raise self.error
         return {}
+
+    def list_objects_v2(self, **kwargs):
+        self.list_calls.append(kwargs)
+        if self.error is not None:
+            raise self.error
+        return {
+            "Contents": [
+                {
+                    "Key": "imports/source/owner-1/job-1/image.jpg",
+                    "Size": 5,
+                    "LastModified": datetime(2026, 7, 23, 10, 0, tzinfo=timezone.utc),
+                }
+            ],
+            "NextContinuationToken": "opaque-token",
+        }
 
 
 def build_storage(client=None) -> S3StorageService:
@@ -244,3 +261,57 @@ def test_s3_delete_uses_exact_request_without_head() -> None:
         {"Bucket": "recipe-manager-test-user-media", "Key": "missing-is-success"},
     ]
     assert not hasattr(client, "head_calls")
+
+
+def test_s3_list_objects_maps_first_page() -> None:
+    client = RecordingClient()
+
+    page = build_storage(client).list_objects(
+        StorageLocation.USER_MEDIA,
+        prefix="imports/source/",
+        limit=2,
+    )
+
+    assert client.list_calls == [
+        {
+            "Bucket": "recipe-manager-test-user-media",
+            "Prefix": "imports/source/",
+            "MaxKeys": 2,
+        }
+    ]
+    assert page.objects[0].storage_key == "imports/source/owner-1/job-1/image.jpg"
+    assert page.objects[0].size_bytes == 5
+    assert page.objects[0].last_modified_at == datetime(2026, 7, 23, 10, 0, tzinfo=timezone.utc)
+    assert page.next_cursor == "opaque-token"
+
+
+def test_s3_list_objects_passes_continuation_token() -> None:
+    client = RecordingClient()
+
+    build_storage(client).list_objects(
+        StorageLocation.USER_MEDIA,
+        prefix="imports/source/",
+        limit=2,
+        cursor="opaque-token",
+    )
+
+    assert client.list_calls == [
+        {
+            "Bucket": "recipe-manager-test-user-media",
+            "Prefix": "imports/source/",
+            "MaxKeys": 2,
+            "ContinuationToken": "opaque-token",
+        }
+    ]
+
+
+def test_s3_list_objects_wraps_provider_and_malformed_response_errors() -> None:
+    provider_client = RecordingClient()
+    provider_client.error = EndpointConnectionError(endpoint_url="https://s3.example.test")
+    with pytest.raises(StorageOperationError, match="listing failed"):
+        build_storage(provider_client).list_objects(StorageLocation.USER_MEDIA, prefix="imports/", limit=10)
+
+    malformed_client = RecordingClient()
+    malformed_client.list_objects_v2 = lambda **kwargs: {"Contents": [{"Key": "missing-fields"}]}
+    with pytest.raises(StorageOperationError, match="response"):
+        build_storage(malformed_client).list_objects(StorageLocation.USER_MEDIA, prefix="imports/", limit=10)

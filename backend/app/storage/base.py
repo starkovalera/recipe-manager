@@ -1,7 +1,7 @@
 from typing import Protocol
 
 from app.storage.constants import StorageLocation
-from app.storage.types import StorageSaveContext, StoredFile
+from app.storage.types import StorageObjectPage, StorageSaveContext, StoredFile
 
 
 class StorageService(Protocol):
@@ -20,4 +20,14 @@ class StorageService(Protocol):
         raise NotImplementedError
 
     def delete(self, location: StorageLocation, storage_key: str) -> None:
+        raise NotImplementedError
+
+    def list_objects(
+        self,
+        location: StorageLocation,
+        *,
+        prefix: str,
+        limit: int,
+        cursor: str | None = None,
+    ) -> StorageObjectPage:
         raise NotImplementedError

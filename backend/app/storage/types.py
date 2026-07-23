@@ -55,3 +55,16 @@ class StoredFile:
     original_name: str
     mime_type: str
     size_bytes: int
+
+
+@dataclass(frozen=True)
+class StorageObjectInfo:
+    storage_key: str
+    size_bytes: int
+    last_modified_at: datetime
+
+
+@dataclass(frozen=True)
+class StorageObjectPage:
+    objects: tuple[StorageObjectInfo, ...]
+    next_cursor: str | None
