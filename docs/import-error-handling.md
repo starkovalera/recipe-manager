@@ -169,6 +169,12 @@ terminal job both return `NOOP` without running the pipeline again.
 P5 does not reclaim stale `RUNNING` jobs. Detection and recovery remain owned by
 P8 maintenance.
 
+Old terminal failed jobs may retain artifacts when immediate best-effort cleanup
+was incomplete. P8B1 maintenance deletes only keys proven safe for that job and
+moves a fully cleaned job to `FAILED_ARTIFACTS_REMOVED`. This status is terminal
+and cannot be manually or automatically retried. Cleanup anomalies leave the job
+as `FAILED` and produce a private maintenance report.
+
 ## Adding a new error code
 
 1. Define the stable detailed code and its domain exception behavior.

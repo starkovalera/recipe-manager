@@ -2,7 +2,7 @@
 
 ## Contract
 
-P8A provides one strict operation-only queue message shared by the maintenance
+P8A/P8B1 provide one strict operation-only queue message shared by the maintenance
 Lambda and local CLI:
 
 ```json
@@ -10,17 +10,19 @@ Lambda and local CLI:
 ```
 
 Extra fields and unknown operations are rejected. The dispatcher has one
-registry containing exactly these seven operations:
+registry containing exactly these nine operations:
 
 | Operation | Purpose |
 |---|---|
 | `pending_outbox_reconciliation` | Dispatch the oldest bounded batch of pending outbox rows. |
 | `stale_import_reconciliation` | Recover stale queued/running imports using the central import error policy. |
+| `failed_import_artifact_cleanup` | Remove safe retained source/derived artifacts from old terminal failed imports. |
+| `orphaned_upload_detection` | Report old user-media objects without durable DB references; never delete. |
 | `stale_embedding_reconciliation` | Requeue stale embeddings without calling an embedding provider. |
 | `stale_recipe_deletion_reconciliation` | Retry recipes left in `DELETION_PENDING`. |
 | `expired_invitation_cleanup` | Revoke expired pending provider invitations and finalize local state. |
 | `stale_account_deletion_reconciliation` | Create durable account-deletion intents; never delete accounts directly. |
-| `integrity_check` | Count known invariant violations without changing data. |
+| `integrity_check` | Report known invariant violations and internal record IDs without changing data. |
 
 Processing returns `COMPLETED`, `NOOP`, `ANOMALIES_FOUND`, or
 `RETRYABLE_FAILURE`. Lambda reports only `RETRYABLE_FAILURE`, malformed records,
@@ -38,6 +40,8 @@ range `1..1000`). Stale thresholds are:
 | `STALE_EMBEDDING_MINUTES` | 30 |
 | `STALE_RECIPE_DELETION_MINUTES` | 60 |
 | `STALE_ACCOUNT_DELETION_MINUTES` | 60 |
+| `FAILED_IMPORT_ARTIFACT_RETENTION_HOURS` | 720 |
+| `ORPHANED_UPLOAD_MIN_AGE_HOURS` | 24 |
 
 Candidate mutations are rechecked under a row lock. PostgreSQL candidate
 selection uses `FOR UPDATE SKIP LOCKED`; SQLite tests keep the same behavior
@@ -97,19 +101,45 @@ It never invokes account deletion itself.
 
 ### Integrity
 
-Integrity checks issue read-only SQL counts for successful imports without a
+Integrity checks issue read-only SQL queries for successful imports without a
 recipe, incomplete ready embeddings, running embeddings without attempt time,
 pending users without deletion time, published outbox rows without publication
-time, and foreign recipe cover images. Anomalies are reported but never repaired.
+time, and foreign recipe cover images. Reports contain only the internal IDs
+needed to identify each violation. Anomalies are never repaired.
 
-## Deferred P8B
+### Failed import artifacts
 
-These storage-inventory operations remain intentionally deferred to P8B:
+Old `FAILED` imports without a created recipe or pending import outbox message
+are rechecked under lock. Source/derived prefixes are listed and cleaned outside
+the transaction. A fresh locked transaction clears matching source references,
+sets `FAILED_ARTIFACTS_REMOVED`, and writes `IMPORT_ARTIFACTS_REMOVED` only when
+all safe objects are gone. Unsafe keys and provider/DB failures leave the job
+retryable as `FAILED`.
+
+### Orphan detection
+
+The detector traverses every page under `imports/source/`, `imports/derived/`,
+and `recipes/media/`, batch-resolves `ImportJobSource` and `RecipeImage`
+references, and reports old unreferenced or malformed objects. It never calls
+storage deletion.
+
+## Reports
+
+Anomaly/failure reports are UTF-8 JSON objects under
+`maintenance/reports/{operation}/{yyyy}/{mm}/{dd}/` in
+`StorageLocation.SYSTEM_ARTIFACTS`. Clean runs only emit structured logs. A
+required report-write failure changes the operation result to
+`RETRYABLE_FAILURE`. Reports exclude source content, URLs, email/auth data,
+credentials, bytes, ORM objects, and AI payloads.
+
+## Deferred work
+
+The following remain intentionally deferred:
 
 ```text
-failed_import_artifact_cleanup
 orphaned_upload_cleanup
 temporary_resource_cleanup
+maintenance report API/UI
 ```
 
 EventBridge, queues, IAM, DLQs, packaging, and schedules remain infrastructure

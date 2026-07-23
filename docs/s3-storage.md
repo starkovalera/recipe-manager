@@ -7,16 +7,18 @@ code selects one `StorageProvider`, then each operation names its logical
 ## Vocabulary
 
 - `StorageProvider` selects the `LOCAL` or `S3` implementation.
-- `StorageLocation` selects a logical root or bucket for an operation. P9 has
-  only `USER_MEDIA`.
+- `StorageLocation` selects a logical root or bucket for an operation:
+  `USER_MEDIA` or private `SYSTEM_ARTIFACTS`.
 - `StorageLocator` is provider-specific: a local `Path` or an S3 bucket name.
-- `StoragePurpose` selects the object-key prefix class.
-- `StorageWriteContext` is the immutable owner/entity namespace used to build a
-  key.
+- `StorageUserPurpose` selects a user-media key prefix.
+- `StorageSystemPurpose` selects a private operational-artifact key prefix.
+- `StorageSaveContext` is the protocol implemented by immutable
+  `StorageUserContext` and `StorageSystemContext` key builders.
 
 `get_storage_service()` selects only the provider. The centralized runtime
-mapping resolves `USER_MEDIA` to `UPLOAD_DIR` for LOCAL and
-`S3_USER_MEDIA_BUCKET_NAME` for S3.
+mapping resolves `USER_MEDIA` to `UPLOAD_DIR`/`S3_USER_MEDIA_BUCKET_NAME` and
+`SYSTEM_ARTIFACTS` to `SYSTEM_ARTIFACTS_DIR`/
+`S3_SYSTEM_ARTIFACTS_BUCKET_NAME`.
 
 ## Object keys
 
@@ -26,7 +28,7 @@ P9 uses purpose-first keys and never adds a `users/` prefix:
 imports/source/{owner}/{job}/{uuid}.{ext}
 imports/derived/{owner}/{job}/{uuid}.{ext}
 recipes/media/{owner}/{recipe}/{uuid}.{ext}
-temporary/{owner}/{operation}/{uuid}.{ext}
+maintenance/reports/{report-type}/{yyyy}/{mm}/{dd}/{timestamp}-{report-id}.json
 ```
 
 The extension is derived only from an allowlisted original-name suffix. The
@@ -72,6 +74,8 @@ processing error.
 LOCAL supports nested purpose-first keys and legacy flat keys. S3 uses a lazy
 boto3 client and exact `put_object`, `get_object`, and `delete_object` calls.
 Missing reads map to `StorageObjectNotFoundError`; delete remains idempotent.
+Both adapters implement bounded `list_objects`: LOCAL uses a sorted key cursor,
+while S3 uses its opaque continuation token.
 AWS credentials use the standard boto3 credential chain and are not application
 settings.
 
@@ -91,5 +95,6 @@ building a public URL, or generating a presigned URL. LOCAL keeps its existing
 `FileResponse` behavior.
 
 Bucket creation, policies, encryption, lifecycle rules, versioning, and IAM are
-deferred to Terraform infrastructure work. Storage-backed maintenance operations
-such as orphan cleanup remain deferred to P8B.
+deferred to Terraform infrastructure work. P8B1 adds failed-import cleanup,
+read-only orphan detection, and private maintenance reports; destructive orphan
+cleanup remains deferred.
