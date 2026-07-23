@@ -44,10 +44,9 @@ def test_import_storage_work_precedes_persistence_boundaries() -> None:
         assert forbidden_call not in persistence_source
 
 
-def test_p9_does_not_implement_presigned_access_or_deferred_storage_maintenance() -> None:
+def test_p8b1_does_not_implement_presigned_access_or_destructive_orphan_cleanup() -> None:
     source = "\n".join(path.read_text(encoding="utf-8") for path in APP_ROOT.rglob("*.py"))
     assert "generate_presigned_url" not in source
     assert "presigned_url" not in source
-    assert "failed_import_artifact_cleanup" not in {operation.value for operation in MaintenanceOperation}
     assert "orphaned_upload_cleanup" not in {operation.value for operation in MaintenanceOperation}
     assert "temporary_resource_cleanup" not in {operation.value for operation in MaintenanceOperation}

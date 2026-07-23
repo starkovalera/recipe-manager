@@ -13,6 +13,7 @@ const STATUS_LABELS: Record<ImportJob["status"], string> = {
   succeeded: "Completed",
   succeeded_with_flags: "Completed with warning",
   failed: "Failed",
+  failed_artifacts_removed: "Failed, retained files removed",
   cancelled: "Cancelled",
 };
 

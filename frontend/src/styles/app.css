@@ -887,6 +887,7 @@ form button[type="submit"]:hover,
 }
 
 .import-status--failed,
+.import-status--failed_artifacts_removed,
 .import-status--cancelled {
   background: var(--danger-soft);
   color: var(--danger);
