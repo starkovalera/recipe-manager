@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 110" role="img" aria-labelledby="t d">
+  <title id="t">Aubergine browning reference</title><desc id="d">Low fidelity close-up of browned aubergine pieces on a tray.</desc>
+  <rect width="160" height="110" fill="#d4c6ad"/><rect x="12" y="14" width="136" height="82" fill="#6e6255"/>
+  <g fill="#7a4a35" stroke="#332b28" stroke-width="3"><path d="M25 33l34-7 13 26-34 11z"/><path d="M84 25l39 8-7 29-38-7z"/><path d="M50 67l38-7 12 25-39 9z"/><path d="M108 66l27 8-9 20-28-8z"/></g>
+</svg>

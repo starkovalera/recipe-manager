@@ -11,7 +11,7 @@ button:hover { border-color:var(--blue); background:#f6fafc; }
 .prototype-controls { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.75rem; }
 .prototype-controls label { display:grid; gap:.25rem; color:var(--muted); font-size:.8125rem; }
 select { min-height:2.5rem; border:1px solid var(--line); background:var(--paper); color:var(--ink); padding:.25rem .5rem; }
-#prototype-root { min-height:100vh; }
+#prototype-root { min-height:100vh; padding-bottom:calc(5.25rem + env(safe-area-inset-bottom)); }
 .product-surface { width:min(100%,430px); min-height:100vh; margin-inline:auto; overflow:clip; background:var(--paper); }
 .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
 
@@ -102,6 +102,11 @@ select { min-height:2.5rem; border:1px solid var(--line); background:var(--paper
 .sheet-heading button, .icon-button { min-width:44px; min-height:44px; padding:.25rem; }
 .sheet-body { min-height:0; overflow:auto; padding:1rem; }
 .sheet-body > :first-child { margin-top:0; }
+.add-choices { display:grid; gap:.65rem; }
+.add-choices button { display:grid; grid-template-columns:3rem minmax(0,1fr); align-items:center; gap:.75rem; min-height:4.5rem; padding:.75rem; text-align:left; }
+.add-choices button > span:last-child { display:grid; gap:.15rem; }
+.add-choices small { color:var(--muted); }
+.choice-icon { display:grid; place-items:center; width:3rem; height:3rem; border-radius:50%; background:var(--blue-soft); color:var(--blue); font-size:1.5rem; font-weight:800; }
 .media-preview { display:grid; grid-template-columns:7.5rem minmax(0,1fr); gap:.8rem; margin:0; }
 .media-preview > img { width:7.5rem; aspect-ratio:1; object-fit:cover; border:1px solid var(--line); background:var(--blue-soft); }
 .media-preview figcaption { display:grid; align-content:start; gap:.3rem; }
@@ -155,7 +160,20 @@ select { min-height:2.5rem; border:1px solid var(--line); background:var(--paper
 .state-panel h1, .state-panel p { margin:0; }
 .state-panel p { color:var(--muted); }
 .state-panel button { justify-self:start; margin-top:.25rem; }
+.profile-actions { display:grid; gap:.5rem; width:100%; margin-top:.5rem; }
+.profile-actions button { width:100%; text-align:left; }
 .eyebrow { color:var(--blue) !important; font-size:.8125rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
+
+#global-nav-root { position:fixed; right:50%; bottom:0; z-index:8; width:min(100%,430px); transform:translateX(50%); }
+.global-navigation { min-height:4.5rem; display:grid; grid-template-columns:1fr 1fr 4.25rem 1fr 1fr; align-items:end; padding:.25rem .25rem max(.35rem,env(safe-area-inset-bottom)); border:1px solid var(--line); border-bottom:0; background:var(--paper); box-shadow:0 -6px 18px rgba(22,42,55,.12); }
+.global-navigation > button { position:relative; display:grid; justify-items:center; align-content:center; gap:.05rem; min-width:0; min-height:3.75rem; border:0; background:transparent; padding:.2rem .1rem; color:var(--muted); font-size:.62rem; line-height:1.15; }
+.global-navigation > button > span:first-child { font-size:1.2rem; line-height:1; }
+.global-navigation > button[aria-current="page"] { color:var(--blue); font-weight:800; }
+.global-navigation > button[aria-current="page"]::before { content:""; position:absolute; top:-.25rem; width:2rem; height:3px; border-radius:99px; background:var(--blue); }
+.global-navigation .global-add { align-self:start; width:3.5rem; min-width:3.5rem; height:3.5rem; min-height:3.5rem; margin:-1.15rem auto 0; border:4px solid var(--paper); border-radius:50%; background:var(--blue); color:#fff; box-shadow:0 5px 14px rgba(23,78,108,.28); font-size:1.75rem; }
+.global-navigation .global-add:hover { background:#0f405b; }
+.nav-icon-with-badge { position:relative; }
+.nav-icon-with-badge small { position:absolute; top:-.45rem; right:-.7rem; min-width:1rem; height:1rem; display:grid; place-items:center; border-radius:99px; background:#c94f17; color:#fff; font-size:.58rem; }
 
 @media (max-width:640px) { .prototype-controls { grid-template-columns:1fr 1fr; } }
 @media (max-width:374px) { .recipe-summary { grid-template-columns:4.75rem minmax(0,1fr); gap:.75rem; } .recipe-cover { width:4.75rem; } .metadata-row { grid-template-columns:6.5rem minmax(0,1fr); } }

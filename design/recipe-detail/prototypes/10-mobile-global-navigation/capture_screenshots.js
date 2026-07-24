@@ -1,0 +1,77 @@
+const fs = require('node:fs');
+const http = require('node:http');
+const path = require('node:path');
+const { chromium } = require('playwright');
+
+const prototypeDir = __dirname;
+const outputDir = path.resolve(prototypeDir, '../../screenshots/10-mobile-global-navigation');
+const edgePath = 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe';
+
+function startServer() {
+  const types = { '.css': 'text/css; charset=utf-8', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml' };
+  const server = http.createServer((request, response) => {
+    const relative = request.url === '/' ? 'index.html' : request.url.split('?')[0].replace(/^\//, '');
+    const file = path.resolve(prototypeDir, relative);
+    if (!file.startsWith(prototypeDir + path.sep) && file !== path.join(prototypeDir, 'index.html')) return response.writeHead(403).end('Forbidden');
+    fs.readFile(file, (error, content) => {
+      if (error) return response.writeHead(404).end('Not found');
+      response.writeHead(200, { 'Content-Type': types[path.extname(file)] || 'application/octet-stream' });
+      response.end(content);
+    });
+  });
+  return new Promise((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', () => resolve(server));
+  });
+}
+
+async function fresh(page, url, scenario, role = 'user') {
+  await page.goto(url, { waitUntil: 'networkidle' });
+  await page.selectOption('#scenario-select', scenario);
+  await page.selectOption('#role-select', role);
+  await page.addStyleTag({ content: '.prototype-toolbar{display:none!important}' });
+  await page.locator('#prototype-root [data-product-surface]').waitFor();
+  await page.evaluate(() => Promise.all([...document.images].map(image => image.complete ? Promise.resolve() : new Promise(resolve => image.addEventListener('load', resolve, { once: true })) )));
+}
+
+async function shot(page, name) {
+  await page.screenshot({ path: path.join(outputDir, name) });
+}
+
+(async () => {
+  fs.mkdirSync(outputDir, { recursive: true });
+  const server = await startServer();
+  const browser = await chromium.launch({ headless: true, executablePath: edgePath });
+  try {
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    const url = `http://127.0.0.1:${server.address().port}/index.html`;
+
+    await fresh(page, url, 'flagged');
+    await shot(page, 'global-navigation-recipe-detail-390x844.png');
+
+    await page.getByRole('button', { name: 'Add recipe' }).click();
+    await shot(page, 'global-navigation-add-chooser-390x844.png');
+
+    await fresh(page, url, 'flagged');
+    await page.getByRole('button', { name: /Media/ }).click();
+    await shot(page, 'global-navigation-media-sheet-390x844.png');
+
+    await fresh(page, url, 'flagged');
+    await page.getByRole('button', { name: /More recipe actions/ }).click();
+    await shot(page, 'global-navigation-overflow-sheet-390x844.png');
+    await page.getByRole('menuitem', { name: /Import info/ }).click();
+    await shot(page, 'global-navigation-import-info-sheet-390x844.png');
+
+    await fresh(page, url, 'normal', 'admin');
+    await page.getByRole('button', { name: 'Profile', exact: true }).click();
+    await shot(page, 'global-navigation-admin-profile-390x844.png');
+
+    console.log('MOBILE_GLOBAL_NAVIGATION_SCREENSHOTS_CAPTURED');
+  } finally {
+    await browser.close();
+    await new Promise(resolve => server.close(resolve));
+  }
+})().catch(error => {
+  console.error(error.stack || error);
+  process.exitCode = 1;
+});

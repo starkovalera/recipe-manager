@@ -59,6 +59,55 @@ async function assertReadyStateOverflow(page, scenario, viewport) {
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), true, `${viewport.width}px ${scenario} has no horizontal overflow`);
 }
 
+async function assertGlobalNavigation(page, viewport) {
+  await page.selectOption('#scenario-select', 'flagged');
+  await page.selectOption('#role-select', 'user');
+
+  const navigation = page.locator('nav.global-navigation[aria-label="Main navigation"]');
+  assert.equal(await navigation.count(), 1, `${viewport.width}px renders one global navigation bar`);
+  assert.deepEqual(
+    await navigation.locator('[data-destination]').evaluateAll(items => items.map(item => item.dataset.destination)),
+    ['recipes', 'collections', 'notifications', 'profile'],
+    `${viewport.width}px keeps four stable top-level destinations`
+  );
+  assert.equal(await navigation.locator('[data-destination="recipes"][aria-current="page"]').count(), 1, `${viewport.width}px marks Recipes as current`);
+  assert.equal(await navigation.getByRole('button', { name: 'Add recipe', exact: true }).count(), 1, `${viewport.width}px exposes Add as a distinct central action`);
+  for (const control of await navigation.locator('button').all()) await assertMinimumHitArea(control, viewport, 'global navigation control');
+  assert.equal(await page.locator('#prototype-root').evaluate(root => Number.parseFloat(getComputedStyle(root).paddingBottom) >= 72), true, `${viewport.width}px reserves content space above the fixed bar`);
+
+  await navigation.getByRole('button', { name: 'Add recipe', exact: true }).click();
+  assert.equal(await page.getByRole('dialog', { name: 'Add recipe' }).count(), 1, `${viewport.width}px opens the Add chooser`);
+  assert.equal(await page.getByRole('button', { name: 'Import recipe' }).count(), 1, `${viewport.width}px offers import creation`);
+  assert.equal(await page.getByRole('button', { name: 'Create manually' }).count(), 1, `${viewport.width}px offers manual creation`);
+  assert.equal(await navigation.getAttribute('aria-hidden'), 'true', `${viewport.width}px disables global navigation behind Add`);
+  assert.equal(await page.locator('#layer-root [role="dialog"]').count(), 1, `${viewport.width}px keeps Add in the single modal slot`);
+  await page.getByRole('button', { name: 'Close' }).click();
+
+  await page.getByRole('button', { name: /^Media,/ }).click();
+  assert.equal(await navigation.getAttribute('aria-hidden'), 'true', `${viewport.width}px disables global navigation behind Media`);
+  assert.equal(await page.locator('#layer-root [role="dialog"]').count(), 1, `${viewport.width}px keeps Media in the single modal slot`);
+  await page.getByRole('button', { name: 'Close' }).click();
+
+  await page.getByRole('button', { name: /More recipe actions/ }).click();
+  assert.equal(await navigation.getAttribute('aria-hidden'), 'true', `${viewport.width}px disables global navigation behind overflow`);
+  await page.getByRole('menuitem', { name: /Import info/ }).click();
+  assert.equal(await page.locator('#layer-root [data-layer="overflow"]').count(), 0, `${viewport.width}px replaces overflow instead of stacking it`);
+  assert.equal(await page.locator('#layer-root [data-layer="import"]').count(), 1, `${viewport.width}px opens Import Info in the shared modal slot`);
+  assert.equal(await page.locator('#layer-root [role="dialog"]').count(), 1, `${viewport.width}px has one dialog after the replacement`);
+  await page.getByRole('button', { name: 'Close' }).click();
+  assert.equal(await navigation.getAttribute('aria-hidden'), null, `${viewport.width}px restores global navigation after dismissal`);
+
+  await navigation.getByRole('button', { name: 'Profile', exact: true }).click();
+  assert.equal(await page.getByRole('heading', { name: 'Profile', exact: true }).count(), 1, `${viewport.width}px opens Profile`);
+  assert.equal(await page.getByRole('button', { name: 'Administration' }).count(), 0, `${viewport.width}px hides Administration from ordinary users`);
+  await page.selectOption('#role-select', 'admin');
+  assert.equal(await page.getByRole('button', { name: 'Administration' }).count(), 1, `${viewport.width}px exposes Administration inside admin Profile`);
+  assert.equal(await navigation.locator('[data-destination="admin"]').count(), 0, `${viewport.width}px never adds an Admin navigation position`);
+
+  await navigation.getByRole('button', { name: 'Recipes', exact: true }).click();
+  await page.selectOption('#role-select', 'user');
+}
+
 async function assertDefaultView(page, viewport) {
   await page.selectOption('#scenario-select', 'flagged');
   await assertText(page, 'h1', 'Smoky Tomato & Butter Bean Stew', `${viewport.width}px renders the flagged recipe title`);
@@ -340,6 +389,7 @@ async function assertInteractiveLayers(page, viewport) {
         assert.deepEqual(await page.evaluate(() => [...document.images].filter(image => !image.complete || !image.naturalWidth).map(image => image.getAttribute('src'))), [], `${viewport.width}px ${scenario} has no broken images`);
       }
       for (const scenario of ['flagged', 'dense', 'long', 'noCover']) await assertReadyStateOverflow(page, scenario, viewport);
+      await assertGlobalNavigation(page, viewport);
       await assertDefaultView(page, viewport);
       await assertCookingFocus(page, viewport);
       await assertInteractiveLayers(page, viewport);
@@ -354,6 +404,7 @@ async function assertInteractiveLayers(page, viewport) {
     console.log('TASK_2_MOBILE_RECIPE_DETAIL_DEFAULT_VIEW_PASS');
     console.log('TASK_1_MOBILE_RECIPE_DETAIL_SMOKE_PASS');
     console.log('MOBILE_RECIPE_DETAIL_CHECKS_PASS');
+    console.log('MOBILE_GLOBAL_NAVIGATION_CHECKS_PASS');
   } finally {
     await close(server, browser);
   }
