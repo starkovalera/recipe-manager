@@ -19,6 +19,17 @@ const NOTES_PREVIEW_WORD_LIMIT = NOTES_PREVIEW_LINES * ESTIMATED_WORDS_PER_LINE;
 
 function currentScenario() { return window.mobileRecipeScenarios[state.scenario]; }
 function renderLayer() { layerRoot.replaceChildren(); }
+function announce(message) { document.querySelector('#live-region').textContent = message; }
+
+function setContext(context) {
+  if (!['default', 'focus'].includes(context) || context === state.context) return;
+  if (context === 'focus') state.defaultScroll = window.scrollY;
+  state.context = context;
+  contextSelect.value = context;
+  render();
+  if (context === 'focus') requestAnimationFrame(() => window.scrollTo(0, 0));
+  if (context === 'default') requestAnimationFrame(() => window.scrollTo(0, state.defaultScroll));
+}
 
 function renderHeader(recipe) {
   const cover = recipe.cover
@@ -158,6 +169,32 @@ function renderDefault(recipe) {
   </article>`;
 }
 
+function renderFocus(recipe) {
+  const ingredientsSelected = state.focusTab === 'ingredients';
+  const focusContent = ingredientsSelected
+    ? `<section class="focus-content" data-focus-content="ingredients" role="tabpanel" id="focus-ingredients-panel" aria-labelledby="focus-ingredients-tab">
+        <h2>Ingredients</h2>
+        <ul class="section-list">${recipe.ingredients.map(item => `<li>${item}</li>`).join('')}</ul>
+      </section>`
+    : `<section class="focus-content" data-focus-content="instructions" role="tabpanel" id="focus-instructions-panel" aria-labelledby="focus-instructions-tab">
+        <h2>Instructions</h2>
+        <ol class="section-list">${recipe.steps.map(step => `<li>${step}</li>`).join('')}</ol>
+        <section class="recipe-section focus-notes" data-section="notes"><h2>Cooking Notes</h2><p>${recipe.notes}</p></section>
+      </section>`;
+
+  return `<article class="product-surface recipe-detail focus-recipe" data-product-surface>
+    <header class="focus-header"><h1>${recipe.title}</h1><p class="cooking-facts"><span>${recipe.time}</span><span aria-hidden="true">Â·</span><span>Serves ${recipe.servings}</span></p></header>
+    ${renderMainActions('focus')}
+    <main class="focus-reading-content">
+      <div class="focus-switch" role="tablist" aria-label="Focus section">
+        <button type="button" role="tab" id="focus-ingredients-tab" data-focus-tab="ingredients" aria-controls="focus-ingredients-panel" aria-selected="${ingredientsSelected}">Ingredients</button>
+        <button type="button" role="tab" id="focus-instructions-tab" data-focus-tab="instructions" aria-controls="focus-instructions-panel" aria-selected="${!ingredientsSelected}">Instructions</button>
+      </div>
+      ${focusContent}
+    </main>
+  </article>`;
+}
+
 function renderDestination() {
   return `<section class="product-surface state-panel recipes-destination" data-product-surface>
     <p class="eyebrow">Recipe library</p><h1>Recipes</h1><p>You are back at the mock Recipes destination.</p>
@@ -179,7 +216,7 @@ function render() {
   prototypeRoot.innerHTML = state.destination === 'recipes'
     ? renderDestination()
     : scenario.state === 'ready'
-      ? renderDefault(scenario.recipe)
+      ? state.context === 'focus' ? renderFocus(scenario.recipe) : renderDefault(scenario.recipe)
       : renderStatePanel(scenario);
   renderLayer();
 }
@@ -201,13 +238,18 @@ scenarioSelect.addEventListener('change', event => {
   state.expanded = { ingredients: false, instructions: false, notes: false };
   render();
 });
-contextSelect.addEventListener('change', event => { state.context = event.target.value; render(); });
+contextSelect.addEventListener('change', event => { setContext(event.target.value); });
 roleSelect.addEventListener('change', event => { state.role = event.target.value; render(); });
 deleteResultSelect.addEventListener('change', event => { state.deleteResult = event.target.value; });
 prototypeRoot.addEventListener('click', event => {
-  const action = event.target.closest('[data-action], [data-expand]');
+  const action = event.target.closest('[data-action], [data-expand], [data-context], [data-focus-tab]');
   if (!action) return;
-  if (action.dataset.expand) {
+  if (action.dataset.context) {
+    setContext(action.dataset.context);
+  } else if (action.dataset.focusTab) {
+    state.focusTab = action.dataset.focusTab;
+    render();
+  } else if (action.dataset.expand) {
     const key = action.dataset.expand;
     state.expanded[key] = !state.expanded[key];
     render();
@@ -218,6 +260,8 @@ prototypeRoot.addEventListener('click', event => {
   } else if (action.dataset.action === 'return-recipes') {
     state.destination = 'recipes';
     render();
+  } else if (action.dataset.action === 'edit-status') {
+    announce('Edit Mode is being designed.');
   }
 });
 
