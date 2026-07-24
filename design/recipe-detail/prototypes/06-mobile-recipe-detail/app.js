@@ -3,8 +3,8 @@ const state = {
   layer: null, layerTrigger: null, defaultScroll: 0, focusTab: 'ingredients',
   expanded: { ingredients: false, instructions: false, notes: false },
   selectedMedia: 0, reviewed: new Set(), removedIds: new Set(), removedItems: [],
-  pending: null, panelScroll: { media: 0, import: 0 }, sheetGesture: null,
-  destination: null
+  pending: null, panelScroll: { media: 0, import: 0, disclosure: 0 }, sheetGesture: null,
+  destination: null, deleteError: false
 };
 
 const prototypeRoot = document.querySelector('#prototype-root');
@@ -18,8 +18,126 @@ const ESTIMATED_WORDS_PER_LINE = 8;
 const NOTES_PREVIEW_WORD_LIMIT = NOTES_PREVIEW_LINES * ESTIMATED_WORDS_PER_LINE;
 
 function currentScenario() { return window.mobileRecipeScenarios[state.scenario]; }
-function renderLayer() { layerRoot.replaceChildren(); }
 function announce(message) { document.querySelector('#live-region').textContent = message; }
+
+function buttonLabelForResource(resource) { return `Remove ${resource.label}`; }
+
+function renderSheetFrame(title, body, type) {
+  return `<div class="sheet-backdrop" data-action="close-layer"></div>
+    <section class="bottom-sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title" data-layer="${type}">
+      <div class="sheet-handle" aria-hidden="true"></div>
+      <header class="sheet-heading"><h2 id="sheet-title">${title}</h2><button type="button" data-action="close-layer" aria-label="Close">&times;</button></header>
+      <div class="sheet-body" tabindex="-1">${body}</div>
+    </section>`;
+}
+
+function renderMediaSheet() {
+  const scenario = currentScenario();
+  const media = scenario.media || [];
+  const selected = media[state.selectedMedia] || media[0];
+  if (!selected) return renderSheetFrame('Media', '<p>No media is available for this recipe.</p>', 'media');
+  const thumbnails = media.map((item, index) => `<button type="button" class="media-thumbnail${index === state.selectedMedia ? ' is-selected' : ''}" data-action="select-media" data-media-index="${index}" aria-label="View ${item.title}" aria-pressed="${index === state.selectedMedia}"><img src="${item.preview}" alt=""></button>`).join('');
+  const links = (scenario.mediaLinks || []).map(link => `<a class="external-media-link" href="${link.href}" target="_blank" rel="noreferrer">${link.title}</a>`).join('');
+  return renderSheetFrame(`Media (${media.length})`, `<figure class="media-preview"><img src="${selected.preview}" alt="${selected.title}"><figcaption><strong>${selected.title}</strong><span>${selected.origin} · ${selected.author}</span>${selected.current ? '<em>Current cover</em>' : ''}</figcaption></figure><div class="media-thumbnails" aria-label="Media choices">${thumbnails}</div><div class="external-media-links">${links}</div>`, 'media');
+}
+
+function renderDisclosureSheet(key) {
+  const recipe = currentScenario().recipe;
+  const values = recipe[key] || [];
+  const title = key === 'tags' ? 'All tags' : 'All collections';
+  return renderSheetFrame(title, `<ul class="disclosure-list">${values.map(value => `<li>${value}</li>`).join('')}</ul>`, 'disclosure');
+}
+
+function resourceRow(resource, groupId) {
+  if (state.removedIds.has(resource.id)) return '';
+  if (state.pending && state.pending.type === 'resource' && state.pending.id === resource.id) {
+    return `<div class="resource-confirmation" data-resource-id="${resource.id}"><strong>Remove this resource?</strong><p>This resource cannot be restored. Your saved recipe will not change.</p><div><button type="button" data-action="cancel-pending">Cancel</button><button type="button" class="destructive" data-action="confirm-resource" data-resource-id="${resource.id}" data-group-id="${groupId}">Remove resource</button></div></div>`;
+  }
+  const preview = resource.preview ? `<img class="resource-thumbnail" src="${resource.preview}" alt="">` : '';
+  return `<div class="resource-row" data-resource-id="${resource.id}">${preview}<div><small>${resource.type}</small><strong>${resource.label}</strong><span>${resource.currentCover ? 'Kept as cover' : resource.status}</span></div><button type="button" class="icon-button destructive-icon" data-action="remove-resource" data-resource-id="${resource.id}" data-group-id="${groupId}" aria-label="${buttonLabelForResource(resource)}">&#128465;</button></div>`;
+}
+
+function renderResourceGroup(group) {
+  const children = (group.children || []).filter(child => !state.removedIds.has(child.id));
+  const currentCover = children.find(child => child.currentCover);
+  if (state.removedIds.has(group.id)) return currentCover ? `<section class="resource-group resource-group--retained"><h3>Current cover retained</h3>${resourceRow(currentCover, group.id)}</section>` : '';
+  if (state.pending && state.pending.type === 'primary' && state.pending.id === group.id) {
+    const affected = children.filter(child => !child.currentCover);
+    const summary = affected.reduce((acc, child) => { acc[child.type] = (acc[child.type] || 0) + 1; return acc; }, {});
+    const types = Object.entries(summary).map(([type, count]) => `${count} ${type.toLowerCase()}${count === 1 ? '' : 's'}`).join(' · ');
+    return `<section class="resource-group primary-confirmation" data-resource-id="${group.id}"><strong>Remove this source?</strong><p>The source and ${affected.length} derived resources will be removed: ${types || 'no derived resources'}.</p>${currentCover ? '<p><strong>The current cover will be kept.</strong></p>' : ''}<p>Your saved recipe will not change.</p><div><button type="button" data-action="cancel-pending">Cancel</button><button type="button" class="destructive" data-action="confirm-primary" data-resource-id="${group.id}">Remove resources</button></div></section>`;
+  }
+  const used = children.filter(child => child.status !== 'Ignored').map(child => resourceRow(child, group.id)).join('');
+  const ignored = children.filter(child => child.status === 'Ignored').map(child => resourceRow(child, group.id)).join('');
+  return `<section class="resource-group" data-resource-group="${group.id}"><header><div><small>${group.type}</small><h3>${group.label}</h3><span>${group.status}</span></div><button type="button" class="icon-button destructive-icon" data-action="remove-primary" data-resource-id="${group.id}" aria-label="${buttonLabelForResource(group)}">&#128465;</button></header>${used ? `<div class="resource-children">${used}</div>` : ''}${ignored ? `<section class="ignored-resources"><h4>Ignored resources</h4>${ignored}</section>` : ''}</section>`;
+}
+
+function renderImportSheet() {
+  const scenario = currentScenario();
+  const info = scenario.importInfo;
+  if (!info) return renderSheetFrame('Import info', '<p>There is no import information for this recipe.</p>', 'import');
+  const flags = !state.reviewed.has(state.scenario) ? `<section class="import-flags"><h3>Review needed</h3>${info.flags.map(flag => `<p>${flag}</p>`).join('')}${state.pending && state.pending.type === 'flags' ? '<div class="inline-confirmation"><p>Mark all import messages as reviewed?</p><button type="button" data-action="cancel-pending">Cancel</button><button type="button" data-action="confirm-reviewed">Mark all reviewed</button></div>' : '<button type="button" data-action="mark-reviewed">Mark all reviewed</button>'}</section>` : '<p class="reviewed-copy">All import messages have been reviewed.</p>';
+  const groups = info.groups.map(renderResourceGroup).join('');
+  const removedCounts = state.removedItems.reduce((counts, item) => { counts[item.type] = (counts[item.type] || 0) + 1; return counts; }, {});
+  const removedSummary = state.removedItems.length ? `<section class="removed-summary"><h3>Removed resources</h3><p>${Object.entries(removedCounts).map(([type, count]) => `${count} ${type.toLowerCase()}${count === 1 ? '' : 's'}`).join(' · ')}</p></section>` : '';
+  const debug = state.role === 'debug' ? `<details class="debug-details"><summary>Debug details</summary><p>${info.debug}</p></details>` : '';
+  return renderSheetFrame('Import info', `${flags}<section class="resource-groups"><h3>Sources</h3>${groups}</section>${removedSummary}${debug}`, 'import');
+}
+
+function renderOverflow() {
+  return renderSheetFrame('More recipe actions', `<div class="overflow-menu" role="menu"><button type="button" role="menuitem">Duplicate recipe</button><button type="button" role="menuitem">Print recipe</button><div class="menu-separator"></div><button type="button" role="menuitem" class="destructive" data-action="delete-recipe">Delete recipe…</button></div>`, 'overflow');
+}
+
+function renderDeleteRecipeSheet() {
+  const recipe = currentScenario().recipe;
+  return `<div class="sheet-backdrop"></div><section class="bottom-sheet delete-recipe-sheet" role="dialog" aria-modal="true" aria-labelledby="delete-recipe-title" data-layer="delete-recipe"><div class="sheet-handle" aria-hidden="true"></div><header class="sheet-heading"><h2 id="delete-recipe-title">Delete ${recipe.title}?</h2><button type="button" data-action="close-layer" aria-label="Close">&times;</button></header><div class="sheet-body"><p>This cannot be undone. Associated imported files, images, and links will also be deleted.</p>${state.deleteError ? '<p class="delete-error" role="alert">Recipe couldn’t be deleted. Try again.</p>' : ''}<div class="sheet-actions"><button type="button" data-action="close-layer">Cancel</button><button type="button" class="destructive" data-action="confirm-delete-recipe">Delete recipe</button></div></div></section>`;
+}
+
+function renderLayer() {
+  if (!state.layer) { layerRoot.replaceChildren(); return; }
+  const type = state.layer.type;
+  layerRoot.innerHTML = type === 'media' ? renderMediaSheet() : type === 'import' ? renderImportSheet() : type === 'disclosure' ? renderDisclosureSheet(state.layer.details) : type === 'overflow' ? renderOverflow() : renderDeleteRecipeSheet();
+}
+
+function openLayer(type, trigger, details) {
+  if (state.layer) closeLayer(false);
+  state.layer = { type, details };
+  state.layerTrigger = trigger || null;
+  state.deleteError = false;
+  if (type === 'delete-recipe') prototypeRoot.inert = true;
+  renderLayer();
+  requestAnimationFrame(() => {
+    const body = layerRoot.querySelector('.sheet-body');
+    if (body && type in state.panelScroll) body.scrollTop = state.panelScroll[type];
+    (layerRoot.querySelector(type === 'delete-recipe' ? '.delete-recipe-sheet [data-action="confirm-delete-recipe"]' : '.bottom-sheet [data-action="close-layer"]') || layerRoot.querySelector('.bottom-sheet')).focus();
+  });
+}
+
+function closeLayer(returnFocus = true) {
+  const sheet = layerRoot.querySelector('.bottom-sheet');
+  if (sheet && state.layer && state.layer.type in state.panelScroll) state.panelScroll[state.layer.type] = sheet.querySelector('.sheet-body').scrollTop;
+  state.pending = null;
+  state.layer = null;
+  state.deleteError = false;
+  prototypeRoot.inert = false;
+  renderLayer();
+  if (returnFocus && state.layerTrigger) requestAnimationFrame(() => state.layerTrigger.focus());
+}
+
+function startSheetGesture(event) {
+  const sheet = event.target.closest('.bottom-sheet');
+  if (!sheet || state.layer?.type === 'delete-recipe' || !event.target.closest('.sheet-handle')) return;
+  state.sheetGesture = { y: event.clientY, time: performance.now(), pointerId: event.pointerId };
+}
+
+function finishSheetGesture(event) {
+  if (!state.sheetGesture) return;
+  const gesture = state.sheetGesture;
+  state.sheetGesture = null;
+  const distance = event.clientY - gesture.y;
+  const velocity = distance / Math.max(performance.now() - gesture.time, 1);
+  if (distance >= 96 || velocity >= .65) closeLayer();
+}
 
 function setContext(context) {
   if (!['default', 'focus'].includes(context) || context === state.context) return;
@@ -236,13 +354,15 @@ scenarioSelect.addEventListener('change', event => {
   state.scenario = event.target.value;
   state.destination = null;
   state.expanded = { ingredients: false, instructions: false, notes: false };
+  state.pending = null;
+  closeLayer(false);
   render();
 });
 contextSelect.addEventListener('change', event => { setContext(event.target.value); });
 roleSelect.addEventListener('change', event => { state.role = event.target.value; render(); });
 deleteResultSelect.addEventListener('change', event => { state.deleteResult = event.target.value; });
 prototypeRoot.addEventListener('click', event => {
-  const action = event.target.closest('[data-action], [data-expand], [data-context], [data-focus-tab]');
+  const action = event.target.closest('[data-action], [data-expand], [data-context], [data-focus-tab], [data-disclosure]');
   if (!action) return;
   if (action.dataset.context) {
     setContext(action.dataset.context);
@@ -262,6 +382,91 @@ prototypeRoot.addEventListener('click', event => {
     render();
   } else if (action.dataset.action === 'edit-status') {
     announce('Edit Mode is being designed.');
+  } else if (action.dataset.action === 'media') {
+    openLayer('media', action);
+  } else if (action.dataset.action === 'import') {
+    openLayer('import', action);
+  } else if (action.dataset.action === 'overflow') {
+    openLayer('overflow', action);
+  } else if (action.dataset.disclosure) {
+    openLayer('disclosure', action, action.dataset.disclosure);
+  }
+});
+
+layerRoot.addEventListener('click', event => {
+  const action = event.target.closest('[data-action]');
+  if (!action) return;
+  const type = state.layer?.type;
+  if (action.dataset.action === 'close-layer') {
+    closeLayer();
+  } else if (action.dataset.action === 'select-media') {
+    state.selectedMedia = Number(action.dataset.mediaIndex);
+    renderLayer();
+  } else if (action.dataset.action === 'mark-reviewed') {
+    state.pending = { type: 'flags' };
+    renderLayer();
+  } else if (action.dataset.action === 'confirm-reviewed') {
+    state.reviewed.add(state.scenario);
+    state.pending = null;
+    render();
+    announce('All import messages marked as reviewed.');
+  } else if (action.dataset.action === 'remove-resource') {
+    state.pending = { type: 'resource', id: action.dataset.resourceId, groupId: action.dataset.groupId };
+    renderLayer();
+  } else if (action.dataset.action === 'remove-primary') {
+    state.pending = { type: 'primary', id: action.dataset.resourceId };
+    renderLayer();
+  } else if (action.dataset.action === 'cancel-pending') {
+    state.pending = null;
+    renderLayer();
+  } else if (action.dataset.action === 'confirm-resource') {
+    const info = currentScenario().importInfo;
+    const group = info.groups.find(item => item.id === action.dataset.groupId);
+    const resource = group?.children.find(item => item.id === action.dataset.resourceId);
+    if (resource) { state.removedIds.add(resource.id); state.removedItems.push(resource); }
+    state.pending = null;
+    renderLayer();
+    announce('Resource removed. Your saved recipe was not changed.');
+  } else if (action.dataset.action === 'confirm-primary') {
+    const group = currentScenario().importInfo.groups.find(item => item.id === action.dataset.resourceId);
+    if (group) {
+      state.removedIds.add(group.id);
+      state.removedItems.push(group);
+      group.children.filter(child => !child.currentCover).forEach(child => { state.removedIds.add(child.id); state.removedItems.push(child); });
+    }
+    state.pending = null;
+    renderLayer();
+    announce('Source resources removed. The saved recipe was not changed.');
+  } else if (action.dataset.action === 'delete-recipe') {
+    openLayer('delete-recipe', state.layerTrigger);
+  } else if (action.dataset.action === 'confirm-delete-recipe') {
+    if (state.deleteResult === 'failure') {
+      state.deleteError = true;
+      renderLayer();
+      requestAnimationFrame(() => layerRoot.querySelector('[data-action="confirm-delete-recipe"]').focus());
+    } else {
+      state.destination = 'recipes';
+      closeLayer(false);
+      render();
+      announce('Recipe deleted');
+    }
+  }
+});
+
+layerRoot.addEventListener('pointerdown', startSheetGesture);
+layerRoot.addEventListener('pointerup', finishSheetGesture);
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && state.layer) {
+    event.preventDefault();
+    if (state.pending) { state.pending = null; renderLayer(); } else closeLayer();
+  }
+  if (event.key === 'Tab' && state.layer?.type === 'delete-recipe') {
+    const focusables = [...layerRoot.querySelectorAll('button:not([disabled]), [href]')];
+    if (!focusables.length) return;
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+    if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
   }
 });
 
