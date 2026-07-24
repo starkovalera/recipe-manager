@@ -3,7 +3,8 @@
 ## Scope
 
 P10 replaces storage-key-based browser media access with stable domain media
-identifiers and short-lived download grants. It covers authenticated access to
+identifiers and provider-specific download grants. S3 grants are short-lived;
+LOCAL grants point to an authenticated application endpoint. The phase covers
 private user media for both LOCAL and S3 storage while keeping storage keys,
 bucket names, and provider-specific locators out of public API responses.
 
@@ -28,6 +29,7 @@ Domain responses expose stable media IDs instead of `mediaUrl` or storage keys.
 - Storage keys remain persisted internal metadata and are never returned to the
   browser.
 - The existing `build_media_url()` helper and key-based media route are removed.
+- No database migration is required; both public reference IDs already exist.
 
 A client requests access with an explicit type and ID:
 
@@ -101,9 +103,10 @@ contentType
 accessMode
 ```
 
-`expiresAt` is an absolute UTC timestamp for expiring direct grants and `null`
-for the stable authenticated LOCAL endpoint. Clients must not persist direct
-URLs as durable media identifiers and must request a new grant after expiry.
+`expiresAt` is nullable. The current S3 provider returns an absolute UTC expiry;
+the stable authenticated LOCAL endpoint returns `null`. Clients must not persist
+expiring direct URLs as durable media identifiers and must request a new grant
+after expiry.
 
 `contentType` comes from durable database metadata. P10 does not read the object
 body to rediscover its MIME type.
@@ -185,7 +188,8 @@ moves the job to `FAILED_ARTIFACTS_REMOVED`.
 `MediaAccessService` is a separate application layer. It owns:
 
 - validating and preserving batch references;
-- resolving reference types through explicit resolver functions or a registry;
+- resolving each `MediaReferenceType` through a strict resolver registry keyed
+  by `recipe_image` or `import_source_image`;
 - enforcing ownership and lifecycle rules;
 - normalizing inaccessible references to `MEDIA_NOT_FOUND`;
 - invoking the configured download-grant provider;
