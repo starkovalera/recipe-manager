@@ -197,6 +197,8 @@ async function assertInteractiveLayers(page, viewport) {
   assert.equal(await page.evaluate(() => document.activeElement.textContent.includes('Media')), true, `${viewport.width}px returns focus to Media`);
 
   await mediaTrigger.click();
+  assert.equal(await page.locator('.media-thumbnail.is-selected').getAttribute('aria-label'), 'View Aubergine browning reference', `${viewport.width}px preserves selected Media on reopen`);
+  assert.equal(await page.getByRole('dialog').count(), 1, `${viewport.width}px uses one auxiliary sheet slot`);
   await page.locator('.sheet-handle').dispatchEvent('pointerdown', { clientY: 20, pointerId: 1 });
   await page.locator('.sheet-handle').dispatchEvent('pointerup', { clientY: 140, pointerId: 1 });
   assert.equal(await page.getByRole('dialog').count(), 0, `${viewport.width}px swipe down from the handle closes Media`);
@@ -222,6 +224,10 @@ async function assertInteractiveLayers(page, viewport) {
   assert.match(await page.locator('.resource-confirmation').textContent(), /cannot be restored[\s\S]*saved recipe will not change/i, `${viewport.width}px explains irreversible resource removal without changing recipe`);
   await page.keyboard.press('Escape');
   assert.equal(await page.getByText('Remove this resource?', { exact: true }).count(), 0, `${viewport.width}px Escape cancels pending resource removal`);
+  await page.getByRole('button', { name: 'Remove Instagram reel' }).click();
+  assert.equal(await page.getByText('Remove this source?', { exact: true }).count(), 1, `${viewport.width}px keeps primary-source confirmation inside its group`);
+  assert.match(await page.locator('.primary-confirmation').textContent(), /derived resources will be removed[\s\S]*current cover will be kept[\s\S]*saved recipe will not change/i, `${viewport.width}px explains cascade removal and the cover exception`);
+  await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'Mark all reviewed' }).click();
   await page.getByRole('button', { name: 'Mark all reviewed', exact: true }).click();
   assert.equal(await page.locator('.review-status').count(), 0, `${viewport.width}px removes the Default review status after marking all reviewed`);
@@ -234,6 +240,13 @@ async function assertInteractiveLayers(page, viewport) {
   await page.getByRole('menuitem', { name: 'Delete recipe…' }).click();
   assert.equal(await page.getByRole('dialog', { name: /Delete Smoky Tomato/ }).count(), 1, `${viewport.width}px opens blocking recipe deletion`);
   assert.equal(await page.evaluate(() => document.querySelector('#prototype-root').inert), true, `${viewport.width}px makes background inert for deletion`);
+  await page.locator('.sheet-handle').dispatchEvent('pointerdown', { clientY: 20, pointerId: 4 });
+  await page.locator('.sheet-handle').dispatchEvent('pointerup', { clientY: 160, pointerId: 4 });
+  assert.equal(await page.getByRole('dialog', { name: /Delete Smoky Tomato/ }).count(), 1, `${viewport.width}px does not swipe-dismiss blocking deletion`);
+  await page.keyboard.press('Tab');
+  assert.equal(await page.evaluate(() => document.activeElement.getAttribute('aria-label')), 'Close', `${viewport.width}px wraps Tab from the final destructive action to the first close control`);
+  await page.keyboard.press('Shift+Tab');
+  assert.equal(await page.evaluate(() => document.activeElement.dataset.action), 'confirm-delete-recipe', `${viewport.width}px wraps Shift+Tab inside blocking deletion`);
   await page.getByRole('button', { name: 'Delete recipe', exact: true }).click();
   assert.equal(await page.getByText('Recipe couldn’t be deleted. Try again.', { exact: true }).count(), 1, `${viewport.width}px retains deletion sheet on mock failure`);
   await page.keyboard.press('Escape');
@@ -271,6 +284,11 @@ async function assertInteractiveLayers(page, viewport) {
       await page.locator('#prototype-root [data-product-surface]').waitFor({ timeout: 1_000 });
       assert.equal(await page.locator('#scenario-select option').count(), 9, `${viewport.width}px exposes exactly nine scenarios`);
       assert.equal(await page.locator('#live-region[aria-live="polite"]').count(), 1, `${viewport.width}px includes the polite live region`);
+      for (const scenario of ['normal', 'flagged', 'manual', 'noCover', 'dense', 'long', 'loading', 'failed', 'missing']) {
+        await page.selectOption('#scenario-select', scenario);
+        assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), true, `${viewport.width}px ${scenario} has no horizontal overflow`);
+        assert.deepEqual(await page.evaluate(() => [...document.images].filter(image => !image.complete || !image.naturalWidth).map(image => image.getAttribute('src'))), [], `${viewport.width}px ${scenario} has no broken images`);
+      }
       for (const scenario of ['flagged', 'dense', 'long', 'noCover']) await assertReadyStateOverflow(page, scenario, viewport);
       await assertDefaultView(page, viewport);
       await assertCookingFocus(page, viewport);
@@ -285,6 +303,7 @@ async function assertInteractiveLayers(page, viewport) {
     console.log('TASK_3_MOBILE_RECIPE_DETAIL_FOCUS_PASS');
     console.log('TASK_2_MOBILE_RECIPE_DETAIL_DEFAULT_VIEW_PASS');
     console.log('TASK_1_MOBILE_RECIPE_DETAIL_SMOKE_PASS');
+    console.log('MOBILE_RECIPE_DETAIL_CHECKS_PASS');
   } finally {
     await close(server, browser);
   }
