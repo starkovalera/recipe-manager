@@ -2,88 +2,102 @@
 
 You are implementing P10 in `starkovalera/recipe-manager`.
 
-Work from the current repository state. You already have access to the project and are expected to inspect the actual code before editing. Treat the approved design as authoritative:
+Use the current repository state as the source of truth. Read the affected code, tests, and these authoritative documents before editing:
 
 - `docs/superpowers/specs/2026-07-24-presigned-media-access-design.md`
 - `docs/s3-storage.md`
 - `docs/maintenance-processing.md`
 - `docs/architecture/production-roadmap.md`
 
-Do not reopen settled architecture decisions unless the current code makes one literally impossible. If that happens, stop and report the conflict before substituting a different design.
+Do not change the approved architecture or expand scope without a real blocker.
+
+## Autonomous execution workflow
+
+Perform one readiness check at the beginning. Verify that you have repository and `origin` access, the intended `main` base, the required documents, a usable working tree, and the tools needed to install dependencies from committed lockfiles.
+
+Ask the user only when continuing would require guessing or violating the approved design. Valid blockers are limited to:
+
+- a literal contradiction between the approved design and the current repository;
+- a material ambiguity with different architecture, security, public-contract, migration, or scope consequences;
+- a missing prerequisite controlled by the user, such as credentials, an account, a private test bucket, a key, or a cloud-console action;
+- a required scope expansion;
+- a destructive or irreversible action that was not already authorized.
+
+Routine implementation choices are not blockers.
+
+If the readiness check passes, begin immediately. Do not ask the user to approve an implementation plan, branch name, task breakdown, file choices, tests, commits, refactors inside the approved scope, or each next step.
+
+Autonomously:
+
+1. update repository refs and confirm `main` as the base;
+2. create a dedicated feature branch, normally `codex/presigned-media-access`;
+3. inspect relevant code and tests;
+4. implement the complete phase;
+5. run all automated verification and self-audits;
+6. update documentation and required comments;
+7. commit and push intentional changes;
+8. open a draft PR against `main`;
+9. provide one consolidated completion and verification report.
+
+Progress updates are allowed, but they are not approval gates. The user reviews the complete draft PR, not every substep. Do not merge the PR.
 
 ## Goal
 
-Replace storage-key-based browser media access with stable domain media references and provider-specific download grants for both LOCAL and S3 storage.
-
-The completed flow must be:
+Replace storage-key-based browser media access with stable domain media references and provider-specific download grants for LOCAL and S3 storage.
 
 ```text
-domain API response
-    -> stable media reference (type + id)
-    -> POST /media/access
-    -> per-item DownloadGrant or MEDIA_NOT_FOUND
-    -> frontend retrieves the resource according to accessMode
+domain response
+→ stable media reference (type + id)
+→ POST /media/access
+→ per-item grant or MEDIA_NOT_FOUND
+→ frontend retrieves according to accessMode
 ```
 
-## Approved scope
-
-Implement:
+## In scope
 
 - `recipe_image` references backed by `RecipeImage.id`;
 - `import_source_image` references backed by `ImportJobSource.id`;
-- batch `POST /media/access`, 1–100 items;
-- partial-success results;
-- S3 presigned GET URLs with a 60-second TTL;
-- authenticated LOCAL media retrieval by domain media type and ID;
+- authenticated batch `POST /media/access`, 1–100 items;
+- partial-success response semantics;
+- S3 presigned GET with a 60-second TTL;
+- authenticated LOCAL retrieval by media type and domain ID;
 - frontend support for `direct` and `authenticated_fetch`;
-- removal of public `mediaUrl` fields, storage-key URLs, URL-shape routing logic, and the legacy key-based media endpoint;
+- removal of public `mediaUrl`, storage-key URLs, URL-shape routing, `build_media_url()`, and the legacy key-based media route;
 - gateway changes;
-- complete backend/frontend/gateway tests;
-- durable documentation in `docs/media-access.md`;
-- required explanatory code comments.
+- backend, frontend, gateway, and boundary tests;
+- `docs/media-access.md` and updates to stale P9/P10 documentation;
+- required explanatory comments.
 
-Do not implement:
+## Explicitly deferred
 
-- upload grants or direct browser uploads;
-- `UploadIntent`;
-- a generic `Media` or `StorageObject` table;
-- physical S3 existence checks with `HeadObject`;
-- CDN or CloudFront;
-- public sharing;
-- bucket/IAM/Terraform changes;
-- multipart uploads;
-- persistent grants;
-- unrelated UI redesign or refactoring.
+Do not implement upload grants, direct browser upload, `UploadIntent`, a generic `Media` or `StorageObject` table, `HeadObject` checks, CDN/CloudFront, public sharing, Terraform/IAM/bucket provisioning, multipart upload, persistent grants, S3 proxying through FastAPI, or unrelated UI redesign.
 
-No database migration is expected: the required stable IDs already exist.
+No database migration is expected because both stable IDs already exist. Stop and explain before adding one.
 
-## Non-negotiable decisions
+## Public API contract
 
-### Public references
+Public domain responses expose stable IDs only:
 
-Public domain responses must expose only stable domain IDs.
+- `RecipeImageOut` keeps `id` and removes `mediaUrl`;
+- `ImportJobSourceOut` exposes its own `id`;
+- no public schema or frontend type exposes storage keys, bucket names, provider locators, or local paths.
 
-- `RecipeImageOut` exposes `id` and no `mediaUrl`.
-- `ImportJobSourceOut` exposes its own `id`.
-- Public schemas must not expose `storage_key`, bucket names, local paths, or provider locators.
-- Delete `build_media_url()` and remove its uses.
-- Remove the fixed-depth storage-key route currently shaped like:
+Remove the old route:
 
 ```text
 GET /media/{namespace}/{kind}/{owner_id}/{entity_id}/{object_name}
 ```
 
-The replacement LOCAL route is domain-based:
+Add authenticated routes:
 
 ```text
+POST /media/access
 GET /media/{media_type}/{media_id}
 ```
 
-It must never accept a storage key from the client.
+The GET route must never accept a storage key from the client.
 
-### Batch request
-
-Use an explicit discriminated reference:
+### Request
 
 ```json
 {
@@ -96,20 +110,16 @@ Use an explicit discriminated reference:
 
 Rules:
 
-- minimum 1 item;
-- maximum 100 items;
-- reject unknown types and extra fields;
-- preserve input order;
-- preserve duplicate positions;
+- minimum 1 and maximum 100 items;
+- strict reference type enum;
+- extra fields rejected;
+- input order preserved;
+- duplicate positions preserved;
 - internal resolution may deduplicate repeated references.
 
-### Batch response
+### Response
 
-A structurally valid request returns HTTP `200`, even when some items are inaccessible.
-
-Each result repeats `type` and `id` and contains exactly one of `grant` or `error`.
-
-Example:
+A structurally valid batch returns HTTP `200` even when some items are inaccessible. Each item repeats `type` and `id` and contains exactly one of `grant` or `error`.
 
 ```json
 {
@@ -136,24 +146,28 @@ Example:
 }
 ```
 
-Use the same per-item `MEDIA_NOT_FOUND` result for:
-
-- missing IDs;
-- foreign IDs;
-- lifecycle-ineligible records;
-- records without usable storage metadata.
-
-Do not disclose whether a foreign record exists.
+Use identical `MEDIA_NOT_FOUND` item errors for missing, foreign, lifecycle-ineligible, detached, malformed-domain, and unusable-metadata references. Never disclose that a foreign record exists.
 
 Batch-level responses:
 
-- `401`: missing or invalid authentication;
-- `422`: malformed request, unsupported type, empty batch, or more than 100 items;
-- `503`: the configured access provider cannot generate grants.
+- `401` for invalid or missing authentication;
+- `422` for malformed input, unsupported type, empty batch, extra fields, or more than 100 items;
+- `503` for provider-wide grant-generation failure.
 
-A provider-wide failure is a batch-level `503`; do not repeat the same provider error inside every item.
+Do not duplicate a provider-wide failure inside every item.
 
-### Access modes
+## Download grant and access modes
+
+`DownloadGrant` contains:
+
+```text
+url
+expiresAt
+contentType
+accessMode
+```
+
+`expiresAt` is UTC and nullable. S3 returns an expiry; LOCAL returns `null`.
 
 Define:
 
@@ -162,143 +176,61 @@ direct
 authenticated_fetch
 ```
 
-`accessMode` describes client retrieval mechanics only.
+`accessMode` describes client retrieval mechanics only. It is not a provider enum, `requiresAuth` flag, or public/private classification.
 
-It is not:
+- `direct`: the URL may be assigned directly to `<img src>` or another browser resource attribute.
+- `authenticated_fetch`: the URL must be fetched through the authenticated API client, converted to a `Blob`, and exposed through an object URL.
 
-- a LOCAL/S3 enum;
-- an authentication-required flag;
-- a public/private classification;
-- a storage-provider identifier.
+Add comments on both enum values explaining browser behavior and warning that the values do not imply provider or public/private status. Add a comment/docstring on `DownloadGrant.access_mode`. Add a frontend comment explaining that the current bearer token cannot be attached by a plain `<img src>` request.
 
-Required semantics:
+## Ownership and lifecycle
 
-- `direct`: the URL can be assigned directly to `<img src>` or another browser resource attribute.
-- `authenticated_fetch`: the URL must be fetched through the authenticated application API client; the body is converted to a `Blob` and exposed through an object URL.
+### `recipe_image`
 
-Add comments directly on every enum value. The comments must explain browser behavior and explicitly warn that the value does not imply provider or public/private status.
+Grant access only when the image exists, is linked to a recipe, the recipe belongs to the current user, and `Recipe.status == ACTIVE`.
 
-Add a comment or docstring on `DownloadGrant` stating that `access_mode` describes client retrieval mechanics.
+A related `RecipeResource.status` must not affect authorization. `USED`, `IGNORED`, `UNKNOWN`, and `DELETED` remain presentation/editing states.
 
-In the frontend branch handling `authenticated_fetch`, add a concise comment explaining that the current bearer token cannot be attached by a plain `<img src>` request.
+### `import_source_image`
 
-### Ownership and lifecycle
+Grant access only when the source exists, `type == IMAGE`, `image_storage_key` is present, the parent import belongs to the current user, and the parent status is not `FAILED_ARTIFACTS_REMOVED`.
 
-#### `recipe_image`
-
-Grant access only when:
-
-- `RecipeImage` exists;
-- it is linked to a `Recipe`;
-- `Recipe.owner_id == current_user.id`;
-- `Recipe.status == ACTIVE`.
-
-The related `RecipeResource.status` must not affect authorization. `USED`, `IGNORED`, `UNKNOWN`, and `DELETED` are presentation/editing states, not ownership boundaries.
-
-#### `import_source_image`
-
-Grant access only when:
-
-- `ImportJobSource` exists;
-- `ImportJobSource.type == IMAGE`;
-- `image_storage_key` is present;
-- the parent `ImportJob.owner_id == current_user.id`;
-- the parent status is not `FAILED_ARTIFACTS_REMOVED`.
-
-A normal terminal `FAILED` job remains eligible while retained artifacts still exist. Maintenance later clears references and moves it to `FAILED_ARTIFACTS_REMOVED`.
-
-### Database as access-path source of truth
-
-Do not call `HeadObject` before generating an S3 URL.
-
-If a DB row points to a missing physical S3 object, the presigned GET may return `404`. That inconsistency belongs to integrity/orphan maintenance, not the request path.
-
-Tests must prove no HEAD request is performed.
+A terminal `FAILED` job remains accessible while retained artifacts exist. Cleanup later clears references and moves it to `FAILED_ARTIFACTS_REMOVED`.
 
 ## Required architecture
 
-Create a separate application-layer `MediaAccessService`.
+Create a separate application-layer `MediaAccessService` with a strict resolver registry keyed by media reference type.
 
-It owns:
+It owns request-order preservation, batch resolution, ownership/lifecycle enforcement, not-found normalization, provider invocation, and partial-success assembly.
 
-- request-order preservation;
-- strict resolver dispatch by media reference type;
-- domain resolution;
-- ownership and lifecycle enforcement;
-- normalization to `MEDIA_NOT_FOUND`;
-- calling the configured download-access provider;
-- partial-success assembly.
+Do not place domain authorization or domain queries in API routes, LOCAL/S3 providers, or `StorageService`.
 
-Use a strict resolver registry keyed by `MediaReferenceType`.
+Create a separate runtime-selected download-access provider boundary. It receives already-authorized internal metadata and returns a grant. Keep `StorageService` focused on storage operations such as save/read/delete/list.
 
-Do not put domain authorization in:
-
-- API route functions;
-- LOCAL/S3 adapters;
-- `StorageService`.
-
-Create a separate download-access provider boundary selected at runtime. It receives already-authorized internal media metadata and returns a `DownloadGrant`.
-
-The existing `StorageService` contract remains focused on:
-
-```text
-save
-read
-delete
-list_objects
-```
-
-You may share provider configuration or an injected boto3 client, but do not add user/domain authorization semantics to `StorageService`.
-
-A reasonable file decomposition is:
-
-```text
-backend/app/media/constants.py
-backend/app/media/types.py
-backend/app/media/queries.py
-backend/app/media/access.py
-backend/app/media/providers/base.py
-backend/app/media/providers/local.py
-backend/app/media/providers/s3.py
-backend/app/media/providers/runtime.py
-backend/app/schemas/media.py
-```
-
-Adapt exact names to established project conventions, but preserve the responsibilities and keep files focused.
+Resolve unique IDs in bounded batches by type. Do not issue one SQL query per item. Preserve original request positions when assembling results.
 
 ## Provider behavior
 
 ### S3
 
-Generate a presigned GET URL for `StorageLocation.USER_MEDIA`.
-
-Required parameters:
+Generate a presigned URL with:
 
 ```text
 ClientMethod = get_object
 Bucket = configured USER_MEDIA bucket
 Key = authorized storage key
 ExpiresIn = 60
-```
-
-Return:
-
-```text
 accessMode = direct
 expiresAt = signing time + 60 seconds
 ```
 
-Requirements:
+Use UTC-aware timestamps, preserve lazy client construction/reuse, map SDK failures to the project’s stable operational error and HTTP `503`, and never log the URL or signature.
 
-- use UTC-aware timestamps;
-- map boto/botocore failures to the project’s stable storage/media operational error and ultimately HTTP `503`;
-- never log the generated URL or its signature;
-- do not call `HeadObject`;
-- preserve lazy boto3 client construction.
+Do not call `HeadObject`. The database is the access-path source of truth. A missing physical object may produce a signed URL whose GET returns S3 `404`.
 
 ### LOCAL
 
-For an authorized reference, return:
+Return:
 
 ```text
 url = /media/{media_type}/{media_id}
@@ -306,288 +238,54 @@ accessMode = authenticated_fetch
 expiresAt = null
 ```
 
-The GET route must:
+The GET route authenticates the user and resolves the reference again using the same ownership/lifecycle rules before returning `FileResponse`. It must use LOCAL storage safely and must not proxy S3 bytes when the runtime provider is S3.
 
-1. authenticate the current user;
-2. resolve the domain reference again using the same ownership/lifecycle rules;
-3. require the runtime provider to be LOCAL;
-4. resolve the authorized internal storage key through LOCAL storage;
-5. return `FileResponse`;
-6. return the same not-found behavior for missing and foreign references.
+Remove route-level `isinstance(LocalStorageService)` switching. Provider selection belongs to the runtime boundary.
 
-Do not trust the earlier `POST /media/access` result as permanent authorization.
+## Frontend
 
-Remove the current `isinstance(LocalStorageService)` provider switch from the route. Runtime download-access provider selection should own provider behavior.
+Replace URL-based media types with stable `{type, id}` references. Add a batch API client and reusable TanStack Query-based grant loading/cache.
 
-For an S3 runtime, the authenticated LOCAL GET route must not read or proxy the S3 object. It should fail through a stable unavailable/not-found contract consistent with the final service design and tests. Do not introduce S3 proxying.
-
-## Backend schemas and errors
-
-Create strict Pydantic schemas using existing `CamelModel` conventions.
-
-Expected conceptual types:
-
-```python
-class MediaReferenceType(StrEnum):
-    RECIPE_IMAGE = "recipe_image"
-    IMPORT_SOURCE_IMAGE = "import_source_image"
-
-class DownloadAccessMode(StrEnum):
-    DIRECT = "direct"
-    AUTHENTICATED_FETCH = "authenticated_fetch"
-
-class MediaAccessReferenceIn(CamelModel):
-    type: MediaReferenceType
-    id: str
-
-class MediaAccessRequest(CamelModel):
-    items: list[MediaAccessReferenceIn]
-
-class DownloadGrant(CamelModel):
-    url: str
-    expires_at: datetime | None
-    content_type: str
-    access_mode: DownloadAccessMode
-
-class MediaAccessItemError(CamelModel):
-    code: Literal["MEDIA_NOT_FOUND"]
-    message: str
-
-class MediaAccessItemOut(CamelModel):
-    type: MediaReferenceType
-    id: str
-    grant: DownloadGrant | None = None
-    error: MediaAccessItemError | None = None
-```
-
-Ensure `MediaAccessItemOut` validates the exactly-one-of invariant.
-
-Use project error conventions for a provider-wide access failure. Remove obsolete `MEDIA_ACCESS_NOT_AVAILABLE` behavior only after all call sites and tests are replaced.
-
-## Efficient query behavior
-
-Do not perform one SQL query per item.
-
-For each unique reference type:
-
-- collect unique IDs;
-- query eligible rows in a bounded batch;
-- include ownership and lifecycle predicates in the query where practical;
-- return a mapping keyed by public ID.
-
-Preserve original request order when assembling results.
-
-A batch of 100 mixed references must remain bounded by a small fixed number of database queries plus provider grant calls.
-
-## Frontend contract
-
-Replace:
-
-```ts
-type RecipeImage = { id: string; mediaUrl: string };
-```
-
-with stable references.
-
-A reasonable type model is:
-
-```ts
-export type MediaReferenceType = "recipe_image" | "import_source_image";
-export type MediaReference = { type: MediaReferenceType; id: string };
-
-export type DownloadGrant = {
-  url: string;
-  expiresAt: string | null;
-  contentType: string;
-  accessMode: "direct" | "authenticated_fetch";
-};
-```
-
-Add `requestMediaAccess(items)` to the API client.
-
-Remove:
-
-- `mediaUrl()`;
-- `isApiMediaUrl()`;
-- URL-shape-based retrieval decisions;
-- old `getMediaBlob(url)` assumptions that every API media URL is protected.
-
-Refactor `AuthenticatedImage` into a domain-reference-based component. Rename it if a clearer name fits the existing code.
-
-The component must accept a stable media reference, not an already constructed URL.
-
-Required behavior:
-
-- request or consume a grant keyed by `(type, id)`;
-- `direct`: assign `grant.url` directly to `src`;
-- `authenticated_fetch`: fetch with the existing authenticated API client, create an object URL, and revoke it on replacement/unmount;
-- handle missing media without breaking sibling images;
-- avoid retaining expired direct grants;
-- refresh a direct grant when expired or sufficiently close to expiry;
-- never infer behavior from URL shape.
-
-Use TanStack Query. Avoid one request per image where several references are already available together:
-
-- recipe grids should batch visible cover references;
-- recipe detail should batch its cover/options/images;
-- import detail should batch submitted image-source references.
-
-A small reusable batching hook/provider is preferred over embedding separate batch logic into every page.
-
-Default/fallback SVG images remain local static assets and do not need media grants.
-
-Update all affected pages and tests, including at minimum:
-
-- `frontend/src/components/RecipeGrid.tsx`;
-- the media image component;
-- `frontend/src/pages/RecipeDetailPage.tsx`;
-- `frontend/src/pages/ImportJobDetailPage.tsx`;
-- API client/types;
-- their existing tests.
-
-## Gateway
-
-Replace the old key-shaped endpoint with authenticated entries for:
-
-```text
-POST /media/access
-GET /media/{media_type}/{media_id}
-```
-
-Both are non-public.
-
-Update gateway validation tests and run `make gateway-check`.
-
-## Documentation
-
-Create `docs/media-access.md`.
-
-It must independently document:
-
-- stable media IDs versus storage keys and access URLs;
-- the complete client flow;
-- request/response examples;
-- partial-success semantics;
-- missing/foreign indistinguishability;
-- `DownloadAccessMode`;
-- why `accessMode` is not `requiresAuth`;
-- LOCAL behavior;
-- S3 behavior and 60-second expiry;
-- DB-authoritative access resolution and no `HeadObject`;
-- frontend responsibilities;
-- logging/security restrictions;
-- `DownloadGrant != UploadIntent`;
-- deferred upload/CDN/infrastructure work.
-
-Update other documentation whose P9/P10 boundary becomes stale, especially:
-
-- `docs/s3-storage.md`;
-- `docs/architecture/production-roadmap.md`;
-- `docs/implementation-plan.md`;
-- relevant README/API documentation.
-
-Do not duplicate contradictory contracts across documents.
-
-## Required tests
-
-Follow TDD for each meaningful unit. Add focused tests before implementation and verify they fail for the expected reason.
-
-### Backend service/query tests
-
-Cover:
-
-- recipe image owned by active recipe -> grant;
-- foreign recipe image -> `MEDIA_NOT_FOUND`;
-- missing recipe image -> identical `MEDIA_NOT_FOUND`;
-- inactive/deletion-pending recipe -> `MEDIA_NOT_FOUND`;
-- related resource status does not affect access;
-- valid import image source -> grant;
-- foreign import source -> `MEDIA_NOT_FOUND`;
-- non-image source -> `MEDIA_NOT_FOUND`;
-- null storage key -> `MEDIA_NOT_FOUND`;
-- `FAILED` parent remains eligible;
-- `FAILED_ARTIFACTS_REMOVED` parent is denied;
-- mixed batch partial success;
-- request order preservation;
-- duplicate-position preservation;
-- bounded query count or equivalent proof against N+1 behavior.
-
-### API tests
-
-Cover:
-
-- authentication required;
-- 1-item request;
-- mixed request;
-- empty request -> `422`;
-- 101 items -> `422`;
-- unsupported type -> `422`;
-- extra fields -> `422`;
-- provider-wide failure -> `503`;
-- public domain responses contain IDs and no `mediaUrl`/storage key;
-- missing and foreign per-item responses are indistinguishable.
-
-### S3 provider tests
-
-Extend the injected recording client or use botocore Stubber.
-
-Cover:
-
-- exact `generate_presigned_url` call;
-- `ExpiresIn=60`;
-- `get_object` parameters contain the correct USER_MEDIA bucket/key;
-- UTC expiry;
-- no HEAD call;
-- lazy client reuse;
-- SDK failure mapping;
-- URL is not logged.
-
-### LOCAL route tests
-
-Cover:
-
-- valid owner receives exact bytes and content type;
-- missing reference;
-- foreign reference;
-- recipe lifecycle denial;
-- import lifecycle denial;
-- unsafe or malformed storage key cannot escape the configured root;
-- S3 runtime does not proxy/read the object;
-- route contains no storage key.
-
-### Frontend tests
-
-Cover:
-
-- API batch serialization/deserialization;
-- visible references are batched;
-- ordered results are matched by `(type, id)`;
-- `direct` uses URL without blob fetch;
-- `authenticated_fetch` uses the authenticated API client;
-- object URL creation and revocation;
+- recipe grids batch visible cover references;
+- recipe detail batches hero, cover options, and source images;
+- import detail batches submitted image sources;
+- `direct` uses the URL directly;
+- `authenticated_fetch` uses the authenticated API client and revokes object URLs on replacement/unmount;
+- expired direct grants are refreshed;
 - one failed item does not suppress successful siblings;
-- fallback image behavior;
-- expired direct grant refresh;
-- no URL-shape branching;
-- recipe grid, detail, cover preview/modal, and import source images continue to render.
+- default SVG assets remain local and require no grant;
+- no behavior may depend on URL shape or provider name.
 
-### Gateway and boundary tests
+Remove `mediaUrl()`, `isApiMediaUrl()`, and legacy protected-URL assumptions.
 
-Cover:
+## Gateway and documentation
 
-- new routes exist and are authenticated;
-- old key route is absent;
-- public schemas contain no storage key or `mediaUrl`;
-- provider-specific modules do not own domain queries;
-- `StorageService` has not gained domain/user authorization methods.
+Configure both new routes as authenticated and remove the legacy key route. Update gateway tests and run `make gateway-check`.
 
-## Mandatory self-audit before requesting human review
+Create `docs/media-access.md` documenting stable IDs versus storage keys/access URLs, request/response examples, partial success, missing/foreign indistinguishability, both access modes, why this is not `requiresAuth`, LOCAL/S3 behavior, TTL, no-HEAD policy, frontend responsibilities, logging restrictions, and `DownloadGrant != UploadIntent`.
 
-The user is not responsible for manually scanning every changed file or rerunning declarative repository audits. Before asking for review, you must perform the complete diff, scope, architecture, contract, and legacy-flow audit yourself and put the evidence in the draft PR body or a dedicated PR comment.
+Update stale roadmap, S3, implementation-plan, README, or API documentation without creating contradictory contracts.
 
-### Diff and scope audit
+## Required automated coverage
 
-Run:
+Cover at minimum:
+
+- request validation, order, duplicates, partial success, and provider-wide `503`;
+- identical missing/foreign behavior;
+- recipe ownership, active status, detached images, and resource-status independence;
+- import ownership, image type, storage-key presence, `FAILED`, and `FAILED_ARTIFACTS_REMOVED`;
+- bounded query count;
+- exact S3 presign parameters, UTC expiry, lazy client reuse, no HEAD, SDK failures, and no URL logging;
+- LOCAL bytes/content type, repeated authorization, unsafe key containment, and no S3 proxying;
+- frontend batching, direct mode, authenticated fetch, object URL cleanup, fallback behavior, partial failures, expiry refresh, and no URL-shape branching;
+- gateway routes and absence of public storage keys/`mediaUrl`;
+- architecture-boundary tests where appropriate.
+
+Follow TDD for meaningful units.
+
+## Mandatory self-audit
+
+Before asking for human review, run and report:
 
 ```bash
 git fetch origin
@@ -597,17 +295,7 @@ git diff --name-only origin/main...HEAD
 git log --oneline origin/main..HEAD
 ```
 
-Your report must:
-
-- group every changed file by backend, frontend, gateway, docs, and tests;
-- explain every file outside the expected P10 areas;
-- explicitly confirm whether migrations, Terraform, unrelated queue/Lambda/auth code, and the UI/UX workspace changed;
-- list removed legacy helpers/routes;
-- report the exact result of `git diff --check`.
-
-Do not ask the user to compare a long filename list against this instruction manually.
-
-### Automated legacy and boundary audit
+Group every changed file by backend, frontend, gateway, docs, and tests. Explain every unexpected file and confirm whether migrations, Terraform, unrelated queue/Lambda/auth code, or the UI/UX workspace changed.
 
 Run and classify every match:
 
@@ -619,47 +307,21 @@ rg "requiresAuth|requires_auth" backend frontend docs
 rg "isinstance\(.*LocalStorageService" backend/app
 ```
 
-State which matches are permitted negative tests/history and prove that production code has no legacy flow, public storage keys, HEAD-per-grant call, `requiresAuth` substitution, or route-level provider `isinstance` switch.
+Prove that production code has no legacy flow, public storage keys, HEAD-per-grant call, `requiresAuth` substitution, or route-level provider switch.
 
-### Architecture and security audit
+Provide exact file paths and class/function names for the service, resolver registry, ownership queries, runtime provider selection, LOCAL route/provider, S3 provider, frontend grant layer, gateway entries, and required comments.
 
-Provide exact file paths and class/function names for:
-
-- `MediaAccessService`;
-- strict resolver registry;
-- recipe and import ownership/lifecycle queries;
-- runtime download-access provider selection;
-- LOCAL provider and authenticated domain-ID route;
-- S3 presign provider;
-- frontend batching/grant cache and media component;
-- gateway entries;
-- `DownloadAccessMode` and `DownloadGrant` comments.
-
-Explicitly verify:
-
-- route functions do not own domain query logic;
-- storage/download providers do not own user authorization;
-- `StorageService` did not gain domain-aware methods;
-- frontend decisions depend only on `accessMode`;
-- `DownloadGrant` was not generalized into upload behavior;
-- missing and foreign responses are indistinguishable;
-- presigned URLs/signatures are not logged.
-
-### Key human review map
-
-Finish the report with a compact table:
+Finish with a 6–10 item table:
 
 ```text
 Decision | File | Class/function or line range | What the user should inspect
 ```
 
-Include 6–10 high-value locations only. The map must let the user review the critical decisions without reading the entire diff.
+Do not ask the user to scan every changed file or classify repository-wide searches manually.
 
 ## Verification commands
 
-Run from repository root unless noted.
-
-Backend:
+Run with fresh evidence:
 
 ```bash
 cd backend
@@ -667,74 +329,34 @@ uv sync --frozen
 uv run ruff check .
 uv run ruff format --check .
 uv run pytest
-```
+uv run alembic upgrade head
+uv run alembic current
 
-Frontend:
-
-```bash
-cd frontend
+cd ../frontend
 pnpm install --frozen-lockfile
 pnpm typecheck
 pnpm test:ci
 pnpm build
-```
 
-Gateway:
-
-```bash
+cd ..
 make gateway-check
 ```
 
-Also run the clean PostgreSQL migration check used by CI, even though no migration is expected:
+Report pass counts, skips, warnings, failures, and exact reasons for anything not run.
 
-```bash
-cd backend
-uv run alembic upgrade head
-uv run alembic current
-```
+## Manual and external verification handoff
 
-## Manual verification handoff
+The user owns browser-based LOCAL/PREVIEW checks and AWS-account actions. Do not claim them without direct evidence.
 
-The user owns browser-based LOCAL/PREVIEW verification and AWS-account actions. Do not claim these checks as completed unless you actually performed them with direct evidence.
+Keep `docs/handoffs/p10-presigned-media-access-owner-runbook.md` accurate. Provide the implementation branch SHA and prerequisites. Never ask the user to mutate database state manually for edge cases already covered by automated tests.
 
-Your responsibilities are:
-
-- keep `docs/handoffs/p10-presigned-media-access-owner-runbook.md` accurate if implementation details change the exact commands without changing approved behavior;
-- provide the implementation branch SHA and any test data prerequisites;
-- ensure the runbook contains concrete startup commands and browser steps;
-- run every automated backend/frontend/gateway/provider test available to you;
-- clearly separate automated evidence from owner-performed manual evidence;
-- record unperformed LOCAL browser or live S3 checks under `Verification gaps`;
-- never ask the user to mutate database state manually for edge cases already covered by automated tests.
-
-The user will manually verify at minimum:
-
-- LOCAL/PREVIEW startup through KrakenD;
-- recipe list/detail/import image rendering;
-- `POST /media/access` batching and `authenticated_fetch`;
-- domain-ID LOCAL GET and bearer authorization;
-- partial success through a copied authenticated browser request;
-- unauthenticated LOCAL GET rejection;
-- optional foreign-user behavior using a second Clerk test user;
-- live S3 behavior only when the user supplies a private bucket and credentials.
-
-Do not perform or claim AWS provisioning, credential creation, Clerk account creation, or owner browser checks on the user's behalf.
+Live S3 verification requires a user-supplied private test bucket and credentials. Record it as a verification gap when unavailable.
 
 ## Git and PR requirements
 
-Create a dedicated implementation branch from the current `main`, for example:
+Create the feature branch from current `main`, use intentional commits, push it, and open a draft PR against `main`. Do not implement on the documentation branch and do not merge.
 
-```text
-codex/presigned-media-access
-```
-
-Do not implement on the documentation branch.
-
-Use small, intentional commits with tests included. Do not squash unrelated changes into P10.
-
-Open a draft PR against `main`.
-
-PR body must include:
+PR body sections:
 
 ```text
 ## Scope
@@ -747,25 +369,6 @@ PR body must include:
 ## Key human review map
 ```
 
-Do not merge the PR. Leave final review and merge to the user.
+At completion, report the branch and PR, exact contract, automated evidence, classified searches, architecture/security audit, key human-review map, manual results, verification gaps, and confirmations that public storage keys/`mediaUrl` and HEAD access are absent.
 
-## Completion report
-
-At the end, report:
-
-- branch and PR;
-- exact API contract implemented;
-- grouped diff/scope audit with every unexpected file explained;
-- `git diff --check` result;
-- automated commands with pass counts, skips, warnings, and failures;
-- classified legacy/boundary search results;
-- architecture and security self-audit with exact file/function references;
-- the compact key human review map;
-- manual smoke results;
-- any verification gaps;
-- confirmation that storage keys and `mediaUrl` are absent from public responses;
-- confirmation that no HEAD request is used;
-- confirmation that access-mode comments and `docs/media-access.md` were added;
-- deferred work unchanged.
-
-Do not state that work is complete unless every claimed check has fresh evidence.
+Never claim completion without fresh evidence.
