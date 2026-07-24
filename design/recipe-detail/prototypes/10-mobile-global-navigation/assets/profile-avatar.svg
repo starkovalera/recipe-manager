@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 110" role="img" aria-labelledby="t d">
+  <title id="t">Profile avatar</title><desc id="d">Low fidelity circular profile portrait.</desc>
+  <rect width="160" height="110" fill="#dfe5e8"/><circle cx="80" cy="55" r="42" fill="#8aa0aa"/>
+  <circle cx="80" cy="44" r="16" fill="#e1c4a8"/><path d="M49 86c6-20 18-28 31-28s26 8 31 28" fill="#465e69"/>
+</svg>

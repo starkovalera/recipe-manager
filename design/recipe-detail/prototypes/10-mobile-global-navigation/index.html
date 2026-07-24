@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mobile global navigation prototype</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="prototype-toolbar" aria-label="Prototype evaluation controls">
+    <p><strong>Mobile Global Navigation</strong> <span>Mock data &middot; not production UI</span></p>
+    <div class="prototype-controls">
+      <label>Scenario <select id="scenario-select"></select></label>
+      <label>Context <select id="context-select"><option value="default">View</option><option value="focus">Focus</option></select></label>
+      <label>Role <select id="role-select"><option value="user">User</option><option value="debug">Debug</option><option value="admin">Admin</option></select></label>
+      <label>Delete result <select id="delete-result-select"><option value="success">Success</option><option value="failure">Failure</option></select></label>
+    </div>
+  </header>
+  <main id="prototype-root" tabindex="-1"></main>
+  <div id="global-nav-root"></div>
+  <div id="layer-root"></div>
+  <div id="live-region" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

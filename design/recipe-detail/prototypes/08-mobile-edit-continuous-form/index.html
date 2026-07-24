@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mobile Edit Mode — continuous form navigation</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="board">
+    <header class="board-header">
+      <p class="eyebrow">Mobile Edit Mode · reopened direction</p>
+      <h1>One continuous form, two compact toolbar options</h1>
+      <p>Scroll inside either phone. The section control follows the current section; the recipe-level save bar stays fixed.</p>
+      <div class="demo-controls" aria-label="Preview controls">
+        <span>Jump both previews:</span>
+        <button type="button" data-jump-all="basics">Basics</button>
+        <button type="button" data-jump-all="ingredients">Ingredients</button>
+        <button type="button" data-jump-all="instructions">Instructions</button>
+      </div>
+    </header>
+
+    <section class="comparison" aria-label="Toolbar comparison">
+      <article class="variant recommended">
+        <header class="variant-heading">
+          <span class="status">Recommended</span>
+          <h2>A · Mode + current section + More</h2>
+          <p>All three responsibilities remain visible without restoring the old two-row menu.</p>
+        </header>
+        <div class="phone" data-variant="a">
+          <div class="phone-notch" aria-hidden="true"></div>
+          <div class="viewport">
+            <div class="mobile-toolbar">
+              <button class="mode-trigger" type="button" aria-expanded="false">Edit <span aria-hidden="true">⌄</span></button>
+              <button class="section-trigger" type="button" aria-expanded="false"><span class="list-icon" aria-hidden="true">☷</span><span class="current-section">Basics</span></button>
+              <button class="more-trigger" type="button" aria-label="More recipe actions" aria-expanded="false">…</button>
+            </div>
+            <div class="editor-scroll" tabindex="0">
+              <section id="a-basics" data-section="basics" class="form-section basics">
+                <div class="section-heading"><h3>Basics</h3><span>5 fields</span></div>
+                <label>Recipe title<input value="Smoky Tomato & Butter Bean Stew"></label>
+                <div class="two-up"><label>Source<input value="Instagram"></label><label>Author<input value="Marta Cooks"></label></div>
+                <div class="two-up compact"><label>Cooking time<input value="45 min"></label><label>Servings<input value="4"></label></div>
+              </section>
+              <section id="a-ingredients" data-section="ingredients" class="form-section ingredients">
+                <div class="section-heading"><div><h3>Ingredients</h3><span>12 of 50 · drag to reorder</span></div></div>
+                <ul class="ingredient-list">
+                  <li><button class="handle" aria-label="Reorder smoked paprika">⠿</button><button class="summary"><span>2 tbsp · smoked paprika</span><span>›</span></button><button class="trash" aria-label="Delete smoked paprika"></button></li>
+                  <li><button class="handle" aria-label="Reorder garlic">⠿</button><button class="summary"><span>3 cloves · garlic, thinly sliced</span><span>›</span></button><button class="trash" aria-label="Delete garlic"></button></li>
+                  <li><button class="handle" aria-label="Reorder stock">⠿</button><button class="summary"><span>250 ml · low-sodium vegetable stock</span><span>›</span></button><button class="trash" aria-label="Delete stock"></button></li>
+                  <li><button class="handle" aria-label="Reorder parsley">⠿</button><button class="summary"><span>20 g · flat-leaf parsley</span><span>›</span></button><button class="trash" aria-label="Delete parsley"></button></li>
+                </ul>
+                <button class="add-button" type="button">+ Add ingredient</button>
+              </section>
+              <section id="a-instructions" data-section="instructions" class="form-section instructions">
+                <div class="section-heading"><div><h3>Instructions</h3><span>8 steps · drag to reorder</span></div></div>
+                <ol class="step-list">
+                  <li><span>Heat the oven to 220°C and warm two shallow roasting trays.</span><button aria-label="Edit step">›</button></li>
+                  <li><span>Toss the aubergine with olive oil, cumin, coriander, salt, and pepper.</span><button aria-label="Edit step">›</button></li>
+                  <li><span>Roast for 18 minutes, turn, then continue until deeply browned.</span><button aria-label="Edit step">›</button></li>
+                </ol>
+                <button class="add-button" type="button">+ Add step</button>
+              </section>
+              <section id="a-notes" data-section="notes" class="form-section">
+                <div class="section-heading"><h3>Cooking notes</h3><span>248 characters</span></div>
+                <label class="visually-hidden" for="a-note">Cooking notes</label>
+                <textarea id="a-note" rows="5">The stew thickens as it rests. Add the parsley immediately before serving.</textarea>
+              </section>
+              <section id="a-nutrition" data-section="nutrition" class="form-section nutrition">
+                <div class="section-heading"><h3>Estimated nutrition</h3><span>Per serving</span></div>
+                <div class="two-up compact"><label>Calories<input value="420 kcal"></label><label>Protein<input value="18 g"></label></div>
+              </section>
+            </div>
+            <div class="save-bar"><span>3 unsaved</span><button type="button">Cancel</button><button class="primary" type="button">Save changes</button></div>
+            <div class="scrim" hidden></div>
+            <section class="bottom-sheet section-sheet" hidden aria-label="Jump to section">
+              <div class="grabber"></div><header><h3>Jump to section</h3><button class="sheet-close" aria-label="Close">×</button></header>
+              <button data-jump="basics"><span>Basics</span><small>5 fields</small></button>
+              <button data-jump="ingredients"><span>Ingredients</span><small>12 items</small></button>
+              <button data-jump="instructions"><span>Instructions</span><small>8 steps</small></button>
+              <button data-jump="notes"><span>Cooking notes</span><small>248 characters</small></button>
+              <button data-jump="nutrition"><span>Estimated nutrition</span><small>4 values</small></button>
+            </section>
+            <section class="bottom-sheet mode-sheet" hidden aria-label="Recipe mode">
+              <div class="grabber"></div><header><h3>Recipe mode</h3><button class="sheet-close" aria-label="Close">×</button></header>
+              <button><span>View recipe</span></button><button><span>Cooking focus</span></button><button class="selected"><span>Edit recipe</span><small>Current</small></button>
+            </section>
+            <div class="popover more-menu" hidden>
+              <button>Media <small>6</small></button><button>Import info</button><hr><button class="danger">Delete recipe…</button>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="variant">
+        <header class="variant-heading">
+          <span class="status neutral">Alternative</span>
+          <h2>B · Page title + current section + More</h2>
+          <p>Calmer toolbar, but View and Focus move into More and become less discoverable.</p>
+        </header>
+        <div class="phone" data-variant="b">
+          <div class="phone-notch" aria-hidden="true"></div>
+          <div class="viewport">
+            <div class="mobile-toolbar">
+              <span class="toolbar-title">Edit recipe</span>
+              <button class="section-trigger" type="button" aria-expanded="false"><span class="list-icon" aria-hidden="true">☷</span><span class="current-section">Basics</span></button>
+              <button class="more-trigger" type="button" aria-label="More recipe actions" aria-expanded="false">…</button>
+            </div>
+            <div class="editor-scroll" tabindex="0">
+              <section id="b-basics" data-section="basics" class="form-section basics">
+                <div class="section-heading"><h3>Basics</h3><span>5 fields</span></div>
+                <label>Recipe title<input value="Smoky Tomato & Butter Bean Stew"></label>
+                <div class="two-up"><label>Source<input value="Instagram"></label><label>Author<input value="Marta Cooks"></label></div>
+                <div class="two-up compact"><label>Cooking time<input value="45 min"></label><label>Servings<input value="4"></label></div>
+              </section>
+              <section id="b-ingredients" data-section="ingredients" class="form-section ingredients">
+                <div class="section-heading"><div><h3>Ingredients</h3><span>12 of 50 · drag to reorder</span></div></div>
+                <ul class="ingredient-list">
+                  <li><button class="handle" aria-label="Reorder smoked paprika">⠿</button><button class="summary"><span>2 tbsp · smoked paprika</span><span>›</span></button><button class="trash" aria-label="Delete smoked paprika"></button></li>
+                  <li><button class="handle" aria-label="Reorder garlic">⠿</button><button class="summary"><span>3 cloves · garlic, thinly sliced</span><span>›</span></button><button class="trash" aria-label="Delete garlic"></button></li>
+                  <li><button class="handle" aria-label="Reorder stock">⠿</button><button class="summary"><span>250 ml · low-sodium vegetable stock</span><span>›</span></button><button class="trash" aria-label="Delete stock"></button></li>
+                  <li><button class="handle" aria-label="Reorder parsley">⠿</button><button class="summary"><span>20 g · flat-leaf parsley</span><span>›</span></button><button class="trash" aria-label="Delete parsley"></button></li>
+                </ul>
+                <button class="add-button" type="button">+ Add ingredient</button>
+              </section>
+              <section id="b-instructions" data-section="instructions" class="form-section instructions">
+                <div class="section-heading"><div><h3>Instructions</h3><span>8 steps · drag to reorder</span></div></div>
+                <ol class="step-list">
+                  <li><span>Heat the oven to 220°C and warm two shallow roasting trays.</span><button aria-label="Edit step">›</button></li>
+                  <li><span>Toss the aubergine with olive oil, cumin, coriander, salt, and pepper.</span><button aria-label="Edit step">›</button></li>
+                  <li><span>Roast for 18 minutes, turn, then continue until deeply browned.</span><button aria-label="Edit step">›</button></li>
+                </ol>
+                <button class="add-button" type="button">+ Add step</button>
+              </section>
+              <section id="b-notes" data-section="notes" class="form-section">
+                <div class="section-heading"><h3>Cooking notes</h3><span>248 characters</span></div>
+                <label class="visually-hidden" for="b-note">Cooking notes</label>
+                <textarea id="b-note" rows="5">The stew thickens as it rests. Add the parsley immediately before serving.</textarea>
+              </section>
+              <section id="b-nutrition" data-section="nutrition" class="form-section nutrition">
+                <div class="section-heading"><h3>Estimated nutrition</h3><span>Per serving</span></div>
+                <div class="two-up compact"><label>Calories<input value="420 kcal"></label><label>Protein<input value="18 g"></label></div>
+              </section>
+            </div>
+            <div class="save-bar"><span>3 unsaved</span><button type="button">Cancel</button><button class="primary" type="button">Save changes</button></div>
+            <div class="scrim" hidden></div>
+            <section class="bottom-sheet section-sheet" hidden aria-label="Jump to section">
+              <div class="grabber"></div><header><h3>Jump to section</h3><button class="sheet-close" aria-label="Close">×</button></header>
+              <button data-jump="basics"><span>Basics</span><small>5 fields</small></button>
+              <button data-jump="ingredients"><span>Ingredients</span><small>12 items</small></button>
+              <button data-jump="instructions"><span>Instructions</span><small>8 steps</small></button>
+              <button data-jump="notes"><span>Cooking notes</span><small>248 characters</small></button>
+              <button data-jump="nutrition"><span>Estimated nutrition</span><small>4 values</small></button>
+            </section>
+            <div class="popover more-menu" hidden>
+              <button>View recipe</button><button>Cooking focus</button><hr><button>Media <small>6</small></button><button>Import info</button><hr><button class="danger">Delete recipe…</button>
+            </div>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <aside class="media-boundary">
+      <strong>Shared media model:</strong> Media opens the same read-only panel from View, Focus, or Edit. `Manage media` then opens a separate full-screen editor on mobile and desktop. Dirty Recipe Edit state requires a guard before leaving.
+    </aside>
+  </main>
+  <script src="script.js"></script>
+</body>
+</html>

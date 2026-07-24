@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Recipe Detail main-actions and responsive-panels prototype</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#prototype-root">Skip to recipe</a>
+  <header class="prototype-toolbar" aria-label="Prototype controls">
+    <div>
+      <strong>Recipe Detail · main actions and responsive panels</strong>
+      <span class="prototype-label">Mock data · not production UI</span>
+    </div>
+    <div class="prototype-controls">
+      <label>Scenario
+        <select id="scenario-select">
+          <option value="normal">Normal imported</option>
+          <option value="flagged">Flagged imported</option>
+          <option value="manual">Manual recipe</option>
+          <option value="dense">Dense metadata / no cover</option>
+          <option value="long">Long content</option>
+          <option value="loading">Loading</option>
+          <option value="failed">Failed load</option>
+          <option value="missing">Missing recipe</option>
+        </select>
+      </label>
+      <label>Context
+        <select id="view-select">
+          <option value="default">Default View</option>
+          <option value="cooking">Cooking Focus</option>
+          <option value="edit">Edit Recipe</option>
+        </select>
+      </label>
+      <label>Role
+        <select id="role-select">
+          <option value="user">User</option>
+          <option value="debug">Debug eligible</option>
+        </select>
+      </label>
+      <label>Delete result
+        <select id="delete-result-select">
+          <option value="success">Success</option>
+          <option value="failure">Failure</option>
+        </select>
+      </label>
+    </div>
+  </header>
+  <main id="prototype-root" tabindex="-1"></main>
+  <div id="layer-root"></div>
+  <div id="live-region" class="sr-only" aria-live="polite"></div>
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
