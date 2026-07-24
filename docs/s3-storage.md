@@ -87,17 +87,16 @@ implements `list_all_objects` by consuming those provider-specific pages.
 AWS credentials use the standard boto3 credential chain and are not application
 settings.
 
-LOCAL media URLs use the canonical fixed-depth route
-`/media/{namespace}/{kind}/{owner_id}/{entity_id}/{object_name}` required by the
-local KrakenD CE router.
+Browser media access is implemented by the separate download-access boundary
+documented in [`media-access.md`](media-access.md). Storage operations remain
+provider-neutral and contain no domain authorization logic.
 
 ## P9 and P10 boundary
 
-Backend services and workers can save, read, and delete private S3 objects after
-P9. Browser/client media access is intentionally unavailable for S3 until P10.
-The media endpoint returns `503 MEDIA_ACCESS_NOT_AVAILABLE` without reading S3,
-building a public URL, or generating a presigned URL. LOCAL keeps its existing
-`FileResponse` behavior.
+Backend services and workers save, read, delete, and list private objects through
+P9. P10 resolves stable domain media IDs and returns provider-specific download
+grants: 60-second direct presigned S3 GETs or authenticated LOCAL domain-ID
+routes. It does not add browser uploads or S3 proxying through FastAPI.
 
 Bucket creation, policies, encryption, lifecycle rules, versioning, and IAM are
 deferred to Terraform infrastructure work. P8B1 adds failed-import cleanup,

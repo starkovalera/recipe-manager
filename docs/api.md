@@ -181,3 +181,17 @@ Recipe debug resources, embedding metadata, and embedding input are included onl
 - `SUPERADMIN` broadens explicitly approved internal diagnostics and administration only.
 - `DEBUG` alone does not grant cross-user access.
 - Frontend capability visibility is UX only; every backend endpoint enforces its own role and owner checks.
+
+## Media Access
+
+Recipe images and import image sources are represented by stable IDs. Public
+domain responses do not contain storage keys or durable media URLs.
+
+- `POST /media/access` accepts 1-100 `{type, id}` references and returns ordered
+  per-item grants or indistinguishable `MEDIA_NOT_FOUND` errors.
+- `GET /media/{media_type}/{media_id}` is the authenticated LOCAL retrieval
+  endpoint and repeats ownership/lifecycle authorization.
+
+S3 grants use `direct`; LOCAL grants use `authenticated_fetch`. These values
+describe browser retrieval mechanics rather than provider or visibility. See
+[`media-access.md`](media-access.md) for the complete contract.

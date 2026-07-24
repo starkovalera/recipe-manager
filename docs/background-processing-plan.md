@@ -2511,7 +2511,7 @@ Status: completed and approved.
 - Add a user-facing ImportJob detail page representing one concrete import job; it is distinct from both the import form and the admin ImportJobs page.
 - Import-job notifications navigate to that user-facing ImportJob detail page; recipe notifications continue to navigate directly to recipes.
 - The user-facing ImportJob detail page is deliberately non-technical. It shows a friendly status, mapped known error details with `Unexpected error.` fallback, timestamps, current/max attempts, primary submitted resources, Retry when available, and Open recipe after success. It does not show internal IDs, event history/payloads, owner/client/dedupe fields, storage keys, or internal source status/error fields.
-- Public ImportJob output exposes only safe source fields needed by this page: source type plus URL, original image name/media URL, or submitted text.
+- Public ImportJob output exposes only safe source fields needed by this page: stable source ID, source type, URL, original image name, or submitted text. Image access is requested separately by stable `import_source_image` ID; storage keys and durable media URLs are not public fields.
 - The admin ImportJobs page shows attempt metadata, exposes Retry when available, links successful jobs to their created recipe, and renders each event payload in an expandable diagnostic block.
 - User-triggered and admin-triggered retry permissions, notification recipients, and audit semantics must be revisited during the authentication/users phase before real multi-user access is enabled.
 - Frontend tests cover form decoupling, unique client import IDs, creation errors, notification navigation, public detail polling/retry/error mapping, admin retry, and event payload expansion.

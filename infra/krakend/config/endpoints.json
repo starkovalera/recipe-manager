@@ -111,7 +111,12 @@
                       "public":  false
                   },
                   {
-                      "endpoint":  "/media/{namespace}/{kind}/{owner_id}/{entity_id}/{object_name}",
+                      "endpoint":  "/media/access",
+                      "method":  "POST",
+                      "public":  false
+                  },
+                  {
+                      "endpoint":  "/media/{media_type}/{media_id}",
                       "method":  "GET",
                       "public":  false
                   },

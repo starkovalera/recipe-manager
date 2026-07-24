@@ -164,7 +164,7 @@ Direct FastAPI access at `http://127.0.0.1:8010` is upstream diagnostics only. I
 | `TEST` | Isolated SQLite default | `DRAMATIQ` test-safe configuration | `LOCAL` | No running server required | Isolated test default |
 | `PROD` | Explicit PostgreSQL required | Explicit `SQS` required | Explicit `S3` required | Not supported | Not supported |
 
-Production settings fail closed instead of falling back to SQLite, Redis/Dramatiq, or local media storage. The P4 SQS publisher and P9 S3 user-media adapter are implemented. SQS requires an explicit AWS region and dedicated queue URLs; S3 requires the region and `S3_USER_MEDIA_BUCKET_NAME`. Adapter construction performs no AWS call, credentials come from the standard boto3 credential chain, and application code does not provision AWS resources. S3 browser media access remains unavailable until P10.
+Production settings fail closed instead of falling back to SQLite, Redis/Dramatiq, or local media storage. The P4 SQS publisher, P9 S3 storage adapter, and P10 private-media access boundary are implemented. SQS requires an explicit AWS region and dedicated queue URLs; S3 requires the region and `S3_USER_MEDIA_BUCKET_NAME`. Adapter construction performs no AWS call, credentials come from the standard boto3 credential chain, and application code does not provision AWS resources. Browsers request grants for stable media IDs; S3 uses 60-second presigned GETs and LOCAL uses an authenticated domain-ID route. See [`docs/media-access.md`](docs/media-access.md).
 
 `POST /imports` creates a queued `ImportJob` and returns `202 Accepted`. The frontend remains on the import form, polls notifications, and can submit additional imports within concurrency limits.
 
