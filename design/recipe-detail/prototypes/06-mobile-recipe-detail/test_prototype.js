@@ -182,6 +182,69 @@ async function assertCookingFocus(page, viewport) {
   assert.equal(await page.getByRole('tab', { name: 'Instructions', exact: true }).getAttribute('aria-selected'), 'true', `${viewport.width}px preserves the Focus tab across context changes`);
 }
 
+async function assertInteractiveLayers(page, viewport) {
+  await page.selectOption('#scenario-select', 'flagged');
+  await page.selectOption('#context-select', 'default');
+  const mediaTrigger = page.getByRole('button', { name: /Media/ });
+  await mediaTrigger.click();
+  assert.equal(await page.getByRole('dialog', { name: 'Media (4)' }).count(), 1, `${viewport.width}px opens the named Media sheet`);
+  assert.equal(await page.getByRole('link', { name: 'Watch Instagram cooking video' }).count(), 1, `${viewport.width}px labels the video action without a raw URL`);
+  assert.equal(await page.locator('[data-layer="media"] .destructive-icon').count(), 0, `${viewport.width}px keeps Media free of deletion controls`);
+  await page.getByRole('button', { name: 'View Aubergine browning reference' }).click();
+  assert.equal(await page.locator('.media-thumbnail.is-selected').getAttribute('aria-label'), 'View Aubergine browning reference', `${viewport.width}px changes Media selection`);
+  await page.keyboard.press('Escape');
+  assert.equal(await page.getByRole('dialog').count(), 0, `${viewport.width}px Escape closes Media`);
+  assert.equal(await page.evaluate(() => document.activeElement.textContent.includes('Media')), true, `${viewport.width}px returns focus to Media`);
+
+  await mediaTrigger.click();
+  await page.locator('.sheet-handle').dispatchEvent('pointerdown', { clientY: 20, pointerId: 1 });
+  await page.locator('.sheet-handle').dispatchEvent('pointerup', { clientY: 140, pointerId: 1 });
+  assert.equal(await page.getByRole('dialog').count(), 0, `${viewport.width}px swipe down from the handle closes Media`);
+
+  await page.selectOption('#scenario-select', 'dense');
+  await page.locator('[data-disclosure="collections"]').click();
+  assert.equal(await page.getByRole('dialog', { name: 'All collections' }).count(), 1, `${viewport.width}px opens Collections disclosure`);
+  assert.equal(await page.locator('[data-layer="disclosure"] input, [data-layer="disclosure"] .destructive-icon').count(), 0, `${viewport.width}px disclosure has no edit or delete controls`);
+  await page.getByRole('button', { name: 'Close' }).click();
+
+  await page.selectOption('#scenario-select', 'flagged');
+  await page.getByRole('button', { name: 'Import info', exact: true }).click();
+  assert.equal(await page.getByRole('dialog', { name: 'Import info' }).count(), 1, `${viewport.width}px opens Import info in the shared sheet slot`);
+  assert.equal(await page.getByText('Ignored resources', { exact: true }).count(), 1, `${viewport.width}px groups ignored resources when present`);
+  assert.equal(await page.locator('.resource-thumbnail').count() > 0, true, `${viewport.width}px gives imported images recognizable thumbnails`);
+  assert.equal(await page.getByText(/Extracted result|Provenance|Original source|Restore/i).count(), 0, `${viewport.width}px omits forbidden import duplication and restore terms`);
+  assert.equal(await page.getByText('Debug details', { exact: true }).count(), 0, `${viewport.width}px hides debug details for users`);
+  await page.selectOption('#role-select', 'debug');
+  assert.equal(await page.getByText('Debug details', { exact: true }).count(), 1, `${viewport.width}px shows debug details only for Debug role`);
+  await page.selectOption('#role-select', 'user');
+  await page.getByRole('button', { name: 'Remove Packaging photo' }).click();
+  assert.equal(await page.getByText('Remove this resource?', { exact: true }).count(), 1, `${viewport.width}px uses inline derived-resource confirmation`);
+  assert.match(await page.locator('.resource-confirmation').textContent(), /cannot be restored[\s\S]*saved recipe will not change/i, `${viewport.width}px explains irreversible resource removal without changing recipe`);
+  await page.keyboard.press('Escape');
+  assert.equal(await page.getByText('Remove this resource?', { exact: true }).count(), 0, `${viewport.width}px Escape cancels pending resource removal`);
+  await page.getByRole('button', { name: 'Mark all reviewed' }).click();
+  await page.getByRole('button', { name: 'Mark all reviewed', exact: true }).click();
+  assert.equal(await page.locator('.review-status').count(), 0, `${viewport.width}px removes the Default review status after marking all reviewed`);
+  await page.getByRole('button', { name: 'Close' }).click();
+
+  await page.selectOption('#scenario-select', 'normal');
+  await page.selectOption('#delete-result-select', 'failure');
+  await page.getByRole('button', { name: 'More recipe actions' }).click();
+  assert.equal(await page.getByRole('menu').count(), 1, `${viewport.width}px opens the anchored overflow menu`);
+  await page.getByRole('menuitem', { name: 'Delete recipe…' }).click();
+  assert.equal(await page.getByRole('dialog', { name: /Delete Smoky Tomato/ }).count(), 1, `${viewport.width}px opens blocking recipe deletion`);
+  assert.equal(await page.evaluate(() => document.querySelector('#prototype-root').inert), true, `${viewport.width}px makes background inert for deletion`);
+  await page.getByRole('button', { name: 'Delete recipe', exact: true }).click();
+  assert.equal(await page.getByText('Recipe couldn’t be deleted. Try again.', { exact: true }).count(), 1, `${viewport.width}px retains deletion sheet on mock failure`);
+  await page.keyboard.press('Escape');
+  await page.selectOption('#delete-result-select', 'success');
+  await page.getByRole('button', { name: 'More recipe actions' }).click();
+  await page.getByRole('menuitem', { name: 'Delete recipe…' }).click();
+  await page.getByRole('button', { name: 'Delete recipe', exact: true }).click();
+  await assertText(page, 'h1', 'Recipes', `${viewport.width}px mock deletion reaches Recipes destination`);
+  assert.equal(await page.locator('#live-region').textContent(), 'Recipe deleted', `${viewport.width}px announces recipe deletion`);
+}
+
 (async () => {
   let server;
   let browser;
@@ -211,12 +274,14 @@ async function assertCookingFocus(page, viewport) {
       for (const scenario of ['flagged', 'dense', 'long', 'noCover']) await assertReadyStateOverflow(page, scenario, viewport);
       await assertDefaultView(page, viewport);
       await assertCookingFocus(page, viewport);
+      await assertInteractiveLayers(page, viewport);
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), true, `${viewport.width}px has no horizontal overflow`);
       assert.deepEqual(pageErrors, [], `${viewport.width}px page errors: ${pageErrors.join(' | ')}`);
       assert.deepEqual(consoleErrors, [], `${viewport.width}px console errors: ${consoleErrors.join(' | ')}`);
     }
     assert.deepEqual(pageErrors, [], `page errors: ${pageErrors.join(' | ')}`);
     assert.deepEqual(consoleErrors, [], `console errors: ${consoleErrors.join(' | ')}`);
+    console.log('TASK_4_TO_6_MOBILE_RECIPE_DETAIL_INTERACTIONS_PASS');
     console.log('TASK_3_MOBILE_RECIPE_DETAIL_FOCUS_PASS');
     console.log('TASK_2_MOBILE_RECIPE_DETAIL_DEFAULT_VIEW_PASS');
     console.log('TASK_1_MOBILE_RECIPE_DETAIL_SMOKE_PASS');
