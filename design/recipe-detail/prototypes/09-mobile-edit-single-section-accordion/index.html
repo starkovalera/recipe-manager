@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mobile Edit Mode — single-section accordion</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="board">
+    <header class="board-header">
+      <p class="eyebrow">Mobile Edit Mode · interaction study</p>
+      <h1>Single-section accordion with a sticky active header</h1>
+      <p>Use the scenario buttons, then interact inside the phone. From deep Ingredients, collapse the sticky header and open Instructions: two taps, no return scroll.</p>
+      <div class="scenario-controls" aria-label="Prototype scenarios">
+        <button type="button" data-scenario="default">Default · Basics</button>
+        <button type="button" data-scenario="overview">All collapsed</button>
+        <button type="button" data-scenario="deep-ingredients">Deep Ingredients</button>
+        <button type="button" data-scenario="deep-instructions">Deep Instructions</button>
+      </div>
+    </header>
+
+    <section class="study">
+      <div class="phone" aria-label="Interactive mobile recipe editor">
+        <div class="phone-notch" aria-hidden="true"></div>
+        <div class="viewport">
+          <header class="mobile-toolbar">
+            <button class="mode-trigger" type="button" aria-expanded="false">Edit recipe <span aria-hidden="true">⌄</span></button>
+            <button class="more-trigger" type="button" aria-label="More recipe actions" aria-expanded="false">…</button>
+          </header>
+
+          <div class="editor-scroll" tabindex="0">
+            <section class="accordion-section is-expanded" data-section="basics">
+              <button class="section-toggle" type="button" aria-expanded="true" aria-controls="basics-panel">
+                <span class="section-identity"><strong>Basics</strong><small>5 fields</small></span>
+                <span class="section-state"><span class="state-label">Editing</span><span class="chevron" aria-hidden="true">⌃</span></span>
+              </button>
+              <div class="section-panel" id="basics-panel">
+                <label>Recipe title<input value="Smoky Tomato & Butter Bean Stew"></label>
+                <div class="two-up"><label>Source<input value="Instagram"></label><label>Author<input value="Marta Cooks"></label></div>
+                <div class="two-up compact"><label>Cooking time<input value="45 min"></label><label>Servings<input value="4"></label></div>
+              </div>
+            </section>
+
+            <section class="accordion-section" data-section="ingredients">
+              <button class="section-toggle" type="button" aria-expanded="false" aria-controls="ingredients-panel">
+                <span class="section-identity"><strong>Ingredients</strong><small>12 of 50</small></span>
+                <span class="section-state"><span class="state-label"></span><span class="chevron" aria-hidden="true">⌄</span></span>
+              </button>
+              <div class="section-panel" id="ingredients-panel" hidden>
+                <p class="section-help">Drag to reorder</p>
+                <ul class="ingredient-list">
+                  <li><button class="handle" aria-label="Reorder aubergines">⠿</button><button class="summary"><span>2 large · aubergines, cut into 3 cm pieces</span><span>›</span></button><button class="trash" aria-label="Delete aubergines"></button></li>
+                  <li><button class="handle" aria-label="Reorder butter beans">⠿</button><button class="summary"><span>2 × 400 g tins · butter beans, drained</span><span>›</span></button><button class="trash" aria-label="Delete butter beans"></button></li>
+                  <li><button class="handle" aria-label="Reorder tomatoes">⠿</button><button class="summary"><span>350 g · cherry tomatoes</span><span>›</span></button><button class="trash" aria-label="Delete tomatoes"></button></li>
+                  <li><button class="handle" aria-label="Reorder lemon">⠿</button><button class="summary"><span>1 · preserved lemon, rind finely chopped</span><span>›</span></button><button class="trash" aria-label="Delete lemon"></button></li>
+                  <li><button class="handle" aria-label="Reorder paprika">⠿</button><button class="summary"><span>1–2 tbsp · smoked paprika</span><span>›</span></button><button class="trash" aria-label="Delete paprika"></button></li>
+                  <li><button class="handle" aria-label="Reorder garlic">⠿</button><button class="summary"><span>3 cloves · garlic, thinly sliced</span><span>›</span></button><button class="trash" aria-label="Delete garlic"></button></li>
+                  <li><button class="handle" aria-label="Reorder tomato paste">⠿</button><button class="summary"><span>2 tbsp · tomato paste</span><span>›</span></button><button class="trash" aria-label="Delete tomato paste"></button></li>
+                  <li><button class="handle" aria-label="Reorder stock">⠿</button><button class="summary"><span>250 ml · low-sodium vegetable stock</span><span>›</span></button><button class="trash" aria-label="Delete stock"></button></li>
+                  <li><button class="handle" aria-label="Reorder olive oil">⠿</button><button class="summary"><span>3 tbsp · extra-virgin olive oil</span><span>›</span></button><button class="trash" aria-label="Delete olive oil"></button></li>
+                  <li><button class="handle" aria-label="Reorder tahini">⠿</button><button class="summary"><span>2 tbsp · tahini</span><span>›</span></button><button class="trash" aria-label="Delete tahini"></button></li>
+                  <li><button class="handle" aria-label="Reorder lemon juice">⠿</button><button class="summary"><span>1 · lemon, juiced</span><span>›</span></button><button class="trash" aria-label="Delete lemon juice"></button></li>
+                  <li><button class="handle" aria-label="Reorder parsley">⠿</button><button class="summary"><span>20 g · flat-leaf parsley, roughly chopped</span><span>›</span></button><button class="trash" aria-label="Delete parsley"></button></li>
+                </ul>
+                <button class="add-button" type="button">+ Add ingredient</button>
+              </div>
+            </section>
+
+            <section class="accordion-section" data-section="instructions">
+              <button class="section-toggle" type="button" aria-expanded="false" aria-controls="instructions-panel">
+                <span class="section-identity"><strong>Instructions</strong><small>8 steps</small></span>
+                <span class="section-state"><span class="state-label"></span><span class="chevron" aria-hidden="true">⌄</span></span>
+              </button>
+              <div class="section-panel" id="instructions-panel" hidden>
+                <p class="section-help">Drag to reorder</p>
+                <ol class="instruction-list">
+                  <li><button class="handle" aria-label="Reorder step 1">⠿</button><button class="step-summary"><span>Heat the oven to 220°C / 200°C fan. Put two shallow roasting trays in the oven.</span><span>›</span></button><button class="trash" aria-label="Delete step 1"></button></li>
+                  <li><button class="handle" aria-label="Reorder step 2">⠿</button><button class="step-summary"><span>Toss the aubergine with olive oil, cumin, coriander, salt, and pepper.</span><span>›</span></button><button class="trash" aria-label="Delete step 2"></button></li>
+                  <li><button class="handle" aria-label="Reorder step 3">⠿</button><button class="step-summary"><span>Roast for 18 minutes, turn, then roast until deeply browned.</span><span>›</span></button><button class="trash" aria-label="Delete step 3"></button></li>
+                  <li><button class="handle" aria-label="Reorder step 4">⠿</button><button class="step-summary"><span>Stir together the tomato paste, stock, garlic, preserved lemon, paprika, and chilli.</span><span>›</span></button><button class="trash" aria-label="Delete step 4"></button></li>
+                  <li><button class="handle" aria-label="Reorder step 5">⠿</button><button class="step-summary"><span>Add the beans and tomatoes to the trays and pour over the seasoned stock.</span><span>›</span></button><button class="trash" aria-label="Delete step 5"></button></li>
+                  <li><button class="handle" aria-label="Reorder step 6">⠿</button><button class="step-summary"><span>Return the trays to the oven until the tomatoes burst and the sauce reduces.</span><span>›</span></button><button class="trash" aria-label="Delete step 6"></button></li>
+                  <li><button class="handle" aria-label="Reorder step 7">⠿</button><button class="step-summary"><span>Whisk tahini with lemon juice and enough cold water to make a spoonable dressing.</span><span>›</span></button><button class="trash" aria-label="Delete step 7"></button></li>
+                  <li><button class="handle" aria-label="Reorder step 8">⠿</button><button class="step-summary"><span>Rest for 5 minutes. Finish with tahini, parsley, and a final squeeze of lemon.</span><span>›</span></button><button class="trash" aria-label="Delete step 8"></button></li>
+                </ol>
+                <button class="add-button" type="button">+ Add step</button>
+              </div>
+            </section>
+
+            <section class="accordion-section" data-section="notes">
+              <button class="section-toggle" type="button" aria-expanded="false" aria-controls="notes-panel">
+                <span class="section-identity"><strong>Cooking notes</strong><small>248 characters</small></span>
+                <span class="section-state"><span class="state-label"></span><span class="chevron" aria-hidden="true">⌄</span></span>
+              </button>
+              <div class="section-panel" id="notes-panel" hidden>
+                <label class="visually-hidden" for="notes">Cooking notes</label>
+                <textarea id="notes" rows="7">The stew thickens as it rests. Add the parsley immediately before serving. Leftovers keep for up to three days.</textarea>
+              </div>
+            </section>
+
+            <section class="accordion-section" data-section="nutrition">
+              <button class="section-toggle" type="button" aria-expanded="false" aria-controls="nutrition-panel">
+                <span class="section-identity"><strong>Estimated nutrition</strong><small>4 values</small></span>
+                <span class="section-state"><span class="state-label"></span><span class="chevron" aria-hidden="true">⌄</span></span>
+              </button>
+              <div class="section-panel" id="nutrition-panel" hidden>
+                <div class="two-up compact"><label>Calories<input value="420 kcal"></label><label>Protein<input value="18 g"></label></div>
+                <div class="two-up compact"><label>Carbohydrates<input value="52 g"></label><label>Fat<input value="17 g"></label></div>
+              </div>
+            </section>
+          </div>
+
+          <footer class="save-bar"><span>3 unsaved</span><button type="button">Cancel</button><button class="primary" type="button">Save changes</button></footer>
+          <div class="scrim" hidden></div>
+          <section class="bottom-sheet mode-sheet" hidden aria-label="Recipe mode">
+            <div class="grabber"></div><header><h3>Recipe mode</h3><button class="sheet-close" aria-label="Close">×</button></header>
+            <button>View recipe</button><button>Cooking focus</button><button class="selected">Edit recipe <small>Current</small></button>
+          </section>
+          <div class="popover more-menu" hidden>
+            <button>Media <small>6</small></button><button>Import info</button><hr><button class="danger">Delete recipe…</button>
+          </div>
+        </div>
+      </div>
+
+      <aside class="test-notes">
+        <h2>What this prototype tests</h2>
+        <ol>
+          <li>Open <strong>Deep Ingredients</strong>.</li>
+          <li>Tap the sticky <strong>Ingredients</strong> header.</li>
+          <li>Tap <strong>Instructions</strong> directly below it.</li>
+        </ol>
+        <p>The transition costs two taps but no long reverse scroll. Section drafts remain intact when collapsed.</p>
+        <p><strong>Not changed:</strong> ingredient rows still open the approved single-item bottom sheet; this iteration does not redesign that sheet.</p>
+      </aside>
+    </section>
+  </main>
+  <script src="script.js"></script>
+</body>
+</html>
