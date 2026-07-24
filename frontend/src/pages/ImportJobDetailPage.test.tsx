@@ -39,9 +39,9 @@ describe("ImportJobDetailPage", () => {
                 startedAt: "2026-07-11T10:00:01Z",
                 finishedAt: "2026-07-11T10:00:05Z",
                 sources: [
-                  { type: "IMAGE", originalName: "recipe.jpg", mediaUrl: "/media/recipe.jpg" },
-                  { type: "URL", url: "https://example.com/recipe" },
-                  { type: "TEXT", text: "Recipe text" },
+                  { id: "source-1", type: "IMAGE", originalName: "recipe.jpg" },
+                  { id: "source-2", type: "URL", url: "https://example.com/recipe" },
+                  { id: "source-3", type: "TEXT", text: "Recipe text" },
                 ],
               },
         ),

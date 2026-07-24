@@ -1,8 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { getImportJob, mediaUrl, retryImportJob } from "../api/client";
-import type { ImportJob } from "../api/types";
-import { AuthenticatedImage } from "../components/AuthenticatedImage";
+import { useMemo } from "react";
+
+import defaultRecipeImage from "../assets/default-recipe.svg";
+import { getImportJob, retryImportJob } from "../api/client";
+import type { ImportJob, MediaReference } from "../api/types";
+import { MediaImage } from "../components/MediaImage";
+import { useMediaAccess } from "../media/useMediaAccess";
 
 const ACTIVE_STATUSES = new Set<ImportJob["status"]>(["queued", "running"]);
 const SUCCESS_STATUSES = new Set<ImportJob["status"]>(["succeeded", "succeeded_with_flags"]);
@@ -55,6 +59,13 @@ export function ImportJobDetailPage({
       queryClient.invalidateQueries({ queryKey: ["internal-import-jobs"] });
     },
   });
+  const imageReferences = useMemo(
+    () => query.data?.sources.flatMap((source) =>
+      source.type === "IMAGE" ? [{ type: "import_source_image", id: source.id } satisfies MediaReference] : [],
+    ) ?? [],
+    [query.data],
+  );
+  const mediaAccess = useMediaAccess(imageReferences);
 
   if (query.isLoading) return <section className="panel">Loading import...</section>;
   if (query.error) return <section className="panel" role="alert">{query.error.message}</section>;
@@ -91,9 +102,9 @@ export function ImportJobDetailPage({
       <h3>Submitted sources</h3>
       <div className="import-source-list">
         {job.sources.length ? job.sources.map((source, index) => {
-          if (source.type === "IMAGE" && source.mediaUrl) {
+          if (source.type === "IMAGE") {
             const label = source.originalName || `Image ${index + 1}`;
-            return <figure key={`${source.type}-${index}`} className="import-source"><AuthenticatedImage src={mediaUrl(source.mediaUrl)} alt={label} /><figcaption>{label}</figcaption></figure>;
+            return <figure key={source.id} className="import-source"><MediaImage grant={mediaAccess.grantFor({ type: "import_source_image", id: source.id })} fallbackSrc={defaultRecipeImage} alt={label} /><figcaption>{label}</figcaption></figure>;
           }
           if (source.type === "URL" && source.url) {
             return <div key={`${source.type}-${index}`} className="import-source"><strong>Link</strong><a href={source.url} target="_blank" rel="noreferrer">{source.url}</a></div>;
