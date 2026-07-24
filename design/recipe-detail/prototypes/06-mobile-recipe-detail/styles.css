@@ -22,6 +22,7 @@ select { min-height:2.5rem; border:1px solid var(--line); background:var(--paper
 .recipe-title-block { min-width:0; }
 .recipe-title-block h1 { margin:0; overflow-wrap:anywhere; font-size:clamp(1.35rem,6vw,1.75rem); line-height:1.15; letter-spacing:-.025em; }
 .source-identity, .cooking-facts { margin:.45rem 0 0; color:var(--muted); font-size:.875rem; overflow-wrap:anywhere; }
+.cooking-facts { display:flex; flex-wrap:wrap; gap:.15rem .35rem; }
 .source-identity span, .cooking-facts span { white-space:nowrap; }
 
 .recipe-actions { display:grid; gap:.5rem; padding:0 1rem 1rem; border-bottom:1px solid var(--line); }
@@ -104,6 +105,7 @@ select { min-height:2.5rem; border:1px solid var(--line); background:var(--paper
 .resource-group small, .resource-row small { color:var(--muted); font-size:.7rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase; }
 .resource-children { border-top:1px solid var(--line); }
 .resource-row { display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; gap:.65rem; padding:.65rem; border-top:1px solid var(--line); }
+.resource-row--no-preview { grid-template-columns:minmax(0,1fr) auto; }
 .resource-row:first-child { border-top:0; }
 .resource-row > div { display:grid; gap:.08rem; min-width:0; }
 .resource-row strong { overflow-wrap:anywhere; font-size:.9rem; }

@@ -54,7 +54,7 @@ function resourceRow(resource, groupId) {
     return `<div class="resource-confirmation" data-resource-id="${resource.id}"><strong>Remove this resource?</strong><p>This resource cannot be restored. Your saved recipe will not change.</p><div><button type="button" data-action="cancel-pending">Cancel</button><button type="button" class="destructive" data-action="confirm-resource" data-resource-id="${resource.id}" data-group-id="${groupId}">Remove resource</button></div></div>`;
   }
   const preview = resource.preview ? `<img class="resource-thumbnail" src="${resource.preview}" alt="">` : '';
-  return `<div class="resource-row" data-resource-id="${resource.id}">${preview}<div><small>${resource.type}</small><strong>${resource.label}</strong><span>${resource.currentCover ? 'Kept as cover' : resource.status}</span></div><button type="button" class="icon-button destructive-icon" data-action="remove-resource" data-resource-id="${resource.id}" data-group-id="${groupId}" aria-label="${buttonLabelForResource(resource)}">&#128465;</button></div>`;
+  return `<div class="resource-row${preview ? '' : ' resource-row--no-preview'}" data-resource-id="${resource.id}">${preview}<div><small>${resource.type}</small><strong>${resource.label}</strong><span>${resource.currentCover ? 'Kept as cover' : resource.status}</span></div><button type="button" class="icon-button destructive-icon" data-action="remove-resource" data-resource-id="${resource.id}" data-group-id="${groupId}" aria-label="${buttonLabelForResource(resource)}">&#128465;</button></div>`;
 }
 
 function renderResourceGroup(group) {
@@ -109,7 +109,8 @@ function openLayer(type, trigger, details) {
   requestAnimationFrame(() => {
     const body = layerRoot.querySelector('.sheet-body');
     if (body && type in state.panelScroll) body.scrollTop = state.panelScroll[type];
-    (layerRoot.querySelector(type === 'delete-recipe' ? '.delete-recipe-sheet [data-action="confirm-delete-recipe"]' : '.bottom-sheet [data-action="close-layer"]') || layerRoot.querySelector('.bottom-sheet')).focus();
+    const focusTarget = layerRoot.querySelector(type === 'delete-recipe' ? '.delete-recipe-sheet [data-action="confirm-delete-recipe"]' : '.bottom-sheet [data-action="close-layer"]') || layerRoot.querySelector('.bottom-sheet');
+    if (focusTarget) focusTarget.focus();
   });
 }
 
@@ -121,7 +122,10 @@ function closeLayer(returnFocus = true) {
   state.deleteError = false;
   prototypeRoot.inert = false;
   renderLayer();
-  if (returnFocus && state.layerTrigger) requestAnimationFrame(() => state.layerTrigger.focus());
+  const returnTarget = state.layerTrigger;
+  if (returnFocus && returnTarget) requestAnimationFrame(() => {
+    if (returnTarget.isConnected) returnTarget.focus();
+  });
 }
 
 function startSheetGesture(event) {
@@ -205,8 +209,8 @@ function visibleMetadata(values, key, limit = 2) {
 function renderMetadata(recipe) {
   return `<section class="secondary-metadata" aria-label="Recipe metadata">
     <div class="metadata-row" data-metadata="difficulty-rating">
-      <span class="metadata-label">Difficulty</span>
-      <div class="metadata-values"><span>${recipe.difficulty}</span><span>Personal rating ${recipe.rating}</span></div>
+      <span class="metadata-label">Difficulty · rating</span>
+      <div class="metadata-values"><span>${recipe.difficulty} · ${recipe.rating}</span></div>
     </div>
     <div class="metadata-row" data-metadata="collections">
       <span class="metadata-label">Collections</span>
@@ -301,7 +305,7 @@ function renderFocus(recipe) {
       </section>`;
 
   return `<article class="product-surface recipe-detail focus-recipe" data-product-surface>
-    <header class="focus-header"><h1>${recipe.title}</h1><p class="cooking-facts"><span>${recipe.time}</span><span aria-hidden="true">Â·</span><span>Serves ${recipe.servings}</span></p></header>
+    <header class="focus-header"><h1>${recipe.title}</h1><p class="cooking-facts"><span>${recipe.time}</span><span aria-hidden="true">·</span><span>Serves ${recipe.servings}</span></p></header>
     ${renderMainActions('focus')}
     <main class="focus-reading-content">
       <div class="focus-switch" role="tablist" aria-label="Focus section">
