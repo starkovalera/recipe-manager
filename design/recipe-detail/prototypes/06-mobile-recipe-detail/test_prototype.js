@@ -48,7 +48,7 @@ async function close(server, browser) {
     server = await startStaticServer();
     const address = server.address();
     browser = await chromium.launch({ headless: true, executablePath: edgePath });
-    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    const page = await browser.newPage();
     const pageErrors = [];
     const consoleErrors = [];
     page.on('pageerror', error => pageErrors.push(error.message));
@@ -56,10 +56,21 @@ async function close(server, browser) {
       if (message.type() === 'error') consoleErrors.push(message.text());
     });
 
-    await page.goto(`http://127.0.0.1:${address.port}/index.html`, { waitUntil: 'networkidle' });
-    await page.locator('#prototype-root [data-product-surface]').waitFor({ timeout: 1_000 });
-    assert.equal(await page.locator('#scenario-select option').count(), 9, 'the evaluation toolbar exposes exactly nine scenarios');
-    assert.equal(await page.locator('#live-region[aria-live="polite"]').count(), 1, 'the polite live region is present');
+    const viewports = [
+      { width: 360, height: 800 },
+      { width: 390, height: 844 },
+      { width: 430, height: 900 }
+    ];
+    for (const viewport of viewports) {
+      await page.setViewportSize(viewport);
+      await page.goto(`http://127.0.0.1:${address.port}/index.html`, { waitUntil: 'networkidle' });
+      await page.locator('#prototype-root [data-product-surface]').waitFor({ timeout: 1_000 });
+      assert.equal(await page.locator('#scenario-select option').count(), 9, `${viewport.width}px exposes exactly nine scenarios`);
+      assert.equal(await page.locator('#live-region[aria-live="polite"]').count(), 1, `${viewport.width}px includes the polite live region`);
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), true, `${viewport.width}px has no horizontal overflow`);
+      assert.deepEqual(pageErrors, [], `${viewport.width}px page errors: ${pageErrors.join(' | ')}`);
+      assert.deepEqual(consoleErrors, [], `${viewport.width}px console errors: ${consoleErrors.join(' | ')}`);
+    }
     assert.deepEqual(pageErrors, [], `page errors: ${pageErrors.join(' | ')}`);
     assert.deepEqual(consoleErrors, [], `console errors: ${consoleErrors.join(' | ')}`);
     console.log('TASK_1_MOBILE_RECIPE_DETAIL_SMOKE_PASS');
