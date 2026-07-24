@@ -252,6 +252,9 @@ Include:
 - manual smoke procedures;
 - git branch and PR expectations;
 - completion-report format;
+- mandatory Codex self-audit of diff scope, all changed files, automated commands, legacy searches, boundaries, security invariants, and documentation;
+- a compact key human review map so the owner can inspect only critical decisions;
+- explicit separation between agent-run automated verification and owner-run manual/external verification;
 - explicit prohibition on changing approved decisions or merging the PR.
 
 The worker may adapt exact internal file names to current conventions, but may not change behavior or scope.
@@ -260,26 +263,37 @@ The worker may adapt exact internal file names to current conventions, but may n
 
 Write this file for the user, normally in Russian unless the user requests otherwise.
 
+Separate responsibilities explicitly. The implementation Codex worker owns all mechanical and repository-wide verification: full diff/file audit, automated tests, grep/search checks, architecture-boundary checks, classification of every suspicious match, and a compact map of the key files for human review. The owner should not be asked to scan dozens of files or manually reproduce declarative checks that the agent can execute.
+
+The owner owns:
+
+- external credentials, accounts, cloud-console actions, keys, test buckets, tunnels, and other work outside the agent environment;
+- concrete browser/device/manual smoke scenarios;
+- product behavior and visual verification;
+- a small set of critical architecture/API/security points in the diff;
+- review of verification gaps and merge risk;
+- final merge and after-merge cleanup.
+
 Include:
 
-- what to check before launching Codex;
+- what the owner must prepare before launching Codex;
 - branch/base preparation;
 - which instruction file to provide;
 - architecture stop-signs during execution;
-- expected and suspicious diff areas;
-- backend review checklist;
-- frontend review checklist;
-- infrastructure/gateway review where applicable;
-- documentation/comment review;
-- exact automated commands to rerun independently;
-- grep/search checks for removed legacy behavior and leaked secrets;
-- detailed manual smoke scenarios;
-- security and lifecycle edge cases;
+- the exact self-audit report Codex must produce;
+- automated commands Codex must run, with required evidence and pass counts;
+- automated grep/search and diff checks Codex must classify itself;
+- a required 6–10 item key human review map with exact paths/functions/line ranges;
+- only the critical diff decisions the owner should inspect;
+- concrete external prerequisites the owner must provide;
+- detailed step-by-step manual smoke procedures with exact startup commands, terminal separation, test-data creation, browser actions, expected results, and shutdown commands;
+- manual security scenarios that cannot be replaced by repository tests;
+- explicit edge cases that remain automated-only so the owner is not asked to mutate the database manually;
 - PR-body checklist;
-- merge blockers;
+- verification gaps and merge blockers;
 - after-merge cleanup and roadmap updates.
 
-Never reduce this to “run tests and review the PR.”
+Do not tell the owner to “review all changed files,” manually classify every grep result, or independently rerun the entire automated suite unless the user explicitly requests that duplication. Never reduce the runbook to “run tests and review the PR.”
 
 ## Design/spec documents
 
