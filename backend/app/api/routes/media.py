@@ -1,27 +1,37 @@
+from pathlib import Path
+
 from fastapi import APIRouter
 from fastapi.responses import FileResponse
 
-from app.core.errors import MediaAccessNotAvailableError, StorageNotFoundError
-from app.storage.constants import StorageLocation
-from app.storage.local import LocalStorageService
-from app.storage.runtime import get_storage_service
+from app.api.deps import CurrentUserDep, SessionDep
+from app.media.access.constants import MediaReferenceType
+from app.media.access.runtime import get_download_access_provider
+from app.media.access.service import MediaAccessService
+from app.schemas.media import MediaAccessRequest, MediaAccessResponse, MediaReferenceIn
 
-router = APIRouter(tags=["media"])
-
-
-def _get_local_media(storage_key: str) -> FileResponse:
-    storage = get_storage_service()
-    if not isinstance(storage, LocalStorageService):
-        raise MediaAccessNotAvailableError()
-    try:
-        path = storage.path_for_response(StorageLocation.USER_MEDIA, storage_key)
-    except ValueError as error:
-        raise StorageNotFoundError() from error
-    if not path.exists() or not path.is_file():
-        raise StorageNotFoundError()
-    return FileResponse(path)
+router = APIRouter(prefix="/media", tags=["media"])
 
 
-@router.get("/media/{namespace}/{kind}/{owner_id}/{entity_id}/{object_name}")
-def get_media(namespace: str, kind: str, owner_id: str, entity_id: str, object_name: str) -> FileResponse:
-    return _get_local_media("/".join((namespace, kind, owner_id, entity_id, object_name)))
+@router.post("/access", response_model=MediaAccessResponse)
+def create_media_access(
+    request: MediaAccessRequest,
+    session: SessionDep,
+    current_user: CurrentUserDep,
+) -> MediaAccessResponse:
+    service = MediaAccessService(session, get_download_access_provider())
+    return MediaAccessResponse(items=service.create_grants(current_user.id, request.items))
+
+
+@router.get("/{media_type}/{media_id}", response_class=FileResponse)
+def get_media(
+    media_type: MediaReferenceType,
+    media_id: str,
+    session: SessionDep,
+    current_user: CurrentUserDep,
+) -> FileResponse:
+    service = MediaAccessService(session, get_download_access_provider())
+    path, content_type = service.get_local_media(
+        current_user.id,
+        MediaReferenceIn(type=media_type, id=media_id),
+    )
+    return FileResponse(Path(path), media_type=content_type)

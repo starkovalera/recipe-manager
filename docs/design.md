@@ -203,9 +203,11 @@ Can be part of `PATCH /recipes/{recipeId}`. The note is plain user text, trimmed
 
 ### Media
 
-- `GET /media/{storageKey}`
-  - Serves local files through backend.
-  - Future cloud version can redirect to signed URLs without changing recipe payloads.
+- `POST /media/access`
+  - Resolves stable recipe-image/import-source IDs to provider-specific download grants.
+  - Preserves partial success without exposing storage keys.
+- `GET /media/{mediaType}/{mediaId}`
+  - Authenticates and re-resolves LOCAL media by domain ID; it never accepts a storage key.
 
 ### Review Flags
 
@@ -323,7 +325,7 @@ Define a storage service interface:
 - `save(bytes, original_name, mime_type) -> storage_key, size`
 - `read(storage_key) -> bytes`
 - `delete(storage_key)`
-- `url_or_response(storage_key)` for media serving implementation details.
+- a download-access provider for LOCAL authenticated retrieval or S3 presigned GET grants.
 
 The first implementation is local filesystem storage. `S3` is the required production provider value, but its adapter is implemented in a later production iteration. Database rows store storage keys only.
 
@@ -353,7 +355,7 @@ TanStack Query usage:
 - `invalidateQueries` for recipe lists after import success or recipe edits.
 - `useQuery` for recipe detail and list pages.
 
-Frontend should not know storage internals. It renders media URLs returned or constructed from backend API routes.
+Frontend does not know storage internals. It batches stable media references, then follows each temporary grant's `accessMode`.
 
 ## Testing Strategy
 

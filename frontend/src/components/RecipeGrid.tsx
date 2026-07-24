@@ -1,15 +1,18 @@
+import { useMemo } from "react";
+
 import defaultRecipeImage from "../assets/default-recipe.svg";
-import { mediaUrl } from "../api/client";
-import type { RecipeList } from "../api/types";
-import { AuthenticatedImage } from "./AuthenticatedImage";
+import type { MediaReference, RecipeList } from "../api/types";
+import { useMediaAccess } from "../media/useMediaAccess";
+import { MediaImage } from "./MediaImage";
 
 type RecipeListItem = RecipeList["items"][number];
 
-export function getRecipePreviewUrl(recipe: RecipeListItem): string {
-  return recipe.coverImage ? mediaUrl(recipe.coverImage.mediaUrl) : defaultRecipeImage;
-}
-
 export function RecipeGrid({ recipes, onSelect }: { recipes: RecipeListItem[]; onSelect: (recipeId: string) => void }) {
+  const references = useMemo(
+    () => recipes.flatMap((recipe) => recipe.coverImage ? [{ type: "recipe_image", id: recipe.coverImage.id } satisfies MediaReference] : []),
+    [recipes],
+  );
+  const mediaAccess = useMediaAccess(references);
   if (recipes.length === 0) {
     return <p>No recipes yet.</p>;
   }
@@ -23,7 +26,11 @@ export function RecipeGrid({ recipes, onSelect }: { recipes: RecipeListItem[]; o
               !
             </span>
           ) : null}
-          <AuthenticatedImage src={getRecipePreviewUrl(recipe)} alt={`${recipe.title} cover`} />
+          <MediaImage
+            grant={recipe.coverImage ? mediaAccess.grantFor({ type: "recipe_image", id: recipe.coverImage.id }) : undefined}
+            fallbackSrc={defaultRecipeImage}
+            alt={`${recipe.title} cover`}
+          />
           <span>{recipe.title}</span>
         </button>
       ))}

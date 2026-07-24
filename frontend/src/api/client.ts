@@ -13,6 +13,8 @@ import type {
   InternalImportJobList,
   InternalRecipeEmbeddingList,
   Notification,
+  MediaAccessResponse,
+  MediaReference,
   NotificationList,
   NotificationsMarkAllReadResult,
   RecipeDetail,
@@ -53,14 +55,6 @@ function writeApiLog(level: "info" | "error", message: string, meta: Record<stri
       body: JSON.stringify({ level, message, meta }),
     }).catch(() => undefined);
   }
-}
-
-export function mediaUrl(url: string): string {
-  return url.startsWith("http://") || url.startsWith("https://") ? url : `${API_BASE_URL}${url}`;
-}
-
-export function isApiMediaUrl(url: string): boolean {
-  return url.startsWith("/media/") || url.startsWith(`${API_BASE_URL}/media/`);
 }
 
 export class ApiError extends Error {
@@ -128,13 +122,21 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return performRequest(path, init, parseResponse<T>);
 }
 
-export async function getMediaBlob(url: string): Promise<Blob> {
+export async function fetchAuthenticatedMedia(url: string): Promise<Blob> {
   const path = url.startsWith(API_BASE_URL) ? url.slice(API_BASE_URL.length) : url;
   return performRequest(path, {}, async (response) => {
     if (!response.ok) {
       return parseResponse<never>(response);
     }
     return response.blob();
+  });
+}
+
+export async function requestMediaAccess(items: MediaReference[]): Promise<MediaAccessResponse> {
+  return request<MediaAccessResponse>("/media/access", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ items }),
   });
 }
 

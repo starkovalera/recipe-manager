@@ -53,7 +53,7 @@ Use this checklist after the automated gateway checks pass.
 
 ## Media
 
-- [ ] Images load from `http://127.0.0.1:8081/media/...`.
+- [ ] `POST http://127.0.0.1:8081/media/access` returns LOCAL grants and images load from authenticated `http://127.0.0.1:8081/media/{media_type}/{media_id}` requests.
 - [ ] Missing media preserves the backend `404` response.
 - [ ] Media response `Content-Type` is correct.
 

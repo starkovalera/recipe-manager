@@ -83,7 +83,7 @@ def test_sqs_send_message_calls_stay_in_sqs_adapter():
 
 def test_boto3_imports_stay_in_aws_adapters():
     violations: list[str] = []
-    allowed_modules = {"queueing/sqs.py", "storage/s3.py"}
+    allowed_modules = {"media/access/s3.py", "queueing/sqs.py", "storage/s3.py"}
 
     for path in APP_ROOT.rglob("*.py"):
         relative_path = path.relative_to(APP_ROOT).as_posix()

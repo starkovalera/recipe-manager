@@ -9,14 +9,14 @@ import {
   getRecipe,
   listCollections,
   listTags,
-  mediaUrl,
   patchRecipe,
   patchRecipeResource,
   patchReviewFlag,
   removeRecipeFromCollection,
 } from "../api/client";
-import type { RecipeDetail, RecipeImage, RecipeResource, ReviewFlag, Tag } from "../api/types";
-import { AuthenticatedImage } from "../components/AuthenticatedImage";
+import type { MediaReference, RecipeDetail, RecipeImage, RecipeResource, ReviewFlag, Tag } from "../api/types";
+import { MediaImage } from "../components/MediaImage";
+import { useMediaAccess } from "../media/useMediaAccess";
 
 type CoverChoice = { kind: "DEFAULT" | "IMAGE"; imageId?: string | null };
 type EditableIngredient = { id?: string; name: string; quantity: string; unit: string; note: string };
@@ -59,10 +59,6 @@ function reviewMessages(flags: ReviewFlag[]): string[] {
   if (hasIgnored) messages.push("some sources were ignored");
   if (messages.length === 0) messages.push("the imported result needs review");
   return messages;
-}
-
-function imageUrl(image: RecipeImage | null | undefined): string {
-  return image ? mediaUrl(image.mediaUrl) : defaultRecipeImage;
 }
 
 function sourceImageForOption(resources: RecipeResource[], imageId: string | null | undefined): RecipeResource | undefined {
@@ -126,7 +122,7 @@ export function RecipeDetailPage({ recipeId, onDeleted }: { recipeId: string; on
   const [instructions, setInstructions] = useState("");
   const [note, setNote] = useState("");
   const [coverChoice, setCoverChoice] = useState<CoverChoice | null>(null);
-  const [previewImage, setPreviewImage] = useState<{ label: string; url: string } | null>(null);
+  const [previewImage, setPreviewImage] = useState<{ label: string; image: RecipeImage | null } | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -156,6 +152,13 @@ export function RecipeDetailPage({ recipeId, onDeleted }: { recipeId: string; on
     () => recipe?.resources.find((source) => source.type === "URL" && !source.parentResourceId) ?? null,
     [recipe],
   );
+  const imageReferences = useMemo(
+    () => recipe?.coverOptions.flatMap((option) =>
+      option.image ? [{ type: "recipe_image", id: option.image.id } satisfies MediaReference] : [],
+    ) ?? [],
+    [recipe],
+  );
+  const mediaAccess = useMediaAccess(imageReferences);
 
   const saveMutation = useMutation({
     mutationFn: () => {
@@ -281,9 +284,10 @@ export function RecipeDetailPage({ recipeId, onDeleted }: { recipeId: string; on
               </div>
               <h2>{recipe.title}</h2>
             </div>
-            <AuthenticatedImage
+            <MediaImage
               className="hero-cover"
-              src={recipe.coverImage ? mediaUrl(recipe.coverImage.mediaUrl) : defaultRecipeImage}
+              grant={recipe.coverImage ? mediaAccess.grantFor({ type: "recipe_image", id: recipe.coverImage.id }) : undefined}
+              fallbackSrc={defaultRecipeImage}
               alt={`${recipe.title} cover`}
             />
           </div>
@@ -523,9 +527,13 @@ export function RecipeDetailPage({ recipeId, onDeleted }: { recipeId: string; on
                       className="source-image-preview"
                       type="button"
                       aria-label={`Open ${option.label}`}
-                      onClick={() => setPreviewImage({ label: option.label, url: imageUrl(optionImage) })}
+                      onClick={() => setPreviewImage({ label: option.label, image: optionImage })}
                     >
-                      <AuthenticatedImage src={imageUrl(optionImage)} alt={option.label} />
+                      <MediaImage
+                        grant={optionImage ? mediaAccess.grantFor({ type: "recipe_image", id: optionImage.id }) : undefined}
+                        fallbackSrc={defaultRecipeImage}
+                        alt={option.label}
+                      />
                     </button>
                     <div className="source-image-meta">
                       <strong>{option.label}</strong>
@@ -566,7 +574,11 @@ export function RecipeDetailPage({ recipeId, onDeleted }: { recipeId: string; on
             <div className="image-modal-backdrop" role="presentation" onClick={() => setPreviewImage(null)}>
               <div className="image-modal" role="dialog" aria-label={previewImage.label} onClick={(event) => event.stopPropagation()}>
                 <button type="button" onClick={() => setPreviewImage(null)}>Close</button>
-                <AuthenticatedImage src={previewImage.url} alt={previewImage.label} />
+                <MediaImage
+                  grant={previewImage.image ? mediaAccess.grantFor({ type: "recipe_image", id: previewImage.image.id }) : undefined}
+                  fallbackSrc={defaultRecipeImage}
+                  alt={previewImage.label}
+                />
               </div>
             </div>
           ) : null}
