@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 110" role="img" aria-labelledby="t d">
+  <title id="t">Finished traybake</title><desc id="d">Low fidelity illustration of a dark roasting tray with tomatoes, beans, and aubergine.</desc>
+  <rect width="160" height="110" fill="#e8e1d2"/><rect x="15" y="18" width="130" height="76" rx="5" fill="#48555c"/>
+  <g fill="#b64b3d"><circle cx="42" cy="40" r="10"/><circle cx="112" cy="67" r="11"/><circle cx="81" cy="45" r="8"/></g>
+  <g fill="#8f784b"><ellipse cx="60" cy="70" rx="18" ry="9"/><ellipse cx="115" cy="37" rx="17" ry="8"/></g>
+  <g fill="#d9c79f"><circle cx="39" cy="73" r="6"/><circle cx="87" cy="75" r="6"/><circle cx="99" cy="51" r="5"/></g>
+</svg>
