@@ -7,9 +7,12 @@ This is the complete isolated mobile-first Recipe Detail prototype for reviewing
 - sequential Default View with bounded long content;
 - Cooking Focus with Ingredients and Instructions tabs;
 - compact Tags and Collections disclosure;
-- Media and Import Info in one shared bottom-sheet slot;
+- a persistent Media-only bottom sheet and a separate Import Info destination opened from overflow;
+- a Media entry for manual recipes even when the media list is empty, with a path to Manage Media;
+- a full-width mobile review-status strip when unresolved import flags exist;
+- matching accessible review-state dots on Overflow and its Import Info item until all flags are reviewed;
 - grouped primary and derived import resources, Ignored resources, and inline irreversible removal confirmations;
-- overflow and blocking recipe-deletion confirmation;
+- overflow with View / Focus / Edit first, conditional Import Info, Export, and blocking recipe-deletion confirmation;
 - normal, flagged, manual, no-cover, dense, long, loading, failed, and missing scenarios;
 - User and Debug role differences and mock delete success/failure.
 

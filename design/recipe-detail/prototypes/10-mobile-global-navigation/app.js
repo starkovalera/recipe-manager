@@ -9,6 +9,7 @@ const state = {
 };
 
 const prototypeRoot = document.querySelector('#prototype-root');
+const globalNavRoot = document.querySelector('#global-nav-root');
 const layerRoot = document.querySelector('#layer-root');
 const scenarioSelect = document.querySelector('#scenario-select');
 const contextSelect = document.querySelector('#context-select');
@@ -34,6 +35,13 @@ function renderSheetFrame(title, body, type) {
       <header class="sheet-heading"><h2 id="sheet-title">${title}</h2><button type="button" data-action="close-layer" aria-label="Close">&times;</button></header>
       <div class="sheet-body" tabindex="-1">${body}</div>
     </section>`;
+}
+
+function renderAddSheet() {
+  return renderSheetFrame('Add recipe', `<div class="add-choices">
+    <button type="button" data-action="start-import"><span class="choice-icon" aria-hidden="true">&#8681;</span><span><strong>Import recipe</strong><small>Use a link, images, or text</small></span></button>
+    <button type="button" data-action="start-manual"><span class="choice-icon" aria-hidden="true">+</span><span><strong>Create manually</strong><small>Start with an empty recipe</small></span></button>
+  </div>`, 'add');
 }
 
 function renderMediaSheet() {
@@ -117,7 +125,7 @@ function renderOverflow() {
 function renderLayer() {
   if (!state.layer) { layerRoot.replaceChildren(); return; }
   const type = state.layer.type;
-  layerRoot.innerHTML = type === 'media' ? renderMediaSheet() : type === 'import' ? renderImportSheet() : type === 'disclosure' ? renderDisclosureSheet(state.layer.details) : type === 'overflow' ? renderOverflow() : renderDeleteRecipeSheet();
+  layerRoot.innerHTML = type === 'media' ? renderMediaSheet() : type === 'import' ? renderImportSheet() : type === 'disclosure' ? renderDisclosureSheet(state.layer.details) : type === 'overflow' ? renderOverflow() : type === 'add' ? renderAddSheet() : renderDeleteRecipeSheet();
 }
 
 function openLayer(type, trigger, details) {
@@ -125,6 +133,8 @@ function openLayer(type, trigger, details) {
   state.layer = { type, details };
   state.layerTrigger = trigger || null;
   state.deleteError = false;
+  globalNavRoot.inert = true;
+  globalNavRoot.querySelector('nav')?.setAttribute('aria-hidden', 'true');
   if (type === 'delete-recipe') prototypeRoot.inert = true;
   renderLayer();
   requestAnimationFrame(() => {
@@ -142,6 +152,8 @@ function closeLayer(returnFocus = true) {
   state.layer = null;
   state.deleteError = false;
   prototypeRoot.inert = false;
+  globalNavRoot.inert = false;
+  globalNavRoot.querySelector('nav')?.removeAttribute('aria-hidden');
   renderLayer();
   const returnTarget = state.layerTrigger;
   if (returnFocus && returnTarget) requestAnimationFrame(() => {
@@ -348,9 +360,29 @@ function renderFocus(recipe) {
 }
 
 function renderDestination() {
-  return `<section class="product-surface state-panel recipes-destination" data-product-surface>
-    <p class="eyebrow">Recipe library</p><h1>Recipes</h1><p>You are back at the mock Recipes destination.</p>
-  </section>`;
+  if (state.destination === 'collections') return `<section class="product-surface state-panel" data-product-surface><p class="eyebrow">Recipe library</p><h1>Collections</h1><p>Browse and organize recipe collections.</p></section>`;
+  if (state.destination === 'notifications') return `<section class="product-surface state-panel" data-product-surface><p class="eyebrow">Updates</p><h1>Notifications</h1><p>Import progress and recipe activity appear here.</p></section>`;
+  if (state.destination === 'profile') return `<section class="product-surface state-panel profile-destination" data-product-surface><p class="eyebrow">Account</p><h1>Profile</h1><p>Account and application preferences.</p><div class="profile-actions"><button type="button">Preferences</button>${state.role === 'admin' ? '<button type="button" data-action="administration">Administration</button>' : ''}</div></section>`;
+  if (state.destination === 'import-create' || state.destination === 'manual-create') {
+    const importing = state.destination === 'import-create';
+    return `<section class="product-surface state-panel creation-destination" data-product-surface><p class="eyebrow">Focused creation flow</p><h1>${importing ? 'Import recipe' : 'Create recipe manually'}</h1><p>${importing ? 'Choose a link, images, or text in the complete import flow.' : 'Begin with an empty recipe draft in the complete manual flow.'}</p><button type="button" data-action="close-create-flow">Cancel</button></section>`;
+  }
+  return `<section class="product-surface state-panel recipes-destination" data-product-surface><p class="eyebrow">Recipe library</p><h1>Recipes</h1><p>You are back at the mock Recipes destination.</p></section>`;
+}
+
+function renderGlobalNavigation() {
+  if (state.destination === 'import-create' || state.destination === 'manual-create') {
+    globalNavRoot.replaceChildren();
+    return;
+  }
+  const current = ['collections', 'notifications', 'profile'].includes(state.destination) ? state.destination : 'recipes';
+  globalNavRoot.innerHTML = `<nav class="global-navigation" aria-label="Main navigation">
+    <button type="button" data-destination="recipes"${current === 'recipes' ? ' aria-current="page"' : ''}><span aria-hidden="true">&#9776;</span><span>Recipes</span></button>
+    <button type="button" data-destination="collections"${current === 'collections' ? ' aria-current="page"' : ''}><span aria-hidden="true">&#9638;</span><span>Collections</span></button>
+    <button type="button" class="global-add" data-action="add-recipe" aria-label="Add recipe"><span aria-hidden="true">+</span></button>
+    <button type="button" data-destination="notifications"${current === 'notifications' ? ' aria-current="page"' : ''}><span class="nav-icon-with-badge" aria-hidden="true">&#9679;<small>3</small></span><span>Notifications</span></button>
+    <button type="button" data-destination="profile"${current === 'profile' ? ' aria-current="page"' : ''}><span aria-hidden="true">&#9675;</span><span>Profile</span></button>
+  </nav>`;
 }
 
 function renderStatePanel(scenario) {
@@ -372,11 +404,12 @@ function syncMobileHeader() {
 
 function render() {
   const scenario = currentScenario();
-  prototypeRoot.innerHTML = state.destination === 'recipes'
+  prototypeRoot.innerHTML = state.destination
     ? renderDestination()
     : scenario.state === 'ready'
       ? state.context === 'focus' ? renderFocus(scenario.recipe) : renderDefault(scenario.recipe)
       : renderStatePanel(scenario);
+  renderGlobalNavigation();
   renderLayer();
 }
 
@@ -433,9 +466,24 @@ prototypeRoot.addEventListener('click', event => {
     openLayer('import', action);
   } else if (action.dataset.action === 'overflow') {
     openLayer('overflow', action);
+  } else if (action.dataset.action === 'close-create-flow') {
+    state.destination = null;
+    render();
   } else if (action.dataset.disclosure) {
     openLayer('disclosure', action, action.dataset.disclosure);
   }
+});
+
+globalNavRoot.addEventListener('click', event => {
+  const control = event.target.closest('[data-destination], [data-action]');
+  if (!control) return;
+  if (control.dataset.action === 'add-recipe') {
+    openLayer('add', control);
+    return;
+  }
+  state.destination = control.dataset.destination === 'recipes' ? null : control.dataset.destination;
+  window.scrollTo(0, 0);
+  render();
 });
 
 layerRoot.addEventListener('click', event => {
@@ -454,6 +502,10 @@ layerRoot.addEventListener('click', event => {
     openLayer('import', trigger);
   } else if (action.dataset.action === 'close-layer') {
     closeLayer();
+  } else if (action.dataset.action === 'start-import' || action.dataset.action === 'start-manual') {
+    state.destination = action.dataset.action === 'start-import' ? 'import-create' : 'manual-create';
+    closeLayer(false);
+    render();
   } else if (action.dataset.action === 'select-media') {
     state.selectedMedia = Number(action.dataset.mediaIndex);
     renderLayer();
@@ -500,7 +552,7 @@ layerRoot.addEventListener('click', event => {
     if (state.deleteResult === 'failure') {
       state.deleteError = true;
       renderLayer();
-      requestAnimationFrame(() => layerRoot.querySelector('[data-action="confirm-delete-recipe"]').focus());
+      requestAnimationFrame(() => layerRoot.querySelector('[data-action="confirm-delete-recipe"]')?.focus());
     } else {
       state.destination = 'recipes';
       closeLayer(false);

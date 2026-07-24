@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Recipe Detail — Approved Design Gallery</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">Recipe Manager · design archive</p>
+      <h1>Approved Recipe Detail decisions</h1>
+      <p class="intro">A persistent overview of the currently approved structure. Open any image to inspect it at full size. New decisions are added; superseded versions remain available in the history section.</p>
+    </div>
+    <dl class="summary">
+      <div><dt>Current phase</dt><dd>Global mobile shell + Edit Mode structure</dd></div>
+      <div><dt>Approved views</dt><dd>Product-wide mobile shell + Recipe Detail + 6 Edit decisions</dd></div>
+      <div><dt>Last updated</dt><dd>24 July 2026</dd></div>
+    </dl>
+  </header>
+
+  <nav class="section-nav" aria-label="Gallery sections">
+    <a href="#mobile-shell">Global Mobile Shell</a>
+    <a href="#recipe-detail">Recipe Detail foundation</a>
+    <a href="#edit-mode">Edit Mode</a>
+    <a href="#history">History</a>
+  </nav>
+
+  <main>
+    <section id="mobile-shell" class="gallery-section">
+      <div class="section-heading">
+        <div><p class="eyebrow">Approved product-wide default</p><h2>Global Mobile Shell</h2></div>
+        <a class="text-link" href="../10-mobile-global-navigation/index.html">Open interactive mobile prototype</a>
+      </div>
+
+      <div class="gallery-grid">
+        <article class="decision-card featured">
+          <a class="image-link" href="../../screenshots/mobile-shell/mobile-header-expanded-compact-approved.png">
+            <img src="../../screenshots/mobile-shell/mobile-header-expanded-compact-approved.png" alt="Approved expanded and compact mobile top bar for nested detail screens">
+          </a>
+          <div class="card-copy"><span class="status">Approved · all mobile screens</span><h3>Hierarchy-aware top bar</h3><p>Root screens use title and contextual actions without Back. Nested screens use Back; after scroll they collapse to Back, a truncated title, and essential utilities. Recipe Detail adds identity and local modes only in its expanded state.</p><p><a href="../../decisions/11-global-mobile-shell.md">Read the complete mobile-shell contract</a></p></div>
+        </article>
+
+        <article class="decision-card">
+          <a class="image-link" href="../../screenshots/10-mobile-global-navigation/global-navigation-recipe-detail-390x844.png">
+            <img src="../../screenshots/10-mobile-global-navigation/global-navigation-recipe-detail-390x844.png" alt="Approved mobile Recipe Detail with fixed global application navigation">
+          </a>
+          <div class="card-copy"><span class="status">Approved</span><h3>Fixed global destinations</h3><p>Recipes, Collections, Notifications, and Profile surround a distinct central Add action. Recipe Detail stays inside Recipes; Admin stays inside Profile.</p></div>
+        </article>
+
+        <article class="decision-card">
+          <a class="image-link" href="../../screenshots/10-mobile-global-navigation/global-navigation-add-chooser-390x844.png">
+            <img src="../../screenshots/10-mobile-global-navigation/global-navigation-add-chooser-390x844.png" alt="Approved Add bottom sheet covering the mobile global navigation">
+          </a>
+          <div class="card-copy"><span class="status">Approved</span><h3>One modal layer above navigation</h3><p>Add, Media, Overflow, Import Info, disclosures, and confirmations fully cover and disable the global bar. Sheets replace one another rather than stacking.</p></div>
+        </article>
+      </div>
+    </section>
+
+    <section id="recipe-detail" class="gallery-section">
+      <div class="section-heading">
+        <div><p class="eyebrow">Approved foundation</p><h2>Recipe Detail</h2></div>
+        <a class="text-link" href="../05-main-actions-and-responsive-panels/index.html">Open interactive prototype</a>
+      </div>
+
+      <div class="gallery-grid foundation-grid">
+        <article class="decision-card featured">
+          <a class="image-link" href="../../screenshots/05-main-actions-and-responsive-panels/desktop-approved-b-main-actions-1440x900.png">
+            <img src="../../screenshots/05-main-actions-and-responsive-panels/desktop-approved-b-main-actions-1440x900.png" alt="Approved desktop Recipe Detail header and main actions">
+          </a>
+          <div class="card-copy"><span class="status">Approved</span><h3>Compact header and corrected-B actions</h3><p>The horizontal action row starts at the cover edge. View, Focus, and Edit form one group; Media, Import info, and overflow form another.</p></div>
+        </article>
+
+        <article class="decision-card">
+          <a class="image-link" href="../../screenshots/05-main-actions-and-responsive-panels/desktop-import-ignored-and-cascade-1440x900.png">
+            <img src="../../screenshots/05-main-actions-and-responsive-panels/desktop-import-ignored-and-cascade-1440x900.png" alt="Approved Import Info resource hierarchy and cascade confirmation">
+          </a>
+          <div class="card-copy"><span class="status">Approved</span><h3>Import resources and removal</h3><p>Resources are grouped beneath their primary source. Ignored resources are conditional; confirmations remain next to the affected source or child.</p></div>
+        </article>
+      </div>
+    </section>
+
+    <section id="edit-mode" class="gallery-section">
+      <div class="section-heading">
+        <div><p class="eyebrow">Current work</p><h2>Edit Mode</h2></div>
+        <a class="text-link" href="../../decisions/07-edit-mode-current-decisions.md">Read current decisions</a>
+      </div>
+
+      <div class="gallery-grid">
+        <article class="decision-card">
+          <a class="image-link" href="../../screenshots/edit-mode/01-desktop-edit-layout-current-v3.png"><img src="../../screenshots/edit-mode/01-desktop-edit-layout-current-v3.png" alt="Current approved desktop Edit Mode with a left section rail and ingredient rows without notes"></a>
+          <div class="card-copy"><span class="status">Approved · option B</span><h3>Desktop: left section rail</h3><p>One long editing page with wide sections, persistent section counts and validation state, and explicit global Save changes / Cancel.</p></div>
+        </article>
+
+        <article class="decision-card">
+          <a class="image-link" href="../../screenshots/edit-mode/02-mobile-navigation-current-v3.png"><img src="../../screenshots/edit-mode/02-mobile-navigation-current-v3.png" alt="Current approved mobile Edit Mode compact section index above compact ingredient rows"></a>
+          <div class="card-copy"><span class="status">Approved · option B</span><h3>Mobile: compact section index</h3><p>The rail becomes a sticky current-section control. It opens a navigational bottom sheet and closes immediately after a destination is selected.</p></div>
+        </article>
+
+        <article class="decision-card featured">
+          <a class="image-link" href="../../screenshots/edit-mode/03-auxiliary-panel-current-v2.png"><img src="../../screenshots/edit-mode/03-auxiliary-panel-current-v2.png" alt="Current approved responsive behavior for Edit Mode with Media or Import Info open"></a>
+          <div class="card-copy"><span class="status">Approved</span><h3>Edit with Media or Import Info open</h3><p>Full rail when the editor remains wide; compact selector beside a reflowing drawer; unchanged inert editor beneath a narrow-desktop overlay. Unsaved recipe edits are preserved.</p></div>
+        </article>
+
+        <article class="decision-card featured">
+          <a class="image-link" href="../../screenshots/edit-mode/04-manage-media-current-v3.png"><img src="../../screenshots/edit-mode/04-manage-media-current-v3.png" alt="Current approved Manage Media state with trash actions and cross panel dismissal"></a>
+          <div class="card-copy"><span class="status">Approved</span><h3>Manage Media is Media’s Edit state</h3><p>One panel handles capacity, upload, cover selection, and image deletion with its own draft. External links remain visible but read-only; View and Focus Media remain read-only.</p></div>
+        </article>
+
+        <article class="decision-card featured">
+          <a class="image-link" href="../../screenshots/edit-mode/05-unit-selector-current-v3.png"><img src="../../screenshots/edit-mode/05-unit-selector-current-v3.png" alt="Current approved fixed-dictionary Unit autocomplete inline on desktop and inside the mobile ingredient sheet"></a>
+          <div class="card-copy"><span class="status">Approved</span><h3>Unit: fixed-dictionary autocomplete</h3><p>Desktop expands the active row inline. Mobile exposes the same bounded, filterable choices inside the focused single-ingredient sheet.</p></div>
+        </article>
+
+        <article class="decision-card featured">
+          <a class="image-link" href="../../screenshots/edit-mode/06-mobile-ingredients-current-v2.png"><img src="../../screenshots/edit-mode/06-mobile-ingredients-current-v2.png" alt="Approved compact mobile ingredient list and single-ingredient editing bottom sheet"></a>
+          <div class="card-copy"><span class="status">Approved · option A</span><h3>Mobile Ingredients: compact list + single-item editor</h3><p>Rows remain easy to scan and reorder. The full summary button with a chevron opens one focused ingredient sheet; Done returns its sub-draft to the unsaved Recipe Edit draft.</p></div>
+        </article>
+      </div>
+    </section>
+
+    <section id="history" class="gallery-section history">
+      <div class="section-heading"><div><p class="eyebrow">Preserved context</p><h2>History</h2></div></div>
+      <p>Comparison screens and earlier prototype iterations remain in the repository. They are evidence, not current direction. The gallery never silently replaces an approved image; a superseded decision will receive a new card and the former card will be relabeled.</p>
+      <ul>
+        <li><a href="../01-structure-validation/index.html">01 · Structure validation</a></li>
+        <li><a href="../02-feedback-refinement/index.html">02 · Feedback refinement</a></li>
+        <li><a href="../03-panel-resource-refinement/index.html">03 · Panel and resource refinement</a></li>
+        <li><a href="../04-visual-control-refinement/index.html">04 · Visual control refinement</a></li>
+        <li><a href="../05-main-actions-and-responsive-panels/index.html">05 · Approved Recipe Detail foundation prototype</a></li>
+        <li><a href="../06-mobile-recipe-detail/index.html">06 · Approved complete mobile Recipe Detail</a></li>
+        <li><a href="../10-mobile-global-navigation/index.html">10 · Approved mobile global navigation shell</a></li>
+      </ul>
+    </section>
+  </main>
+</body>
+</html>

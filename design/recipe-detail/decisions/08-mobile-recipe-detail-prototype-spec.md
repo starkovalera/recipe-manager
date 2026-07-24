@@ -319,6 +319,36 @@ design/recipe-detail/reviews/06-mobile-recipe-detail/
 - step-level media mapping;
 - Organize Recipe and Cover Picker workflows beyond their existing entry-point implications.
 
+## Approved mobile header amendment — 2026-07-24
+
+This amendment supersedes the earlier two-row mobile action model and the earlier description of Import Info as a sibling auxiliary panel opened from the visible main actions.
+
+The expanded mobile header has three levels:
+
+```text
+[Back]                                      [Media] [...]
+[cover]  title / source identity / cooking facts
+[View]              [Focus]              [Edit]
+```
+
+After scrolling, it collapses to one sticky row:
+
+```text
+[Back]  truncated recipe title                 [Media] [...]
+```
+
+- Media remains available when no media exists and opens an empty state with a path to Manage Media; this includes manual recipes.
+- The Media icon always opens the Media bottom sheet. It never opens a combined resource chooser.
+- Overflow opens a mobile bottom sheet whose first row contains `View / Focus / Edit`.
+- For imported recipes, the remaining Overflow items are `Import info`, Export, and the final separated destructive Delete action. Manual recipes omit `Import info`.
+- Import Info opens as its own dedicated bottom sheet or full-height mobile section. It is an administrative destination, not a tab within Media.
+- Media and Import Info contain no internal navigation or switching control to one another.
+- Desktop behavior is unchanged: Media and Import Info remain separate drawer entry points.
+
+Only Import Info is omitted for manual recipes. The mobile unresolved-import status spans the full Recipe Detail width; the compact proportional treatment remains the desktop rule.
+
+The full-width mobile status uses compact vertical padding and leaves a clear gap before secondary metadata. While unresolved flags remain, a notification dot appears on Overflow and again on the `Import info` item inside the Overflow sheet. The controls expose `import review needed` in their accessible names, and both dots clear after `Mark all reviewed`. The dot is a review-state indicator, not a warning icon on Import Info.
+
 ## Approval state
 
 - Overall mobile-first sequential approach: approved.

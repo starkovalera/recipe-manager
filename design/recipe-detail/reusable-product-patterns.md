@@ -1,7 +1,7 @@
 # Reusable Product Patterns
 
 Status: approved lessons from Recipe Detail  
-Updated: 2026-07-23
+Updated: 2026-07-24
 
 These patterns may guide other Recipe Manager pages. Reuse the principle and interaction contract, not the Recipe Detail geometry or copy.
 
@@ -113,6 +113,20 @@ Preserve useful state; cancel unsafe pending state.
 ## 11. Failure stays near the attempted action
 
 If an action can be retried safely, keep the current confirmation or workspace open and show a concrete next step. Avoid navigating to a generic error page.
+
+## 12. One hierarchy-aware mobile application shell
+
+Use a stable mobile shell across ordinary application screens while allowing the top bar to express screen hierarchy.
+
+- Root destinations show a title and contextual actions without Back.
+- Nested and detail screens show Back; after scroll they collapse to Back, a truncated title, and essential contextual actions.
+- Expanded detail headers may add an identity block and local modes beneath the utility row.
+- A fixed bottom bar owns only global destinations and the central creation action.
+- Screen-specific tools remain in the top bar or local Overflow instead of entering global navigation.
+- One modal sheet layer opens above and fully covers the global bar; modal surfaces replace rather than stack.
+- Focused creation and other explicit task flows may temporarily hide the global bar when Back or Cancel owns exit and dirty-state protection.
+
+For the approved destination order and Recipe Detail instance, see [`decisions/11-global-mobile-shell.md`](decisions/11-global-mobile-shell.md).
 
 ## Recipe-specific patterns that are not universal
 

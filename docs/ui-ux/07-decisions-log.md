@@ -66,6 +66,71 @@ Consolidated approved design artifact: `design/recipe-detail/decisions/06-approv
 - Desktop uses a centered confirmation dialog. Mobile uses a bottom sheet with a cross and Cancel, but no swipe dismissal for this destructive decision.
 - Successful deletion returns to the Recipes list and announces `Recipe deleted`. A failed request keeps the confirmation open and shows `Recipe couldn’t be deleted. Try again.`
 
+- Edit Mode is one page with wide sections and explicit global `Save changes` / `Cancel` actions.
+- Desktop Edit Mode uses a persistent left section rail; mobile uses a compact current-section index that opens a navigational bottom sheet.
+- Ingredient notes are not shown or edited. Editing inputs use content-based maximum widths instead of stretching across the full canvas.
+- Edit Mode preserves unsaved recipe edits, active section, and scroll position when Media or Import Info opens, closes, or replaces the other auxiliary panel.
+- In Edit Mode, Media becomes Manage Media with a separate media draft, capacity, upload, cover selection, image removal, and read-only external media links. View and Focus Media remain read-only.
+- Ingredient Unit uses a fixed localized dictionary. The approved corrected-A interaction expands the active ingredient row with autocomplete search and a bounded chip list followed by `+N`.
+- On mobile, the expanded Unit selector spans the full editor width beneath the ingredient row; it is not indented beneath Quantity and Unit.
+- Mobile Ingredients uses a compact one-line list rather than three persistent inputs per ingredient.
+- Every mobile ingredient row keeps a reorder handle, summary, and the standard trash action.
+- The approved editor entry is option A: the full summary area is a button with a chevron. Activating it opens a bottom sheet for one ingredient.
+- The ingredient sheet edits Ingredient, Quantity, and Unit; `Done` applies its sub-draft to the Recipe Edit draft, while only global `Save changes` persists the recipe.
+- `Add ingredient` opens the same sheet empty. Dismissing a changed ingredient sub-draft requires a discard decision.
+- Ingredient reordering supports direct drag plus accessible move commands.
+
+### Edit Mode auxiliary contexts — 2026-07-24
+
+- The earlier decision that Media becomes Manage Media inside Edit Mode is superseded.
+- Media is now the same read-only auxiliary panel in View, Focus, and Edit. Import Info is also an auxiliary panel over Edit Mode.
+- Opening, replacing, or closing Media or Import Info does not leave Edit Mode and does not trigger a navigation guard; the unsaved Recipe Edit draft, active section, and scroll position are preserved.
+- `Manage media` opens from the Media panel as a separate full-screen editing workspace on mobile and desktop with its own draft and `Save media changes` / `Cancel`.
+- Entering Manage Media from a dirty Recipe Edit draft leaves Edit Mode and requires a navigation guard. The guard must not silently discard recipe changes; its exact actions and copy remain unresolved.
+- Import resource removal is immediate after the existing inline confirmation and is independent of global Recipe Edit `Save changes`.
+- Immediate resource removal does not modify either the saved recipe or the unsaved Recipe Edit draft. Cascade counts/types and current-cover protection remain in force.
+- Successful removal updates Import Info in place. Failure remains local to Import Info and leaves the Recipe Edit draft intact.
+
+### Mobile header and import navigation — 2026-07-24
+
+- Mobile expanded Recipe Detail uses three levels: a top utility row, the recipe identity block, then the `View / Focus / Edit` mode row.
+- The expanded top row contains Back on the left and Media plus Overflow on the right. The Media icon opens only the Media bottom sheet.
+- The compact scrolled header is one row: Back, a truncated recipe title, Media, and Overflow.
+- In the compact state, Overflow opens a bottom sheet whose first row contains `View / Focus / Edit`.
+- On mobile, Import Info is not a tab inside Media and the two areas contain no internal switching control.
+- For imported recipes, `Import info` is a separate item in the Overflow sheet, below the mode row and before Export. Manual recipes omit it.
+- Mobile Import Info opens as its own dedicated bottom sheet or full-height mobile section. It is an administrative destination rather than a companion media panel over visible recipe content.
+- Media remains available for manual recipes even when they have no media yet, because it provides the path to Manage Media and image upload when capacity allows. Only Import Info is conditional on the recipe being imported.
+- On mobile, the unresolved-import review status spans the full Recipe Detail width. This intentionally differs from the compact proportional desktop status.
+- The mobile review-status strip remains full width but uses compact vertical padding and explicit spacing before the following metadata section.
+- When no review-status strip is present, Default View keeps an explicit vertical gap between the mode row and the metadata section. When review status is present, the strip's own bottom spacing provides that separation instead.
+- While unresolved import flags exist, Overflow shows a notification dot and the `Import info` item repeats the same dot. Accessible names explicitly announce that import review is needed; the dots disappear after `Mark all reviewed`.
+- These notification dots indicate pending review state and do not turn neutral Import Info into a warning action or add a warning icon.
+- The earlier proposed combined `Recipe resources` entry and Media / Import Info switch is rejected. Desktop retains separate Media and Import Info drawer entry points and behavior.
+
+### Mobile global navigation — 2026-07-24
+
+- The approved mobile application bar uses four stable top-level destinations around a visually distinct central creation action: `Recipes / Collections / + / Notifications / Profile`.
+- Recipes and Collections remain separate equal-priority destinations. Search belongs inside Recipes rather than in the global bar.
+- The central `+` is the `Add recipe` action, not a selected destination. It opens a compact chooser for `Import recipe` and `Create manually`.
+- Administration is available from Profile for eligible roles. The global bar never adds a role-dependent Admin position or changes geometry between roles.
+- The global bar remains visible on ordinary application pages in View, Focus, and Edit.
+- Every modal mobile sheet, including Add, Media, Overflow, Import Info, metadata disclosure, and recipe deletion, opens above and fully covers the global bar. The covered bar is hidden from interaction and accessibility navigation until the sheet closes.
+- Mobile sheets use one modal-layer slot. Transitions such as Overflow to Import Info and Overflow to Delete replace the current sheet instead of stacking another dialog.
+- Choosing Import or Manual Create enters a focused full-screen creation flow without the global bar. Cancel or Back owns exit and any dirty-draft protection.
+
+### Global mobile application shell — 2026-07-24
+
+- The approved mobile header and global navigation now form the default application shell for all future mobile screens, not only Recipe Detail.
+- Root destinations such as Recipes, Collections, Notifications, and Profile do not show Back. They use an expanded title with contextual actions and a compact sticky title row after scroll.
+- Nested and detail screens show icon-only Back at the left edge. Their compact sticky state contains Back, a truncated title, and only essential contextual utilities.
+- Expanded nested/detail screens may place screen identity or summary below the utility row and local modes below identity. These middle layers are screen-specific rather than global navigation.
+- Recipe Detail instantiates the pattern as Back / Media / Overflow, recipe identity, then `View / Focus / Edit`; its compact state is Back / truncated title / Media / Overflow.
+- The fixed bottom bar remains `Recipes / Collections / Add / Notifications / Profile` on ordinary application pages. Recipe Detail remains inside the Recipes destination.
+- Modal sheets use one slot and fully cover the bottom bar. Focused Import and Manual Create flows replace the ordinary shell and own exit through Back or Cancel.
+- Future screen designs must identify their hierarchy level, compact-bar essentials, active global destination, and modal-layer behavior before visual styling.
+- The consolidated approved contract is recorded in `design/recipe-detail/decisions/11-global-mobile-shell.md`.
+
 ## Resolved comparisons
 
 ### Behavior when unresolved review flags exist
@@ -82,7 +147,6 @@ Approved: corrected B. Retain A only as historical comparison evidence; do not c
 
 ## Not in current scope
 
-- global application navigation redesign;
 - production implementation;
 - final design system;
 - actual cooking-session nutrition;
