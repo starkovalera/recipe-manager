@@ -581,6 +581,80 @@ Cover:
 - provider-specific modules do not own domain queries;
 - `StorageService` has not gained domain/user authorization methods.
 
+## Mandatory self-audit before requesting human review
+
+The user is not responsible for manually scanning every changed file or rerunning declarative repository audits. Before asking for review, you must perform the complete diff, scope, architecture, contract, and legacy-flow audit yourself and put the evidence in the draft PR body or a dedicated PR comment.
+
+### Diff and scope audit
+
+Run:
+
+```bash
+git fetch origin
+git diff --check origin/main...HEAD
+git diff --stat origin/main...HEAD
+git diff --name-only origin/main...HEAD
+git log --oneline origin/main..HEAD
+```
+
+Your report must:
+
+- group every changed file by backend, frontend, gateway, docs, and tests;
+- explain every file outside the expected P10 areas;
+- explicitly confirm whether migrations, Terraform, unrelated queue/Lambda/auth code, and the UI/UX workspace changed;
+- list removed legacy helpers/routes;
+- report the exact result of `git diff --check`.
+
+Do not ask the user to compare a long filename list against this instruction manually.
+
+### Automated legacy and boundary audit
+
+Run and classify every match:
+
+```bash
+rg "mediaUrl|media_url|build_media_url|isApiMediaUrl|/media/\{namespace\}|legacy-media" backend frontend infra docs
+rg "storage_key|storageKey" backend/app/schemas frontend/src
+rg "head_object|HeadObject|head_calls" backend/app backend/tests
+rg "requiresAuth|requires_auth" backend frontend docs
+rg "isinstance\(.*LocalStorageService" backend/app
+```
+
+State which matches are permitted negative tests/history and prove that production code has no legacy flow, public storage keys, HEAD-per-grant call, `requiresAuth` substitution, or route-level provider `isinstance` switch.
+
+### Architecture and security audit
+
+Provide exact file paths and class/function names for:
+
+- `MediaAccessService`;
+- strict resolver registry;
+- recipe and import ownership/lifecycle queries;
+- runtime download-access provider selection;
+- LOCAL provider and authenticated domain-ID route;
+- S3 presign provider;
+- frontend batching/grant cache and media component;
+- gateway entries;
+- `DownloadAccessMode` and `DownloadGrant` comments.
+
+Explicitly verify:
+
+- route functions do not own domain query logic;
+- storage/download providers do not own user authorization;
+- `StorageService` did not gain domain-aware methods;
+- frontend decisions depend only on `accessMode`;
+- `DownloadGrant` was not generalized into upload behavior;
+- missing and foreign responses are indistinguishable;
+- presigned URLs/signatures are not logged.
+
+### Key human review map
+
+Finish the report with a compact table:
+
+```text
+Decision | File | Class/function or line range | What the user should inspect
+```
+
+Include 6–10 high-value locations only. The map must let the user review the critical decisions without reading the entire diff.
+
 ## Verification commands
 
 Run from repository root unless noted.
@@ -619,41 +693,32 @@ uv run alembic upgrade head
 uv run alembic current
 ```
 
-## Manual smoke tests
+## Manual verification handoff
 
-Perform and record these separately from automated tests.
+The user owns browser-based LOCAL/PREVIEW verification and AWS-account actions. Do not claim these checks as completed unless you actually performed them with direct evidence.
 
-### LOCAL / PREVIEW
+Your responsibilities are:
 
-Through KrakenD, not direct FastAPI diagnostics:
+- keep `docs/handoffs/p10-presigned-media-access-owner-runbook.md` accurate if implementation details change the exact commands without changing approved behavior;
+- provide the implementation branch SHA and any test data prerequisites;
+- ensure the runbook contains concrete startup commands and browser steps;
+- run every automated backend/frontend/gateway/provider test available to you;
+- clearly separate automated evidence from owner-performed manual evidence;
+- record unperformed LOCAL browser or live S3 checks under `Verification gaps`;
+- never ask the user to mutate database state manually for edge cases already covered by automated tests.
 
-1. Open a recipe list containing covers.
-2. Open recipe detail.
-3. Open source-image preview/modal.
-4. Open an import job with submitted image sources.
-5. Confirm browser requests `POST /media/access`.
-6. Confirm LOCAL grants use `authenticated_fetch`.
-7. Confirm the subsequent GET route contains media type and ID, not a storage key.
-8. Confirm the GET carries application authentication.
-9. Confirm another user's media ID does not reveal existence.
-10. Confirm an import in `FAILED` can display retained source images.
-11. Run failed-import artifact cleanup and confirm `FAILED_ARTIFACTS_REMOVED` sources no longer receive grants.
+The user will manually verify at minimum:
 
-### S3 provider smoke
+- LOCAL/PREVIEW startup through KrakenD;
+- recipe list/detail/import image rendering;
+- `POST /media/access` batching and `authenticated_fetch`;
+- domain-ID LOCAL GET and bearer authorization;
+- partial success through a copied authenticated browser request;
+- unauthenticated LOCAL GET rejection;
+- optional foreign-user behavior using a second Clerk test user;
+- live S3 behavior only when the user supplies a private bucket and credentials.
 
-Use a private non-production test bucket and test identity.
-
-1. Start the backend with S3 configuration.
-2. Request grants for owned recipe and import media.
-3. Confirm grants use `direct`.
-4. Confirm URLs expire in approximately 60 seconds.
-5. Confirm the browser loads the image directly from S3.
-6. Confirm the URL is absent from application logs.
-7. Confirm a foreign/missing ID produces `MEDIA_NOT_FOUND`.
-8. Confirm a DB reference to a missing S3 object still receives a signed URL and the subsequent GET returns provider `404`, proving no HEAD check.
-9. Confirm no S3 credentials or bucket names appear in public API responses.
-
-If a live S3 smoke cannot be executed, state the exact reason in the PR and list the automated provider coverage. Do not claim it was run.
+Do not perform or claim AWS provisioning, credential creation, Clerk account creation, or owner browser checks on the user's behalf.
 
 ## Git and PR requirements
 
@@ -675,9 +740,11 @@ PR body must include:
 ## Scope
 ## Explicitly deferred
 ## Automated verification
+## Diff and architecture audit
 ## Manual verification
 ## Verification gaps
 ## Security notes
+## Key human review map
 ```
 
 Do not merge the PR. Leave final review and merge to the user.
@@ -687,9 +754,13 @@ Do not merge the PR. Leave final review and merge to the user.
 At the end, report:
 
 - branch and PR;
-- files added/changed;
 - exact API contract implemented;
-- automated commands with pass counts;
+- grouped diff/scope audit with every unexpected file explained;
+- `git diff --check` result;
+- automated commands with pass counts, skips, warnings, and failures;
+- classified legacy/boundary search results;
+- architecture and security self-audit with exact file/function references;
+- the compact key human review map;
 - manual smoke results;
 - any verification gaps;
 - confirmation that storage keys and `mediaUrl` are absent from public responses;
