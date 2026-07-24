@@ -23,6 +23,7 @@ class ApiErrorCode(str, Enum):
     RECIPE_NOT_FOUND = "RECIPE_NOT_FOUND"
     STORAGE_NOT_FOUND = "STORAGE_NOT_FOUND"
     MEDIA_ACCESS_NOT_AVAILABLE = "MEDIA_ACCESS_NOT_AVAILABLE"
+    MEDIA_NOT_FOUND = "MEDIA_NOT_FOUND"
     TAG_NOT_FOUND = "TAG_NOT_FOUND"
     DUPLICATE_TAG = "DUPLICATE_TAG"
     TAG_LIMIT_EXCEEDED = "TAG_LIMIT_EXCEEDED"
@@ -310,6 +311,11 @@ class MediaAccessNotAvailableError(ApiError):
     status_code = 503
     error_code = ApiErrorCode.MEDIA_ACCESS_NOT_AVAILABLE
     message = "Media access is temporarily unavailable."
+
+
+class MediaNotFoundError(ApiNotFoundError):
+    error_code = ApiErrorCode.MEDIA_NOT_FOUND
+    message = "Media is unavailable."
 
 
 class TagNotFoundError(ApiNotFoundError):
