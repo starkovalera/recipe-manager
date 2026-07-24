@@ -13,6 +13,9 @@ const scenarioSelect = document.querySelector('#scenario-select');
 const contextSelect = document.querySelector('#context-select');
 const roleSelect = document.querySelector('#role-select');
 const deleteResultSelect = document.querySelector('#delete-result-select');
+const NOTES_PREVIEW_LINES = 4;
+const ESTIMATED_WORDS_PER_LINE = 8;
+const NOTES_PREVIEW_WORD_LIMIT = NOTES_PREVIEW_LINES * ESTIMATED_WORDS_PER_LINE;
 
 function currentScenario() { return window.mobileRecipeScenarios[state.scenario]; }
 function renderLayer() { layerRoot.replaceChildren(); }
@@ -96,7 +99,7 @@ function renderReviewStatus(recipe) {
   </aside>`;
 }
 
-function renderExpandableSection({ key, title, items, threshold, ordered = false, itemTemplate, forceToggle = false, collapseCount = threshold }) {
+function renderExpandableSection({ key, title, items, threshold, ordered = false, itemTemplate, forceToggle = false, collapseCount = threshold, disclosureCount = items.length }) {
   const expanded = state.expanded[key];
   const visibleItems = expanded ? items : items.slice(0, threshold);
   const listTag = ordered ? 'ol' : 'ul';
@@ -105,7 +108,7 @@ function renderExpandableSection({ key, title, items, threshold, ordered = false
     : '';
   const shouldToggle = forceToggle || items.length > threshold;
   const control = shouldToggle
-    ? `<button type="button" class="section-toggle" data-expand="${key}">${expanded ? `Show first ${collapseCount}` : `Show all ${items.length}`}</button>`
+    ? `<button type="button" class="section-toggle" data-expand="${key}">${expanded ? `Show first ${collapseCount}` : `Show all ${disclosureCount}`}</button>`
     : '';
   return `<section class="recipe-section" data-section="${key}">
     <div class="section-heading"><h2>${title}</h2>${control}</div>
@@ -125,7 +128,8 @@ function renderNutrition(nutrition) {
 }
 
 function renderDefault(recipe) {
-  const noteLineEstimate = Math.max(5, recipe.notes.split(/\s+/).length / 8 | 0);
+  const noteWordCount = recipe.notes.trim().split(/\s+/).length;
+  const noteLineEstimate = Math.ceil(noteWordCount / ESTIMATED_WORDS_PER_LINE);
   const ingredients = renderExpandableSection({
     key: 'ingredients', title: 'Ingredients', items: recipe.ingredients, threshold: 12,
     itemTemplate: item => `<li>${item}</li>`
@@ -135,9 +139,10 @@ function renderDefault(recipe) {
     itemTemplate: item => `<li>${item}</li>`
   });
   const notes = renderExpandableSection({
-    key: 'notes', title: 'Cooking Notes', items: [recipe.notes], threshold: 1, forceToggle: true, collapseCount: 4,
+    key: 'notes', title: 'Cooking Notes', items: [recipe.notes], threshold: 1,
+    forceToggle: noteWordCount > NOTES_PREVIEW_WORD_LIMIT, collapseCount: NOTES_PREVIEW_LINES, disclosureCount: noteLineEstimate,
     itemTemplate: note => `<li class="section-preview${state.expanded.notes ? ' is-expanded' : ''}">${note.split('\n\n').map(paragraph => `<p>${paragraph}</p>`).join('')}</li>`
-  }).replace(`Show all 1`, `Show all ${noteLineEstimate}`);
+  });
 
   return `<article class="product-surface recipe-detail" data-product-surface>
     ${renderHeader(recipe)}

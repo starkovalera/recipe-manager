@@ -45,6 +45,20 @@ async function assertText(page, selector, expected, message) {
   assert.equal((await page.locator(selector).first().textContent()).trim(), expected, message);
 }
 
+async function assertMinimumHitArea(locator, viewport, label) {
+  const rect = await locator.evaluate(element => {
+    const { width, height } = element.getBoundingClientRect();
+    return { width, height };
+  });
+  assert.ok(rect.width >= 44, `${viewport.width}px ${label} is at least 44px wide (got ${rect.width}px)`);
+  assert.ok(rect.height >= 44, `${viewport.width}px ${label} is at least 44px tall (got ${rect.height}px)`);
+}
+
+async function assertReadyStateOverflow(page, scenario, viewport) {
+  await page.selectOption('#scenario-select', scenario);
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), true, `${viewport.width}px ${scenario} has no horizontal overflow`);
+}
+
 async function assertDefaultView(page, viewport) {
   await page.selectOption('#scenario-select', 'flagged');
   await assertText(page, 'h1', 'Smoky Tomato & Butter Bean Stew', `${viewport.width}px renders the flagged recipe title`);
@@ -63,6 +77,8 @@ async function assertDefaultView(page, viewport) {
   assert.equal(await page.locator('.resource-actions[aria-label="Recipe resources"] > [data-action="media"]').count(), 1, `${viewport.width}px renders Media action`);
   assert.equal(await page.locator('.resource-actions[aria-label="Recipe resources"] > [data-action="import"]').count(), 1, `${viewport.width}px renders Import info action`);
   assert.equal(await page.locator('.resource-actions [data-action="overflow"][aria-label="More recipe actions"]').count(), 1, `${viewport.width}px renders overflow action`);
+  for (const button of await page.locator('.mode-actions button').all()) await assertMinimumHitArea(button, viewport, 'mode action');
+  await assertMinimumHitArea(page.locator('.review-status button'), viewport, 'review action');
 
   await page.selectOption('#scenario-select', 'manual');
   assert.equal(await page.getByRole('button', { name: 'Import info', exact: true }).count(), 0, `${viewport.width}px omits Import info for manual recipes`);
@@ -73,20 +89,30 @@ async function assertDefaultView(page, viewport) {
 
   await page.selectOption('#scenario-select', 'normal');
   assert.equal(await page.locator('.review-status').count(), 0, `${viewport.width}px omits review status without flags`);
+  assert.equal(await page.locator('.recipe-section[data-section="notes"] [data-expand="notes"]').count(), 0, `${viewport.width}px omits Notes disclosure when content fits the four-line preview`);
 
   await page.selectOption('#scenario-select', 'noCover');
   assert.equal(await page.locator('.recipe-cover--empty').count(), 1, `${viewport.width}px renders explicit no-cover treatment`);
-  assert.equal(await page.locator('.recipe-header h1').evaluate(title => title.getBoundingClientRect().height > 0), true, `${viewport.width}px preserves a visible wrapped title`);
+  await assertText(page, '.recipe-header h1', 'Slow-Roasted Aubergine, Butter Bean & Preserved Lemon Traybake with Herby Tahini', `${viewport.width}px uses the no-cover long-title scenario`);
+  assert.equal(await page.locator('.recipe-header h1').evaluate(title => {
+    const lineHeight = Number.parseFloat(getComputedStyle(title).lineHeight);
+    return title.getBoundingClientRect().height >= lineHeight * 1.9;
+  }), true, `${viewport.width}px wraps the no-cover title over multiple lines`);
   assert.equal(await page.locator('.mode-actions').evaluate(actions => actions.getBoundingClientRect().height > 0), true, `${viewport.width}px keeps actions reachable with a long title`);
 
   await page.selectOption('#scenario-select', 'dense');
   assert.equal(await page.locator('.metadata-row[data-metadata="collections"] [data-disclosure="collections"]').textContent(), '+18', `${viewport.width}px collapses dense collections after two values`);
   assert.equal(await page.locator('.metadata-row[data-metadata="tags"] [data-disclosure="tags"]').textContent(), '+48', `${viewport.width}px collapses dense tags after two values`);
+  await assertMinimumHitArea(page.locator('[data-disclosure="collections"]'), viewport, 'collection disclosure');
+  await assertMinimumHitArea(page.locator('[data-disclosure="tags"]'), viewport, 'tag disclosure');
 
   await page.selectOption('#scenario-select', 'long');
   assert.equal(await page.locator('.recipe-section[data-section="ingredients"] li').count(), 12, `${viewport.width}px keeps long ingredients bounded`);
   assert.equal(await page.locator('.recipe-section[data-section="instructions"] li').count(), 8, `${viewport.width}px keeps long instructions bounded`);
   assert.equal(await page.locator('.recipe-section[data-section="notes"] .section-preview').evaluate(notes => notes.scrollHeight >= notes.clientHeight), true, `${viewport.width}px constrains the initial notes preview`);
+  assert.equal(await page.locator('.recipe-section[data-section="notes"] [data-expand="notes"]').count(), 1, `${viewport.width}px exposes Notes disclosure only when long content is truncated`);
+  await assertMinimumHitArea(page.locator('.recipe-section[data-section="ingredients"] [data-expand="ingredients"]'), viewport, 'section disclosure');
+  await assertMinimumHitArea(page.locator('.recipe-section[data-section="notes"] [data-expand="notes"]'), viewport, 'Notes disclosure');
   await page.evaluate(() => window.scrollTo(0, 120));
   await page.locator('.recipe-section[data-section="ingredients"] [data-expand="ingredients"]').click();
   assert.ok(await page.evaluate(() => window.scrollY > 2), `${viewport.width}px does not reset reading position after ingredient expansion`);
@@ -138,6 +164,7 @@ async function assertDefaultView(page, viewport) {
       await page.locator('#prototype-root [data-product-surface]').waitFor({ timeout: 1_000 });
       assert.equal(await page.locator('#scenario-select option').count(), 9, `${viewport.width}px exposes exactly nine scenarios`);
       assert.equal(await page.locator('#live-region[aria-live="polite"]').count(), 1, `${viewport.width}px includes the polite live region`);
+      for (const scenario of ['flagged', 'dense', 'long', 'noCover']) await assertReadyStateOverflow(page, scenario, viewport);
       await assertDefaultView(page, viewport);
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), true, `${viewport.width}px has no horizontal overflow`);
       assert.deepEqual(pageErrors, [], `${viewport.width}px page errors: ${pageErrors.join(' | ')}`);
