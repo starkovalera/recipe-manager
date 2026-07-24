@@ -138,6 +138,50 @@ async function assertDefaultView(page, viewport) {
   await assertText(page, 'h1', 'Recipes', `${viewport.width}px returns to mock recipes destination`);
 }
 
+async function assertCookingFocus(page, viewport) {
+  await page.selectOption('#scenario-select', 'normal');
+  await page.evaluate(() => window.scrollTo(0, 120));
+  const expectedDefaultScroll = await page.evaluate(() => window.scrollY);
+  assert.ok(expectedDefaultScroll > 2, `${viewport.width}px starts Focus from a saved reading position`);
+
+  await page.getByRole('button', { name: 'Focus', exact: true }).click();
+  assert.equal(await page.locator('.focus-recipe').count(), 1, `${viewport.width}px renders the Cooking Focus surface`);
+  assert.equal(await page.locator('.recipe-cover').count(), 0, `${viewport.width}px Focus removes the cover`);
+  assert.equal(await page.locator('.source-identity').count(), 0, `${viewport.width}px Focus removes source identity`);
+  assert.equal(await page.locator('.secondary-metadata').count(), 0, `${viewport.width}px Focus removes secondary metadata`);
+  assert.equal(await page.locator('.review-status').count(), 0, `${viewport.width}px Focus removes review status`);
+  assert.equal(await page.locator('.nutrition').count(), 0, `${viewport.width}px Focus removes nutrition`);
+  assert.equal(await page.locator('.focus-recipe .cooking-facts').count(), 1, `${viewport.width}px Focus retains cooking facts`);
+  assert.equal(await page.locator('nav.mode-actions [data-context="focus"][aria-current="page"]').count(), 1, `${viewport.width}px marks Focus as current`);
+  assert.equal(await page.locator('[role="tablist"][aria-label="Focus section"]').count(), 1, `${viewport.width}px exposes the named Focus tablist`);
+  assert.equal(await page.getByRole('tab', { name: 'Ingredients', exact: true }).getAttribute('aria-selected'), 'true', `${viewport.width}px selects Ingredients initially`);
+  assert.equal(await page.getByRole('tab', { name: 'Instructions', exact: true }).getAttribute('aria-selected'), 'false', `${viewport.width}px marks Instructions inactive initially`);
+  assert.equal(await page.locator('.focus-content[data-focus-content="ingredients"]').count(), 1, `${viewport.width}px shows the Ingredients Focus content`);
+  assert.equal(await page.locator('.focus-content[data-focus-content="instructions"]').count(), 0, `${viewport.width}px hides Instructions until selected`);
+  assert.equal(await page.locator('input[type="checkbox"], [data-complete], [data-action="portion-multiplier"]').count(), 0, `${viewport.width}px Focus has no completion controls or serving multiplier`);
+
+  await page.getByRole('tab', { name: 'Instructions', exact: true }).click();
+  assert.equal(await page.getByRole('tab', { name: 'Ingredients', exact: true }).getAttribute('aria-selected'), 'false', `${viewport.width}px updates Ingredients tab semantics`);
+  assert.equal(await page.getByRole('tab', { name: 'Instructions', exact: true }).getAttribute('aria-selected'), 'true', `${viewport.width}px updates Instructions tab semantics`);
+  assert.equal(await page.locator('.focus-content[data-focus-content="ingredients"]').count(), 0, `${viewport.width}px hides Ingredients after switching`);
+  assert.equal(await page.locator('.focus-content[data-focus-content="instructions"]').count(), 1, `${viewport.width}px shows Instructions after switching`);
+  assert.equal(await page.locator('.focus-content[data-focus-content="instructions"] [data-section="notes"]').count(), 1, `${viewport.width}px places Notes after Focus instructions`);
+
+  await page.getByRole('button', { name: 'Edit', exact: true }).click();
+  assert.equal(await page.locator('nav.mode-actions [data-context="focus"][aria-current="page"]').count(), 1, `${viewport.width}px keeps Focus active after Edit status`);
+  assert.equal(await page.locator('#live-region').textContent(), 'Edit Mode is being designed.', `${viewport.width}px announces the unfinished Edit state`);
+  assert.equal(await page.getByRole('tab', { name: 'Instructions', exact: true }).getAttribute('aria-selected'), 'true', `${viewport.width}px preserves the Focus tab after Edit status`);
+
+  await page.getByRole('button', { name: 'View', exact: true }).click();
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  const restoredScroll = await page.evaluate(() => window.scrollY);
+  assert.ok(Math.abs(restoredScroll - expectedDefaultScroll) <= 2, `${viewport.width}px restores Default View position within 2px (expected ${expectedDefaultScroll}, got ${restoredScroll})`);
+  assert.equal(await page.locator('nav.mode-actions [data-context="default"][aria-current="page"]').count(), 1, `${viewport.width}px returns to Default View`);
+
+  await page.getByRole('button', { name: 'Focus', exact: true }).click();
+  assert.equal(await page.getByRole('tab', { name: 'Instructions', exact: true }).getAttribute('aria-selected'), 'true', `${viewport.width}px preserves the Focus tab across context changes`);
+}
+
 (async () => {
   let server;
   let browser;
@@ -166,12 +210,14 @@ async function assertDefaultView(page, viewport) {
       assert.equal(await page.locator('#live-region[aria-live="polite"]').count(), 1, `${viewport.width}px includes the polite live region`);
       for (const scenario of ['flagged', 'dense', 'long', 'noCover']) await assertReadyStateOverflow(page, scenario, viewport);
       await assertDefaultView(page, viewport);
+      await assertCookingFocus(page, viewport);
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), true, `${viewport.width}px has no horizontal overflow`);
       assert.deepEqual(pageErrors, [], `${viewport.width}px page errors: ${pageErrors.join(' | ')}`);
       assert.deepEqual(consoleErrors, [], `${viewport.width}px console errors: ${consoleErrors.join(' | ')}`);
     }
     assert.deepEqual(pageErrors, [], `page errors: ${pageErrors.join(' | ')}`);
     assert.deepEqual(consoleErrors, [], `console errors: ${consoleErrors.join(' | ')}`);
+    console.log('TASK_3_MOBILE_RECIPE_DETAIL_FOCUS_PASS');
     console.log('TASK_2_MOBILE_RECIPE_DETAIL_DEFAULT_VIEW_PASS');
     console.log('TASK_1_MOBILE_RECIPE_DETAIL_SMOKE_PASS');
   } finally {
