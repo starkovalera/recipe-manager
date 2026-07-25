@@ -18,5 +18,6 @@ def get_download_access_provider(settings: Settings | None = None) -> DownloadAc
         return S3DownloadAccessProvider(
             bucket_name=resolved_settings.s3_user_media_bucket_name or "",
             region_name=resolved_settings.aws_region or "",
+            endpoint_url=resolved_settings.aws_endpoint_url_s3,
         )
     raise RuntimeError("Unsupported media access provider.")

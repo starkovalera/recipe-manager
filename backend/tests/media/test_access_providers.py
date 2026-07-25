@@ -67,6 +67,26 @@ def test_s3_provider_constructs_and_reuses_client_lazily(monkeypatch) -> None:
     assert client.generate_presigned_url.call_count == 2
 
 
+def test_s3_provider_uses_configured_endpoint(monkeypatch) -> None:
+    client = Mock()
+    client.generate_presigned_url.return_value = "http://localstack.test/signed-object"
+    client_factory = Mock(return_value=client)
+    monkeypatch.setattr("app.media.access.s3.boto3.client", client_factory)
+    provider = S3DownloadAccessProvider(
+        bucket_name="user-media",
+        region_name="us-east-1",
+        endpoint_url="http://s3.localhost.localstack.cloud:4566",
+    )
+
+    provider.create_grant(authorized_media())
+
+    client_factory.assert_called_once_with(
+        "s3",
+        region_name="us-east-1",
+        endpoint_url="http://s3.localhost.localstack.cloud:4566",
+    )
+
+
 def test_s3_provider_does_not_log_presigned_url(caplog) -> None:
     signed_url = "https://signed.invalid/object?signature=secret"
     client = Mock()

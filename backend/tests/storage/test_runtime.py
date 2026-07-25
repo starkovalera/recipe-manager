@@ -1,5 +1,6 @@
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import Mock
 
 import pytest
 
@@ -47,6 +48,32 @@ def test_storage_service_uses_s3_provider() -> None:
     storage = get_storage_service(settings)
 
     assert isinstance(storage, S3StorageService)
+
+
+def test_storage_service_passes_custom_s3_endpoint(monkeypatch) -> None:
+    settings = Settings(
+        app_env=AppEnv.PREVIEW,
+        storage_provider=StorageProvider.S3,
+        aws_region="us-east-1",
+        aws_endpoint_url_s3="http://s3.localhost.localstack.cloud:4566",
+        s3_user_media_bucket_name="recipe-manager-local-user-media",
+        s3_system_artifacts_bucket_name="recipe-manager-local-system-artifacts",
+        clerk_secret_key="test-clerk-secret",
+        _env_file=None,
+    )
+    storage_factory = Mock(return_value=Mock(spec=S3StorageService))
+    monkeypatch.setattr("app.storage.runtime.S3StorageService", storage_factory)
+
+    get_storage_service(settings)
+
+    storage_factory.assert_called_once_with(
+        location_to_locator={
+            StorageLocation.USER_MEDIA: "recipe-manager-local-user-media",
+            StorageLocation.SYSTEM_ARTIFACTS: "recipe-manager-local-system-artifacts",
+        },
+        region_name="us-east-1",
+        endpoint_url="http://s3.localhost.localstack.cloud:4566",
+    )
 
 
 def test_local_storage_service_requires_upload_dir() -> None:

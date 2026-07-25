@@ -33,6 +33,7 @@ class S3StorageService(StorageService):
         *,
         location_to_locator: Mapping[StorageLocation, StorageLocator],
         region_name: str,
+        endpoint_url: str | None = None,
         client: Any | None = None,
     ) -> None:
         if not region_name.strip():
@@ -49,11 +50,15 @@ class S3StorageService(StorageService):
 
         self._buckets = buckets
         self._region_name = region_name.strip()
+        self._endpoint_url = endpoint_url
         self._client = client
 
     def _get_client(self):
         if self._client is None:
-            self._client = boto3.client("s3", region_name=self._region_name)
+            client_options = {"region_name": self._region_name}
+            if self._endpoint_url is not None:
+                client_options["endpoint_url"] = self._endpoint_url
+            self._client = boto3.client("s3", **client_options)
         return self._client
 
     def _bucket_for(self, location: StorageLocation) -> str:

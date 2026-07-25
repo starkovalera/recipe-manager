@@ -18,6 +18,7 @@ def clear_infrastructure_environment(monkeypatch):
         "UPLOAD_DIR",
         "SYSTEM_ARTIFACTS_DIR",
         "AWS_REGION",
+        "AWS_ENDPOINT_URL_S3",
         "S3_USER_MEDIA_BUCKET_NAME",
         "S3_SYSTEM_ARTIFACTS_BUCKET_NAME",
         "SQS_IMPORTS_QUEUE_URL",
@@ -219,6 +220,28 @@ def test_s3_provider_requires_distinct_storage_buckets():
         build_sqs_settings(
             s3_user_media_bucket_name="same-bucket",
             s3_system_artifacts_bucket_name="same-bucket",
+        )
+
+
+def test_preview_s3_accepts_custom_endpoint():
+    settings = Settings(
+        app_env=AppEnv.PREVIEW,
+        storage_provider=StorageProvider.S3,
+        aws_region="us-east-1",
+        aws_endpoint_url_s3="http://s3.localhost.localstack.cloud:4566",
+        s3_user_media_bucket_name="recipe-manager-local-user-media",
+        s3_system_artifacts_bucket_name="recipe-manager-local-system-artifacts",
+        clerk_secret_key="test-clerk-secret",
+        _env_file=None,
+    )
+
+    assert settings.aws_endpoint_url_s3 == "http://s3.localhost.localstack.cloud:4566"
+
+
+def test_prod_rejects_custom_s3_endpoint():
+    with pytest.raises(ValidationError, match="AWS_ENDPOINT_URL_S3.*PROD"):
+        build_sqs_settings(
+            aws_endpoint_url_s3="http://s3.localhost.localstack.cloud:4566",
         )
 
 

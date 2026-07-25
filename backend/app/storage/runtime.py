@@ -49,6 +49,7 @@ def get_storage_service(settings: Settings | None = None) -> StorageService:
         return S3StorageService(
             location_to_locator=get_storage_location_to_locator(resolved_settings),
             region_name=resolved_settings.aws_region,
+            endpoint_url=resolved_settings.aws_endpoint_url_s3,
         )
 
     raise StorageConfigurationError("Storage provider is not configured.")
