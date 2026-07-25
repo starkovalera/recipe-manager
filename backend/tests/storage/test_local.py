@@ -1,4 +1,3 @@
-import os
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -84,18 +83,18 @@ def test_local_storage_uses_context_generated_key(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize(
     "storage_key",
-    ["../outside", "nested/../../outside", "/absolute"],
+    [
+        "../outside",
+        "nested/../../outside",
+        "/absolute",
+        "..\\outside",
+        "C:\\absolute",
+        "C:/absolute",
+        "C:relative",
+        "folder\\object",
+    ],
 )
 def test_local_storage_rejects_keys_outside_location(tmp_path: Path, storage_key: str) -> None:
-    storage = build_storage(tmp_path)
-
-    with pytest.raises(ValueError, match="outside storage root"):
-        storage.read(StorageLocation.USER_MEDIA, storage_key)
-
-
-@pytest.mark.skipif(os.name != "nt", reason="Windows path semantics are runtime-specific.")
-@pytest.mark.parametrize("storage_key", ["..\\outside", "C:\\absolute"])
-def test_local_storage_rejects_windows_paths_outside_location(tmp_path: Path, storage_key: str) -> None:
     storage = build_storage(tmp_path)
 
     with pytest.raises(ValueError, match="outside storage root"):
@@ -109,10 +108,14 @@ def test_local_storage_exposes_local_path_for_response(tmp_path: Path) -> None:
     assert storage.path_for_response(StorageLocation.USER_MEDIA, storage_key) == (tmp_path / "uploads" / storage_key).resolve()
 
 
-def test_local_storage_key_safety_uses_runtime_path_rules(tmp_path: Path) -> None:
+def test_local_storage_key_safety_is_platform_independent(tmp_path: Path) -> None:
     storage = build_storage(tmp_path)
 
     assert storage.is_safe_key(StorageLocation.USER_MEDIA, "imports/source/job/image.jpg") is True
     assert storage.is_safe_key(StorageLocation.USER_MEDIA, "../outside.jpg") is False
     assert storage.is_safe_key(StorageLocation.USER_MEDIA, "/absolute.jpg") is False
-    assert storage.is_safe_key(StorageLocation.USER_MEDIA, "..\\outside.jpg") is (os.name != "nt")
+    assert storage.is_safe_key(StorageLocation.USER_MEDIA, "..\\outside.jpg") is False
+    assert storage.is_safe_key(StorageLocation.USER_MEDIA, "C:\\absolute.jpg") is False
+    assert storage.is_safe_key(StorageLocation.USER_MEDIA, "C:/absolute.jpg") is False
+    assert storage.is_safe_key(StorageLocation.USER_MEDIA, "C:relative.jpg") is False
+    assert storage.is_safe_key(StorageLocation.USER_MEDIA, "folder\\image.jpg") is False
