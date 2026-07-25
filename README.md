@@ -168,6 +168,62 @@ Production settings fail closed instead of falling back to SQLite, Redis/Dramati
 
 `POST /imports` creates a queued `ImportJob` and returns `202 Accepted`. The frontend remains on the import form, polls notifications, and can submit additional imports within concurrency limits.
 
+## LocalStack S3 Verification
+
+LocalStack provides an opt-in disposable S3 environment for testing storage and direct presigned media access without an AWS account. Normal `DEV` and `PREVIEW` startup continues to use `LOCAL` storage unless explicitly overridden.
+
+Add these non-secret overrides to ignored `backend/.env`:
+
+```dotenv
+APP_ENV=PREVIEW
+STORAGE_PROVIDER=S3
+AWS_REGION=us-east-1
+AWS_ENDPOINT_URL_S3=http://s3.localhost.localstack.cloud:4566
+S3_USER_MEDIA_BUCKET_NAME=recipe-manager-local-user-media
+S3_SYSTEM_ARTIFACTS_BUCKET_NAME=recipe-manager-local-system-artifacts
+```
+
+Start the opt-in LocalStack service alongside the normal infrastructure:
+
+```powershell
+docker compose --profile local-s3 up -d postgres redis adminer krakend localstack
+docker compose --profile local-s3 ps localstack
+```
+
+LocalStack test credentials use boto3's standard credential chain. Set them in every terminal that runs an S3 client, including FastAPI, Dramatiq, and opt-in integration tests:
+
+```powershell
+$env:AWS_ACCESS_KEY_ID="test"
+$env:AWS_SECRET_ACCESS_KEY="test"
+```
+
+Inspect stored objects:
+
+```powershell
+docker compose --profile local-s3 exec localstack awslocal s3 ls s3://recipe-manager-local-user-media --recursive
+docker compose --profile local-s3 logs -f localstack
+```
+
+Run the repeatable LocalStack integration suite:
+
+```powershell
+cd backend
+New-Item -ItemType Directory -Force .pytest-tmp | Out-Null
+$env:AWS_ACCESS_KEY_ID="test"
+$env:AWS_SECRET_ACCESS_KEY="test"
+$env:RUN_LOCALSTACK_INTEGRATION="1"
+uv run pytest tests/integration/localstack/test_s3_media_flow.py -q --basetemp=.pytest-tmp/localstack-integration
+```
+
+LocalStack has no persistent volume in this profile. Recreate only that service to reset both local buckets without touching PostgreSQL, Redis, or KrakenD:
+
+```powershell
+docker compose --profile local-s3 rm -sf localstack
+docker compose --profile local-s3 up -d localstack
+```
+
+PREVIEW database reset and LocalStack reset are separate operations. After changing storage settings, restart both FastAPI and Dramatiq so they use the same provider and endpoint. See [`docs/handoffs/p10-presigned-media-access-owner-runbook.md`](docs/handoffs/p10-presigned-media-access-owner-runbook.md) for the browser checks and the separate live-AWS verification scope.
+
 Without an OpenAI key, recipe extraction and embeddings use local fake providers. To use OpenAI, set in `backend/.env`:
 
 ```dotenv
