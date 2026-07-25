@@ -83,6 +83,12 @@ retained artifacts for old failed imports, detect old orphan candidates without
 deleting them, and write conditional JSON diagnostics. Destructive orphan and
 temporary cleanup, report API/UI, and AWS bucket/IAM provisioning remain deferred.
 
+Iteration 10 covers P10. Public recipe/import responses expose stable image and
+source IDs, while authenticated batch media access returns partial-success
+LOCAL or S3 download grants. S3 grants are 60-second presigned GETs without
+per-object HEAD checks; LOCAL retrieval reauthorizes the domain ID. Upload
+grants, CDN delivery, public sharing, and AWS provisioning remain deferred.
+
 ## Phase 2 — Terraform, IAM, and Secrets Foundation
 
 - Bootstrap remote Terraform state and GitHub OIDC.

@@ -5,10 +5,10 @@ import {
   DEFAULT_API_BASE_URL,
   deleteRecipe,
   createImport,
-  getMediaBlob,
+  fetchAuthenticatedMedia,
   listRecipes,
-  mediaUrl,
   provisionCurrentUser,
+  requestMediaAccess,
   setApiDebugLoggingForTests,
   setApiTokenProvider,
 } from "./client";
@@ -77,10 +77,10 @@ describe("api client", () => {
     vi.stubGlobal("fetch", fetchMock);
     setApiTokenProvider(async () => "media-token");
 
-    await expect(getMediaBlob("/media/image-key")).resolves.toBe(blob);
+    await expect(fetchAuthenticatedMedia("/media/recipe_image/image-1")).resolves.toBe(blob);
 
     expect(fetchMock).toHaveBeenCalledOnce();
-    expect(fetchMock.mock.calls[0][0]).toBe(`${DEFAULT_API_BASE_URL}/media/image-key`);
+    expect(fetchMock.mock.calls[0][0]).toBe(`${DEFAULT_API_BASE_URL}/media/recipe_image/image-1`);
     expect(new Headers(fetchMock.mock.calls[0][1].headers).get("Authorization")).toBe("Bearer media-token");
   });
 
@@ -148,11 +148,22 @@ describe("api client", () => {
     await expect(deleteRecipe("recipe-1")).resolves.toBeUndefined();
   });
 
-  it("routes local media through the gateway base", () => {
-    const configuredBase = import.meta.env.VITE_API_BASE_URL ?? DEFAULT_API_BASE_URL;
+  it("requests grants for stable media references", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify({ items: [] }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
 
-    expect(DEFAULT_API_BASE_URL).toBe("http://127.0.0.1:8081");
-    expect(mediaUrl("/media/image-key")).toBe(`${configuredBase}/media/image-key`);
-    expect(mediaUrl("https://cdn.example.test/image.jpg")).toBe("https://cdn.example.test/image.jpg");
+    await requestMediaAccess([{ type: "recipe_image", id: "image-1" }]);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      `${DEFAULT_API_BASE_URL}/media/access`,
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ items: [{ type: "recipe_image", id: "image-1" }] }),
+      }),
+    );
   });
 });

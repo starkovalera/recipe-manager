@@ -24,7 +24,11 @@ def test_storage_operations_require_explicit_location() -> None:
 def test_domain_modules_do_not_import_s3_adapter_or_bucket_settings() -> None:
     offenders: list[str] = []
     for path in APP_ROOT.rglob("*.py"):
-        if path.is_relative_to(APP_ROOT / "storage") or path == APP_ROOT / "core" / "config.py":
+        if (
+            path.is_relative_to(APP_ROOT / "storage")
+            or path.is_relative_to(APP_ROOT / "media" / "access")
+            or path == APP_ROOT / "core" / "config.py"
+        ):
             continue
         source = path.read_text(encoding="utf-8")
         if "S3StorageService" in source or "s3_user_media_bucket_name" in source:
@@ -44,9 +48,6 @@ def test_import_storage_work_precedes_persistence_boundaries() -> None:
         assert forbidden_call not in persistence_source
 
 
-def test_p8b1_does_not_implement_presigned_access_or_destructive_orphan_cleanup() -> None:
-    source = "\n".join(path.read_text(encoding="utf-8") for path in APP_ROOT.rglob("*.py"))
-    assert "generate_presigned_url" not in source
-    assert "presigned_url" not in source
+def test_destructive_orphan_and_temporary_cleanup_remain_deferred() -> None:
     assert "orphaned_upload_cleanup" not in {operation.value for operation in MaintenanceOperation}
     assert "temporary_resource_cleanup" not in {operation.value for operation in MaintenanceOperation}

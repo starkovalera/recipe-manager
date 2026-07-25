@@ -79,13 +79,14 @@ class RecordingClient:
         }
 
 
-def build_storage(client=None) -> S3StorageService:
+def build_storage(client=None, *, endpoint_url: str | None = None) -> S3StorageService:
     return S3StorageService(
         location_to_locator={
             StorageLocation.USER_MEDIA: "recipe-manager-test-user-media",
             StorageLocation.SYSTEM_ARTIFACTS: "recipe-manager-test-system-artifacts",
         },
         region_name="eu-west-1",
+        endpoint_url=endpoint_url,
         client=client,
     )
 
@@ -135,6 +136,30 @@ def test_s3_client_is_created_lazily_once(monkeypatch) -> None:
     storage.delete(StorageLocation.USER_MEDIA, "recipes/media/owner/recipe/image.jpg")
 
     assert calls == [{"service_name": "s3", "region_name": "eu-west-1"}]
+
+
+def test_s3_client_uses_configured_endpoint(monkeypatch) -> None:
+    client = RecordingClient()
+    calls: list[dict] = []
+
+    def create_client(service_name: str, **kwargs):
+        calls.append({"service_name": service_name, **kwargs})
+        return client
+
+    monkeypatch.setattr("app.storage.s3.boto3.client", create_client)
+    storage = build_storage(
+        endpoint_url="http://s3.localhost.localstack.cloud:4566",
+    )
+
+    storage.delete(StorageLocation.USER_MEDIA, "recipes/media/owner/recipe/image.jpg")
+
+    assert calls == [
+        {
+            "service_name": "s3",
+            "region_name": "eu-west-1",
+            "endpoint_url": "http://s3.localhost.localstack.cloud:4566",
+        }
+    ]
 
 
 def test_injected_s3_client_bypasses_boto3(monkeypatch) -> None:

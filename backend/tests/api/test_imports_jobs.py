@@ -433,29 +433,28 @@ def test_public_import_job_returns_only_user_facing_primary_sources():
     assert created.status_code == 202
     assert created.json()["sources"] == [
         {
+            "id": created.json()["sources"][0]["id"],
             "type": "IMAGE",
             "url": None,
             "originalName": "recipe.jpg",
-            "mediaUrl": created.json()["sources"][0]["mediaUrl"],
             "text": None,
         },
         {
+            "id": created.json()["sources"][1]["id"],
             "type": "TEXT",
             "url": None,
             "originalName": None,
-            "mediaUrl": None,
             "text": "Tomato soup recipe",
         },
         {
+            "id": created.json()["sources"][2]["id"],
             "type": "URL",
             "url": "https://example.com/recipe",
             "originalName": None,
-            "mediaUrl": None,
             "text": None,
         },
     ]
-    assert created.json()["sources"][0]["mediaUrl"].startswith("/media/")
-    assert set(created.json()["sources"][0]) == {"type", "url", "originalName", "mediaUrl", "text"}
+    assert set(created.json()["sources"][0]) == {"id", "type", "url", "originalName", "text"}
 
 
 def test_import_started_event_records_current_and_max_attempts():

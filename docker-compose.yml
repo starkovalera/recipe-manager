@@ -36,6 +36,27 @@ services:
     ports:
       - "8080:8080"
 
+  localstack:
+    profiles: ["local-s3"]
+    image: localstack/localstack:4.14.0
+    ports:
+      - "127.0.0.1:4566:4566"
+    environment:
+      SERVICES: s3
+      AWS_DEFAULT_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      S3_SKIP_SIGNATURE_VALIDATION: "0"
+      S3_USER_MEDIA_BUCKET_NAME: recipe-manager-local-user-media
+      S3_SYSTEM_ARTIFACTS_BUCKET_NAME: recipe-manager-local-system-artifacts
+    volumes:
+      - ./docker/localstack/init/01-create-s3-buckets.sh:/etc/localstack/init/ready.d/01-create-s3-buckets.sh:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
   krakend:
     build:
       context: ./infra/krakend

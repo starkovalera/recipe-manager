@@ -1,4 +1,19 @@
-export type RecipeImage = { id: string; mediaUrl: string };
+export type MediaReferenceType = "recipe_image" | "import_source_image";
+export type MediaReference = { type: MediaReferenceType; id: string };
+export type DownloadAccessMode = "direct" | "authenticated_fetch";
+export type DownloadGrant = {
+  url: string;
+  expiresAt?: string | null;
+  contentType: string;
+  accessMode: DownloadAccessMode;
+};
+export type MediaAccessItem = MediaReference & {
+  grant?: DownloadGrant | null;
+  error?: { code: "MEDIA_NOT_FOUND"; message: string } | null;
+};
+export type MediaAccessResponse = { items: MediaAccessItem[] };
+
+export type RecipeImage = { id: string };
 
 export type CurrentUser = {
   id: string;
@@ -78,10 +93,10 @@ export type ImportJob = {
   startedAt?: string | null;
   finishedAt?: string | null;
   sources: Array<{
+    id: string;
     type: "IMAGE" | "TEXT" | "URL";
     url?: string | null;
     originalName?: string | null;
-    mediaUrl?: string | null;
     text?: string | null;
   }>;
 };

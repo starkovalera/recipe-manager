@@ -34,12 +34,12 @@ describe("RecipeDetailPage", () => {
     authorName: "chef",
     tags: [{ id: "tag-1", name: "quick", description: null }],
     nutritionEstimate: null,
-    images: [{ id: "image-1", mediaUrl: "/media/source.jpg" }, { id: "cover-1", mediaUrl: "/media/cover.jpg" }],
-    coverImage: { id: "cover-1", mediaUrl: "/media/cover.jpg" },
+    images: [{ id: "image-1" }, { id: "cover-1" }],
+    coverImage: { id: "cover-1" },
     coverOptions: [
-      { kind: "IMAGE", label: "Current cover", selected: true, image: { id: "cover-1", mediaUrl: "/media/cover.jpg" } },
+      { kind: "IMAGE", label: "Current cover", selected: true, image: { id: "cover-1" } },
       { kind: "DEFAULT", label: "Default image", selected: false },
-      { kind: "IMAGE", label: "Source image", selected: false, image: { id: "image-1", mediaUrl: "/media/source.jpg" } },
+      { kind: "IMAGE", label: "Source image", selected: false, image: { id: "image-1" } },
     ],
     collections: [],
     resources: [

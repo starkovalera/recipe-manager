@@ -101,6 +101,7 @@ class Settings(BaseSettings):
     orphaned_upload_min_age_hours: int = Field(default=24, ge=1)
     redis_url: str | None = None
     aws_region: str | None = None
+    aws_endpoint_url_s3: str | None = None
     s3_user_media_bucket_name: str | None = None
     s3_system_artifacts_bucket_name: str | None = None
     sqs_imports_queue_url: str | None = None
@@ -135,6 +136,7 @@ class Settings(BaseSettings):
         "storage_provider",
         "redis_url",
         "aws_region",
+        "aws_endpoint_url_s3",
         "s3_user_media_bucket_name",
         "s3_system_artifacts_bucket_name",
         "sqs_imports_queue_url",
@@ -189,6 +191,8 @@ class Settings(BaseSettings):
                 raise ValueError("UPLOAD_DIR is not supported in PROD.")
             if self.system_artifacts_dir:
                 raise ValueError("SYSTEM_ARTIFACTS_DIR is not supported in PROD.")
+            if self.aws_endpoint_url_s3:
+                raise ValueError("AWS_ENDPOINT_URL_S3 is not supported in PROD.")
 
         if self.queue_provider is QueueProvider.SQS:
             missing = self._missing_sqs_settings()

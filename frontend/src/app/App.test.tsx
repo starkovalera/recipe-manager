@@ -63,7 +63,16 @@ describe("App", () => {
   it("opens on recipe grid with cover previews", async () => {
     mockFetch({
       "GET /recipes": {
-        items: [{ id: "recipe-1", title: "Soup", coverImage: { id: "image-1", mediaUrl: "/media/cover.jpg", role: "COVER" }, hasOpenReviewFlags: true }],
+        items: [{ id: "recipe-1", title: "Soup", coverImage: { id: "image-1" }, hasOpenReviewFlags: true }],
+      },
+      "POST /media/access": {
+        items: [
+          {
+            type: "recipe_image",
+            id: "image-1",
+            grant: { url: "https://media.example/image-1", accessMode: "direct", expiresAt: null },
+          },
+        ],
       },
     });
 

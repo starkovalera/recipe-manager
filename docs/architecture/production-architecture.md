@@ -873,8 +873,8 @@ temporary/{owner}/{operation}/{uuid}.{ext}
 
 There is no `users/` prefix. Primary import uploads and cover preparation run
 outside database transactions with explicit compensation. Internal workers can
-save, read, and delete S3 objects; client media access remains fail-closed until
-P10 adds short-lived presigned access.
+save, read, and delete S3 objects. P10 adds short-lived presigned access through
+stable domain media references without exposing object keys.
 
 Requirements:
 
