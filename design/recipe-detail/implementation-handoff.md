@@ -25,6 +25,8 @@ When artifacts conflict, use this order:
 5. the prototype behavior and screenshots;
 6. historical comparisons only as rationale, never as current requirements.
 
+The promotion record for temporary session material is `decisions/14-temporary-artifact-consolidation-map.md`.
+
 Production JSX/CSS is not a design reference. Prototype code is behavior evidence and must be reimplemented using production architecture, accessibility primitives, data contracts, and tests.
 
 ## Product and draft boundaries
@@ -59,11 +61,11 @@ These are coherent future issue domains, not final issue titles or dependency es
 | Media auxiliary panel | Images and understandable external links, one auxiliary slot, state preservation | Prototype 05 and Prototype 06 | Structurally ready |
 | Import Info panel | Flags, Mark all reviewed, primary/derived groups, ignored resources, thumbnails, inline irreversible removal | `decisions/06-approved-ux-foundation.md`, Prototypes 03–05 | Structurally ready; backend capabilities must be verified |
 | Recipe deletion | Overflow-only entry, blocking confirmation, no Undo, explicit imported-resource consequence | Prototype 05 | Structurally ready |
-| Desktop Recipe Edit shell | Continuous page, sticky rail, scrollspy, one recipe draft and Save/Cancel pair | `decisions/13-desktop-edit-basics-validation-and-entry-behavior.md` | Ready for Basics/Ingredients scope |
+| Desktop Recipe Edit shell | Continuous page, sticky rail, scrollspy, one recipe draft and Save/Cancel pair | `decisions/13-desktop-edit-basics-validation-and-entry-behavior.md`, Prototype 17 | Ready for Basics/Ingredients scope |
 | Mobile Recipe Edit shell | Compact Back/title/Save/Overflow, global navigation, single-open accordion | `decisions/12-mobile-edit-shell-and-save-action.md`, Prototypes 12–13 | Ready |
-| Basics editing | Fixed Source, compact numeric fields, direct Difficulty, whole-star Rating | Prototypes 14–15, decision files `07` and `13` | Ready; persistence support must be verified |
-| Ingredients editing | 50-item limit, fixed Unit, desktop reorder, compact mobile rows and single-item sheet | Prototypes 14–16, decision files `07` and `13` | Ready except exact Unit dictionary |
-| Validation and dirty guard | Hybrid timing, linked summary, error counts, local ingredient errors, desktop dialog, mobile sheet | Prototype 16, review 16, decision files `07` and `13` | Approved behavior |
+| Basics editing | Fixed Source, compact numeric fields, positive-whole Cooking time/Servings, direct Difficulty, whole-star Rating | Prototypes 14–17, decision files `07` and `13` | Ready; persistence support must be verified |
+| Ingredients editing | 50-item limit, fixed Unit, desktop reorder, compact mobile rows and single-item sheet | Prototypes 14–17, decision files `07` and `13` | Ready except exact Unit dictionary |
+| Validation and dirty guard | Hybrid timing, linked summary, error counts, local ingredient errors, desktop dialog, mobile sheet | Prototypes 16–17 and their reviews, decision files `07` and `13` | Approved behavior |
 
 ## Superseded behavior that must not become requirements
 
@@ -136,6 +138,7 @@ Issues may be created for prerequisite discovery or backend-contract verificatio
 | 14 | `MOBILE_EDIT_REFINEMENT_CHECKS_PASS` |
 | 15 | `MOBILE_BASICS_SELECTION_CONTROLS_CHECKS_PASS` |
 | 16 | `MOBILE_EDIT_VALIDATION_AND_GUARD_CHECKS_PASS` |
+| 17 | `DESKTOP_EDIT_CORE_CHECKS_PASS` |
 
 The corresponding scripts live beside each prototype. Screenshots are under `screenshots/edit-mode/`; review conclusions are under `reviews/`.
 
@@ -153,6 +156,21 @@ After the remaining design stage is complete:
 8. Mark unresolved visual tokens as blocked until the visual direction is approved.
 9. Order issues so shared primitives and contracts land before dependent screens.
 
+## Ready-for-agent issue packet
+
+When a design domain reaches `Ready`, its GitHub issue should contain this minimum packet:
+
+- **Outcome:** one user-visible capability and the applicable desktop/mobile surfaces.
+- **Approved evidence:** exact decision clauses, prototype state, screenshot, and review file.
+- **Functional contract:** data, actions, permissions, draft boundary, state transitions, and persistence owner.
+- **Acceptance matrix:** normal, sparse, dense, flagged/error, loading/failure, responsive, keyboard, and screen-reader behavior as applicable.
+- **State preservation:** mode, draft, active section, scroll, focus restoration, and auxiliary-layer behavior.
+- **Non-goals:** every nearby unfinished or separately owned design domain.
+- **Prerequisites:** schema/API discovery, shared primitives, or backend mutations that must land first.
+- **Verification:** deterministic unit/component/E2E cases and target viewports derived from the approved prototype rather than its implementation code.
+
+Do not attach `.superpowers` paths to implementation issues. Only permanent files under `docs/ui-ux/` and `design/recipe-detail/` are valid handoff evidence.
+
 ## Current next design step
 
 Complete Recipe Edit in this order:
@@ -165,4 +183,4 @@ Complete Recipe Edit in this order:
 6. Organize Recipe;
 7. visual-direction comparison and representative responsive validation.
 
-Prototype 16 remains the fixed validation and dirty-guard baseline while these sections are added.
+Prototypes 16 and 17 remain the fixed mobile and desktop validation/dirty-guard baselines while these sections are added.

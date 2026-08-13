@@ -73,7 +73,7 @@ The consolidated contract is `06-approved-ux-foundation.md`; reusable cross-page
 - Failed Save uses a linked summary above the accordion and text error counts on affected sections.
 - The approved dirty-draft bottom sheet uses `Save changes`, destructive-only `Discard changes`, and neutral `Keep editing`. Safe dismissal retains the draft.
 
-The detailed contract is `07-edit-mode-current-decisions.md`. Prototype 16 is the latest approved mobile behavior evidence.
+The detailed contract is `07-edit-mode-current-decisions.md`. Prototype 16 is the approved mobile validation/guard evidence; Prototype 17 is the permanent desktop Basics/Ingredients/validation/guard evidence.
 
 ## Completed artifact sequence
 
@@ -85,6 +85,7 @@ The detailed contract is `07-edit-mode-current-decisions.md`. Prototype 16 is th
 - Mobile Recipe Edit shell and Save placement: approved through Prototypes 11–13.
 - Mobile Basics and Ingredients: approved through Prototypes 14–15.
 - Mobile validation and unsaved-changes guard: approved through Prototype 16.
+- Desktop Basics, Ingredients, validation, and unsaved-changes guard: approved and consolidated in Prototype 17.
 - Desktop Recipe Edit Basics, Ingredients, validation, and guard: approved low-fidelity direction.
 
 ## Remaining design work
@@ -128,4 +129,4 @@ The detailed contract is `07-edit-mode-current-decisions.md`. Prototype 16 is th
 
 ## Next gate
 
-Complete the remaining Recipe Edit sections, beginning with Instructions, then Cooking notes and Estimated nutrition. Preserve Prototype 16 validation and guard behavior. After the feature-level UX is complete, design the separate Manage Media workspace and proceed to the visual-direction comparison defined in `../visual-execution-brief.md`.
+Complete the remaining Recipe Edit sections, beginning with Instructions, then Cooking notes and Estimated nutrition. Preserve Prototype 16 mobile and Prototype 17 desktop validation/guard behavior. After the feature-level UX is complete, design the separate Manage Media workspace and proceed to the visual-direction comparison defined in `../visual-execution-brief.md`.

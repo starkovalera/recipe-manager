@@ -11,11 +11,13 @@ This directory contains design artifacts only. Prototypes use local mock data an
 2. [`implementation-handoff.md`](implementation-handoff.md) — consolidated design-to-implementation context and evidence map for future GitHub issue slicing.
 3. [`decisions/current-scope.md`](decisions/current-scope.md) — current boundary, completed work, remaining design work, and next gate.
 4. [`decisions/07-edit-mode-current-decisions.md`](decisions/07-edit-mode-current-decisions.md) — approved Edit Mode structure, validation, guard, and remaining open work.
-5. [`prototypes/16-mobile-edit-validation-and-guard/index.html`](prototypes/16-mobile-edit-validation-and-guard/index.html) — latest approved mobile Recipe Edit behavior evidence.
-6. [`decisions/11-global-mobile-shell.md`](decisions/11-global-mobile-shell.md) — default mobile top bar, global bottom navigation, and modal-layer contract for all screens.
-7. [`decisions/06-approved-ux-foundation.md`](decisions/06-approved-ux-foundation.md) — consolidated approved Recipe Detail structure and behavior.
-8. [`reusable-product-patterns.md`](reusable-product-patterns.md) — principles that may guide other Recipe Manager pages.
-9. [`visual-execution-brief.md`](visual-execution-brief.md) — fixed inputs, open visual axes, and the future visual approval sequence.
+5. [`prototypes/16-mobile-edit-validation-and-guard/index.html`](prototypes/16-mobile-edit-validation-and-guard/index.html) — approved mobile Recipe Edit validation and guard evidence.
+6. [`prototypes/17-desktop-edit-basics-validation-and-guard/index.html`](prototypes/17-desktop-edit-basics-validation-and-guard/index.html) — permanent desktop Basics, Ingredients, validation, and guard evidence.
+7. [`decisions/11-global-mobile-shell.md`](decisions/11-global-mobile-shell.md) — default mobile top bar, global bottom navigation, and modal-layer contract for all screens.
+8. [`decisions/06-approved-ux-foundation.md`](decisions/06-approved-ux-foundation.md) — consolidated approved Recipe Detail structure and behavior.
+9. [`reusable-product-patterns.md`](reusable-product-patterns.md) — principles that may guide other Recipe Manager pages.
+10. [`visual-execution-brief.md`](visual-execution-brief.md) — fixed inputs, open visual axes, and the future visual approval sequence.
+11. [`decisions/14-temporary-artifact-consolidation-map.md`](decisions/14-temporary-artifact-consolidation-map.md) — map from temporary `.superpowers` working material to permanent handoff evidence.
 
 Historical artifacts remain evidence, not current alternatives. When they conflict, the approved foundation and `docs/ui-ux/07-decisions-log.md` win.
 
@@ -49,6 +51,7 @@ decisions/     Scope, approved comparisons, and consolidated foundation
 | Prototype 14 | Mobile Basics grid and compact Ingredients | Approved; mobile reordering removed |
 | Prototype 15 | Touch-oriented Basics selection controls | Hybrid option A approved |
 | Prototype 16 | Mobile validation, capacity errors, and unsaved guard | Approved low-fidelity behavior foundation |
+| Prototype 17 | Desktop Basics, Ingredients, validation, and unsaved guard | Approved permanent low-fidelity behavior foundation |
 
 ## Current stage
 

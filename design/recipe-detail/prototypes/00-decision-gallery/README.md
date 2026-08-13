@@ -15,4 +15,6 @@ For every newly approved visual decision:
 5. if the decision replaces an earlier one, keep the old evidence and mark it `Superseded` instead of overwriting it;
 6. verify the gallery at 1440 px and 390 px with no horizontal overflow or console errors.
 
+Run `test_gallery.js` with the bundled Playwright environment to verify current images, approved-card presence, and desktop/mobile overflow.
+
 Working Visual Companion files under `.superpowers/` are session evidence. They should not be treated as the consolidated source of truth until their approved state has been captured here and in a decision document.
