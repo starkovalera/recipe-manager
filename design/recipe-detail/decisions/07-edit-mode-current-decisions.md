@@ -23,7 +23,7 @@ Last updated: 2026-08-13
 - Desktop Basics uses two semantic zones without card containers: Recipe identity on the left and Cooking facts & assessment on the right.
 - Recipe identity contains Title, fixed Source, and Author.
 - Cooking facts & assessment contains compact Cooking time, Servings, Difficulty, and Personal rating controls.
-- Cooking time edits only the numeric value and displays `min` as a fixed suffix. Cooking time and Servings follow the approved Quantity numeric syntax and may be empty.
+- Cooking time edits only the numeric value and displays `min` as a fixed suffix. Cooking time and Servings may be empty; when present, each must be a positive whole number. Quantity retains the approved decimal, fraction, and range syntax.
 - Difficulty is a visible `Easy / Moderate / Hard` segmented single-choice group with a separate `Clear` action for the unset state.
 - Personal rating is a whole-star `1–5` single-choice group with visible text such as `4 of 5`; half stars are unsupported. A separate `Clear` action returns it to Not rated.
 - Desktop Ingredients remains a compact editable row layout: reorder handle, optional Quantity, fixed-dictionary Unit, required Ingredient name, and trash action.
@@ -118,7 +118,8 @@ Last updated: 2026-08-13
 - Captured Edit Mode decisions: `../screenshots/edit-mode/`
 - Approved auxiliary-context behavior: `09-edit-mode-auxiliary-context-behavior.md`
 - Approved mobile validation and guard: `../prototypes/16-mobile-edit-validation-and-guard/index.html`
-- Companion source iterations remain under `../.superpowers/brainstorm/` as working-session evidence and are not the consolidated source of truth.
+- Approved desktop Basics, Ingredients, validation, and guard: `../prototypes/17-desktop-edit-basics-validation-and-guard/index.html`
+- Temporary `.superpowers` source iterations are not part of the design handoff; all approved behavior is represented by the permanent decision, prototype, screenshot, and review artifacts above.
 
 ## Still unresolved
 

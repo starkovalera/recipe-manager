@@ -58,10 +58,11 @@ The cover must not become a large hero image.
 
 Do not show visible field labels such as `Source` and `Author` in the default reading view.
 
-Use a compact inline presentation, for example:
+Use a compact identity presentation followed by a separate cooking-facts row, for example:
 
 ```text
-Instagram video · Marta Cooks · 30 min · 4 servings
+Instagram video · Marta Cooks
+30 min · 4 servings
 ```
 
 Source and author must remain distinguishable through separators, typography, icons, or spacing.
@@ -118,12 +119,7 @@ Requirements:
 
 ### Difficulty and personal rating
 
-This placement is unresolved and must be evaluated through two otherwise identical variants:
-
-- **Alternative A:** difficulty and rating near the cover and primary recipe metadata;
-- **Alternative B:** difficulty and rating in one compact row under Tags and Collections in the upper-right metadata area.
-
-Do not change other layout decisions while comparing these variants.
+The approved B2 order places Difficulty and Personal rating in the upper-right secondary metadata area, above Collections and Tags. This keeps personal assessment with organization metadata without mixing it into source identity or cooking facts.
 
 ### Secondary metadata
 
@@ -153,7 +149,7 @@ The following may be available compactly but must not compete with the recipe:
 
 ### Purpose
 
-Import Info is a separate working context for inspecting the imported result, its provenance, source quality, and technical information.
+Import Info is a separate working context for reviewing import messages, imported resources, resource relationships, and eligible technical information.
 
 It is not only an error-resolution screen. It remains useful when no review flags exist.
 
@@ -165,15 +161,15 @@ The context is reachable from the neutral `Import info` action for every importe
 
 It may include:
 
-- imported recipe result;
 - source URLs;
 - imported text and images;
 - used, ignored, and deleted sources;
 - review flags when present;
 - debug information for eligible roles;
-- source and author corrections;
-- source deletion and restoration;
+- source deletion;
 - information about which materials were used or ignored during extraction.
+
+It does not duplicate the extracted recipe, expose a user-facing `Provenance` or `Original source` section, offer field-level flag resolution, or offer resource restoration.
 
 ### Preferred layout
 
@@ -216,14 +212,12 @@ Organization is a separate section or screen for:
 
 - tags;
 - collections;
-- personal rating;
-- difficulty;
 - cuisine;
 - meal type;
 - dietary attributes;
 - other search and management properties.
 
-It must not become a continuation of one very long recipe-content form.
+It must not become a continuation of one very long recipe-content form. Difficulty and Personal rating are currently edited in Recipe Edit Basics; Organize owns Tags, Collections, and the remaining classification metadata.
 
 ## 5. Manage Media and cover selection
 

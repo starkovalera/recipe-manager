@@ -163,7 +163,7 @@ The mobile current-section index, mobile reorder handle, and in-Edit Manage Medi
 - Desktop Basics uses two semantic zones without cards: Recipe identity on the left; Cooking facts & assessment on the right.
 - Recipe identity contains Title, fixed Source, and Author.
 - Cooking facts & assessment contains compact Cooking time, Servings, Difficulty, and Personal rating controls; these controls use content-based widths rather than filling the zone.
-- Cooking time edits only a numeric value and displays `min` as a fixed non-editable suffix. Cooking time and Servings follow the approved Quantity numeric syntax and may be empty.
+- Cooking time edits only a numeric value and displays `min` as a fixed non-editable suffix. Cooking time and Servings may be empty; when present, each must be a positive whole number. Quantity retains the more expressive decimal, fraction, and range syntax.
 - Difficulty uses visible `Easy / Moderate / Hard` segments and a separate `Clear` action for the unset state. `Not set` is not a visible segment.
 - Personal rating uses five whole-value stars only: `1`, `2`, `3`, `4`, or `5`. Half-star values are unsupported. A visible `N of 5` value and separate `Clear` action remain available.
 - Desktop Ingredients uses compact rows containing reorder handle, optional Quantity, fixed-dictionary Unit, required Ingredient name, and the standard trash action. Ingredient notes are not shown or edited.
@@ -192,6 +192,13 @@ The mobile current-section index, mobile reorder handle, and in-Edit Manage Medi
 - Close, Escape, backdrop, downward swipe, and system Back safely dismiss the guard and retain the draft.
 - The guard applies to Back, browser Back, View/Focus, global destinations including Add, and Manage Media. Media and Import Info do not invoke it because they remain auxiliary Edit contexts.
 - Prototype 16 and its review are the approved low-fidelity evidence.
+
+### Cross-platform numeric-entry alignment and desktop evidence consolidation — 2026-08-13
+
+- Desktop Cooking time and Servings now use the same rule as mobile: empty or positive whole number.
+- This supersedes the earlier desktop statement that Cooking time and Servings use the full Quantity expression syntax.
+- Quantity remains optional and continues to accept approved decimal, fraction, and range expressions.
+- Prototype 17 is the permanent desktop low-fidelity evidence for Basics, Ingredients, validation, and the unsaved-changes guard. Temporary `.superpowers` output is not an implementation source.
 
 ## Resolved comparisons
 

@@ -54,10 +54,11 @@ The zones use a subtle vertical divider. Fields use content-based maximum widths
 ### Numeric-entry rules
 
 - Quantity may be empty.
-- Servings follows the same numeric-entry validation as Quantity and may be empty.
-- Cooking time may be empty. When present, its editable value uses the same numeric-entry validation as Quantity.
+- Servings may be empty. When present, it must be a positive whole number.
+- Cooking time may be empty. When present, it must be a positive whole number.
 - Cooking time displays `min` as a fixed, non-editable suffix. The user edits only the numeric value.
-- Accepted input consists of numbers and symbols used to express numeric values, for example `2`, `1.5`, `1,5`, `1/2`, `½`, and `1–2`.
+- Quantity accepts numbers and symbols used to express numeric values, for example `2`, `1.5`, `1,5`, `1/2`, `½`, and `1–2`.
+- Cooking time and Servings do not accept decimals, fractions, or ranges.
 - Letters, emoji, and unrelated symbols are invalid.
 - A new ingredient starts with empty Quantity and Unit set to `No unit`.
 - Ingredient name is required.
@@ -94,8 +95,8 @@ The approved behavior is hybrid validation:
 
 - Title exceeds a future configured limit: `Title is too long. Shorten it before saving.`
 - Invalid Quantity: explain that only numbers and numeric symbols are accepted.
-- Invalid Servings: use the same numeric guidance as Quantity.
-- Invalid Cooking time: use the same numeric guidance and state that the unit is always minutes.
+- Invalid Servings: `Enter a positive whole number or leave this empty.`
+- Invalid Cooking time: `Enter a positive whole number or leave this empty.` The fixed `min` suffix already communicates the unit.
 - Empty ingredient name: `Enter an ingredient name.`
 - Ingredient count above 50: show the current count, maximum count, and required removal action at section level.
 
@@ -143,8 +144,9 @@ The guard is not triggered by opening Media or Import Info as auxiliary panels.
 - Difficulty and Personal rating: segmented `Easy / Moderate / Hard` plus whole-star `1–5`, each with a separate `Clear` action.
 - Validation screen: Basics and Ingredients errors, overall summary, rail markers, and global save bar.
 - Guard screen: centered blocking dialog with the approved short actions.
-- Working visual companion: `.superpowers/brainstorm/1933-1784985097/content/desktop-validation-and-guard-v1.html`.
-- Working full-page companion: `.superpowers/brainstorm/1933-1784985097/content/desktop-edit-full-page-v1.html`.
+- Permanent browser companion: `../prototypes/17-desktop-edit-basics-validation-and-guard/index.html`.
+- Normal, validation, and guard screenshots: `../screenshots/edit-mode/17a-desktop-edit-basics-ingredients-v1.png`, `17b-desktop-edit-validation-v1.png`, and `17c-desktop-edit-unsaved-guard-v1.png`.
+- Temporary `.superpowers` artifacts are historical working material and are not an implementation source.
 
 ## Responsive implications
 
@@ -166,7 +168,7 @@ The guard is not triggered by opening Media or Import Info as auxiliary panels.
 - Sticky rail plus ordinary page scrolling and scrollspy: approved.
 - One global Save for the Recipe Edit draft: approved.
 - Hybrid frontend validation and error hierarchy: approved.
-- Numeric validation for Quantity, Servings, and Cooking time: approved.
+- Quantity expression validation and positive-whole-number validation for Servings and Cooking time: approved.
 - Fixed `min` suffix for Cooking time: approved.
 - Segmented Difficulty with a separate Clear action: approved.
 - Five-star Personal rating with visible numeric value and a separate Clear action: approved.
