@@ -1,5 +1,7 @@
 # Background Processing, Notifications, and Search Plan
 
+> Archived snapshot. Completed phases and historical proposals are preserved here; unchecked work is not an active task list. Use [`../../roadmap.md`](../../roadmap.md), [`../../architecture/production-roadmap.md`](../../architecture/production-roadmap.md), and [`../../future/`](../../future/README.md).
+
 ## 1. Target Architecture
 
 The target architecture moves import execution out of the HTTP request path and makes recipe import a persisted domain workflow, not just a queue message.

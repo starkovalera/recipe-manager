@@ -42,6 +42,12 @@ The repository-local product-design skill should exist at:
 
 ## Start a Recipe Detail design task
 
+Read the current Design track and gates first:
+
+```text
+design/roadmap.md
+```
+
 Open the repository or a dedicated design worktree in Codex. Start with the prompt from:
 
 ```text

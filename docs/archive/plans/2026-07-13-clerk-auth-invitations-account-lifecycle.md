@@ -1,6 +1,8 @@
 # Clerk Authentication, Invitations, and Account Lifecycle Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:executing-plans`, the project backend/FastAPI skills, TDD, and `docs/refactoring-guidelines.md`. Stop at every iteration boundary for user review.
+> Archived completed plan. Current authentication behavior is documented in [`../../authentication-and-authorization.md`](../../authentication-and-authorization.md).
+
+> Historical instruction: this plan originally required the former execution skills, backend/FastAPI skills, TDD, and the refactoring guide. It is preserved as evidence, not an active instruction.
 
 **Goal:** Complete Clerk-backed identity provisioning and account lifecycle management while preserving owner-scoped product behavior and local fixed roles.
 

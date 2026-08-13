@@ -1,6 +1,6 @@
 # Integrated Mobile Recipe Edit Prototype Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Historical execution record:** This completed prototype plan is retained as evidence; its task list is not active backlog.
 
 **Goal:** Create a new isolated interactive mobile Recipe Edit baseline that combines the approved compact shell, top Save action, global navigation, accordion sections, and single-item ingredient editor.
 

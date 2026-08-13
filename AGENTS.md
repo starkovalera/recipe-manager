@@ -56,3 +56,25 @@ Use checks proportional to the changed workstream:
 - documentation changes: link, path, consistency, and stale-reference checks.
 
 Report what was verified and what remains unverified.
+
+## Agent skills
+
+### Issue tracker
+
+Issues and specs for this repo live as GitHub issues; use the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The repo uses the default five canonical triage labels: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, and `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+This is a single-context repo with root `CONTEXT.md` and `docs/adr/`. See `docs/agents/domain.md`.
+
+### Planning
+
+Start project planning from `docs/roadmap.md`. Active issues follow the `[DESIGN]` / `[DEV]` title convention and native blocker rules in `docs/agents/planning.md`.
+
+### Task completion
+
+Development tasks use the shared completion checkpoint in `docs/agents/task-completion.md`. Backend tasks must run its refactoring review before handoff.

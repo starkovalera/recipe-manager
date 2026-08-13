@@ -2,6 +2,8 @@
 
 This directory is the single home for non-production product-design context and evidence.
 
+Start with [`roadmap.md`](roadmap.md) for the current `[DESIGN]` track, its parallel workstreams, and baseline gates.
+
 ## Structure
 
 - `shared/` contains cross-feature working agreements, product scope, workflow, and review criteria.

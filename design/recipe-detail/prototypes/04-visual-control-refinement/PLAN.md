@@ -1,6 +1,6 @@
 # Recipe Detail v4 Prototype Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:executing-plans` to implement this plan task-by-task. Subagents are intentionally unavailable for this run.
+> **Historical execution record:** This completed prototype plan is retained as evidence; its task list is not active backlog.
 
 **Goal:** Produce a separate v4 low-fidelity prototype that keeps A/B comparable, clarifies image/resource controls and deletion consequences, and simplifies the shared auxiliary drawer around the common Media task.
 

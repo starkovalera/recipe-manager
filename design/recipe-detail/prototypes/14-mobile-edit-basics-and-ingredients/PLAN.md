@@ -1,6 +1,6 @@
 # Mobile Edit Basics and Ingredients Refinement Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Historical execution record:** This completed prototype plan is retained as evidence; its task list is not active backlog.
 
 **Goal:** Create a preserved Prototype 14 that refines the approved mobile Recipe Edit baseline by regularizing Basics controls and removing mobile ingredient reordering.
 

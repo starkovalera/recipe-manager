@@ -1,5 +1,7 @@
 # Technical Documentation
 
+Start with [`roadmap.md`](roadmap.md) for current project status and [`architecture/production-roadmap.md`](architecture/production-roadmap.md) for the Development dependency plan.
+
 This directory contains documentation for the production application and its delivery:
 
 - architecture and system behavior;
@@ -7,5 +9,9 @@ This directory contains documentation for the production application and its del
 - technical specifications under `specs/`;
 - implementation and rollout plans under `plans/`;
 - operational handoffs, runbooks, and manual verification.
+- owner-controlled production decisions and external setup in [`production-prerequisites.md`](production-prerequisites.md);
+- agent-facing workflow under `agents/`;
+- Future Capability refinement under [`future/`](future/README.md);
+- historical snapshots under [`archive/`](archive/README.md).
 
 Product-design context, UX decisions, prototypes, and visual evidence live under [`../design/`](../design/README.md). Folder names describe document purpose rather than the tool or agent that created them.

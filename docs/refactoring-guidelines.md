@@ -116,7 +116,7 @@ After each refactoring iteration:
 3. Run focused tests for the affected behavior.
 4. Run the full relevant test suite when shared behavior or contracts changed.
 5. Re-check business invariants and public contracts.
-6. Record any intentional temporary solution in the future-work document.
+6. Record any intentional temporary solution in the applicable Future Capability document under `docs/future/`.
 7. Confirm whether another small local cleanup is needed before review.
 
 Do not expand a phase-completion cleanup into a broad redesign. If a larger refactor is needed, add it to the plan, define its invariants and verification scope, and request approval before implementation.
