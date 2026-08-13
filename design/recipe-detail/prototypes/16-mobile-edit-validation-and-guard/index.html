@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+  <title>Mobile Recipe Edit: Validation and guard</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="prototype-toolbar">
+    <div>
+      <p class="eyebrow">Mobile Recipe Edit · validation and guard</p>
+      <h1>Save errors and safe exit</h1>
+      <p>Prototype 16 preserves the approved compact editor shell and evaluates the agreed inline Save summary.</p>
+    </div>
+    <nav aria-label="Prototype states">
+      <button type="button" data-scenario="basics" aria-pressed="true">Basics errors</button>
+      <button type="button" data-scenario="ingredients">Ingredients errors</button>
+      <button type="button" data-scenario="guard">Unsaved-changes guard</button>
+    </nav>
+  </header>
+  <main class="stage">
+    <div class="phone" aria-label="Interactive mobile recipe editor">
+      <div class="phone-notch" aria-hidden="true"></div>
+      <section class="mobile-edit-surface" id="app-root"></section>
+      <div id="layer-root"></div>
+      <div id="live-region" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
+    </div>
+    <aside class="review-note" id="review-note"></aside>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

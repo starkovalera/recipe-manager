@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mobile Edit header comparison — A and C</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="comparison-board">
+    <header class="board-intro">
+      <p class="eyebrow">Mobile Recipe Edit · shell alignment</p>
+      <h1>Upper section comparison</h1>
+      <p>Only the initial header state changes. The editor, fixed recipe actions, and global navigation are identical.</p>
+    </header>
+
+    <section class="variants" aria-label="Mobile Edit header variants">
+      <article class="variant">
+        <header class="variant-heading">
+          <span class="recommendation">Option A</span>
+          <h2>Expanded first, compact after scroll</h2>
+          <p>Basics is editable in the expanded recipe header. Scrolling converts it to the shared compact detail bar.</p>
+        </header>
+        <div class="phone" aria-label="Option A mobile Edit screen">
+          <div class="phone-notch" aria-hidden="true"></div>
+          <section class="screen">
+            <header class="recipe-header recipe-header--expanded">
+              <div class="utility-row">
+                <button aria-label="Back to recipe">‹</button>
+                <div class="utility-actions">
+                  <button aria-label="Media, 6 items"><span class="media-icon" aria-hidden="true">▧</span><small>6</small></button>
+                  <button aria-label="More recipe actions">•••</button>
+                </div>
+              </div>
+              <section class="basics-editor" aria-labelledby="a-basics-title">
+                <div class="section-title-row"><h3 id="a-basics-title">Basics</h3><span>5 fields</span></div>
+                <label>Recipe title<input value="Smoky Tomato & Butter Bean Stew" readonly></label>
+                <div class="two-up"><label>Source<input value="Instagram" readonly></label><label>Author<input value="Marta Cooks" readonly></label></div>
+                <div class="two-up facts"><label>Cooking time<input value="45 min" readonly></label><label>Servings<input value="4" readonly></label></div>
+              </section>
+              <nav class="mode-row" aria-label="Recipe mode">
+                <button>View</button><button>Focus</button><button aria-current="page">Edit</button>
+              </nav>
+            </header>
+            <div class="editor-body">
+              <section class="accordion-section is-open">
+                <header class="accordion-heading"><div><h3>Ingredients</h3><span>12 of 50</span></div><span aria-hidden="true">⌃</span></header>
+                <p class="section-help">Drag to reorder</p>
+                <ul class="ingredient-list">
+                  <li><span class="handle">⠿</span><strong>2 tbsp · smoked paprika</strong><span class="chevron">›</span><span class="trash" aria-hidden="true"></span></li>
+                  <li><span class="handle">⠿</span><strong>3 cloves · garlic, thinly sliced</strong><span class="chevron">›</span><span class="trash" aria-hidden="true"></span></li>
+                </ul>
+              </section>
+            </div>
+            <footer class="edit-actions"><span>3 unsaved</span><button>Cancel</button><button class="primary">Save changes</button></footer>
+            <nav class="global-nav" aria-label="Main navigation">
+              <button aria-current="page"><b>☰</b><span>Recipes</span></button>
+              <button><b>▦</b><span>Collections</span></button>
+              <button class="add" aria-label="Add recipe">+</button>
+              <button><b>●</b><span>Notifications</span></button>
+              <button><b>○</b><span>Profile</span></button>
+            </nav>
+          </section>
+        </div>
+        <p class="variant-note"><strong>Initial viewport:</strong> recipe context and Basics are explicit, but less of Ingredients is visible before scrolling.</p>
+      </article>
+
+      <article class="variant">
+        <header class="variant-heading">
+          <span class="alternative">Option C</span>
+          <h2>Always compact</h2>
+          <p>The page enters directly in the same compact state that Option A reaches after scrolling. Basics remains an accordion section.</p>
+        </header>
+        <div class="phone" aria-label="Option C mobile Edit screen">
+          <div class="phone-notch" aria-hidden="true"></div>
+          <section class="screen">
+            <header class="recipe-header recipe-header--compact">
+              <div class="utility-row compact-row">
+                <button aria-label="Back to recipe">‹</button>
+                <strong>Smoky Tomato & Butter Bean Stew</strong>
+                <div class="utility-actions">
+                  <button aria-label="Media, 6 items"><span class="media-icon" aria-hidden="true">▧</span><small>6</small></button>
+                  <button aria-label="More recipe actions">•••</button>
+                </div>
+              </div>
+            </header>
+            <div class="editor-body">
+              <section class="accordion-section basics-collapsed">
+                <header class="accordion-heading"><div><h3>Basics</h3><span>5 fields</span></div><span aria-hidden="true">⌄</span></header>
+              </section>
+              <section class="accordion-section is-open">
+                <header class="accordion-heading"><div><h3>Ingredients</h3><span>12 of 50</span></div><span aria-hidden="true">⌃</span></header>
+                <p class="section-help">Drag to reorder</p>
+                <ul class="ingredient-list">
+                  <li><span class="handle">⠿</span><strong>2 tbsp · smoked paprika</strong><span class="chevron">›</span><span class="trash" aria-hidden="true"></span></li>
+                  <li><span class="handle">⠿</span><strong>3 cloves · garlic, thinly sliced</strong><span class="chevron">›</span><span class="trash" aria-hidden="true"></span></li>
+                  <li><span class="handle">⠿</span><strong>250 ml · low-sodium vegetable stock</strong><span class="chevron">›</span><span class="trash" aria-hidden="true"></span></li>
+                  <li><span class="handle">⠿</span><strong>20 g · flat-leaf parsley</strong><span class="chevron">›</span><span class="trash" aria-hidden="true"></span></li>
+                </ul>
+                <button class="add-ingredient">+ Add ingredient</button>
+              </section>
+              <section class="accordion-section">
+                <header class="accordion-heading"><div><h3>Instructions</h3><span>8 steps</span></div><span aria-hidden="true">⌄</span></header>
+              </section>
+            </div>
+            <footer class="edit-actions"><span>3 unsaved</span><button>Cancel</button><button class="primary">Save changes</button></footer>
+            <nav class="global-nav" aria-label="Main navigation">
+              <button aria-current="page"><b>☰</b><span>Recipes</span></button>
+              <button><b>▦</b><span>Collections</span></button>
+              <button class="add" aria-label="Add recipe">+</button>
+              <button><b>●</b><span>Notifications</span></button>
+              <button><b>○</b><span>Profile</span></button>
+            </nav>
+          </section>
+        </div>
+        <p class="variant-note"><strong>Initial viewport:</strong> editing starts faster and exposes more content, but recipe identity and mode switching move behind the compact header and Overflow.</p>
+      </article>
+    </section>
+  </main>
+</body>
+</html>

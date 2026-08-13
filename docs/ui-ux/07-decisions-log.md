@@ -80,6 +80,8 @@ Consolidated approved design artifact: `design/recipe-detail/decisions/06-approv
 - `Add ingredient` opens the same sheet empty. Dismissing a changed ingredient sub-draft requires a discard decision.
 - Ingredient reordering supports direct drag plus accessible move commands.
 
+The mobile current-section index, mobile reorder handle, and in-Edit Manage Media statements in the preceding historical block are superseded by the later 2026-07-24 and 2026-07-25 entries below. Desktop reordering remains approved.
+
 ### Edit Mode auxiliary contexts — 2026-07-24
 
 - The earlier decision that Media becomes Manage Media inside Edit Mode is superseded.
@@ -131,11 +133,71 @@ Consolidated approved design artifact: `design/recipe-detail/decisions/06-approv
 - Future screen designs must identify their hierarchy level, compact-bar essentials, active global destination, and modal-layer behavior before visual styling.
 - The consolidated approved contract is recorded in `design/recipe-detail/decisions/11-global-mobile-shell.md`.
 
+### Mobile Recipe Edit shell and Save action — 2026-07-25
+
+- Mobile Recipe Edit uses the compact Recipe Detail header from entry; it does not begin with an expanded identity/Basics header.
+- Mobile editing uses a single-open accordion. Basics is one of its sections rather than a duplicate block in the header.
+- The compact Edit toolbar is Back, truncated recipe title, `Save`, and Overflow.
+- `Save` replaces direct Media while Edit is active. Media and Import Info remain available from Overflow.
+- The former fixed bottom `Cancel / Save changes` bar and the proposed bottom dirty-state accessory are rejected.
+- Back owns exit and invokes a dirty-draft guard when unsaved changes exist.
+- The global `Recipes / Collections / Add / Notifications / Profile` bar remains visible, unchanged, and navigation-only.
+- The consolidated decision is recorded in `design/recipe-detail/decisions/12-mobile-edit-shell-and-save-action.md`.
+
+### Mobile Recipe Edit Basics and Ingredients refinement — 2026-07-25
+
+- Mobile Basics has seven fields: Recipe title; Source; Author; Cooking time; Servings; Difficulty; and Personal rating.
+- Recipe title is full width. Source / Author, Cooking time / Servings, and Difficulty / Personal rating are equal two-column pairs with consistent control heights.
+- Source is a five-value fixed select: Manual, Instagram, Threads, TikTok, Other.
+- Difficulty is a fixed select: Not set, Easy, Moderate, Hard. Personal rating is a fixed select: Not rated and 1–5 out of 5 in whole-number steps.
+- Difficulty and Personal rating persistence remain future backend work.
+- Mobile ingredient rows retain only the summary-button editor and the trash action. DnD, reorder handles, reorder copy, and accessible move commands are removed on mobile.
+- Desktop ingredient reordering and instruction reordering are unchanged and outside this refinement.
+- Mobile Basics uses a hybrid selection pattern: Source opens a checked bottom sheet; Difficulty exposes Easy / Moderate / Hard directly; Personal rating exposes five whole-value stars.
+- The rating-star group is centered in its full-width field area. `Clear` remains a separate right-aligned heading action.
+
+### Desktop Recipe Edit Basics, Ingredients, validation, and guard — 2026-07-25
+
+- Desktop Recipe Edit is one continuous page with a sticky left section rail, ordinary page scrolling, and scrollspy. Scrollspy updates the active rail item but never moves focus or scroll position on its own.
+- The page owns one Recipe Edit draft and one global `Save changes` / `Cancel` pair. Individual sections do not save independently.
+- Desktop Basics uses two semantic zones without cards: Recipe identity on the left; Cooking facts & assessment on the right.
+- Recipe identity contains Title, fixed Source, and Author.
+- Cooking facts & assessment contains compact Cooking time, Servings, Difficulty, and Personal rating controls; these controls use content-based widths rather than filling the zone.
+- Cooking time edits only a numeric value and displays `min` as a fixed non-editable suffix. Cooking time and Servings follow the approved Quantity numeric syntax and may be empty.
+- Difficulty uses visible `Easy / Moderate / Hard` segments and a separate `Clear` action for the unset state. `Not set` is not a visible segment.
+- Personal rating uses five whole-value stars only: `1`, `2`, `3`, `4`, or `5`. Half-star values are unsupported. A visible `N of 5` value and separate `Clear` action remain available.
+- Desktop Ingredients uses compact rows containing reorder handle, optional Quantity, fixed-dictionary Unit, required Ingredient name, and the standard trash action. Ingredient notes are not shown or edited.
+- A new ingredient begins with empty Quantity and `No unit`. The 50-ingredient limit is reported as a section-level aggregate error.
+- Validation is hybrid: invalid numeric syntax and overlength appear once present; required-field errors appear after blur or Save; aggregate constraints appear at section level.
+- Failed Save shows a linked overall error summary, marks every affected rail section, and moves focus to the first invalid field.
+- The approved centered desktop guard is `Unsaved changes` / `Save changes before leaving this recipe?` with `Save`, `Discard`, and `Cancel`.
+- The guard applies to Back, browser Back, View/Focus, other navigation, and entry into Manage Media. It does not apply to Media or Import Info auxiliary panels.
+- The consolidated contract is recorded in `design/recipe-detail/decisions/13-desktop-edit-basics-validation-and-entry-behavior.md`.
+
+### Desktop Import Info entry refinement — 2026-07-25
+
+- The earlier permanent desktop `Import info` main-row button is superseded. On desktop, Import Info is an item under recipe Overflow in View, Focus, and Edit.
+- When unresolved flags exist, Overflow shows a notification dot and the `Import Info` menu item repeats the dot.
+- On first entry into a flagged recipe, Import Info opens automatically. It does so only once during that recipe visit; closing it or switching View/Focus/Edit does not reopen it.
+- Recipes without unresolved flags do not auto-open Import Info. Manual recipes omit the import-only item; Media remains available.
+- This first-entry behavior supersedes the earlier decision to always enter flagged recipes in ordinary Default View with only a compact review status.
+
+### Mobile Recipe Edit validation and unsaved-changes guard — 2026-08-13
+
+- A failed mobile Save shows a focusable linked summary above the accordion sections. Links open and focus affected fields or sections, and section headers expose text error counts.
+- Basics and Ingredients use hybrid validation: impossible numeric syntax and overlength appear immediately; required and plausibly incomplete values appear after blur, local `Done`, or Save.
+- Ingredient-sheet errors remain inside the ingredient sub-draft. The 50-ingredient maximum is a recipe-level section error and is repeated in the failed-Save summary.
+- Cooking time is labelled `Cooking time (min)` and edits only the numeric value. Cooking time and Servings accept empty or positive whole-number values; Quantity also accepts decimal, fraction, and range expressions.
+- The approved mobile dirty-draft guard is a blocking bottom sheet: `Unsaved changes`, `Save changes before leaving this recipe?`, with `Save changes`, destructive-only `Discard changes`, and neutral `Keep editing`.
+- Close, Escape, backdrop, downward swipe, and system Back safely dismiss the guard and retain the draft.
+- The guard applies to Back, browser Back, View/Focus, global destinations including Add, and Manage Media. Media and Import Info do not invoke it because they remain auxiliary Edit contexts.
+- Prototype 16 and its review are the approved low-fidelity evidence.
+
 ## Resolved comparisons
 
 ### Behavior when unresolved review flags exist
 
-Approved: open Default View with a concise status linking to Import Info. Do not redirect to Import Info on entry.
+Approved and superseding the earlier comparison: on the first entry into a recipe with unresolved flags, open Import Info automatically over the recipe. Do this only once per recipe visit; after the panel is closed, View/Focus/Edit changes do not reopen it automatically.
 
 ### Difficulty and rating placement
 

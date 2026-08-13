@@ -45,6 +45,15 @@ Nested screens show an icon-only Back action at the left edge.
 - Manual recipes keep Media because it is also the path to upload images. Only Import Info is conditional on import history.
 - When review flags exist, Overflow and its `Import info` item repeat the same notification dot.
 
+### Recipe Edit exception
+
+- Mobile Recipe Edit uses the compact Recipe Detail header from entry rather than expanding the identity area.
+- Its compact row is Back, truncated recipe title, `Save`, and Overflow.
+- `Save` replaces direct Media because persisting the recipe draft is the essential contextual action in Edit. Media and Import Info remain reachable from Overflow.
+- Back exits Edit and invokes an unsaved-changes guard when the recipe draft is dirty.
+- Recipe Edit does not add a second fixed action bar above global navigation.
+- The global navigation remains visible and unchanged; it never contains Save, Cancel, or other recipe-edit actions.
+
 Approved visual evidence: [`mobile-header-expanded-compact-approved.png`](../screenshots/mobile-shell/mobile-header-expanded-compact-approved.png).
 
 ## Global bottom navigation
