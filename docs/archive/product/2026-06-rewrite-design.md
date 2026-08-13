@@ -1,5 +1,7 @@
 ﻿# Recipe Manager Rewrite Design
 
+> Archived snapshot. This greenfield design is superseded by [`../../roadmap.md`](../../roadmap.md), current architecture contracts, and the product-design workspaces under `design/`. Its status and open decisions are historical.
+
 ## Status
 
 Draft design for a greenfield rewrite of the current recipe MVP into a Python backend and React frontend. The existing `recipe-mvp` repository remains unchanged and is used only as a behavioral reference.

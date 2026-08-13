@@ -7,22 +7,25 @@ This directory contains design artifacts only. Prototypes use local mock data an
 
 ## Start here
 
-1. [`prototypes/00-decision-gallery/index.html`](prototypes/00-decision-gallery/index.html) — persistent visual gallery of approved Recipe Detail, global mobile shell, and Edit Mode decisions.
-2. [`implementation-handoff.md`](implementation-handoff.md) — consolidated design-to-implementation context and evidence map for future GitHub issue slicing.
-3. [`decisions/current-scope.md`](decisions/current-scope.md) — current boundary, completed work, remaining design work, and next gate.
-4. [`decisions/07-edit-mode-current-decisions.md`](decisions/07-edit-mode-current-decisions.md) — approved Edit Mode structure, validation, guard, and remaining open work.
-5. [`prototypes/16-mobile-edit-validation-and-guard/index.html`](prototypes/16-mobile-edit-validation-and-guard/index.html) — approved mobile Recipe Edit validation and guard evidence.
-6. [`prototypes/17-desktop-edit-basics-validation-and-guard/index.html`](prototypes/17-desktop-edit-basics-validation-and-guard/index.html) — permanent desktop Basics, Ingredients, validation, and guard evidence.
-7. [`decisions/11-global-mobile-shell.md`](decisions/11-global-mobile-shell.md) — default mobile top bar, global bottom navigation, and modal-layer contract for all screens.
-8. [`decisions/06-approved-ux-foundation.md`](decisions/06-approved-ux-foundation.md) — consolidated approved Recipe Detail structure and behavior.
-9. [`reusable-product-patterns.md`](reusable-product-patterns.md) — principles that may guide other Recipe Manager pages.
-10. [`visual-execution-brief.md`](visual-execution-brief.md) — fixed inputs, open visual axes, and the future visual approval sequence.
-11. [`decisions/14-temporary-artifact-consolidation-map.md`](decisions/14-temporary-artifact-consolidation-map.md) — map from temporary `.superpowers` working material to permanent handoff evidence.
-12. [`decisions/decision-log.md`](decisions/decision-log.md) — chronological approvals and explicit supersessions.
-13. [`ux-overview.md`](ux-overview.md) — human-readable structural map; not an independent requirements source.
-14. [`functional-scope.md`](functional-scope.md) — available data, user tasks, boundaries, and deferred scenarios.
+1. [`../roadmap.md`](../roadmap.md) — global Design track, parallel workstreams, and baseline gate.
+2. [`prototypes/00-decision-gallery/index.html`](prototypes/00-decision-gallery/index.html) — persistent visual gallery of approved Recipe Detail, global mobile shell, and Edit Mode decisions.
+3. [`implementation-handoff.md`](implementation-handoff.md) — consolidated design-to-implementation context and evidence map for future GitHub issue slicing.
+4. [`decisions/current-scope.md`](decisions/current-scope.md) — current boundary, completed work, remaining design work, and next gate.
+5. [`decisions/07-edit-mode-current-decisions.md`](decisions/07-edit-mode-current-decisions.md) — approved Edit Mode structure, validation, guard, and remaining open work.
+6. [`prototypes/16-mobile-edit-validation-and-guard/index.html`](prototypes/16-mobile-edit-validation-and-guard/index.html) — approved mobile Recipe Edit validation and guard evidence.
+7. [`prototypes/17-desktop-edit-basics-validation-and-guard/index.html`](prototypes/17-desktop-edit-basics-validation-and-guard/index.html) — permanent desktop Basics, Ingredients, validation, and guard evidence.
+8. [`decisions/11-global-mobile-shell.md`](decisions/11-global-mobile-shell.md) — default mobile top bar, global bottom navigation, and modal-layer contract for all screens.
+9. [`decisions/06-approved-ux-foundation.md`](decisions/06-approved-ux-foundation.md) — consolidated approved Recipe Detail structure and behavior.
+10. [`reusable-product-patterns.md`](reusable-product-patterns.md) — principles that may guide other Recipe Manager pages.
+11. [`visual-execution-brief.md`](visual-execution-brief.md) — fixed inputs, open visual axes, and the future visual approval sequence.
+12. [`decisions/14-temporary-artifact-consolidation-map.md`](decisions/14-temporary-artifact-consolidation-map.md) — map from temporary `.superpowers` working material to permanent handoff evidence.
+13. [`decisions/decision-log.md`](decisions/decision-log.md) — chronological approvals and explicit supersessions.
+14. [`ux-overview.md`](ux-overview.md) — human-readable structural map; not an independent requirements source.
+15. [`functional-scope.md`](functional-scope.md) — available data, user tasks, boundaries, and deferred scenarios.
 
 Historical artifacts remain evidence, not current alternatives. The task-specific consolidated decision is normative; a later explicit approval in [`decisions/decision-log.md`](decisions/decision-log.md) supersedes it until the consolidated documents are synchronized.
+
+`PLAN.md` files inside completed prototype iterations and completed implementation-plan records preserve how that evidence was produced. Their unchecked boxes are not active backlog; current work comes from [`../roadmap.md`](../roadmap.md) and approved GitHub issues.
 
 ## Artifact map
 

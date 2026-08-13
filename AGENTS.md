@@ -70,3 +70,11 @@ The repo uses the default five canonical triage labels: `needs-triage`, `needs-i
 ### Domain docs
 
 This is a single-context repo with root `CONTEXT.md` and `docs/adr/`. See `docs/agents/domain.md`.
+
+### Planning
+
+Start project planning from `docs/roadmap.md`. Active issues follow the `[DESIGN]` / `[DEV]` title convention and native blocker rules in `docs/agents/planning.md`.
+
+### Task completion
+
+Development tasks use the shared completion checkpoint in `docs/agents/task-completion.md`. Backend tasks must run its refactoring review before handoff.

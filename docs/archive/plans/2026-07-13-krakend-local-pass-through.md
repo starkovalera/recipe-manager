@@ -1,6 +1,8 @@
 # KrakenD Local Pass-Through Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> Archived completed plan. Current gateway startup and verification entry points are documented in the repository README and active architecture documents.
+
+> Historical instruction: this plan originally required the former execution skills. It is preserved as evidence, not an active instruction.
 
 **Goal:** Add a local Dockerized KrakenD Community Edition gateway that transparently proxies the complete current FastAPI contract for the React/Vite application.
 

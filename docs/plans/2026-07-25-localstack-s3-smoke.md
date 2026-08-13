@@ -1,6 +1,6 @@
 # LocalStack S3 Smoke Testing Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Implementation/verification record:** PR #15 implemented the LocalStack service, configuration, integration tests, and runbook while adding this plan. Unchecked boxes preserve the original plan and are not proof of missing code. The active issue is to run and record acceptance, reconcile every checkbox against the repository, and keep live-AWS-only verification separate. Complete the shared [`Development Task Completion Checkpoint`](../agents/task-completion.md) if that closure task changes code.
 
 **Goal:** Add an opt-in local S3 environment that exercises the existing storage and presigned-media flows through LocalStack without requiring an AWS account or weakening production configuration.
 

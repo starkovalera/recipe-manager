@@ -1,6 +1,6 @@
 # Recipe Detail v3 Prototype Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:executing-plans` to implement this plan task-by-task. Subagents are intentionally unavailable for this run.
+> **Historical execution record:** This completed prototype plan is retained as evidence; its task list is not active backlog.
 
 **Goal:** Build a separate low-fidelity v3 prototype comparing header variants A/B and validating image previews, local cascade confirmation, and one shared Media/Import Info panel slot.
 

@@ -1,5 +1,7 @@
 # Future Work and Cleanup Notes
 
+> Archived backlog snapshot. Current refinement lives in [`../../future/`](../../future/README.md); items here are not active issues unless promoted through that funnel.
+
 This document tracks known follow-up work, shortcuts, compatibility leftovers, and intentional deferrals that should not be forgotten after phase/subphase completion.
 
 After each completed phase or subphase, review the finished work and propose candidate items to add here before moving on.

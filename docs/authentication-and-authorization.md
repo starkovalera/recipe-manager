@@ -353,7 +353,7 @@ Secrets belong only in ignored local env files or deployment secret storage. The
 
 ## Operational Gaps
 
-The following behavior is intentionally deferred and tracked in `docs/future-work.md`:
+The following behavior is intentionally deferred and tracked in the applicable Future Capability document under `docs/future/`:
 
 - scheduled invitation expiration and provider/local invitation reconciliation;
 - stale `DELETION_PENDING` account recovery scheduling;

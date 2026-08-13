@@ -4,6 +4,8 @@ Greenfield recipe manager with a FastAPI backend, React/Vite frontend, PostgreSQ
 
 The canonical authentication design is in [`docs/authentication-and-authorization.md`](docs/authentication-and-authorization.md). Manual lifecycle checks are in [`docs/manual-testing/clerk-lifecycle.md`](docs/manual-testing/clerk-lifecycle.md).
 
+Current project status and the parallel Design and Development tracks are indexed in [`docs/roadmap.md`](docs/roadmap.md). Superseded plans are preserved under [`docs/archive/`](docs/archive/README.md); Future Capabilities are refined under [`docs/future/`](docs/future/README.md).
+
 ## Repository Workflow
 
 `main` is the default integration branch. Feature changes are submitted through pull requests, and the required backend, frontend, and gateway checks must pass before merge.

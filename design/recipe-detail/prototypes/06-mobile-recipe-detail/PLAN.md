@@ -1,6 +1,6 @@
 # Mobile Recipe Detail Prototype Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Historical execution record:** This completed prototype plan is retained as evidence; its task list is not active backlog.
 
 **Goal:** Build a complete isolated mobile-first Recipe Detail prototype covering Default View, Cooking Focus, Media, Import Info, metadata disclosure, and destructive recipe actions while Edit Mode remains a visible non-functional entry.
 

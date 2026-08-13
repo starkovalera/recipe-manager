@@ -1,6 +1,8 @@
 # Recipe Deletion Lifecycle Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> Archived completed plan. Current behavior is defined by production code, tests, and the applicable active contracts.
+
+> Historical instruction: this plan originally required the former execution skills. It is preserved as evidence, not an active instruction.
 
 **Goal:** Add a recoverable two-stage recipe deletion lifecycle that hides pending recipes and preserves them for later cleanup when media deletion fails.
 

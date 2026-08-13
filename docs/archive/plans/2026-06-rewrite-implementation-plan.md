@@ -1,6 +1,8 @@
 ﻿# Recipe Manager Rewrite Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> Archived snapshot. The rewrite represented here was implemented and evolved beyond this unchecked plan. Use [`../../roadmap.md`](../../roadmap.md) and [`../../architecture/production-roadmap.md`](../../architecture/production-roadmap.md) for current Development work.
+
+> Historical instruction: this plan originally required `superpowers:subagent-driven-development` or `superpowers:executing-plans`. It is preserved as evidence, not an active instruction.
 
 **Goal:** Build the greenfield FastAPI + React/Vite rewrite of the recipe MVP while preserving the current import pipeline behavior and keeping backend/frontend separable.
 
