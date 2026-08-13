@@ -1,6 +1,6 @@
 from collections.abc import Mapping
 from datetime import datetime, timezone
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from app.storage.base import StorageService
 from app.storage.constants import StorageLocation
@@ -30,10 +30,10 @@ class LocalStorageService(StorageService):
         root = self._roots.get(location)
         if root is None:
             raise StorageConfigurationError(f"Storage location {location.value} is not configured.")
-        runtime_key = Path(storage_key)
-        if runtime_key.is_absolute() or ".." in runtime_key.parts:
+        object_key = PurePosixPath(storage_key)
+        if "\\" in storage_key or ":" in storage_key or object_key.is_absolute() or ".." in object_key.parts:
             raise ValueError(f"Storage key resolves outside storage root: {storage_key}")
-        path = (root / runtime_key).resolve()
+        path = root.joinpath(*object_key.parts).resolve()
         if root != path and root not in path.parents:
             raise ValueError(f"Storage key resolves outside storage root: {storage_key}")
         return path
