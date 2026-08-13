@@ -11,7 +11,7 @@ For every newly approved visual decision:
 1. capture a readable desktop and/or mobile screenshot under `../../screenshots/`;
 2. add a gallery card with its approval status and the structural rule it demonstrates;
 3. link the full-size screenshot and any persistent interactive prototype;
-4. update the relevant decision document and `docs/ui-ux/07-decisions-log.md`;
+4. update the relevant decision document and `design/recipe-detail/decisions/decision-log.md`;
 5. if the decision replaces an earlier one, keep the old evidence and mark it `Superseded` instead of overwriting it;
 6. verify the gallery at 1440 px and 390 px with no horizontal overflow or console errors.
 

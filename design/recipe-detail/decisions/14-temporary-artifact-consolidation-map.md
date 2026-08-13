@@ -31,4 +31,4 @@ This map records where approved working-session evidence from untracked `.superp
 
 ## Handoff rule
 
-Implementation issues may link only to tracked permanent files under `docs/ui-ux/` and `design/recipe-detail/`. If a future agent finds a decision represented only under `.superpowers`, that decision is not ready for implementation issue slicing until it is promoted through the normal decision/prototype/review process.
+Implementation issues may link only to tracked permanent files under `design/`. If a future agent finds a decision represented only under `.superpowers`, that decision is not ready for implementation issue slicing until it is promoted through the normal decision/prototype/review process.

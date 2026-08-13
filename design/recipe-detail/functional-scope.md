@@ -1,27 +1,8 @@
-# Recipe Manager Product Scope for Design
+# Recipe Detail Functional Scope
 
-## Purpose of this file
+This file records functional design inputs, not visual requirements. Current production code may be inspected to verify these capabilities, but its appearance is not a design reference.
 
-This file describes functional scope only.
-
-It must not be used to reproduce the current frontend appearance.
-
-## Product summary
-
-Recipe Manager is a productivity application for importing, storing, reviewing, editing, organizing, finding, and using recipes.
-
-The broader product includes:
-
-- recipe import from text, images, and supported links;
-- asynchronous import jobs;
-- recipe list and detail views;
-- recipe editing;
-- recipe collections;
-- tags and search metadata;
-- notifications;
-- different capabilities for ordinary, debug, and administrative roles.
-
-## Recipe Detail functional scope
+## Recipe data
 
 A recipe may include:
 
@@ -56,7 +37,7 @@ An imported recipe may also include:
 - extraction or provenance information;
 - debug information visible only to eligible roles.
 
-## User tasks in the Recipe Detail area
+## User tasks
 
 Users may need to:
 
@@ -75,29 +56,13 @@ Users may need to:
 
 These tasks must not be combined into one permanent page.
 
-## Design-scope boundary
+## Design boundary
 
-The current design project covers the Recipe Detail information architecture and its related contexts.
+The current design project covers Recipe Detail information architecture and related contexts. Product-wide patterns discovered here must be recorded explicitly before reuse by other screens.
 
-Global navigation may be represented as a neutral shell, but redesigning the whole application navigation is not part of the first Recipe Detail iteration.
+## Deferred scenarios
 
-## Product-code inspection rule
-
-When inspecting the repository, extract only:
-
-- names and meanings of data fields;
-- available actions;
-- permissions;
-- validation constraints;
-- state transitions;
-- business invariants;
-- error and loading cases.
-
-Do not extract visual hierarchy or layout from current JSX or CSS.
-
-## Explicitly deferred
-
-Do not design detailed flows for:
+Detailed design is deferred for:
 
 - nutrition calculated from actual products and weights used during a cooking session;
 - cooking batches or persistent cooking sessions;

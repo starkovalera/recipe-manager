@@ -8,7 +8,7 @@ Updated: 2026-08-13
 
 This document is the consolidated structural source of truth for Recipe Detail. Future Recipe Detail visual work must preserve it unless the user explicitly reopens a decision. Other product pages may reuse the transferable patterns identified in `../reusable-product-patterns.md`, but must not copy recipe-specific structure blindly.
 
-When a historical artifact conflicts with this document, this document and the later explicit entries in `docs/ui-ux/07-decisions-log.md` win.
+When a historical artifact conflicts with this document, this document and later explicit entries in `decision-log.md` win.
 
 ## Product character
 

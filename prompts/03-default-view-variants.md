@@ -21,7 +21,7 @@ Also compare the two flagged-entry behaviors:
 - Import Info opens by default;
 - Default View opens with a concise warning linking to Import Info.
 
-Use realistic dense data from `docs/ui-ux/04-realistic-data-scenarios.md`.
+Use realistic dense data from `design/recipe-detail/realistic-data-scenarios.md`.
 
 Create browser-renderable low-fidelity artifacts under:
 `design/recipe-detail/wireframes/`

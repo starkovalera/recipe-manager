@@ -72,7 +72,7 @@ State that this version supersedes mobile ingredient reordering only; desktop in
 - Create: `design/recipe-detail/screenshots/edit-mode/14a-mobile-edit-basics-v1.png`
 - Create: `design/recipe-detail/screenshots/edit-mode/14b-mobile-edit-ingredients-v1.png`
 - Modify: `design/recipe-detail/decisions/07-edit-mode-current-decisions.md`
-- Modify: `docs/ui-ux/07-decisions-log.md`
+- Modify: `design/recipe-detail/decisions/decision-log.md`
 
 **Interfaces:**
 - Consumes the Prototype 14 DOM and `window.mobileEditPrototype.getState()`.

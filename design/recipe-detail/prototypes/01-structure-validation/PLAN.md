@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- Work only under `design/recipe-detail/`, except synchronizing the existing authoritative `docs/ui-ux/07-decisions-log.md`.
+- Work only under `design/recipe-detail/`, including synchronization of `decisions/decision-log.md`.
 - Do not modify `frontend/src`, backend code, APIs, schemas, database models, production CSS, production tests, routes, or deployment configuration.
 - Do not use production components, application APIs, or the current frontend appearance.
 - Use mock data only and no image generation.

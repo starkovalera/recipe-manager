@@ -45,19 +45,20 @@ Production code may be inspected only to determine:
 
 Never justify a design decision with “this matches the current page.”
 
-## Source-of-truth order
+## Source-of-truth entry points
 
-Read these files before Recipe Detail design work:
+Before Recipe Detail design work, read:
 
-1. `docs/ui-ux/00-working-agreement.md`
-2. `docs/ui-ux/01-product-scope.md`
-3. `docs/ui-ux/02-recipe-detail-decisions.md`
-4. `docs/ui-ux/03-design-workflow.md`
-5. `docs/ui-ux/04-realistic-data-scenarios.md`
-6. `docs/ui-ux/05-review-checklist.md`
-7. `docs/ui-ux/07-decisions-log.md`
+1. `design/shared/working-agreement.md`;
+2. `design/shared/product-scope.md`;
+3. `design/recipe-detail/README.md`;
+4. `design/recipe-detail/functional-scope.md`;
+5. `design/recipe-detail/decisions/current-scope.md`;
+6. the task-specific decision files linked from the README or implementation handoff.
 
-When they conflict, the later explicit decision in `07-decisions-log.md` wins.
+Read `realistic-data-scenarios.md` and `design/shared/review-checklist.md` when producing or reviewing an artifact. Read `research/reference-research-brief.md` for reference research. Consult `decisions/decision-log.md` when tracing history or resolving superseded behavior.
+
+The numbered consolidated decision for a task is the normative contract. A later explicit approval in `decisions/decision-log.md` supersedes it until the consolidated decision and summaries are synchronized. Treat `ux-overview.md` as a navigation summary, not an independent source of requirements.
 
 ## Required working method
 

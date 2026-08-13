@@ -2,7 +2,7 @@ Use $product-ui-ux-design.
 
 This is a UI/UX design task, not a production implementation task.
 
-Read `AGENTS.md` and all files under `docs/ui-ux/`.
+Read `AGENTS.md`, `design/shared/working-agreement.md`, `design/shared/product-scope.md`, `design/recipe-detail/README.md`, `design/recipe-detail/functional-scope.md`, and `design/recipe-detail/decisions/current-scope.md`. Follow the task-specific pointers in the Recipe Detail README instead of loading unrelated historical artifacts.
 
 Do not modify production code. Do not use the current frontend appearance as a reference. You may inspect code only to confirm functional scope, available data, actions, roles, constraints, and edge cases.
 

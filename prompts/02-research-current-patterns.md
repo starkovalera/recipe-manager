@@ -3,8 +3,8 @@ Use $product-ui-ux-design.
 Research current product-interface patterns relevant to Recipe Detail.
 
 Read:
-- `docs/ui-ux/02-recipe-detail-decisions.md`
-- `docs/ui-ux/06-reference-research-brief.md`
+- `design/recipe-detail/ux-overview.md`
+- `design/recipe-detail/research/reference-research-brief.md`
 
 Study concrete patterns for:
 - compact object-detail headers;

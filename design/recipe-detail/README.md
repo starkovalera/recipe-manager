@@ -18,8 +18,11 @@ This directory contains design artifacts only. Prototypes use local mock data an
 9. [`reusable-product-patterns.md`](reusable-product-patterns.md) — principles that may guide other Recipe Manager pages.
 10. [`visual-execution-brief.md`](visual-execution-brief.md) — fixed inputs, open visual axes, and the future visual approval sequence.
 11. [`decisions/14-temporary-artifact-consolidation-map.md`](decisions/14-temporary-artifact-consolidation-map.md) — map from temporary `.superpowers` working material to permanent handoff evidence.
+12. [`decisions/decision-log.md`](decisions/decision-log.md) — chronological approvals and explicit supersessions.
+13. [`ux-overview.md`](ux-overview.md) — human-readable structural map; not an independent requirements source.
+14. [`functional-scope.md`](functional-scope.md) — available data, user tasks, boundaries, and deferred scenarios.
 
-Historical artifacts remain evidence, not current alternatives. When they conflict, the approved foundation and `docs/ui-ux/07-decisions-log.md` win.
+Historical artifacts remain evidence, not current alternatives. The task-specific consolidated decision is normative; a later explicit approval in [`decisions/decision-log.md`](decisions/decision-log.md) supersedes it until the consolidated documents are synchronized.
 
 ## Artifact map
 
