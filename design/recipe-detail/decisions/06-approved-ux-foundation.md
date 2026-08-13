@@ -1,7 +1,8 @@
 # Recipe Detail Approved UX Foundation
 
-Status: approved for reuse and visual development  
+Status: approved structural foundation; Edit validation and guard refinements incorporated
 Approved: 2026-07-23
+Updated: 2026-08-13
 
 ## Purpose
 
@@ -173,6 +174,18 @@ Corrected B is approved. The horizontal action band sits below the header and be
 - loading, missing, and failed-load states;
 - 1440, 1280, 1024, and 390 px viewports.
 
+## Recipe Edit refinements
+
+The detailed Recipe Edit contract is maintained in `07-edit-mode-current-decisions.md`. In addition to the context model above, the approved foundation now includes:
+
+- an always-compact mobile Edit toolbar with `Back / recipe title / Save / Overflow`;
+- a single-open mobile accordion and unchanged global navigation;
+- compact mobile ingredient summaries with single-item editing sheets and no mobile reordering;
+- hybrid mobile Basics controls: Source selection sheet, direct Difficulty segments, and five whole-value rating stars;
+- linked failed-Save summaries, section error counts, and local ingredient-sheet errors;
+- an approved mobile unsaved-changes bottom sheet with Save, Discard, and Keep editing outcomes;
+- a continuous desktop Edit page with sticky section rail, two-zone Basics, compact Ingredients, linked validation summary, and centered dirty-draft guard.
+
 ## Remaining open work
 
 Structural UX is approved. Remaining work belongs to visual execution:
@@ -184,5 +197,7 @@ Structural UX is approved. Remaining work belongs to visual execution:
 - surface, divider, focus, hover, and selected states;
 - restrained motion;
 - localized-label stress testing, especially the mobile action band.
+
+Remaining feature-level design work also includes Instructions, Cooking notes, Estimated nutrition, the separate Manage Media workspace, and detailed Organize Recipe behavior. These additions must preserve the approved context and draft boundaries.
 
 Do not reopen the approved information architecture while exploring these visual axes.

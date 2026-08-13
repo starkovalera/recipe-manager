@@ -1,8 +1,8 @@
 # Recipe Detail UX Decisions
 
-Updated: 2026-07-22
+Updated: 2026-08-13
 
-This file is the source of truth for agreed Recipe Detail UX structure, including decisions made during UX Pilot exploration.
+This file records the broad Recipe Detail UX structure. For detailed and superseding behavior, use `07-decisions-log.md` and `design/recipe-detail/decisions/current-scope.md`.
 
 ## Core principle
 
@@ -68,15 +68,15 @@ Source and author must remain distinguishable through separators, typography, ic
 
 ### Main actions
 
-For imported recipes, show:
+The action model contains:
 
 ```text
-Cook / Focus · Edit · Import info · Overflow
+View · Focus · Edit | Media · N · Overflow
 ```
 
-- `Cook / Focus` is primary.
-- `Edit` is secondary.
-- `Import info` is a neutral secondary action.
+- `View / Focus / Edit` form one semantic mode group.
+- `Media · N` appears only when media exists.
+- On desktop, `Import info` is a neutral item inside Overflow for imported recipes. On mobile it remains reachable from the compact action/Overflow model.
 - Rare or destructive actions belong in overflow.
 
 ### Import Info availability and review flags
@@ -91,15 +91,9 @@ When no unresolved review flags exist:
 - show `Import info`;
 - do not show a warning banner.
 
-When unresolved review flags exist, two behaviors remain valid for design comparison:
+When unresolved review flags exist, open Import Info automatically on the first entry into that recipe visit. Do this once only; closing the panel or changing View/Focus/Edit does not reopen it during the same visit.
 
-1. **Preferred behavior:** open Import Info by default.
-2. **Fallback behavior:** open Default Recipe View with a concise warning/status and a clear link to Import Info.
-
-In either behavior:
-
-- the `Import info` action remains neutral;
-- detailed flags, provenance, debug data, and source lifecycle controls remain outside the Default Recipe View.
+The Overflow control and Import Info menu item may show a notification dot, but the action itself remains neutral. Detailed flags, debug data, and source lifecycle controls remain outside Default View.
 
 ### Tags and collections
 
@@ -183,12 +177,9 @@ It may include:
 
 ### Preferred layout
 
-Use a split-view interface on desktop:
+Use the one auxiliary-slot model: a desktop drawer or overlay and a mobile bottom sheet over the current recipe context. Do not duplicate the extracted recipe result.
 
-- extracted recipe result on one side;
-- sources, flags, provenance, and debug information on the other.
-
-On mobile, use sequential panels, tabs, or another mobile-specific structure rather than compressed desktop columns.
+Show general flags with one `Mark all reviewed` action and resources grouped by primary/derived hierarchy. Conditionally include ignored and removed summaries. Image resources require thumbnails. `Provenance` and `Original source` are not user-facing sections.
 
 ### Exclusions
 
@@ -200,13 +191,12 @@ Do not make these primary tasks in Import Info:
 
 ## 3. Edit Recipe Content
 
-Editing recipe content is separate from organization metadata.
+Editing recipe content is separate from organization metadata and media management.
 
 It includes:
 
 - title;
 - source and author;
-- cover entry point;
 - servings;
 - cooking time;
 - ingredients;
@@ -216,7 +206,7 @@ It includes:
 
 Avoid one uninterrupted long form.
 
-Ingredients and steps must support adding, editing, deleting, and reordering.
+Ingredients and steps must support adding, editing, and deleting. Desktop supports reordering; mobile Ingredients do not expose reordering.
 
 Do not expose source lifecycle management, review flags, provenance, or debug data.
 
@@ -235,9 +225,9 @@ Organization is a separate section or screen for:
 
 It must not become a continuation of one very long recipe-content form.
 
-## 5. Cover Picker
+## 5. Manage Media and cover selection
 
-Cover selection and source review are separate tasks.
+Media editing, cover selection, and source review are separate tasks. Manage Media is a separate workspace with its own draft.
 
 Show only:
 
@@ -246,6 +236,7 @@ Show only:
 - selected image;
 - use as cover;
 - upload custom image;
+- image removal within capacity and current-cover constraints;
 - future crop or position controls when needed.
 
 Do not expose:
@@ -263,7 +254,6 @@ Cooking Focus is a simplified recipe view, not a separate complex cooking system
 
 - compact recipe title;
 - servings;
-- portion scaling;
 - ingredients;
 - instructions;
 - cooking notes;
@@ -284,17 +274,15 @@ Estimated nutrition may remain compactly available but is not central.
 
 ### Interactions
 
-- temporary ingredient checkmarks;
-- temporary completed-step states;
 - easy Ingredients/Instructions switching on mobile;
 - keep-screen-awake support when technically possible;
 - return to the full recipe without losing reading position.
 
-Temporary cooking state does not need to persist after leaving the mode in the first version.
+Ingredient/step completion controls and portion scaling are deferred until their own real usage scenarios are designed.
 
-## 7. Optional Media in Cooking Focus
+## 7. Optional Media
 
-Show `Media · N` only when media exists.
+Show `Media · N` only when media exists. The same read-only Media context is available from View, Focus, and Edit.
 
 Media is closed by default.
 

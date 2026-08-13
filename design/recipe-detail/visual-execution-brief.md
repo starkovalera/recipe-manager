@@ -1,7 +1,7 @@
 # Recipe Detail Visual Execution Brief
 
 Status: ready for visual-direction exploration; high fidelity not yet produced  
-Updated: 2026-07-23
+Updated: 2026-08-13
 
 ## Objective
 
@@ -16,8 +16,13 @@ Read before visual work:
 3. `research/pattern-research.md`;
 4. `prototypes/05-main-actions-and-responsive-panels/index.html`;
 5. `reviews/05-main-actions-and-responsive-panels/`.
+6. `decisions/07-edit-mode-current-decisions.md`;
+7. `prototypes/16-mobile-edit-validation-and-guard/index.html`;
+8. `implementation-handoff.md`.
 
-The v5 prototype is behavioral evidence, not a visual style reference. Its fonts, colors, borders, spacing, cover placeholders, and icons are intentionally low fidelity.
+The v5 and v16 prototypes are behavioral evidence, not visual style references. Their fonts, colors, borders, spacing, placeholders, and icons are intentionally low fidelity.
+
+Visual execution starts only after the remaining Recipe Edit sections and separate Manage Media behavior reach their design gates. Do not use visual exploration to conceal unfinished interaction decisions.
 
 ## Visual character to pursue
 

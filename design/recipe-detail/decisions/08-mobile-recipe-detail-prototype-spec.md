@@ -353,4 +353,4 @@ The full-width mobile status uses compact vertical padding and leaves a clear ga
 
 - Overall mobile-first sequential approach: approved.
 - Visible but non-functional Edit entry with neutral in-progress announcement: approved.
-- Written specification: awaiting user review.
+- Written specification: approved as the Prototype 06 mobile Recipe Detail foundation. Later global-shell and Edit-specific decisions in files `11`–`13` supersede any conflicting header, navigation, or Edit behavior.
