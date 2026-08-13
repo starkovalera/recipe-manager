@@ -15,7 +15,8 @@
     flagsReviewed: new Set(), removedIds: new Set(), removedItems: [], removedExpanded: false,
     pending: null, message: '', mediaSelected: 0, overflowOpen: false,
     deleteResult: 'success', deleteError: false, recipeDeleted: false,
-    previewExpanded: new Set(), panelScroll: { import: 0, media: 0 }, sheetGesture: null
+    previewExpanded: new Set(), panelScroll: { import: 0, media: 0 }, sheetGesture: null,
+    importAutoOpened: new Set()
   };
 
   const esc = value => String(value ?? '').replace(/[&<>"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[char]));
@@ -36,9 +37,12 @@
   function mainActions(active, scenario) {
     const imported = scenario.recipe.imported;
     const mediaCount = mediaTotal(scenario);
+    const reviewNeeded = hasOpenFlags(scenario.recipe);
     const modes = [['default', 'View'], ['cooking', 'Focus'], ['edit', 'Edit']];
-    const overflow = state.overflowOpen ? `<div class="recipe-overflow-menu" role="menu" aria-label="More recipe actions"><span class="overflow-menu-label">Recipe actions</span><span class="overflow-separator" role="separator"></span><button type="button" class="danger-menu-item" role="menuitem" data-action="delete-recipe">${icon('trash')}<span>Delete recipe…</span></button></div>` : '';
-    return `<div class="action-cluster"><nav class="mode-switch" aria-label="Recipe mode">${modes.map(([value, label]) => `<button type="button" data-mode="${value}" ${active === value ? 'aria-current="page" disabled' : ''}>${label}</button>`).join('')}</nav><span class="action-divider" aria-hidden="true"></span><div class="utility-actions" aria-label="Recipe resources">${mediaCount ? `<button type="button" data-action="media">Media · ${mediaCount}</button>` : ''}${imported ? '<button type="button" data-action="import">Import info</button>' : ''}<div class="recipe-overflow"><button type="button" class="icon-button" aria-label="More recipe actions" title="More recipe actions" aria-haspopup="menu" aria-expanded="${state.overflowOpen}" data-action="overflow">${icon('more')}</button>${overflow}</div></div></div>`;
+    const importItem = imported ? `<button type="button" role="menuitem" data-action="import"><span>Import info</span>${reviewNeeded ? '<span class="notification-dot" aria-hidden="true"></span><span class="sr-only">Review needed</span>' : ''}</button>` : '';
+    const overflow = state.overflowOpen ? `<div class="recipe-overflow-menu" role="menu" aria-label="More recipe actions"><span class="overflow-menu-label">Recipe actions</span>${importItem}<span class="overflow-separator" role="separator"></span><button type="button" class="danger-menu-item" role="menuitem" data-action="delete-recipe">${icon('trash')}<span>Delete recipe…</span></button></div>` : '';
+    const overflowLabel = reviewNeeded ? 'More recipe actions, import review needed' : 'More recipe actions';
+    return `<div class="action-cluster"><nav class="mode-switch" aria-label="Recipe mode">${modes.map(([value, label]) => `<button type="button" data-mode="${value}" ${active === value ? 'aria-current="page" disabled' : ''}>${label}</button>`).join('')}</nav><span class="action-divider" aria-hidden="true"></span><div class="utility-actions" aria-label="Recipe resources">${mediaCount ? `<button type="button" data-action="media">Media · ${mediaCount}</button>` : ''}<div class="recipe-overflow"><button type="button" class="icon-button overflow-trigger" aria-label="${overflowLabel}" title="More recipe actions" aria-haspopup="menu" aria-expanded="${state.overflowOpen}" data-action="overflow">${icon('more')}${reviewNeeded ? '<span class="notification-dot" aria-hidden="true"></span>' : ''}</button>${overflow}</div></div></div>`;
   }
 
   function setView(view, options) {
@@ -49,6 +53,13 @@
     renderCurrentState();
     requestAnimationFrame(() => window.scrollTo(0, options?.restoreDefault ? state.defaultScroll : 0));
     root.focus({ preventScroll: true });
+  }
+
+  function autoOpenImportOnEntry() {
+    const recipe = current().recipe;
+    if (!recipe?.imported || !hasOpenFlags(recipe) || state.importAutoOpened.has(state.scenario)) return;
+    state.importAutoOpened.add(state.scenario);
+    requestAnimationFrame(() => openLayer('import', root.querySelector('[data-action="overflow"]')));
   }
 
   function renderStatePanel(scenario) {
@@ -339,8 +350,10 @@
       openLayer('delete-recipe', root.querySelector('[data-action="overflow"]') || trigger);
     }
     else if (action === 'import') {
+      const trigger = root.querySelector('[data-action="overflow"]') || event.target.closest('button');
+      if (state.overflowOpen) { state.overflowOpen = false; renderCurrentState(); }
       if (state.layer?.type === 'media') switchPanel('import');
-      else openLayer('import', event.target.closest('button'));
+      else openLayer('import', root.querySelector('[data-action="overflow"]') || trigger);
     }
     else if (action === 'media') {
       if (state.layer?.type === 'import') switchPanel('media');
@@ -435,7 +448,7 @@
   layerRoot.addEventListener('pointerup', finishSheetGesture);
   layerRoot.addEventListener('pointercancel', finishSheetGesture);
 
-  scenarioSelect.addEventListener('change', () => { state.scenario = scenarioSelect.value; state.view = 'default'; state.expanded = { ingredients: false, instructions: false, notes: false }; state.removedIds.clear(); state.removedItems = []; state.previewExpanded.clear(); state.removedExpanded = false; state.mediaSelected = 0; state.overflowOpen = false; state.recipeDeleted = false; state.deleteError = false; state.panelScroll = { import: 0, media: 0 }; state.pending = null; state.message = ''; closeLayer(false); renderCurrentState(); window.scrollTo(0, 0); });
+  scenarioSelect.addEventListener('change', () => { state.scenario = scenarioSelect.value; state.importAutoOpened.delete(state.scenario); state.view = 'default'; state.expanded = { ingredients: false, instructions: false, notes: false }; state.removedIds.clear(); state.removedItems = []; state.previewExpanded.clear(); state.removedExpanded = false; state.mediaSelected = 0; state.overflowOpen = false; state.recipeDeleted = false; state.deleteError = false; state.panelScroll = { import: 0, media: 0 }; state.pending = null; state.message = ''; closeLayer(false); renderCurrentState(); autoOpenImportOnEntry(); window.scrollTo(0, 0); });
   viewSelect.addEventListener('change', () => setView(viewSelect.value));
   roleSelect.addEventListener('change', () => { state.role = roleSelect.value; renderCurrentState(); if (state.layer) renderLayer(); });
   deleteResultSelect.addEventListener('change', () => { state.deleteResult = deleteResultSelect.value; state.deleteError = false; if (state.layer?.type === 'delete-recipe') renderLayer(); });
@@ -443,4 +456,5 @@
 
   scenarioSelect.value = state.scenario;
   renderCurrentState();
+  autoOpenImportOnEntry();
 }());

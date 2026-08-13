@@ -10,11 +10,20 @@ const prototypeDir = path.resolve('design/recipe-detail/prototypes/05-main-actio
 fs.mkdirSync(outputDir, { recursive: true });
 
 function assert(condition, message) { if (!condition) throw new Error(`Assertion failed: ${message}`); }
-async function select(page, selector, value) { await page.selectOption(selector, value); await page.waitForTimeout(40); }
+async function select(page, selector, value) {
+  await page.selectOption(selector, value);
+  await page.waitForTimeout(80);
+  const autoImport = page.getByRole('dialog', { name: 'Import info' });
+  if (await autoImport.count()) await autoImport.getByRole('button', { name: 'Close Import info' }).click();
+}
 async function screenshot(page, name) {
   await page.evaluate(() => document.body.classList.add('capture-mode'));
   await page.screenshot({ path: path.join(outputDir, name) });
   await page.evaluate(() => document.body.classList.remove('capture-mode'));
+}
+async function openImportInfo(page) {
+  await page.getByRole('button', { name: /More recipe actions/ }).click();
+  await page.getByRole('menuitem', { name: /Import info/ }).click();
 }
 async function startStaticServer() {
   if (process.env.PROTOTYPE_URL) return null;
@@ -41,6 +50,9 @@ let server; let browser;
   page.on('pageerror', error => pageErrors.push(error.message));
   page.on('console', message => { if (message.type() === 'error') consoleErrors.push(message.text()); });
   await page.goto(baseUrl, { waitUntil: 'networkidle' });
+  let autoImport = page.getByRole('dialog', { name: 'Import info' });
+  assert(await autoImport.count() === 1, 'flagged recipe auto-opens Import Info on first entry');
+  await autoImport.getByRole('button', { name: 'Close Import info' }).click();
 
   // Approved B: one cover-edge row with distinct mode and resource groups.
   const cover = await page.locator('.cover').boundingBox();
@@ -49,12 +61,13 @@ let server; let browser;
   assert(await page.locator('.header-wide-actions .mode-switch').count() === 1, 'mode group is present');
   assert(await page.locator('.header-wide-actions .utility-actions').count() === 1, 'resource group is present');
   assert(await page.getByRole('button', { name: 'Media · 6' }).count() === 1, 'Media is visible in Default View');
-  assert(await page.getByRole('button', { name: 'Import info' }).count() === 1, 'Import info is visible for imported recipe');
+  assert(await page.getByRole('button', { name: 'Import info' }).count() === 0, 'Import info is not a permanent desktop button');
   await screenshot(page, 'desktop-approved-b-main-actions-1440x900.png');
 
   // Delete recipe is de-emphasized in overflow and requires irreversible confirmation.
   await page.getByRole('button', { name: 'More recipe actions' }).click();
   let menu = page.getByRole('menu', { name: 'More recipe actions' });
+  assert(await menu.getByRole('menuitem', { name: /Import info/ }).count() === 1, 'Import info is available under overflow');
   const deleteMenuItem = menu.getByRole('menuitem', { name: 'Delete recipe…' });
   assert(await deleteMenuItem.count() === 1, 'Delete recipe is available in overflow');
   assert(await deleteMenuItem.locator('svg').count() === 1, 'Delete recipe menu item has a trash icon');
@@ -114,7 +127,7 @@ let server; let browser;
   assert(await dialog.getByRole('button', { name: 'Close Cooking media' }).count() === 1, 'Media closes with a cross control');
   assert((await dialog.getByRole('button', { name: 'Close Cooking media' }).innerText()).trim() === '', 'Media close has no text label');
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'wide open panel has no page overflow');
-  await page.getByRole('button', { name: 'Import info' }).click();
+  await openImportInfo(page);
   dialog = page.getByRole('dialog', { name: 'Import info' });
   assert(await page.getByRole('dialog').count() === 1, 'main action replaces the single auxiliary slot');
   assert(Math.abs((await dialog.boundingBox()).width - mediaWidth) < 2, 'Media and Import Info use equal widths');
@@ -173,7 +186,7 @@ let server; let browser;
   await dialog.getByRole('button', { name: 'Close Cooking media' }).click();
 
   await page.setViewportSize({ width: 1024, height: 768 });
-  await page.getByRole('button', { name: 'Import info' }).click();
+  await openImportInfo(page);
   dialog = page.getByRole('dialog', { name: 'Import info' });
   assert(await dialog.getAttribute('aria-modal') === 'true', '1024 Import Info is modal overlay');
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), '1024 overlay has no horizontal overflow');
@@ -207,7 +220,7 @@ let server; let browser;
   await page.waitForTimeout(80);
   assert(await page.getByRole('dialog').count() === 0, 'downward swipe closes the mobile sheet');
 
-  await page.getByRole('button', { name: 'Import info' }).click();
+  await openImportInfo(page);
   dialog = page.getByRole('dialog', { name: 'Import info' });
   const mobileChildTrash = dialog.getByRole('button', { name: 'Remove Aubergine browning reference' });
   await mobileChildTrash.scrollIntoViewIfNeeded();

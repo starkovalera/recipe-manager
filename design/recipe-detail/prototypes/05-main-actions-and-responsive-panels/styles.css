@@ -333,6 +333,10 @@ button, a { -webkit-tap-highlight-color: rgb(20 107 156 / .18); }
 .utility-actions { display: inline-flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
 .recipe-overflow { position: relative; }
 .recipe-overflow-menu { position: absolute; z-index: 12; top: calc(100% + .4rem); right: 0; width: 230px; padding: .4rem; background: var(--paper); border: 1px solid var(--line-strong); box-shadow: 0 10px 28px rgb(20 36 47 / .18); }
+.recipe-overflow-menu [role="menuitem"] { display: flex; width: 100%; align-items: center; gap: .5rem; text-align: left; }
+.overflow-trigger { position: relative; }
+.notification-dot { display: inline-block; flex: 0 0 auto; width: .5rem; height: .5rem; border-radius: 50%; background: #b74a1b; }
+.overflow-trigger .notification-dot { position: absolute; top: .15rem; right: .15rem; box-shadow: 0 0 0 2px var(--paper); }
 .overflow-menu-label { display: block; padding: .35rem .45rem .45rem; color: var(--muted); font-size: .75rem; }
 .overflow-separator { display: block; height: 1px; margin: 0 0 .35rem; background: var(--line); }
 .danger-menu-item { display: flex; align-items: center; gap: .55rem; width: 100%; color: var(--danger); border-color: transparent; text-align: left; }
