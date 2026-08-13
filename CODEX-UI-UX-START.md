@@ -1,62 +1,56 @@
 # Start UI/UX work in Codex
 
-## 1. Copy this package
+## Repository context
 
-Copy all files from this package into the root of the `recipe-manager` repository.
+Recipe Manager is a production application repository that also contains isolated product-design workspaces.
 
-The result should include:
+Starting a UI/UX task does not make the whole repository design-only. Production development may continue in other branches or worktrees under the root repository instructions.
+
+## Instruction hierarchy
+
+The design context is scoped by path:
 
 ```text
-AGENTS.md
-.agents/skills/product-ui-ux-design/
-docs/ui-ux/
-design/recipe-detail/
-prompts/
-scripts/
+AGENTS.md                         Repository-wide production/design routing
+design/AGENTS.md                  General non-production design rules
+design/recipe-detail/AGENTS.md    Recipe Detail design workflow
+docs/ui-ux/AGENTS.md              Durable UI/UX decision-document rules
 ```
 
-If the repository already contains an `AGENTS.md`, merge the sections rather than deleting unrelated project instructions.
+Do not replace the root `AGENTS.md` with a design-only agreement. If importing an updated design package, merge repository-level guidance at the root and keep design-only restrictions in the nested files above.
 
-## 2. Install supporting skills
+## Supporting skills
 
-Open PowerShell in the repository root and run:
+Open PowerShell in the repository root and run, when skill installation or refresh is required:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\install-ui-ux-skills.ps1
 ```
 
-Restart Codex after installation.
-
-## 3. Verify skills
-
-In Codex:
-
-```text
-/skills
-```
-
-Confirm that these are visible:
+Restart Codex after installation. Confirm these skills are visible:
 
 - `product-ui-ux-design`
 - `frontend-design`
 - `web-design-guidelines`
 - `webapp-testing`
 
-If `product-ui-ux-design` is missing, verify this exact path:
+The repository-local product-design skill should exist at:
 
 ```text
 .agents/skills/product-ui-ux-design/SKILL.md
 ```
 
-## 4. Start a new Codex thread
+## Start a Recipe Detail design task
 
-Open the repository root in Codex. Start with the prompt from:
+Open the repository or a dedicated design worktree in Codex. Start with the prompt from:
 
 ```text
 prompts/01-start-recipe-detail-design.md
 ```
 
-## 5. Expected first deliverable
+The task should read the applicable nested instructions and the UI/UX context files before making design changes.
+
+## Expected first deliverable
 
 The first deliverable is research and a structured design brief, not production code and not a polished final screen.
 
@@ -65,15 +59,15 @@ Codex should:
 1. read the UI/UX context files;
 2. inspect product code only for functional scope;
 3. research current product-interface patterns;
-4. identify unresolved decisions;
+4. identify genuinely unresolved decisions;
 5. propose a small number of deliberate next steps.
 
-## 6. Prototype boundary
+## Prototype and implementation boundary
 
-When HTML/CSS mockups begin, they must live only under:
+Recipe Detail prototype code belongs only under:
 
 ```text
 design/recipe-detail/prototypes/
 ```
 
-Do not allow Codex to edit `frontend/src` during this phase.
+Design-only tasks must not edit production application code. When a separate task implements an approved design, it should change the appropriate production subtree, use real contracts and tests, and treat prototype code as behavior evidence rather than reusable application code.

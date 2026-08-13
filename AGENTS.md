@@ -1,114 +1,58 @@
-# Recipe Manager UI/UX Design Phase
+# Recipe Manager Repository
 
-## Current phase
+## Repository purpose
 
-This repository is currently being used for UI/UX design exploration.
+This repository contains both the production Recipe Manager application and its product-design artifacts.
 
-The goal is to produce:
+Production development and UI/UX design may happen concurrently in separate branches or worktrees. A design branch does not redefine the whole repository as a design-only repository, and an implementation branch does not turn prototypes into production code.
 
-- product-reference research;
-- information architecture;
-- user flows;
-- low-fidelity wireframes;
-- mockups;
-- isolated HTML/CSS prototypes;
-- structured UX and visual critiques.
+## Scope is determined by the task
 
-This phase does **not** include implementation in the production application.
+Before changing files, identify the requested workstream:
 
-## Hard production-code boundary
+- **Application implementation:** production code, APIs, schemas, migrations, tests, infrastructure, or deployment.
+- **Product design:** research, decisions, flows, wireframes, screenshots, reviews, or isolated prototypes.
+- **Design-to-implementation:** production work that implements an approved design contract.
+- **Documentation or maintenance:** repository-wide docs, tooling, or operational changes.
 
-Do not modify:
+Do not infer the permitted scope from the current branch name alone. Follow the user request, then the nearest applicable `AGENTS.md` for the files being changed.
 
-- `frontend/src`;
-- production frontend styles;
-- backend code;
-- API clients or schemas;
-- database models;
-- application routing;
-- tests for the production application;
-- deployment configuration.
-
-Prototype code is allowed only under:
+## Repository map
 
 ```text
-design/recipe-detail/prototypes/
+backend/              Production backend, migrations, and backend tests
+frontend/             Production frontend and frontend tests
+infra/ docker/        Production infrastructure and deployment support
+design/               Non-production design artifacts and isolated prototypes
+docs/ui-ux/           UI/UX source-of-truth documentation
 ```
 
-Prototype code must be isolated, use mock data, and have no dependency on production components or APIs.
+## Global boundaries
 
-## Existing UI is not a design reference
+- Keep changes within the user-requested workstream and preserve unrelated worktree changes.
+- Product-design tasks do not authorize production-code changes unless the user explicitly expands the task to implementation.
+- Application tasks may modify production files when required by the request; the former repository-wide design-only prohibition does not apply.
+- Never import prototype code, mock data, or prototype styling into production as an implementation shortcut.
+- For design-to-implementation work, treat approved decisions and behavior as requirements, then implement them using production architecture, real contracts, accessibility primitives, and tests.
+- Existing production UI may be inspected for functional behavior and implementation constraints. For an active redesign, it is not automatically a visual design reference.
+- Do not modify Git refs, switch branches, commit, push, or open a PR unless the user has requested the corresponding Git operation.
 
-Do not copy, preserve, restyle, incrementally improve, or infer visual decisions from the current frontend pages or CSS.
+## Instruction hierarchy
 
-The current implementation may be inspected only to determine functional scope:
+More specific instructions apply automatically within their subtree:
 
-- available data;
-- supported actions;
-- business states;
-- permissions;
-- constraints;
-- error cases.
+- `design/AGENTS.md` — all non-production design artifacts;
+- `design/recipe-detail/AGENTS.md` — Recipe Detail design workflow and artifact rules;
+- `docs/ui-ux/AGENTS.md` — UI/UX decision-document rules.
 
-Never justify a design decision with “this matches the current page.”
+When a task spans production and design paths, respect both local instruction sets. If they appear to conflict, preserve the design/production boundary and ask before broadening the requested scope.
 
-## Source-of-truth order
+## Verification
 
-Read these files before design work:
+Use checks proportional to the changed workstream:
 
-1. `docs/ui-ux/00-working-agreement.md`
-2. `docs/ui-ux/01-product-scope.md`
-3. `docs/ui-ux/02-recipe-detail-decisions.md`
-4. `docs/ui-ux/03-design-workflow.md`
-5. `docs/ui-ux/04-realistic-data-scenarios.md`
-6. `docs/ui-ux/05-review-checklist.md`
-7. `docs/ui-ux/07-decisions-log.md`
+- production changes: relevant unit, integration, type, lint, and/or end-to-end tests;
+- prototype changes: deterministic prototype checks, browser inspection, screenshots, and accessibility/responsive review;
+- documentation changes: link, path, consistency, and stale-reference checks.
 
-When they conflict, the later explicit decision in `07-decisions-log.md` wins.
-
-## Required working method
-
-- Use current, relevant product references before proposing visual solutions.
-- Analyze UX structure before visual styling.
-- Present 2–3 deliberate alternatives when a decision is unresolved.
-- Explain trade-offs and recommend one alternative.
-- Preserve approved decisions instead of regenerating the whole design.
-- Test sparse, normal, dense, error, review, and mobile states.
-- Use realistic content, not placeholder rectangles or lorem ipsum.
-- Use isolated HTML/CSS prototypes for serious evaluation.
-- Capture screenshots at agreed desktop and mobile sizes.
-- Run separate UX, visual, product-fit, accessibility, responsive, and long-content reviews.
-- Ask for approval before moving from low fidelity to high fidelity.
-
-## Image-generation rule
-
-Do not use image generation as the primary UI design method.
-
-Do not generate UI screenshots with an image model unless the user explicitly requests image generation.
-
-## Design artifact locations
-
-```text
-design/recipe-detail/
-├── research/
-├── wireframes/
-├── prototypes/
-├── screenshots/
-├── reviews/
-└── decisions/
-```
-
-Keep each iteration. Do not silently overwrite an approved design.
-
-## Completion rule
-
-A design iteration is complete only when it includes:
-
-- the task and state being designed;
-- references or patterns considered;
-- the proposed structure;
-- unresolved questions;
-- realistic dense-data coverage;
-- desktop and mobile implications;
-- an explicit critique;
-- a user approval status.
+Report what was verified and what remains unverified.
