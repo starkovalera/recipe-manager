@@ -2638,7 +2638,7 @@ Goal: replace the local default-user identity with Clerk authentication while pr
 - Add signed-out/signed-in frontend shells, invitation handling, account lifecycle screens, and Admin invitation/status controls.
 - Preserve owner-scoped product APIs, worker ownership through persisted ids, and backend-authoritative authorization.
 
-Detailed execution plan: `docs/superpowers/plans/2026-07-13-clerk-auth-invitations-account-lifecycle.md`.
+Detailed execution plan: `docs/plans/2026-07-13-clerk-auth-invitations-account-lifecycle.md`.
 
 Canonical architecture and operations documentation: `docs/authentication-and-authorization.md` and `docs/manual-testing/clerk-lifecycle.md`.
 

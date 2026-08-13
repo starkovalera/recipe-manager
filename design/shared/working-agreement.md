@@ -23,7 +23,7 @@ Do not use the current page composition, component structure, CSS, spacing, typo
 
 Do not modify production code during this phase.
 
-Isolated prototype code under `design/recipe-detail/prototypes/` is allowed because serious evaluation requires real layout behavior, realistic content, responsive states, and browser screenshots.
+Isolated prototype code under the applicable `design/<feature>/prototypes/` workspace is allowed because serious evaluation requires real layout behavior, realistic content, responsive states, and browser screenshots.
 
 ## Required design process
 

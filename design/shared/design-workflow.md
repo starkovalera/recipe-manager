@@ -6,10 +6,10 @@ Read the working agreement, product scope, decisions, scenarios, and decision lo
 
 Inspect product code only when necessary to answer a functional question.
 
-Create:
+Create in the active feature workspace, for example:
 
 ```text
-design/recipe-detail/decisions/current-scope.md
+design/<feature>/decisions/current-scope.md
 ```
 
 Record:
@@ -37,10 +37,10 @@ Study patterns separately:
 - mobile bottom sheets;
 - warning and review states.
 
-Save:
+Save in the active feature workspace, for example:
 
 ```text
-design/recipe-detail/research/pattern-research.md
+design/<feature>/research/pattern-research.md
 ```
 
 For every reference, record:
@@ -77,7 +77,7 @@ Keep approved decisions fixed.
 Create low-fidelity artifacts under:
 
 ```text
-design/recipe-detail/wireframes/
+design/<feature>/wireframes/
 ```
 
 Wireframes may be:
@@ -95,7 +95,7 @@ Do not use image-generation models for the interface.
 For serious evaluation, create isolated prototypes under:
 
 ```text
-design/recipe-detail/prototypes/
+design/<feature>/prototypes/
 ```
 
 Rules:
@@ -134,7 +134,7 @@ Recommended viewports:
 Create separate review files:
 
 ```text
-design/recipe-detail/reviews/
+design/<feature>/reviews/
 ├── ux-review.md
 ├── visual-review.md
 ├── product-fit-review.md

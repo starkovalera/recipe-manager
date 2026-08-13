@@ -18,7 +18,7 @@ Issue slicing must distinguish:
 
 When artifacts conflict, use this order:
 
-1. `docs/ui-ux/07-decisions-log.md` — latest explicit approvals and supersessions;
+1. `decisions/decision-log.md` — latest explicit approvals and supersessions;
 2. `decisions/current-scope.md` — current boundary and remaining work;
 3. numbered decision files, especially `06`, `07`, `11`, `12`, and `13`;
 4. approved prototype README and review files;
@@ -169,7 +169,7 @@ When a design domain reaches `Ready`, its GitHub issue should contain this minim
 - **Prerequisites:** schema/API discovery, shared primitives, or backend mutations that must land first.
 - **Verification:** deterministic unit/component/E2E cases and target viewports derived from the approved prototype rather than its implementation code.
 
-Do not attach `.superpowers` paths to implementation issues. Only permanent files under `docs/ui-ux/` and `design/recipe-detail/` are valid handoff evidence.
+Do not attach `.superpowers` paths to implementation issues. Only permanent tracked files under `design/` are valid UI/UX handoff evidence.
 
 ## Current next design step
 

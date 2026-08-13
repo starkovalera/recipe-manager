@@ -23,8 +23,8 @@ Do not infer the permitted scope from the current branch name alone. Follow the 
 backend/              Production backend, migrations, and backend tests
 frontend/             Production frontend and frontend tests
 infra/ docker/        Production infrastructure and deployment support
-design/               Non-production design artifacts and isolated prototypes
-docs/ui-ux/           UI/UX source-of-truth documentation
+design/               Product-design context, decisions, evidence, and isolated prototypes
+docs/                 Technical documentation, specifications, plans, and runbooks
 ```
 
 ## Global boundaries
@@ -42,8 +42,8 @@ docs/ui-ux/           UI/UX source-of-truth documentation
 More specific instructions apply automatically within their subtree:
 
 - `design/AGENTS.md` — all non-production design artifacts;
+- `design/shared/AGENTS.md` — shared product-design context and decision-document rules;
 - `design/recipe-detail/AGENTS.md` — Recipe Detail design workflow and artifact rules;
-- `docs/ui-ux/AGENTS.md` — UI/UX decision-document rules.
 
 When a task spans production and design paths, respect both local instruction sets. If they appear to conflict, preserve the design/production boundary and ask before broadening the requested scope.
 

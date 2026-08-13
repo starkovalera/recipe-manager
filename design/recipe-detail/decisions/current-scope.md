@@ -5,7 +5,7 @@ Updated: 2026-08-13
 
 ## Purpose
 
-This file is the current boundary for Recipe Detail design work. It replaces the earlier U1/U2 comparison-stage snapshot. Historical wireframes and prototypes remain decision evidence, but later entries in `docs/ui-ux/07-decisions-log.md` and the numbered decision files supersede them.
+This file is the current boundary for Recipe Detail design work. It replaces the earlier U1/U2 comparison-stage snapshot. Historical wireframes and prototypes remain decision evidence, but later entries in `decision-log.md` and the numbered decision files supersede them.
 
 This remains a design-only phase. It does not authorize production implementation.
 

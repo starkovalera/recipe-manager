@@ -13,8 +13,8 @@ The design context is scoped by path:
 ```text
 AGENTS.md                         Repository-wide production/design routing
 design/AGENTS.md                  General non-production design rules
+design/shared/AGENTS.md           Shared product-design context rules
 design/recipe-detail/AGENTS.md    Recipe Detail design workflow
-docs/ui-ux/AGENTS.md              Durable UI/UX decision-document rules
 ```
 
 Do not replace the root `AGENTS.md` with a design-only agreement. If importing an updated design package, merge repository-level guidance at the root and keep design-only restrictions in the nested files above.
@@ -56,7 +56,7 @@ The first deliverable is research and a structured design brief, not production 
 
 Codex should:
 
-1. read the UI/UX context files;
+1. read the shared context under `design/shared/` and the Recipe Detail entry points;
 2. inspect product code only for functional scope;
 3. research current product-interface patterns;
 4. identify genuinely unresolved decisions;
