@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+  <title>Integrated Mobile Recipe Edit</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="prototype-toolbar">
+    <div>
+      <p class="eyebrow">Mobile Recipe Edit · integrated baseline</p>
+      <h1>Approved shell + editable sections</h1>
+      <p>Use the section buttons to inspect the current baseline. Section form details remain provisional unless already approved.</p>
+    </div>
+    <nav aria-label="Prototype scenarios">
+      <button data-scenario="basics">Basics</button>
+      <button data-scenario="ingredients" aria-pressed="true">Ingredients</button>
+      <button data-scenario="instructions">Instructions</button>
+      <button data-scenario="notes">Notes</button>
+      <button data-scenario="nutrition">Nutrition</button>
+    </nav>
+  </header>
+
+  <main class="stage">
+    <div class="phone" aria-label="Interactive mobile recipe editor">
+      <div class="phone-notch" aria-hidden="true"></div>
+      <section class="mobile-edit-surface" id="app-root"></section>
+      <div id="layer-root"></div>
+      <div id="live-region" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
+    </div>
+    <aside class="review-note">
+      <h2>Current baseline</h2>
+      <ul>
+        <li>Always-compact Edit header.</li>
+        <li>Save replaces direct Media.</li>
+        <li>Back owns dirty-draft exit.</li>
+        <li>Single-open accordion.</li>
+        <li>Global navigation remains visible.</li>
+      </ul>
+      <p>Next design work can concentrate on one section without regenerating this shell.</p>
+    </aside>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

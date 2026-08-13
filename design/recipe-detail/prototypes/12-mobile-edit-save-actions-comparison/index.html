@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mobile Edit save-action comparison</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="board">
+    <header class="board-header">
+      <p class="eyebrow">Mobile Recipe Edit · action placement</p>
+      <h1>Save without a second heavy bottom bar</h1>
+      <p>The approved always-compact Recipe header, accordion editor, and global navigation remain fixed.</p>
+    </header>
+
+    <section class="variants">
+      <article class="variant">
+        <header class="variant-header">
+          <span class="badge recommended">Recommended</span>
+          <h2>1 · Save in the top toolbar</h2>
+          <p>Save replaces Media as the essential Edit action. Media and Import Info remain in Overflow.</p>
+        </header>
+        <div class="phone">
+          <div class="notch" aria-hidden="true"></div>
+          <section class="screen">
+            <header class="topbar topbar-save">
+              <button class="icon" aria-label="Back">‹</button>
+              <strong>Smoky Tomato & Butter Bean Stew</strong>
+              <button class="save-top">Save</button>
+              <button class="icon more" aria-label="More recipe actions">•••</button>
+            </header>
+            <main class="editor">
+              <section class="accordion-row"><div><h3>Basics</h3><span>5 fields</span></div><span>⌄</span></section>
+              <section class="ingredients">
+                <header class="accordion-row"><div><h3>Ingredients</h3><span>12 of 50</span></div><span>⌃</span></header>
+                <p>Drag to reorder</p>
+                <ul>
+                  <li><span class="handle">⠿</span><strong>2 tbsp · smoked paprika</strong><span class="chevron">›</span><button class="trash" aria-label="Delete smoked paprika"></button></li>
+                  <li><span class="handle">⠿</span><strong>3 cloves · garlic, thinly sliced</strong><span class="chevron">›</span><button class="trash" aria-label="Delete garlic"></button></li>
+                  <li><span class="handle">⠿</span><strong>250 ml · low-sodium vegetable stock</strong><span class="chevron">›</span><button class="trash" aria-label="Delete stock"></button></li>
+                  <li><span class="handle">⠿</span><strong>20 g · flat-leaf parsley</strong><span class="chevron">›</span><button class="trash" aria-label="Delete parsley"></button></li>
+                </ul>
+                <button class="add-ingredient">+ Add ingredient</button>
+              </section>
+              <section class="accordion-row"><div><h3>Instructions</h3><span>8 steps</span></div><span>⌄</span></section>
+              <section class="accordion-row"><div><h3>Cooking notes</h3><span>248 characters</span></div><span>⌄</span></section>
+            </main>
+            <nav class="global-nav" aria-label="Main navigation">
+              <button aria-current="page"><b>☰</b><span>Recipes</span></button><button><b>▦</b><span>Collections</span></button><button class="global-add" aria-label="Add recipe">+</button><button><b>●</b><span>Notifications</span></button><button><b>○</b><span>Profile</span></button>
+            </nav>
+          </section>
+        </div>
+        <p class="note"><strong>Exit:</strong> Back opens the unsaved-changes guard. No editing controls compete with global navigation.</p>
+      </article>
+
+      <article class="variant">
+        <header class="variant-header">
+          <span class="badge">Alternative</span>
+          <h2>2 · Contextual accessory above navigation</h2>
+          <p>The header keeps direct Media access. A lightweight accessory appears while the recipe has unsaved changes.</p>
+        </header>
+        <div class="phone">
+          <div class="notch" aria-hidden="true"></div>
+          <section class="screen">
+            <header class="topbar">
+              <button class="icon" aria-label="Back">‹</button>
+              <strong>Smoky Tomato & Butter Bean Stew</strong>
+              <button class="icon media" aria-label="Media, 6 items">▧<small>6</small></button>
+              <button class="icon more" aria-label="More recipe actions">•••</button>
+            </header>
+            <main class="editor editor-with-accessory">
+              <section class="accordion-row"><div><h3>Basics</h3><span>5 fields</span></div><span>⌄</span></section>
+              <section class="ingredients">
+                <header class="accordion-row"><div><h3>Ingredients</h3><span>12 of 50</span></div><span>⌃</span></header>
+                <p>Drag to reorder</p>
+                <ul>
+                  <li><span class="handle">⠿</span><strong>2 tbsp · smoked paprika</strong><span class="chevron">›</span><button class="trash" aria-label="Delete smoked paprika"></button></li>
+                  <li><span class="handle">⠿</span><strong>3 cloves · garlic, thinly sliced</strong><span class="chevron">›</span><button class="trash" aria-label="Delete garlic"></button></li>
+                  <li><span class="handle">⠿</span><strong>250 ml · low-sodium vegetable stock</strong><span class="chevron">›</span><button class="trash" aria-label="Delete stock"></button></li>
+                  <li><span class="handle">⠿</span><strong>20 g · flat-leaf parsley</strong><span class="chevron">›</span><button class="trash" aria-label="Delete parsley"></button></li>
+                </ul>
+                <button class="add-ingredient">+ Add ingredient</button>
+              </section>
+              <section class="accordion-row"><div><h3>Instructions</h3><span>8 steps</span></div><span>⌄</span></section>
+            </main>
+            <aside class="save-accessory"><span><b>3</b> unsaved changes</span><button>Save</button></aside>
+            <nav class="global-nav" aria-label="Main navigation">
+              <button aria-current="page"><b>☰</b><span>Recipes</span></button><button><b>▦</b><span>Collections</span></button><button class="global-add" aria-label="Add recipe">+</button><button><b>●</b><span>Notifications</span></button><button><b>○</b><span>Profile</span></button>
+            </nav>
+          </section>
+        </div>
+        <p class="note"><strong>Exit:</strong> Back uses the same guard. The accessory disappears after save, returning the space to the editor.</p>
+      </article>
+    </section>
+  </main>
+</body>
+</html>

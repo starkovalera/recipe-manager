@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mobile Edit Mode — unified page context</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="board">
+    <header class="board-header">
+      <p class="eyebrow">Layout density check · low fidelity</p>
+      <h1>Ingredients stay inside the one-page editor</h1>
+      <p>The recipe header and main actions have scrolled above the viewport. Only the current-section control and global save bar remain fixed.</p>
+    </header>
+
+    <section class="comparison" aria-label="Mobile Edit Mode states">
+      <article class="state">
+        <h2>1 · Ingredients section</h2>
+        <div class="phone">
+          <div class="phone-notch" aria-hidden="true"></div>
+          <div class="viewport">
+            <button class="section-switcher" type="button" aria-label="Open section index">
+              <span><strong>Ingredients</strong><small>12 of 50</small></span>
+              <span aria-hidden="true">⌄</span>
+            </button>
+
+            <div class="section-body">
+              <p class="section-help">Drag to reorder</p>
+              <ul class="ingredient-list">
+                <li>
+                  <button class="handle" type="button" aria-label="Reorder smoked paprika">⠿</button>
+                  <button class="summary" type="button"><span>2 tbsp · smoked paprika</span><span aria-hidden="true">›</span></button>
+                  <button class="trash" type="button" aria-label="Delete smoked paprika">♜</button>
+                </li>
+                <li>
+                  <button class="handle" type="button" aria-label="Reorder garlic">⠿</button>
+                  <button class="summary" type="button"><span>3 cloves · garlic, thinly sliced</span><span aria-hidden="true">›</span></button>
+                  <button class="trash" type="button" aria-label="Delete garlic">♜</button>
+                </li>
+                <li>
+                  <button class="handle" type="button" aria-label="Reorder stock">⠿</button>
+                  <button class="summary" type="button"><span>250 ml · low-sodium vegetable stock</span><span aria-hidden="true">›</span></button>
+                  <button class="trash" type="button" aria-label="Delete stock">♜</button>
+                </li>
+                <li>
+                  <button class="handle" type="button" aria-label="Reorder parsley">⠿</button>
+                  <button class="summary" type="button"><span>20 g · flat-leaf parsley</span><span aria-hidden="true">›</span></button>
+                  <button class="trash" type="button" aria-label="Delete parsley">♜</button>
+                </li>
+              </ul>
+              <button class="add" type="button">+ Add ingredient</button>
+            </div>
+
+            <div class="global-save">
+              <span>3 unsaved</span>
+              <button type="button">Cancel</button>
+              <button class="primary" type="button">Save changes</button>
+            </div>
+          </div>
+        </div>
+        <p class="caption"><strong>Persistent:</strong> one section control above and one recipe-level save bar below.</p>
+      </article>
+
+      <article class="state">
+        <h2>2 · Editing one ingredient</h2>
+        <div class="phone">
+          <div class="phone-notch" aria-hidden="true"></div>
+          <div class="viewport sheet-state">
+            <button class="section-switcher" type="button" aria-label="Open section index" disabled>
+              <span><strong>Ingredients</strong><small>12 of 50</small></span>
+              <span aria-hidden="true">⌄</span>
+            </button>
+            <div class="section-body muted" aria-hidden="true">
+              <p class="section-help">Drag to reorder</p>
+              <ul class="ingredient-list">
+                <li><span class="handle">⠿</span><span class="summary static"><span>2 tbsp · smoked paprika</span><span>›</span></span><span class="trash">♜</span></li>
+                <li><span class="handle">⠿</span><span class="summary static"><span>3 cloves · garlic, thinly sliced</span><span>›</span></span><span class="trash">♜</span></li>
+              </ul>
+            </div>
+            <div class="scrim" aria-hidden="true"></div>
+
+            <section class="ingredient-sheet" aria-label="Edit ingredient">
+              <div class="grabber" aria-hidden="true"></div>
+              <header><h3>Edit ingredient</h3><button type="button" aria-label="Close">×</button></header>
+              <label>Ingredient<input value="smoked paprika"></label>
+              <div class="field-row">
+                <label>Quantity<input value="2"></label>
+                <label>Unit<input value="tbsp"></label>
+              </div>
+              <label>Find unit<input placeholder="Search units…"></label>
+              <div class="chips" aria-label="Common units">
+                <button type="button">none</button><button type="button">g</button><button type="button">ml</button>
+                <button type="button">tsp</button><button class="selected" type="button">tbsp</button><button type="button">cup</button><button type="button">+30</button>
+              </div>
+              <p class="dictionary-note">Fixed dictionary · 6 common units shown</p>
+              <footer><button type="button">Cancel</button><button class="primary" type="button">Done</button></footer>
+            </section>
+          </div>
+        </div>
+        <p class="caption"><strong>While open:</strong> the sheet owns the viewport; the recipe save bar stays behind it and is not duplicated.</p>
+      </article>
+    </section>
+
+    <footer class="board-note">
+      <strong>Density decision:</strong> do not keep the recipe header or main action rows sticky. They scroll away before Ingredients becomes the active section.
+    </footer>
+  </main>
+</body>
+</html>

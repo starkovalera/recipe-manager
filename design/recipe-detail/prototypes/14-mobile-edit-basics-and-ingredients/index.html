@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+  <title>Mobile Recipe Edit: Basics and Ingredients</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="prototype-toolbar">
+    <div>
+      <p class="eyebrow">Mobile Recipe Edit · refinement</p>
+      <h1>Regular Basics controls + compact Ingredients</h1>
+      <p>Inspect the approved shell with aligned Basics controls and ingredient editing without mobile reordering.</p>
+    </div>
+    <nav aria-label="Prototype scenarios">
+      <button data-scenario="basics">Basics</button>
+      <button data-scenario="ingredients" aria-pressed="true">Ingredients</button>
+      <button data-scenario="instructions">Instructions</button>
+      <button data-scenario="notes">Notes</button>
+      <button data-scenario="nutrition">Nutrition</button>
+    </nav>
+  </header>
+
+  <main class="stage">
+    <div class="phone" aria-label="Interactive mobile recipe editor">
+      <div class="phone-notch" aria-hidden="true"></div>
+      <section class="mobile-edit-surface" id="app-root"></section>
+      <div id="layer-root"></div>
+      <div id="live-region" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
+    </div>
+    <aside class="review-note">
+      <h2>Refinement scope</h2>
+      <ul>
+        <li>One equal two-column grid for paired Basics controls.</li>
+        <li>Fixed Source, Difficulty, and Personal rating values.</li>
+        <li>Ingredient summary opens its single-item editor.</li>
+        <li>Mobile ingredient reordering is intentionally absent.</li>
+        <li>Approved Edit shell and global navigation remain unchanged.</li>
+      </ul>
+      <p>Desktop ingredient reordering and instruction reordering are outside this mobile refinement.</p>
+    </aside>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
