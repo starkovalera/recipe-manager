@@ -39,4 +39,8 @@ First-version scope: reconcile with the Core Design Baseline before promotion
 
 ## Refinement rule
 
-These opportunities touch active Design Domains. During Core Design Baseline work, either incorporate the behavior into first-version scope or leave it explicitly deferred here. Create Design issues before Development issues whenever interaction or information hierarchy remains unresolved, and preserve accessible error/status behavior in every promoted slice.
+These opportunities touch active Design Domains. During V1 Core Design Baseline
+work, either incorporate the behavior into V1 scope or leave it explicitly
+deferred here. Create Design issues before Development issues whenever
+interaction or information hierarchy remains unresolved, and preserve
+accessible error/status behavior in every promoted slice.

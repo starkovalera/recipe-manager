@@ -40,6 +40,26 @@ Examples:
 
 Extend this vocabulary here before using a new area prefix.
 
+## Release-version labels
+
+The GitHub labels `v1` and `v2` are orthogonal to the triage labels and identify
+the release target:
+
+- `v1` means the first, web-only production release. It covers shared contracts,
+  responsive-web Design/Development, infrastructure, operations, security, and
+  release evidence required for Public v1.
+- `v2` means the post-V1 mobile client sequence. It begins with a dedicated
+  mobile planning iteration and includes all mobile Development work, including
+  native architecture, build/release, mobile-specific contracts, and the client
+  itself.
+
+Design work creates shared, `[WEB]`, and `[MOBILE]` issues together under one
+product context. The paired mobile Design issue is non-blocking for the V1 web
+handoff and may remain deferred when the design team moves forward with web.
+Do not create or label a mobile Development issue as current V1 work merely
+because a mobile Design artifact exists. Version labels do not replace
+`ready-for-agent`, `ready-for-human`, `needs-triage`, or `needs-info`.
+
 ## Relationships
 
 - Parent/sub-issue relationships express scope containment only.
@@ -75,7 +95,12 @@ An issue with an open blocker is not on the executable frontier even if its own 
 
 ## Design issues
 
-A Design Domain uses a shared-contract child, separate `[WEB]` and `[MOBILE]` children, and a reconciliation child. The platform children may proceed in parallel after their actual shared blockers close. The reconciliation child verifies continuity without forcing identical interfaces.
+A Design Domain uses a shared-contract child, separate `[WEB]` and `[MOBILE]`
+children, and a reconciliation child. The platform children may proceed in
+parallel after their actual shared blockers close. The V1 web child and shared
+contract feed the V1 handoff; the mobile child and mobile-specific
+reconciliation are useful paired evidence but are non-blocking for V1. The
+reconciliation child verifies continuity without forcing identical interfaces.
 
 A Design issue resolves one bounded decision or produces one reviewable evidence increment. It names the Design Domain, affected shared decisions, target platform, required states, approval criterion, and evidence destination. Parallel Design work is allowed when real blockers permit it; Core baseline integration reconciles shared decisions across every domain before approval.
 

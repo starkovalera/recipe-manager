@@ -6,6 +6,11 @@
 **Hosted environments:** one hosted production environment; `preview` remains local  
 **Primary goals:** low fixed cost, invite-only access, managed background execution, secure user isolation, and a clear path to public access later
 
+**Release sequencing:** V1 is the first web-only production release. The mobile
+node in this target cross-client architecture is a V2 outcome; its architecture,
+build, signing, store, and observability questions are revisited after V1 and
+do not block the V1 web release.
+
 > Vendor pricing, free-tier rules, EU-region availability, DPA terms, and service limits must be rechecked immediately before deployment.
 
 ---
@@ -257,7 +262,7 @@ flowchart LR
     api -. logs and metrics .-> observability
     lambdas -. logs and metrics .-> observability
 
-    mobileDecision["#27 Native stack and delivery<br/>decision pending"]
+    mobileDecision["#27 V2 native stack and delivery<br/>decision deferred until after V1"]
     infraDecision["#31 Terraform/OpenTofu + deployment mechanism<br/>Lightsail vs EC2 still under refinement"]
     ownerInputs["#30 AWS/account/domain/secret prerequisites<br/>human-owned inputs"]
     liveAws["#59 Live AWS S3/provider verification<br/>human prerequisite"]
@@ -285,7 +290,7 @@ The logical architecture is sufficiently defined to draw this target now. The ex
 
 | Open question | Current effect |
 | --- | --- |
-| [#27 — Native client architecture](https://github.com/starkovalera/recipe-manager/issues/27) | The mobile API boundary is fixed, but the native stack, build/signing, store delivery, and observability path are not selected. |
+| [#27 — Native client architecture](https://github.com/starkovalera/recipe-manager/issues/27) | V2 only: the mobile API boundary is fixed, but the native stack, build/signing, store delivery, and observability path are intentionally deferred until the post-V1 mobile planning iteration. |
 | [#31 — Terraform/OpenTofu and AWS foundation](https://github.com/starkovalera/recipe-manager/issues/31) | The logical services are selected, but the exact IaC, state bootstrap, and Lightsail/EC2 deployment mechanism remain under refinement. |
 | [#30 — Owner-controlled production prerequisites](https://github.com/starkovalera/recipe-manager/issues/30) | Account, region, domains, provider projects, and secret references must be supplied before infrastructure can be provisioned. |
 | [#59 — Verify Live AWS S3 media access boundaries](https://github.com/starkovalera/recipe-manager/issues/59) | The real private-bucket/IAM/Block Public Access/CloudTrail/network/TLS boundary is validated after #30; it gates technical production smoke but does not choose the topology or block #31 refinement. |

@@ -65,7 +65,7 @@ Issues and specs for this repo live as GitHub issues; use the `gh` CLI. See `doc
 
 ### Triage labels
 
-The repo uses the default five canonical triage labels: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, and `wontfix`. See `docs/agents/triage-labels.md`.
+The repo uses the default five canonical triage labels: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, and `wontfix`. Release target is tracked separately with `v1` (first web-only release) and `v2` (post-V1 mobile sequence). See `docs/agents/triage-labels.md`.
 
 ### Domain docs
 

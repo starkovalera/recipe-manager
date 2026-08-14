@@ -1,16 +1,32 @@
 # Native mobile client architecture decision packet
 
 **Issue:** [#27 — Research native client architecture options and contract boundary](https://github.com/starkovalera/recipe-manager/issues/27)<br>
-**Status:** `ready-for-human` — owner stack approval required<br>
+**Status:** `v2-deferred` — research input retained; owner approval waits for the post-V1 mobile planning iteration<br>
 **Decision owner:** Recipe Manager project owner<br>
 **Prepared:** 2026-08-14<br>
-**Scope:** research and recommendation only; this packet adds no production mobile client code.
+**Release target:** V2 Mobile Client<br>
+**Scope:** research and provisional recommendation only; this packet adds no production mobile client code and has no V1 release impact.
+
+## V1 boundary and disposition
+
+The first production release is V1 Web Release and is web-only. This packet is
+not a current stack-approval request, does not authorize mobile Development,
+and does not block V1 web Design, implementation, production, or release.
+
+After V1, the project will run a dedicated mobile planning iteration. That
+iteration must revalidate this packet's evidence, confirm the mobile
+specification and requirements, and then decide which proposed V2 epics become
+executable issues. Time-sensitive vendor, pricing, store, SDK, and provider
+claims must be rechecked at that point.
+
+This sequencing follows [ADR-0006 — V1 web-only release and V2 mobile planning
+boundary](../adr/0006-v1-web-only-release-v2-mobile-boundary.md).
 
 ## Decision summary
 
-### Recommendation for owner approval
+### Provisional V2 recommendation for later revalidation
 
-Adopt **React Native with Expo, Expo development builds/Continuous Native Generation, and EAS Build/Submit** for the first native client, with the following boundary:
+Adopt **React Native with Expo, Expo development builds/Continuous Native Generation, and EAS Build/Submit** for the V2 native client, subject to revalidation and owner approval during the post-V1 planning iteration, with the following boundary:
 
 - keep the existing React/Vite web application and its visual implementation separate;
 - add a platform-owned `mobile/` application after the stack decision is approved;
@@ -19,9 +35,11 @@ Adopt **React Native with Expo, Expo development builds/Continuous Native Genera
 - use the official `@clerk/expo` SDK for mobile authentication, but build Recipe Manager's approved auth screens with hooks/custom flows rather than depending on Clerk's beta native UI components;
 - use EAS for repeatable Android/iOS development, preview, and production builds, with signing credentials held by the owner-controlled Expo/Apple/Google/GitHub environments;
 - treat imports as server-owned durable jobs and mobile as a client that submits, observes, resumes, and presents them;
-- make the first mobile release online-first with in-app notification polling; treat push notifications, offline writes, and background uploads as separately approved contract work.
+- make the V2 mobile release online-first with in-app notification polling; treat push notifications, offline writes, and background uploads as separately approved contract work.
 
-This is a recommendation, not a stack selection. The owner must approve the stack, build-service/account model, mobile first-version scope, and the external setup listed below before implementation issues are created.
+This is a provisional recommendation, not a stack selection. The owner must
+revisit the stack, build-service/account model, V2 mobile scope, and the
+external setup listed below after V1 before implementation issues are created.
 
 ### Why this option fits the current repository
 
@@ -36,22 +54,22 @@ The following facts are current at the time of this packet. They are the constra
 | Boundary | Current repository contract | Mobile consequence |
 | --- | --- | --- |
 | One backend | The accepted [one-backend ADR](../adr/0001-one-backend-for-web-and-mobile.md) requires one owner-scoped HTTP API for web and mobile. | Mobile must call the same KrakenD/FastAPI boundary. A mobile-only backend or duplicated domain authorization is out of scope. |
-| Production topology | The target architecture uses Clerk, KrakenD, FastAPI, PostgreSQL, SQS/Lambda, S3, and Flagsmith; the exact native delivery path is the open #27 decision. See [production architecture](production-architecture.md). | The client stack must fit a public HTTPS API, durable server jobs, private media, and the existing provider boundaries. |
+| Production topology | The target architecture uses Clerk, KrakenD, FastAPI, PostgreSQL, SQS/Lambda, S3, and Flagsmith; the exact V2 native delivery path is the deferred #27 decision. See [production architecture](production-architecture.md). | The future client stack must fit a public HTTPS API, durable server jobs, private media, and the existing provider boundaries without affecting V1 web delivery. |
 | Authentication | Clerk owns credentials and sessions; KrakenD validates the JWT; FastAPI maps the verified subject to an internal active user and owns authorization. See [authentication and authorization](../authentication-and-authorization.md). | Mobile needs a native/session-safe Clerk adapter and must still call `POST /me/provision`. It must never send a Clerk secret or bypass FastAPI authorization. |
 | API shape | FastAPI publishes OpenAPI at runtime. The current web client has manually maintained TypeScript types and a thin `fetch` client. There is no committed generated client package. | Generate a shared contract artifact for TypeScript consumers and keep runtime request behavior in a small platform-neutral client layer. |
 | Import lifecycle | `POST /imports` accepts multipart text/URL/files, returns `202` for a new durable queued job, and `GET /imports/{jobId}` exposes status. Server workers own processing and retry. See [import pipeline](../import-pipeline.md). | Mobile submits with an installation/client id and idempotency key, then refetches on screen entry/resume. It must not execute the import in a device background worker. |
 | Media | Clients use stable `(type, id)` references and `POST /media/access`; storage keys and bucket names never cross the API boundary. Direct grants and authenticated-fetch grants have short-lived/lifecycle-aware semantics. See [media access](../media-access.md). | A mobile media adapter must resolve grants into native image/file loading without logging or persisting signed URLs. Upload and large-file background behavior remain separate decisions. |
-| Notifications | `GET /notifications`, read/unread mutations, and 5-second web polling exist. There is no device-token registration, APNs/FCM delivery, or push deep-link contract. | The first mobile slice can use the existing in-app notification API. Remote push requires a separate backend/provider contract and owner approval. |
-| Offline/background | The current web application has no service worker, offline-write contract, or resumable upload contract. | The first release should be online-first. Background refresh may revalidate server state; it must not imply offline mutation or durable local import execution. |
+| Notifications | `GET /notifications`, read/unread mutations, and 5-second web polling exist. There is no device-token registration, APNs/FCM delivery, or push deep-link contract. | The initial V2 mobile slice can use the existing in-app notification API. Remote push requires a separate backend/provider contract and owner approval. |
+| Offline/background | The current web application has no service worker, offline-write contract, or resumable upload contract. | The V2 mobile release should be online-first. Background refresh may revalidate server state; it must not imply offline mutation or durable local import execution. |
 | Observability | Server and worker logs use non-sensitive identifiers and CloudWatch is the initial monitoring choice; Sentry is explicitly deferred in the production architecture. | Mobile release work needs a deliberate client crash/diagnostic policy. API logs remain authoritative for server behavior and must not receive tokens, raw media, recipe sources, or signed URLs. |
-| Design boundary | The Core Design Baseline is the gate for production client UI. Existing prototypes and screenshots are design evidence, not production source. See [project context](../../CONTEXT.md) and [Design roadmap](../../design/roadmap.md). | Mobile navigation, gestures, sheets, native permission prompts, accessibility semantics, and visual components remain platform-owned and design-gated. |
-| Deployment | The repository currently builds/tests the web, backend, and gateway. There is no mobile workflow, app identifier, signing setup, or store account recorded. | Build, signing, store, secrets, device-matrix, and beta-release work must be introduced as explicit mobile delivery issues after approval. |
+| Design boundary | The V1 Web Core Design Baseline gates V1 web UI; existing prototypes and screenshots are design evidence, not production source. V2 mobile has a later design gate. See [project context](../../CONTEXT.md) and [Design roadmap](../../design/roadmap.md). | Mobile navigation, gestures, sheets, native permission prompts, accessibility semantics, and visual components remain platform-owned and V2 design-gated. |
+| Deployment | The repository currently builds/tests the web, backend, and gateway. There is no mobile workflow, app identifier, signing setup, or store account recorded. | Build, signing, store, secrets, device-matrix, and beta-release work must be introduced as explicit V2 mobile delivery issues after the post-V1 planning approval. |
 
 The current API client already centralizes bearer-token injection and maps error responses to `{ errorCode, message }`. It also sends `X-Client-Id` for imports and supports `Idempotency-Key` at the API boundary. These are reusable behavioral contracts, not a reason to copy the browser implementation or its `localStorage` dependency.
 
 ## Evaluation criteria
 
-The options use the same criteria. Scores are directional decision aids, not benchmark results; a score of 5 is the best fit for this repository and the first mobile beta.
+The options use the same criteria. Scores are directional decision aids, not benchmark results; a score of 5 is the best fit for this repository and the V2 mobile beta.
 
 | Criterion | Weight | What a good option must provide |
 | --- | ---: | --- |
@@ -155,10 +173,10 @@ The recommendation is not based on assuming that all mobile behavior is portable
 | Import submission | `POST /imports` is multipart, accepts `clientImportId`, optional text/URL/files, `X-Client-Id`, and `Idempotency-Key`; new work returns `202`. | Use a secure/stable installation identifier plus a per-submission idempotency key; convert native file URIs to multipart parts. | Validate maximum file size/count, MIME handling, cancellation, and foreground/background upload behavior on real devices. |
 | Import execution/status | Queue/Lambda processing is server-owned; `GET /imports/{jobId}` exposes the durable state; current web detail polling is 1 second while active. | Poll with backoff while the detail view is visible, refetch on app resume, and render the server state after reconnect. | There is no owner-scoped list of active jobs. Add one only if the approved mobile home/import UX needs it. |
 | Media reads | `POST /media/access` returns ordered per-item grants; storage keys and signed URLs are not durable IDs. | Implement native `direct` and `authenticated_fetch` adapters; use memory/file cache only with explicit expiry and revocation rules. | The current `accessMode` wording is browser-oriented. Confirm platform-neutral terminology before adding a generated client. |
-| Media uploads | Current import multipart submission is the upload path; there is no general upload-intent/resumable-upload contract. | Keep uploads foreground-only for the first slice unless product scope explicitly requires background/resumable uploads. | A background or unreliable-network upload requires a separate upload-intent, resume, cleanup, and progress contract. |
+| Media uploads | Current import multipart submission is the upload path; there is no general upload-intent/resumable-upload contract. | Keep uploads foreground-only for the initial V2 slice unless the approved mobile scope explicitly requires background/resumable uploads. | A background or unreliable-network upload requires a separate upload-intent, resume, cleanup, and progress contract. |
 | In-app notifications | `GET /notifications`, read/unread mutation, read-all mutation, and web polling exist. Notification data includes entity type/id for deep links. | Reuse the API for foreground refresh, unread state, and recipe/import deep links. | Make mobile query freshness and app-resume behavior explicit; do not call this remote push. |
-| Remote push | No device-token registration, token rotation, provider delivery, permission preference, or delivery status exists. | Do not make push a prerequisite of the initial online-first mobile slice. | If required for Mobile Beta, create a separate backend/mobile epic for APNs/FCM or an approved push gateway, device registration, payload/deep-link contract, privacy, retries, and revocation. |
-| Offline reads/writes | No offline-first or service-worker contract exists. | Online-first. A local cache may improve resume behavior but is never the source of truth for writes. | Owner must decide whether offline browsing or queued edits belong in first mobile scope. |
+| Remote push | No device-token registration, token rotation, provider delivery, permission preference, or delivery status exists. | Do not make push a prerequisite of the initial online-first V2 mobile slice. | If required for V2 Mobile Beta, create a separate backend/mobile epic for APNs/FCM or an approved push gateway, device registration, payload/deep-link contract, privacy, retries, and revocation. |
+| Offline reads/writes | No offline-first or service-worker contract exists. | Online-first. A local cache may improve resume behavior but is never the source of truth for writes. | Owner must decide whether offline browsing or queued edits belong in V2 mobile scope. |
 | Background refresh | Server jobs continue without a client process. Expo/Flutter/native schedulers are OS-controlled and may run late or not at all. | Use background execution only for best-effort revalidation or notification handling, never for import execution. | Define minimum freshness expectations and telemetry before scheduling work. |
 | Feature flags | Flagsmith is a cross-client provider in the target architecture; `/me` exposes effective capabilities for the current user. | Keep flag evaluation server-authoritative for protected behavior; use client flags for presentation/rollout only. | Add mobile platform/version targeting to the flag contract if staged rollout requires it. |
 | Observability | CloudWatch receives structured server/worker logs with release, request, user, job, recipe, message, and operation identifiers; sensitive payloads are excluded. | Send platform and app release metadata in a safe, bounded form; attach request/job ids to diagnostic views without copying secrets. | Owner must choose OS-store metrics only versus a client crash/telemetry provider such as the currently deferred Sentry. |
@@ -198,16 +216,18 @@ Do not share web React components, CSS, DOM assumptions, screenshots, or prototy
 
 ## Recommended bootstrap and migration outline
 
-This sequence assumes owner approval of Option A. If the owner selects another option, preserve the contract phases but replace the platform/bootstrap steps.
+This sequence is a V2 planning input and assumes that the owner later approves
+Option A. If the owner selects another option, preserve the contract phases but
+replace the platform/bootstrap steps.
 
-### Phase 0 — human decision and prerequisites
+### Phase 0 — post-V1 human decision and prerequisites
 
-1. Approve React Native + Expo/EAS or select another evaluated option.
+1. Revalidate and approve React Native + Expo/EAS or select another evaluated option.
 2. Decide whether hosted EAS builds/signing are acceptable, whether the owner or CI owns credentials, and which EAS plan is allowed.
 3. Create or verify the Apple Developer and Google Play accounts, app ownership, bundle identifier/application ID, and tester ownership.
 4. Configure Clerk native application settings, redirect/deep-link schemes, social-provider credentials if used, and the production/preview environment policy.
-5. Choose minimum iOS/Android versions, device matrix, release cadence, and whether first Mobile Beta is online-only.
-6. Decide whether remote push, offline reads, offline writes, and background uploads are first-version requirements.
+5. Choose minimum iOS/Android versions, device matrix, release cadence, and whether V2 Mobile Beta is online-only.
+6. Decide whether remote push, offline reads, offline writes, and background uploads are V2 requirements.
 
 ### Phase 1 — shared contract and client seam
 
@@ -215,7 +235,7 @@ This sequence assumes owner approval of Option A. If the owner selects another o
 2. Add a reproducible OpenAPI-to-client-type generation step; commit generated TypeScript types or publish them as a same-repository package according to the approved ownership rule.
 3. Extract or reimplement a small runtime-neutral client core that accepts a token provider and platform transport/storage adapters. Do not make the backend depend on generated frontend output.
 4. Add contract checks for method/path parity, error envelope, enum/status values, media grants, multipart imports, idempotency, and safe retry behavior.
-5. Resolve only the API gaps required by the approved first mobile slice. Push notifications, resumable uploads, and offline writes remain separate until explicitly promoted.
+5. Resolve only the API gaps required by the approved initial V2 mobile slice. Push notifications, resumable uploads, and offline writes remain separate until explicitly promoted.
 
 ### Phase 2 — mobile shell and delivery proof
 
@@ -227,7 +247,9 @@ This sequence assumes owner approval of Option A. If the owner selects another o
 
 ### Phase 3 — approved Core mobile vertical slices
 
-Implement only after the relevant #29 Core Design outcomes are approved:
+Implement only after the V2 mobile planning iteration and the relevant mobile
+Design outcomes are approved. The paired #29 evidence is an input, not a V1
+mobile implementation gate:
 
 1. authenticated shell and capability-driven navigation;
 2. recipe list/detail/search and media read access;
@@ -253,7 +275,7 @@ Promote this phase only after owner approval and a separate contract:
 2. Run Android and iOS device/E2E flows for sign-in, provisioning, recipe/media access, import submission/status, notification deep links, retry, account-state handling, and sign-out.
 3. Execute VoiceOver and TalkBack checks against the approved Core mobile flows, including permission denial and network failure states.
 4. Publish internal builds through TestFlight and Google Play internal testing; preserve build number, commit, environment, tester group, and feedback evidence.
-5. Verify API/server release correlation, client crash diagnostics, privacy-safe logs, permissions, signing, rollback, and store metadata before Mobile Beta.
+5. Verify API/server release correlation, client crash diagnostics, privacy-safe logs, permissions, signing, rollback, and store metadata before V2 Mobile Beta.
 
 ## Proposed implementation epics and dependencies
 
@@ -263,15 +285,18 @@ These are proposed slices for refinement after the owner approves the stack. The
 | --- | --- | --- |
 | M1. Stack bootstrap and delivery | Isolated mobile app, local development, build profiles, signing/secrets policy, and CI artifact proof. | Owner stack/account approval; #30 for provider/account evidence. |
 | M2. Shared API contract and client core | Generated contract artifacts, runtime-neutral request/error/media/job semantics, and drift checks. | #24 as an input; API gap decisions from this packet. Does not require mobile UI approval. |
-| M3. Auth, session, and account lifecycle | Native Clerk session, provisioning, deep links, secure restoration, sign-out, deactivated/deletion-pending states. | M1; Clerk native configuration from #30; #29 for approved auth UX. |
-| M4. Core recipe/mobile shell | Approved navigation, recipe list/detail/search/edit, media reads, accessibility, and localization behavior. | M2 + M3 + applicable #29 Core Design outcomes. |
+| M3. Auth, session, and account lifecycle | Native Clerk session, provisioning, deep links, secure restoration, sign-out, deactivated/deletion-pending states. | M1; Clerk native configuration from #30; approved V2 mobile auth UX. |
+| M4. Core recipe/mobile shell | Approved navigation, recipe list/detail/search/edit, media reads, accessibility, and localization behavior. | M2 + M3 + applicable V2 mobile Design outcomes; paired #29 evidence is an input. |
 | M5. Import and job lifecycle | Multipart import, idempotency/client identity, job detail polling/resume, retry, and safe media handling. | M2 + M3 + approved import/mobile design; server import contract remains authoritative. |
 | M6. In-app notifications and optional push | Foreground notification list/read/deep links first; push only if promoted with its backend contract. | M2 + M3; push additionally requires an approved provider/device-token epic. |
-| M7. E2E, accessibility, observability, and beta release | Device matrix, store test tracks, release evidence, crash/telemetry policy, and Mobile Beta gate. | M1–M6 as applicable; #30 provider evidence; technical production/security gates in #32. |
+| M7. E2E, accessibility, observability, and beta release | Device matrix, store test tracks, release evidence, crash/telemetry policy, and V2 Mobile Beta gate. | M1–M6 as applicable; #30 provider evidence; reusable technical production/security gates from #32. |
 
 ```mermaid
 flowchart TD
-  issue27["#27<br/>This decision packet"] --> approval["Owner approves stack,<br/>scope, accounts, and release policy"]
+  v1["V1 Web Release"] --> planning["Post-V1 V2 mobile planning"]
+  issue27["#27<br/>This decision packet"] -. research input .-> planning
+  planning --> approval["Owner revisits stack,<br/>scope, accounts, and release policy"]
+  planning --> mobileDesign["Approved V2 mobile<br/>specification and Design gate"]
   approval --> m1["M1 Stack bootstrap<br/>and delivery"]
   input24["#24<br/>Frontend contract audit"] -. informs .-> m2["M2 Shared API contract<br/>and client core"]
   approval --> m2
@@ -279,10 +304,11 @@ flowchart TD
   owner30 -. provider/account evidence .-> m7["M7 E2E, accessibility,<br/>observability, beta release"]
   m1 --> m3["M3 Auth, session,<br/>account lifecycle"]
   m2 --> m3
-  design29["#29<br/>Core Design Baseline"] --> m3
+  mobileDesign --> m3
   m2 --> m4["M4 Core recipe/mobile shell"]
   m3 --> m4
-  design29 --> m4
+  mobileDesign --> m4
+  design29["#29<br/>V1 Core Design + paired mobile input"] -. informs V2 mobile Design .-> mobileDesign
   m2 --> m5["M5 Import and<br/>job lifecycle"]
   m3 --> m5
   m2 --> m6["M6 In-app notifications<br/>and optional push"]
@@ -301,7 +327,7 @@ flowchart TD
   classDef gate fill:#fee2e2,stroke:#dc2626,color:#7f1d1d
   class issue27,input24,design29,owner30,infra31,security28 current
   class approval human
-  class m1,m2,m3,m4,m5,m6 proposed
+  class mobileDesign,m1,m2,m3,m4,m5,m6 proposed
   class m7 gate
 ```
 
@@ -309,7 +335,7 @@ Solid arrows in the diagram are execution blockers. Dashed arrows are inputs tha
 
 ## Human-owned decisions and prerequisites
 
-### Required before implementation starts
+### Required before V2 implementation starts
 
 - stack selection and acceptance of the recommended React Native + Expo/EAS service boundary;
 - owner for Apple Developer, Google Play, and optional Expo organization accounts;
@@ -318,7 +344,7 @@ Solid arrows in the diagram are execution blockers. Dashed arrows are inputs tha
 - minimum OS versions and a physical-device/simulator test matrix;
 - EAS hosted-build/signing policy or an explicit decision to use self-managed macOS/Android CI;
 - GitHub/EAS environment owners, signing secret rotation, artifact retention, and release approval rules;
-- first Mobile Beta behavior for online/offline use, push notifications, background refresh, and background uploads;
+- V2 Mobile Beta behavior for online/offline use, push notifications, background refresh, and background uploads;
 - client observability policy: OS/store metrics only, or a privacy-reviewed client error/crash provider.
 
 ### Cost and account notes verified for this packet
@@ -350,7 +376,7 @@ Do not create or pay for these accounts, accept store agreements, or commit sign
 | Auth, notifications, media, offline/background, testing, CI, signing, and store delivery are addressed | [Capability matrix](#capability-and-contract-matrix), option sections, [bootstrap](#recommended-bootstrap-and-migration-outline), and [human prerequisites](#human-owned-decisions-and-prerequisites). |
 | Costs, external accounts, and human-owned setup are explicit | [Cost and account notes](#cost-and-account-notes-verified-for-this-packet) and [human-owned decisions](#human-owned-decisions-and-prerequisites). |
 | No production client code is added | This branch changes only this Markdown decision packet. |
-| Final handoff is ready for human stack approval | Status at the top of this packet and the proposed approval gate in the dependency graph. |
+| Research handoff is retained as a deferred V2 input | Status at the top of this packet, the V1 boundary, and the post-V1 approval gate in the dependency graph. |
 | Shared Development Task Completion Checkpoint | The handoff follows [`docs/agents/task-completion.md`](../agents/task-completion.md); no backend code changed, so the backend refactoring review is not applicable. |
 
 ## Primary sources

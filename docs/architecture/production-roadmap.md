@@ -18,10 +18,24 @@ This is the canonical current plan for the `[DEV]` track. Detailed architecture 
 | Terraform, IAM, secrets | Not started | May begin in parallel with P11/P12 where runtime contracts are already fixed |
 | Technical production and CD | Blocked | Requires deployable artifacts, infrastructure, and hardening gates |
 | Production release-candidate security audit | Blocked | Runs against the exact production build and configuration after its blockers close; production release cannot proceed with unresolved release-blocking findings |
-| Core web/mobile implementation | Design-gated | Requires Core Design Baseline v1 |
-| Operational surfaces implementation | Design-gated | Requires Operational Surfaces Addendum v1; blocks Public v1 only |
+| Core responsive-web implementation | V1 design-gated | Requires the V1 Web Core Design Baseline and its implementation handoff |
+| Mobile client implementation | V2 deferred | Starts only after V1 Web Release and a dedicated mobile planning/design gate; #27 is a V2 input |
+| Operational surfaces implementation | V1 design-gated | Requires Operational Surfaces Addendum v1; blocks Public v1 only |
 
 The historical greenfield rewrite and background-processing plans are archived under `docs/archive/`; their unchecked boxes are not current work.
+
+## Release sequencing
+
+The current Development roadmap delivers **V1 Web Release**: technical
+production, the approved responsive-web Core client, V1 operational surfaces,
+security, beta-readiness, and Public v1 release evidence. It does not require a
+native client.
+
+After V1, a separate **V2 mobile planning iteration** turns the deferred native
+architecture packet, shared contracts, and any paired Design evidence into an
+approved mobile specification and executable issues. Every mobile Development
+issue belongs to V2; no mobile implementation issue is created or treated as a
+V1 blocker before that planning gate.
 
 ## What the Development track delivers
 
@@ -31,12 +45,12 @@ The current technical-production work does not by itself produce Public v1:
 | --- | --- |
 | P11, P12, infrastructure, providers, deployment, and production smoke | A deployable technical production environment for internal testing; backend, queues, storage, workers, gateway, and operations are running |
 | Technical production plus approved responsive-web implementation | Internal Web Beta |
-| Technical production plus approved native-mobile implementation | Mobile Beta |
-| Web Beta, Mobile Beta, implemented Operational Surfaces Addendum, passed production security gate, and beta-readiness verification | Public v1 |
+| Web Beta, implemented V1 Operational Surfaces Addendum, passed production security gate, and beta-readiness verification | Public v1, the first web-only production release |
+| Post-V1 mobile planning plus technical production and approved native-mobile implementation | V2 Mobile Beta |
 
 The existing basic frontend may help verify production contracts, but it is not the approved product interface and does not turn technical production into Internal Web Beta.
 
-Large roadmap entries such as P11, P12, Terraform, or Core web/mobile are parent workstreams. Before implementation, split each into executable child issues sized for one context, branch, and independently verifiable outcome.
+Large roadmap entries such as P11, P12, Terraform, Core web, or V2 mobile are parent workstreams. Before implementation, split each into executable child issues sized for one context, branch, and independently verifiable outcome.
 
 ## Phase 0 — Stable Main and CI Baseline
 
@@ -160,9 +174,9 @@ Status: blocked by the required Phase 1 and Phase 2 gates.
 - Execute production smoke tests and rollback rehearsal.
 - Keep access limited to internal test users.
 
-## Phase 4 — Frontend Redesign / Rewrite
+## Phase 4 — V1 Web Frontend Redesign / Rewrite
 
-Status: blocked by Core Design Baseline v1. Implementation may run in parallel with late technical-production work after the gate opens.
+Status: blocked by the V1 Web Core Design Baseline. Web implementation may run in parallel with late technical-production work after the gate opens.
 
 - Keep React/Vite SPA and the existing API contracts.
 - Preserve reusable Clerk bootstrap, API client, types, and TanStack Query integration where appropriate.
@@ -176,6 +190,19 @@ Status: not started.
 - Complete security, privacy, accessibility, restore, incident, DLQ, secret-rotation, monitoring, and cost-control reviews.
 - Run complete product E2E tests.
 - Invite external beta users only after this phase passes.
+
+## V2 — Mobile planning and client delivery
+
+Status: deferred until V1 Web Release.
+
+- Run the dedicated mobile planning iteration and approve the mobile
+  specification, requirements, platform scope, and release boundary.
+- Revisit [#27 — Native client architecture](https://github.com/starkovalera/recipe-manager/issues/27)
+  as research input; its provisional recommendation is not a V1 commitment.
+- Create mobile Development child issues only after the V2 planning/design gate
+  closes, with the `v2` version label and independent acceptance criteria.
+- Reuse the one-backend/API boundary and any approved shared contracts without
+  treating web UI or V1 design artifacts as mobile implementation source.
 
 ## Phase boundaries
 
@@ -207,18 +234,21 @@ flowchart TD
   security --> technicalProd["[DEV][OPS] Production deployment and smoke"]
   liveAws --> technicalProd
 
-  designCore["Core Design Baseline v1"] --> web["[DEV][FRONTEND] Core responsive web"]
-  designCore --> mobile["[DEV][MOBILE] Core native mobile"]
+  designCore["V1 Web Core Design Baseline"] --> web["[DEV][FRONTEND] V1 Core responsive web"]
   technicalProd --> webBeta["Internal Web Beta"]
   web --> webBeta
-  technicalProd --> mobileBeta["Mobile Beta"]
-  mobile --> mobileBeta
 
-  designOps["Operational Surfaces Addendum v1"] --> operationalClients["[DEV] Operational web/mobile surfaces"]
+  designOps["Operational Surfaces Addendum v1"] --> operationalClients["[DEV] V1 operational web surfaces"]
   webBeta --> publicV1["Public v1"]
-  mobileBeta --> publicV1
   operationalClients --> publicV1
   beta["[DEV][OPS] Beta-readiness gates"] --> publicV1
+
+  publicV1 --> v2Planning["V2 mobile planning iteration"]
+  mobileResearch["#27 V2 native architecture input"] -. informs .-> v2Planning
+  pairedDesign["Paired/deferred mobile Design evidence"] -. informs .-> v2Planning
+  v2Planning --> mobile["[DEV][MOBILE] V2 Core native mobile"]
+  technicalProd -. reused after V1 .-> mobileBeta["V2 Mobile Beta"]
+  mobile --> mobileBeta
 ```
 
 ## Development frontier
@@ -231,9 +261,9 @@ The following workstreams may start concurrently once represented by approved is
 - Live AWS S3/provider verification in #59 after owner inputs in #30;
 - Terraform remote state, GitHub OIDC, module conventions, and environment layout;
 - non-visual contract discovery required by the Design track;
-- Future Capability investigation that does not change first-version scope.
+- Future Capability investigation that does not change V1 scope.
 
-Cloud resource provisioning is blocked only where it needs P12 artifact contracts. Technical production integration waits for hardening, artifacts, infrastructure, and provider verification. Frontend and mobile production implementation remain Design-gated.
+Cloud resource provisioning is blocked only where it needs P12 artifact contracts. Technical production integration waits for hardening, artifacts, infrastructure, and provider verification. V1 web production implementation remains Design-gated; mobile production implementation is deferred to the V2 planning gate.
 
 ## Readiness audit
 
@@ -245,9 +275,10 @@ Cloud resource provisioning is blocked only where it needs P12 artifact contract
 | `[DEV][INFRA] Inventory P12 deployables and write the artifact matrix` | Complete | [PR #52](https://github.com/starkovalera/recipe-manager/pull/52) merged the [P12 artifact matrix](../specs/2026-08-14-p12-production-artifact-matrix.md), recording six image artifacts, compatibility triggers, rollback identity, and child issues #41–#47 |
 | P12 artifact implementation children | Agent-ready | #41 is the shared packaging frontier; #42–#46 are parallel artifact slices after #41; #47 verifies all artifacts after the artifact slices |
 | `[DEV][FRONTEND] Audit reusable non-visual frontend contracts` | Agent-ready | Read-only audit can identify reusable auth, API, query, and media boundaries without choosing the new UI |
-| `[DEV][MOBILE] Research native client architecture options and contract boundary` | Agent-ready research | Produces a decision packet; stack selection requires user approval before implementation |
+| `[DEV][MOBILE] Research native client architecture options and contract boundary` | V2 deferred | Preserved as a research input; revisit after V1 during the mobile planning iteration, then create executable mobile Development children |
 | Terraform state, OIDC, account layout, region, and deployment mechanism | Needs refinement and user action | Requires approved Terraform/OpenTofu choice, AWS account/region, state bootstrap, and Lightsail/EC2 deployment decision |
 | AWS account, MFA/billing, production projects, domains, and secret values | Ready for human | Complete the applicable owner actions in [`../production-prerequisites.md`](../production-prerequisites.md); record identifiers and secret references, never secret values |
 | `[DEV][OPS] Audit the production release candidate and remediate security findings` | Blocked release gate | Requires the exact production artifacts, dependency locks, IaC, gateway and deployment configuration; blocks production release until Critical/High and other declared release blockers are fixed and checks rerun |
-| Core responsive-web and native-mobile implementation children | Blocked | Require the applicable approved Design Baseline and platform-specific implementation handoff |
+| Core responsive-web implementation children | Blocked by V1 Design | Require the approved V1 Web Core Design Baseline and web implementation handoff |
+| Native-mobile implementation children | V2 deferred | Do not create before the post-V1 mobile planning/specification/design gate |
 | [#59 — Verify Live AWS S3 media access boundaries](https://github.com/starkovalera/recipe-manager/issues/59) | Ready for human; blocked by #30 | Requires a disposable private AWS bucket and authorized local/CI AWS profile; gates technical production smoke and does not block #31 refinement |
