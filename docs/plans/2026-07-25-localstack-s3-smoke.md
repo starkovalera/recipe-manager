@@ -2,6 +2,33 @@
 
 > **Implementation/verification record:** PR #15 implemented the LocalStack service, configuration, integration tests, and runbook while adding this plan. Unchecked boxes preserve the original plan and are not proof of missing code. The active issue is to run and record acceptance, reconcile every checkbox against the repository, and keep live-AWS-only verification separate. Complete the shared [`Development Task Completion Checkpoint`](../agents/task-completion.md) if that closure task changes code.
 
+## Acceptance closure — 2026-08-14
+
+The LocalStack functional tier is verified on branch `codex/issue-26-localstack-acceptance`, based on `origin/main` at `3611632b325b314d292a59433483bc6596c2c21d`. The original implementation checklist below is retained for traceability; every checkbox now carries an explicit status. `Implemented in PR #15` means the code or documentation exists in the current repository and was not re-created by this closure task. `Verified` means the command or behavior was exercised during this acceptance run. `Owner prerequisite` and `Live AWS only` remain intentionally open.
+
+### Deterministic evidence
+
+- Environment: Windows PowerShell; Docker `29.5.3`; Docker Compose `v5.1.4`; LocalStack image `localstack/localstack:4.14.0`; CPython `3.13.5`; uv `0.11.24`; Node `v24.18.0`; pnpm `11.19.0`.
+- `docker compose --profile local-s3 config`: passed; LocalStack is opt-in and exposes only `127.0.0.1:4566`.
+- `docker compose --profile local-s3 up -d localstack` and `ps`: passed; container healthy. Initialization created both private buckets, and rerunning the init hook completed successfully without duplicate-bucket errors.
+- Bucket checks: both buckets returned all four public-access-block settings as `true`; ACLs contained only the owner `FULL_CONTROL` grant; user-media CORS matched both Vite origins, `GET`, exposed headers, and `MaxAgeSeconds=300`.
+- Backend setup and checks: `uv sync --frozen`; focused contract/infrastructure suite `94 passed`; full suite without `RUN_LOCALSTACK_INTEGRATION` `813 passed, 4 skipped, 24 warnings`; `ruff check` passed; `ruff format --check` reported `369 files already formatted`.
+- Frontend and gateway checks: `14 passed` test files / `71 passed` tests; TypeScript typecheck and production build passed; `make gateway-check` passed with `50` KrakenD endpoints.
+- Opt-in LocalStack module: with `AWS_ACCESS_KEY_ID=test`, `AWS_SECRET_ACCESS_KEY=test`, and `RUN_LOCALSTACK_INTEGRATION=1`, `4 passed in 10.65s`.
+- The missing-object test received a direct grant and observed LocalStack `404`; the expiry test observed `200` before expiry and `403` after a shortened five-second TTL. Production `backend/app` contains no `HeadObject`/`head_object` match.
+- No real credentials were used or committed. The only credential literals in tracked documentation/configuration are the fixed LocalStack test values `test`, supplied through the process environment or Compose.
+
+### Intentionally unverified boundaries
+
+- The complete PREVIEW stack (PostgreSQL, Redis, Adminer, KrakenD, FastAPI, Dramatiq, Vite), Clerk sign-in, fresh import, browser Network checks, partial-success authorization flow, and application-log inspection remain owner-run steps in the runbook.
+- Live AWS IAM, Block Public Access enforcement, CloudTrail, AWS networking/TLS, exact AWS missing-object authorization, and production S3 verification remain open. The owner must provide a disposable private bucket, region, and an authorized short-lived/local AWS profile with the minimum required permissions; secret values must not be placed in the repository.
+
+### Development Task Completion Checkpoint
+
+- This closure changes documentation only; no backend production or backend test files changed, so the backend refactoring review is not applicable.
+- Documentation verification passed: `git diff --check` and relative Markdown-link resolution for the changed plan/runbook.
+- No new speculative future-work item was discovered. The unverified browser/full-PREVIEW and live-AWS actions are existing owner boundaries recorded above and in the runbook.
+
 **Goal:** Add an opt-in local S3 environment that exercises the existing storage and presigned-media flows through LocalStack without requiring an AWS account or weakening production configuration.
 
 **Architecture:** LocalStack runs as an optional Docker Compose service and exposes its S3 endpoint to the host-running backend, worker, and browser. The application keeps using the existing `S3StorageService` and `S3DownloadAccessProvider`; a single optional endpoint setting is passed to both adapters, while PROD rejects any custom S3 endpoint. LocalStack initializes two private test buckets and CORS rules, and the existing P10 owner runbook gains a reproducible local-S3 section.
@@ -52,7 +79,7 @@
 - Produces: `Settings.aws_endpoint_url_s3: str | None`
 - Constraint: accepted in `DEV`, `PREVIEW`, and `TEST`; rejected in `PROD` when non-empty.
 
-- [ ] **Step 1: Add failing settings tests**
+- [x] **Step 1: Add failing settings tests** — **implemented in PR #15**; the current regression tests cover PREVIEW retention and PROD rejection.
 
 Add tests that construct PREVIEW S3 settings with:
 
@@ -62,11 +89,11 @@ aws_endpoint_url_s3="http://s3.localhost.localstack.cloud:4566"
 
 and assert that the value is retained. Add a PROD test that passes the same value to `build_sqs_settings()` and expects a `ValidationError` mentioning `AWS_ENDPOINT_URL_S3` and `PROD`.
 
-- [ ] **Step 2: Isolate the test process from the endpoint environment variable**
+- [x] **Step 2: Isolate the test process from the endpoint environment variable** — **implemented in PR #15**.
 
 Add `AWS_ENDPOINT_URL_S3` to the autouse environment cleanup fixture in `backend/tests/core/test_config.py` so a developer's LocalStack shell does not affect tests.
 
-- [ ] **Step 3: Run the focused test and confirm failure**
+- [x] **Step 3: Run the focused test and confirm failure** — **historical-only**; the red phase is preserved by PR #15 history and was not repeated during this acceptance closure.
 
 ```powershell
 cd backend
@@ -75,7 +102,7 @@ uv run pytest tests/core/test_config.py -q
 
 Expected: the new tests fail because the field and PROD rule do not exist.
 
-- [ ] **Step 4: Add the setting and validation**
+- [x] **Step 4: Add the setting and validation** — **implemented in PR #15**.
 
 Add:
 
@@ -92,7 +119,7 @@ if self.app_env is AppEnv.PROD and self.aws_endpoint_url_s3:
 
 Do not add access-key or secret-key fields to `Settings`.
 
-- [ ] **Step 5: Run the focused settings tests**
+- [x] **Step 5: Run the focused settings tests** — **verified**; included in the focused backend run (`94 passed`).
 
 ```powershell
 cd backend
@@ -101,7 +128,7 @@ uv run pytest tests/core/test_config.py -q
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit the configuration boundary**
+- [x] **Step 6: Commit the configuration boundary** — **implemented in PR #15**; this closure task records evidence and does not recreate the historical implementation commit.
 
 ```powershell
 git add backend/app/core/config.py backend/tests/core/test_config.py
@@ -125,7 +152,7 @@ git commit -m "feat: support local s3 endpoint configuration"
 - Consumes: `Settings.aws_endpoint_url_s3`
 - Produces: optional `endpoint_url` constructor parameter on `S3StorageService` and `S3DownloadAccessProvider`.
 
-- [ ] **Step 1: Add failing lazy-client tests**
+- [x] **Step 1: Add failing lazy-client tests** — **implemented in PR #15**; lazy construction, reuse, and endpoint assertions are present.
 
 Extend the existing boto3 factory assertions so configured adapters call:
 
@@ -139,11 +166,11 @@ boto3.client(
 
 Retain coverage that client construction is lazy and the client is reused.
 
-- [ ] **Step 2: Add failing runtime propagation tests**
+- [x] **Step 2: Add failing runtime propagation tests** — **implemented in PR #15**.
 
 Build PREVIEW S3 settings with the LocalStack endpoint, patch the adapter constructors, invoke `get_storage_service(settings)` and `get_download_access_provider(settings)`, and assert both receive the same endpoint.
 
-- [ ] **Step 3: Run the focused adapter tests and confirm failure**
+- [x] **Step 3: Run the focused adapter tests and confirm failure** — **historical-only**; the red phase was not repeated during this closure.
 
 ```powershell
 cd backend
@@ -152,13 +179,13 @@ uv run pytest tests/storage/test_runtime.py tests/storage/test_s3.py tests/media
 
 Expected: the new endpoint assertions fail.
 
-- [ ] **Step 4: Implement endpoint propagation**
+- [x] **Step 4: Implement endpoint propagation** — **implemented in PR #15** and exercised by the focused tests.
 
 Add `endpoint_url: str | None = None` to both S3 adapter constructors, store it, and pass it when lazily constructing each boto3 client. Runtime factories pass `resolved_settings.aws_endpoint_url_s3` to their adapter.
 
 Do not add a new one-call S3 client factory. The existing storage and download adapters retain responsibility for their own lazy clients.
 
-- [ ] **Step 5: Run the focused adapter tests**
+- [x] **Step 5: Run the focused adapter tests** — **verified**; included in the focused backend run (`94 passed`).
 
 ```powershell
 cd backend
@@ -167,7 +194,7 @@ uv run pytest tests/storage/test_runtime.py tests/storage/test_s3.py tests/media
 
 Expected: PASS.
 
-- [ ] **Step 6: Run the infrastructure boundary test**
+- [x] **Step 6: Run the infrastructure boundary test** — **verified**; included in the focused backend run (`94 passed`).
 
 ```powershell
 cd backend
@@ -176,7 +203,7 @@ uv run pytest tests/infra/test_queue_publishing_boundary.py tests/infra/test_sto
 
 Expected: PASS; no boto3 use leaks into application/domain modules.
 
-- [ ] **Step 7: Commit adapter support**
+- [x] **Step 7: Commit adapter support** — **implemented in PR #15**; this closure task does not recreate the historical implementation commit.
 
 ```powershell
 git add backend/app/storage backend/app/media/access backend/tests/storage backend/tests/media
@@ -195,7 +222,7 @@ git commit -m "feat: route s3 adapters through configured endpoint"
 - Produces: Compose service `localstack` under profile `local-s3`.
 - Produces buckets: `recipe-manager-local-user-media` and `recipe-manager-local-system-artifacts`.
 
-- [ ] **Step 1: Add the LocalStack service**
+- [x] **Step 1: Add the LocalStack service** — **implemented in PR #15** and verified through Compose rendering and a healthy pinned container.
 
 Use a pinned LocalStack image rather than `latest`. Configure:
 
@@ -219,7 +246,7 @@ Do not add a persistent volume in this first version. The environment is intenti
 
 `S3_SKIP_SIGNATURE_VALIDATION=0` is required so the expiry integration test exercises signed URL validation rather than LocalStack's permissive default.
 
-- [ ] **Step 2: Create the idempotent initialization script**
+- [x] **Step 2: Create the idempotent initialization script** — **implemented and verified**; the mounted hook was rerun successfully, and bucket privacy/CORS were inspected.
 
 The script must use `awslocal s3api head-bucket` before `create-bucket`, create both configured buckets, and apply CORS to the user-media bucket for:
 
@@ -235,7 +262,7 @@ The script must use `awslocal s3api head-bucket` before `create-bucket`, create 
 
 Do not make either bucket public.
 
-- [ ] **Step 3: Validate Compose rendering**
+- [x] **Step 3: Validate Compose rendering** — **verified**; `docker compose --profile local-s3 config` exited `0`.
 
 ```powershell
 docker compose --profile local-s3 config
@@ -243,7 +270,7 @@ docker compose --profile local-s3 config
 
 Expected: exit code `0`; no missing environment interpolation and only loopback port exposure for LocalStack.
 
-- [ ] **Step 4: Start LocalStack and verify initialization**
+- [x] **Step 4: Start LocalStack and verify initialization** — **verified**; the service was healthy and both expected buckets were listed.
 
 ```powershell
 docker compose --profile local-s3 up -d localstack
@@ -253,7 +280,7 @@ docker compose --profile local-s3 exec localstack awslocal s3api list-buckets
 
 Expected: healthy service and both local bucket names in the response.
 
-- [ ] **Step 5: Verify the buckets remain private**
+- [x] **Step 5: Verify the buckets remain private** — **verified**; public-access-block was enabled on both buckets and ACLs contained only the owner grant.
 
 ```powershell
 docker compose --profile local-s3 exec localstack awslocal s3api get-public-access-block --bucket recipe-manager-local-user-media
@@ -261,7 +288,7 @@ docker compose --profile local-s3 exec localstack awslocal s3api get-public-acce
 
 If LocalStack does not synthesize a public-access-block response for a newly created bucket, verify instead that there is no bucket policy or public ACL. Record the emulator limitation in the runbook; do not add a public policy to make the check pass.
 
-- [ ] **Step 6: Commit LocalStack infrastructure**
+- [x] **Step 6: Commit LocalStack infrastructure** — **implemented in PR #15**; this closure task does not recreate the historical implementation commit.
 
 ```powershell
 git add docker-compose.yml docker/localstack/init/01-create-s3-buckets.sh
@@ -280,7 +307,7 @@ git commit -m "infra: add localstack s3 profile"
 **Interfaces:**
 - Produces: exact operator commands for startup, inspection, and reset.
 
-- [ ] **Step 1: Document non-secret backend overrides**
+- [x] **Step 1: Document non-secret backend overrides** — **implemented in PR #15**; only fixed LocalStack test values are documented, never application credential fields.
 
 Add a LOCALSTACK/PREVIEW example without credentials:
 
@@ -295,7 +322,7 @@ S3_SYSTEM_ARTIFACTS_BUCKET_NAME=recipe-manager-local-system-artifacts
 
 State explicitly that `AWS_ACCESS_KEY_ID=test` and `AWS_SECRET_ACCESS_KEY=test` must be process environment variables or a local AWS profile, not application settings.
 
-- [ ] **Step 2: Document the Windows startup sequence**
+- [x] **Step 2: Document the Windows startup sequence** — **implemented in PR #15** and retained in the README and owner runbook.
 
 Infrastructure terminal:
 
@@ -312,7 +339,7 @@ $env:AWS_SECRET_ACCESS_KEY="test"
 
 The backend settings come from ignored `backend/.env`; the worker must run from the same backend directory.
 
-- [ ] **Step 3: Document reset and inspection commands**
+- [x] **Step 3: Document reset and inspection commands** — **implemented and verified** against the opt-in Compose service; PREVIEW database and LocalStack reset remain separate.
 
 Inspection:
 
@@ -330,15 +357,15 @@ docker compose --profile local-s3 up -d localstack
 
 State that PREVIEW database reset and LocalStack reset are separate operations.
 
-- [ ] **Step 4: Add a LocalStack section to the P10 runbook**
+- [x] **Step 4: Add a LocalStack section to the P10 runbook** — **implemented in PR #15**; this closure adds dated evidence and preserves the live-AWS boundary.
 
 Keep the existing LOCAL/PREVIEW and Live S3 sections. Insert LocalStack as an intermediate test tier and clearly state which production claims it cannot validate: real IAM permissions, AWS Block Public Access enforcement, CloudTrail evidence, AWS networking/TLS, and exact real-S3 missing-object authorization behavior.
 
-- [ ] **Step 5: Validate documentation commands against Compose**
+- [x] **Step 5: Validate documentation commands against Compose** — **verified** for config, startup/status, bucket listing, ACL/public-access-block, CORS, and idempotent init-hook commands.
 
 Run each non-destructive command from the repository root and correct any Windows/Compose mismatch.
 
-- [ ] **Step 6: Commit documentation**
+- [x] **Step 6: Commit documentation** — **implemented in PR #15**; this closure updates the plan and runbook with acceptance evidence.
 
 ```powershell
 git add backend/.env.example README.md docs/handoffs/p10-presigned-media-access-owner-runbook.md
@@ -357,7 +384,7 @@ git commit -m "docs: add localstack s3 verification workflow"
 - Consumes: LocalStack profile, P10 media API, existing Clerk/KrakenD PREVIEW stack.
 - Produces: recorded verification evidence in the PR description or owner-runbook completion note.
 
-- [ ] **Step 1: Run backend checks without LocalStack**
+- [x] **Step 1: Run backend checks without LocalStack** — **verified**; full pytest `813 passed, 4 skipped`, Ruff check/format passed, and the opt-in module remained skipped without its flag.
 
 Create an opt-in module guarded by `RUN_LOCALSTACK_INTEGRATION=1`. It must cover
 storage save/list/read/delete, a direct presigned GET with the expected bytes and
@@ -378,7 +405,7 @@ uv run ruff format --check .
 
 Expected: normal CI-style backend checks pass without a running LocalStack container.
 
-- [ ] **Step 2: Run frontend and gateway checks**
+- [x] **Step 2: Run frontend and gateway checks** — **verified**; frontend `71 passed`, typecheck/build passed, and KrakenD validation reported `50` endpoints.
 
 ```powershell
 cd frontend
@@ -389,11 +416,11 @@ pnpm run build
 
 Then run the repository's existing KrakenD validation command documented by the current gateway test setup.
 
-- [ ] **Step 3: Start the complete PREVIEW + LocalStack stack**
+- [ ] **Step 3: Start the complete PREVIEW + LocalStack stack** — **owner prerequisite**; the full PostgreSQL/Redis/Adminer/KrakenD/FastAPI/Dramatiq/Vite stack and Clerk sign-in were not run in this closure.
 
 Start PostgreSQL, Redis, Adminer, KrakenD, LocalStack, FastAPI, Dramatiq, and Vite using the documented commands. Confirm KrakenD `/__health`, backend `/health`, LocalStack health, and frontend sign-in before testing imports.
 
-- [ ] **Step 4: Create fresh S3-backed data**
+- [ ] **Step 4: Create fresh S3-backed data** — **owner prerequisite**; requires the signed-in PREVIEW stack and a fresh import, which were not run in this closure.
 
 Import a new image or supported URL after S3 mode is active. Do not use recipes created under LOCAL storage, because their database keys may exist while the corresponding LocalStack objects do not.
 
@@ -403,7 +430,7 @@ Verify the canonical object key appears under the user-media bucket:
 docker compose --profile local-s3 exec localstack awslocal s3 ls s3://recipe-manager-local-user-media --recursive
 ```
 
-- [ ] **Step 5: Verify the grant contract**
+- [ ] **Step 5: Verify the grant contract** — **owner prerequisite**; automated provider tests verify the direct grant and expiry metadata, but browser Network inspection of `/media/access` remains open.
 
 In browser Network, inspect successful `POST /media/access`:
 
@@ -414,31 +441,31 @@ In browser Network, inspect successful `POST /media/access`:
 - response contains no bucket name or storage key outside the signed URL;
 - the recipe/media domain responses expose stable IDs rather than storage keys.
 
-- [ ] **Step 6: Verify direct browser retrieval**
+- [ ] **Step 6: Verify direct browser retrieval** — **owner prerequisite**; host-side `httpx` retrieval passed, while the actual browser/CORS path remains open.
 
 Open the presigned request in Network and confirm its remote address is LocalStack `:4566`, not KrakenD `:8081` or FastAPI `:8010`. Confirm the expected MIME type and bytes are returned.
 
-- [ ] **Step 7: Verify partial success and normalized authorization failures**
+- [ ] **Step 7: Verify partial success and normalized authorization failures** — **owner prerequisite**; the authenticated API flow with owned, missing, and foreign IDs was not run in the full PREVIEW stack.
 
 Request one owned stable media ID plus `missing-p10-media-id`. Confirm HTTP `200`, one grant, and one `MEDIA_NOT_FOUND`. Repeat with a known foreign ID and confirm its item is indistinguishable from the missing-ID item.
 
-- [ ] **Step 8: Verify expiry**
+- [ ] **Step 8: Verify expiry** — **owner prerequisite for the documented full 60-second browser flow**; the automated shortened-TTL expiry check passed.
 
 Save one signed URL, wait more than 60 seconds, and request it again. Confirm the old URL is rejected. Request a fresh grant through `/media/access` and confirm the new URL retrieves the bytes.
 
-- [ ] **Step 9: Verify a dangling DB reference**
+- [ ] **Step 9: Verify a dangling DB reference** — **owner prerequisite**; the provider-level missing-object/no-preflight check passed, but the database-row/API scenario remains open.
 
 Delete an object's bytes through `awslocal` while leaving its owned database row intact. Request `/media/access` and confirm it still returns a direct signed grant without `HeadObject`; requesting that URL from LocalStack returns the emulator's missing-object response.
 
-- [ ] **Step 10: Inspect logs**
+- [ ] **Step 10: Inspect logs** — **owner prerequisite**; the complete application/worker/KrakenD log inspection was not run. Static production search found no `HeadObject` implementation match.
 
 Search backend, worker, KrakenD, and LocalStack logs. Confirm backend/application logs contain no full presigned URL, signature, bucket name, or storage key. Confirm LocalStack records direct GETs and no application-triggered `HeadObject` for grant creation.
 
-- [ ] **Step 11: Reset disposable state**
+- [x] **Step 11: Reset disposable state** — **verified**; the LocalStack container was recreated for this run and the init hook was rerun successfully. A documented reset command remains available for owners.
 
 Recreate the LocalStack container and restart PREVIEW when a clean database is required. Confirm the two bucket initialization hook runs successfully after recreation.
 
-- [ ] **Step 12: Record evidence and remaining live-AWS gap**
+- [x] **Step 12: Record evidence and remaining live-AWS gap** — **verified** in this dated closure section and the owner runbook; live AWS remains a separate owner prerequisite.
 
 Record exact check totals and manual outcomes. Mark LocalStack functional verification complete, but leave live AWS IAM/Block Public Access/CloudTrail verification open until tested against a private AWS bucket.
 
@@ -446,19 +473,19 @@ Record exact check totals and manual outcomes. Mark LocalStack functional verifi
 
 ## Acceptance Checklist
 
-- [ ] LocalStack is opt-in and normal PREVIEW remains `LOCAL` storage by default.
-- [ ] Both application S3 clients use the same custom endpoint.
-- [ ] PROD rejects `AWS_ENDPOINT_URL_S3`.
-- [ ] No AWS credential fields were added to application settings.
-- [ ] Two distinct private local buckets are initialized idempotently.
-- [ ] Browser CORS permits direct GETs from both supported Vite origins.
-- [ ] Existing CI suites run without LocalStack.
-- [ ] Fresh imports write canonical keys to the LocalStack user-media bucket.
-- [ ] `/media/access` returns 60-second direct grants.
-- [ ] Browser retrieves bytes directly from LocalStack.
-- [ ] Missing and foreign references remain indistinguishable.
-- [ ] Partial success preserves successful grants.
-- [ ] Expired URLs fail and fresh grants work.
-- [ ] A missing object still receives a grant without a preflight `HeadObject`.
-- [ ] Logs do not expose signed URLs or signatures.
-- [ ] Live AWS-specific verification remains explicitly separate.
+- [x] LocalStack is opt-in and normal PREVIEW remains `LOCAL` storage by default — **verified** by Compose profile/configuration and the backend settings/tests.
+- [x] Both application S3 clients use the same custom endpoint — **verified** by the focused runtime/adapter tests and the direct LocalStack integration.
+- [x] PROD rejects `AWS_ENDPOINT_URL_S3` — **verified** by the focused configuration tests.
+- [x] No AWS credential fields were added to application settings — **verified** by the settings contract and tracked-file review.
+- [x] Two distinct private local buckets are initialized idempotently — **verified** by bucket listing, public-access-block/ACL checks, and a successful init-hook rerun.
+- [x] Browser CORS permits direct GETs from both supported Vite origins — **verified** by the LocalStack CORS response; actual browser execution remains an owner step.
+- [x] Existing CI suites run without LocalStack — **verified** by the full backend suite, frontend suite/build, and gateway validation run before the LocalStack integration.
+- [ ] Fresh imports write canonical keys to the LocalStack user-media bucket — **owner prerequisite**; the full signed-in import flow was not run.
+- [x] `/media/access` returns 60-second direct grants — **verified** at the provider seam (`55–65s` metadata window); browser API inspection remains an owner step.
+- [ ] Browser retrieves bytes directly from LocalStack — **owner prerequisite**; host-side direct presigned GET passed, but no signed-in browser session was available.
+- [ ] Missing and foreign references remain indistinguishable — **owner prerequisite**; the authenticated database/API flow was not run.
+- [ ] Partial success preserves successful grants — **owner prerequisite**; the authenticated database/API flow was not run.
+- [x] Expired URLs fail and fresh grants work — **verified** by the opt-in integration with a shortened five-second TTL; the full 60-second browser timing remains an owner step.
+- [x] A missing object still receives a grant without a preflight `HeadObject` — **verified** by the missing-object integration and no production `HeadObject`/`head_object` match.
+- [ ] Logs do not expose signed URLs or signatures — **owner prerequisite**; full application/worker/KrakenD log inspection was not run.
+- [x] Live AWS-specific verification remains explicitly separate — **verified** by the runbook and the owner-prerequisite statement above.
