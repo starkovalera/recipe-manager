@@ -7,9 +7,11 @@ or AWS credentials.
 
 ## LocalStack acceptance evidence — 2026-08-14
 
-The agent-run functional tier completed on branch `codex/issue-26-localstack-acceptance`.
-This evidence does not claim the owner-only browser, Clerk, full PREVIEW-stack, or
-live-AWS checks below.
+The functional LocalStack tier and the signed-in PREVIEW/browser tier are recorded
+in draft PR [#58](https://github.com/starkovalera/recipe-manager/pull/58) on
+`codex/issue-26-preview-evidence`. This section records the local/provider
+boundary only; the AWS-only verification is now a separate task, [#59 - Verify
+Live AWS S3 media access boundaries](https://github.com/starkovalera/recipe-manager/issues/59).
 
 - Docker `29.5.3` / Compose `v5.1.4`; pinned image `localstack/localstack:4.14.0`.
 - `docker compose --profile local-s3 config` passed; the service is opt-in and
@@ -32,12 +34,12 @@ live-AWS checks below.
 - A static search found no `HeadObject`/`head_object` reference in production
   `backend/app`. No real credentials or signed URLs were recorded.
 
-The following LocalStack owner steps remain open: complete PREVIEW stack startup,
-Clerk sign-in, fresh import, browser Network/direct-CORS checks, the authenticated
-partial-success/foreign-reference flow, and backend/worker/KrakenD log inspection.
-The Live S3 section remains a separate owner prerequisite and must use a disposable
-private bucket plus an authorized short-lived/local AWS profile; record evidence,
-never secret values.
+The dated browser evidence and the remaining local checks below close the
+LocalStack/PREVIEW acceptance boundary: email-code sign-in, fresh S3-backed data,
+direct browser rendering, partial success with foreign/missing references, grant
+refresh, dangling database rows, and the no-`HeadObject` contract are recorded.
+The separate Live S3 task must use a disposable private bucket plus an authorized
+short-lived/local AWS profile; record evidence, never secret values.
 
 ## LOCAL / PREVIEW
 
@@ -75,6 +77,58 @@ Clerk development test users and must not be used for non-test accounts.
 This tier exercises the real boto3 S3 adapters, storage keys, presigned URLs,
 browser CORS, signature expiry, and direct browser downloads without an AWS
 account. It does not replace the Live S3 checks for IAM and AWS infrastructure.
+
+### Agent-run browser evidence — 2026-08-14
+
+The ephemeral PREVIEW run used the documented S3 overrides, LocalStack on
+`127.0.0.1:4566`, the normal gateway, and a seeded Clerk development user.
+
+- The browser completed the Clerk email-code flow: **Email code to ...** followed
+  by `424242`; the protected recipe page loaded and `/me/provision` completed.
+- The import form accepted one local PNG upload together with a supported public
+  URL and manual text. The gateway returned `POST /imports` with `202`, and the
+  worker accepted one attachment. The job finished as `succeeded_with_flags` and
+  created a disposable recipe with fresh S3-backed image rows and objects.
+- Browser Network showed the gateway CORS preflight for `/media/access` returning
+  `204`, the grant request returning `200` with the configured frontend origin,
+  and direct image GETs to the LocalStack S3 host returning `200` with image
+  bytes. The browser observed no `mediaUrl` or storage-key fields in the access
+  response shape.
+- The recipe hero, current cover, source image cards, and image preview modal
+  rendered. The default SVG loaded from the frontend and did not produce a
+  media-access request. The loaded S3 images reported natural sizes of `1200x780`,
+  `1440x1292`, and `1200x800`.
+- The disposable recipe was deleted after the check; the Preview recipe list was
+  empty afterward. The targeted `backend/tests/api/test_media.py` module passed
+  with `3 passed, 1 warning`.
+
+### Remaining LocalStack/PREVIEW checks - 2026-08-14
+
+The following checks were run against disposable rows and objects and then cleaned
+up. No production data or credentials were used.
+
+- `backend/tests/api/test_media.py` plus `backend/tests/media/test_access_service.py`:
+  `6 passed, 1 warning`. This covers stable-ID grants, partial success, and
+  foreign/lifecycle-ineligible references normalized to `MEDIA_NOT_FOUND`.
+- The opt-in LocalStack module passed `4 passed` with the fixed process-only
+  credentials `AWS_ACCESS_KEY_ID=test` and `AWS_SECRET_ACCESS_KEY=test`.
+- In the signed-in browser, an owned, foreign, and missing image batch returned
+  HTTP `200`: the owned item received one direct `image/png` grant, while the
+  foreign and missing items both returned `MEDIA_NOT_FOUND`. The owned image
+  loaded directly from the LocalStack S3 host and decoded at `1440x1292`.
+- After waiting for the browser refresh window, a second `POST /media/access`
+  returned HTTP `200` and the refreshed grant continued to render the image.
+- With the database row retained and its object bytes temporarily removed,
+  `/media/access` still returned a direct grant without a preflight lookup; the
+  browser then failed only at the missing-object GET. The object was restored
+  before cleanup.
+- A static production search found no `HeadObject`/`head_object` implementation.
+  Sanitized frontend/backend request-log review found no presigned URL, query
+  signature, or media storage key in the media evidence. Existing PREVIEW
+  request logging still includes a local `databaseUrl` field, so this run does
+  not claim production log-hygiene approval.
+- Cleanup verification found zero disposable recipe rows, zero matching
+  `recipes/media/` objects, and an empty Preview recipe list.
 
 1. Add the documented LocalStack S3 overrides to ignored `backend/.env`.
 2. Start LocalStack from the repository root:
@@ -131,9 +185,16 @@ account. It does not replace the Live S3 checks for IAM and AWS infrastructure.
 
 LocalStack does not validate real IAM policy scope, AWS Block Public Access
 enforcement, CloudTrail evidence, production DNS/TLS, or every AWS-specific
-missing-object authorization response. Those remain in the Live S3 tier.
+missing-object authorization response. Those checks were extracted into [#59 -
+Verify Live AWS S3 media access boundaries](https://github.com/starkovalera/recipe-manager/issues/59).
 
-## Live S3
+## Live S3 - separate task #59
+
+The AWS-only checks no longer belong to the LocalStack acceptance task. [#59 -
+Verify Live AWS S3 media access boundaries](https://github.com/starkovalera/recipe-manager/issues/59)
+is blocked by [#30 - Owner-controlled production prerequisites](https://github.com/starkovalera/recipe-manager/issues/30)
+and gates technical production/smoke only; it does not block #23, #24, #25, #26,
+#27, or #31 refinement.
 
 Prerequisites: a private disposable user-media bucket, an AWS region, and
 credentials with narrowly scoped `s3:GetObject` access. Do not commit values.
@@ -148,4 +209,4 @@ credentials with narrowly scoped `s3:GetObject` access. Do not commit values.
 6. Confirm the FastAPI GET media route does not proxy S3 content.
 
 Live S3 verification remains a gap until the owner supplies the private bucket
-and credentials and records the result in the PR.
+and credentials and records the result in #59 and its PR.

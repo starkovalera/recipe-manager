@@ -260,6 +260,7 @@ flowchart LR
     mobileDecision["#27 Native stack and delivery<br/>decision pending"]
     infraDecision["#31 Terraform/OpenTofu + deployment mechanism<br/>Lightsail vs EC2 still under refinement"]
     ownerInputs["#30 AWS/account/domain/secret prerequisites<br/>human-owned inputs"]
+    liveAws["#59 Live AWS S3/provider verification<br/>human prerequisite"]
 
     mobileDecision -. selects client delivery .-> mobile
     infraDecision -. provisions and deploys .-> gateway
@@ -268,6 +269,8 @@ flowchart LR
     infraDecision -. provisions .-> storage
     infraDecision -. provisions .-> observability
     ownerInputs -. enables .-> infraDecision
+    ownerInputs --> liveAws
+    liveAws -. validates production provider boundary .-> storage
 
     classDef stable fill:#dcfce7,stroke:#15803d,color:#14532d
     classDef open fill:#fef3c7,stroke:#d97706,color:#78350f
@@ -275,7 +278,7 @@ flowchart LR
 
     class clerk,flags,web,mobile,gateway,api,database,queues,lambdas,storage,openai,observability stable
     class mobileDecision,infraDecision open
-    class ownerInputs external
+    class ownerInputs,liveAws external
 ```
 
 The logical architecture is sufficiently defined to draw this target now. The exact infrastructure and client-delivery shape is not final until these questions close:
@@ -285,6 +288,7 @@ The logical architecture is sufficiently defined to draw this target now. The ex
 | [#27 — Native client architecture](https://github.com/starkovalera/recipe-manager/issues/27) | The mobile API boundary is fixed, but the native stack, build/signing, store delivery, and observability path are not selected. |
 | [#31 — Terraform/OpenTofu and AWS foundation](https://github.com/starkovalera/recipe-manager/issues/31) | The logical services are selected, but the exact IaC, state bootstrap, and Lightsail/EC2 deployment mechanism remain under refinement. |
 | [#30 — Owner-controlled production prerequisites](https://github.com/starkovalera/recipe-manager/issues/30) | Account, region, domains, provider projects, and secret references must be supplied before infrastructure can be provisioned. |
+| [#59 — Verify Live AWS S3 media access boundaries](https://github.com/starkovalera/recipe-manager/issues/59) | The real private-bucket/IAM/Block Public Access/CloudTrail/network/TLS boundary is validated after #30; it gates technical production smoke but does not choose the topology or block #31 refinement. |
 
 The [#28 production security audit](https://github.com/starkovalera/recipe-manager/issues/28) is a release gate rather than an unresolved topology choice. It must pass against the exact artifacts and configuration before Public v1.
 
