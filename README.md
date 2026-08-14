@@ -4,7 +4,9 @@ Greenfield recipe manager with a FastAPI backend, React/Vite frontend, PostgreSQ
 
 The canonical authentication design is in [`docs/authentication-and-authorization.md`](docs/authentication-and-authorization.md). Manual lifecycle checks are in [`docs/manual-testing/clerk-lifecycle.md`](docs/manual-testing/clerk-lifecycle.md).
 
-Current project status and the parallel Design and Development tracks are indexed in [`docs/roadmap.md`](docs/roadmap.md). Superseded plans are preserved under [`docs/archive/`](docs/archive/README.md); Future Capabilities are refined under [`docs/future/`](docs/future/README.md).
+## Project Planning
+
+Use the human-facing [`Project Roadmap`](docs/roadmap.md) for the project-scale Design and Development work graph, release outcomes, target architecture link, and links to the main project documents. Detailed Design scope lives in [`design/roadmap.md`](design/roadmap.md); detailed Development phases live in [`docs/architecture/production-roadmap.md`](docs/architecture/production-roadmap.md). Superseded plans are preserved under [`docs/archive/`](docs/archive/README.md); Future Capabilities are refined under [`docs/future/`](docs/future/README.md).
 
 ## Repository Workflow
 
