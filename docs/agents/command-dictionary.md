@@ -48,8 +48,8 @@ that no PR was available to update.
 Read the current lifecycle and determine the active stage for the target task.
 Execute every applicable, safe step; verify human prerequisites and stop at a
 human gate, approval gate, conflict, or unresolved scope question. At the
-post-merge stage, follow the merge verification, documentation synchronization,
-and conditional issue-closure rules in lifecycle section 9.
+post-merge stage, follow the merge verification, documentation consistency
+check, and conditional issue-closure rules in lifecycle section 9.
 
 ### `#status [target]`
 
@@ -58,9 +58,9 @@ versus `origin/main`, PR base/head/state/checks, issue state/assignees/labels,
 native blockers, and the applicable lifecycle stage. This is a read-only status
 check until it verifies that the relevant PR is merged. A verified merged PR is
 a trigger to continue the post-merge lifecycle; it does not bypass merge
-verification, documentation synchronization, acceptance criteria, or the
-conditional issue-closure rule. If the PR is not merged, report that and keep
-post-merge completion unchanged.
+verification, the documentation consistency check, acceptance criteria, or
+the conditional issue-closure rule. If the PR is not merged, report that and
+keep post-merge completion unchanged.
 
 ### `#refactor [scope]`
 
