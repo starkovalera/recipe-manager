@@ -11,6 +11,10 @@ sources. The canonical product and architecture contracts remain the API,
 authentication, media-access, import-pipeline, and accepted ADR documents
 linked below.
 
+This is a V1 web/shared-contract input. Any future mobile consumer belongs to
+the V2 planning iteration; this audit does not authorize mobile Development or
+make mobile work a V1 release blocker.
+
 ## Classification
 
 - **Retain** — the behavior is a stable contract with clear ownership and

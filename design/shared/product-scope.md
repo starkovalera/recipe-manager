@@ -19,6 +19,15 @@ The broader product includes:
 - notifications;
 - different capabilities for ordinary, debug, and administrative roles.
 
+## Release boundary
+
+The product model spans web and mobile, but the first production release is
+**V1 Web Release** and is web-only. Shared product meaning and paired mobile
+Design evidence may be developed in the same context. The mobile client,
+mobile-specific requirements, and all mobile Development work belong to the
+post-V1 **V2 Mobile Client** sequence and must not be inferred from the V1 web
+scope.
+
 ## Product-code inspection rule
 
 When inspecting the repository for design work, extract only:

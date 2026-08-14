@@ -1,6 +1,10 @@
 # Future Capabilities
 
-This directory is the canonical capture and refinement space for product ideas, technical debt, compatibility leftovers, and intentional deferrals outside the active first-version roadmap. It is not an implementation queue.
+This directory is the canonical capture and refinement space for product ideas,
+technical debt, compatibility leftovers, and intentional deferrals outside the
+active V1 roadmap. The V2 mobile release sequence is tracked separately in the
+versioned roadmap and GitHub issues; individual mobile requirements should not
+be hidden here. This directory is not an implementation queue.
 
 The inventory is organized by capability or area rather than by the origin label "technical debt" versus "idea". Keep that single organizing axis while work is only being captured. The refinement task [#33](https://github.com/starkovalera/recipe-manager/issues/33) will decide whether a second classification is useful after the inventory has been audited.
 

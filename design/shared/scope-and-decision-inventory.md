@@ -1,6 +1,6 @@
-# Core Design Baseline v1 - First-Version Scope and Decision Inventory
+# Core Design Baseline v1 - V1 Web Scope and Decision Inventory
 
-Status: current inventory; Core Design Baseline v1 is not approved
+Status: current inventory; V1 Web Core Design Baseline is not approved
 Task: [#20 - Inventory first-version scope and existing decisions](https://github.com/starkovalera/recipe-manager/issues/20)
 Updated: 2026-08-14
 
@@ -8,8 +8,10 @@ Updated: 2026-08-14
 
 This is the canonical cross-domain inventory for the active Design track. It
 records what is approved, unresolved, contradictory, or deferred before
-platform-specific Design children are generated. It links to feature-level
-decisions instead of duplicating them.
+platform-specific Design children are generated. V1 is web-only: paired mobile
+Design children may be created in the same context, but mobile Design and all
+mobile Development questions are non-blocking V2 work. It links to
+feature-level decisions instead of duplicating them.
 
 This is a Design artifact, not a screen specification and not a production
 implementation plan. It does not authorize changes under `frontend/`,
@@ -24,8 +26,8 @@ only; current production composition and styling are not a visual baseline.
 | **Approved** | A current, explicit decision has permanent repository evidence. Approval of UX does not imply that the current API already supports it. |
 | **Unresolved** | A product, interaction, state, or contract decision is still missing or explicitly open. It blocks the child that depends on it. |
 | **Contradictory** | Two current-looking artifacts, or a Design artifact and an active production contract, make incompatible claims. Neither side is silently preferred here. |
-| **Deferred** | The repository explicitly keeps the capability outside the active first-version scope or in the Operational Surfaces Addendum/Future Capabilities funnel. It is not a Core blocker. |
-| **Not started** | The domain has a first-version destination in the Design roadmap but no domain-level Design contract yet. This is a status, not permission to invent behavior. |
+| **Deferred** | The repository explicitly keeps the capability outside the active V1 scope, in the V2 mobile track, or in the Operational Surfaces Addendum/Future Capabilities funnel. It is not a V1 Core blocker. |
+| **Not started** | The domain has a V1 web destination in the Design roadmap but no domain-level Design contract yet. This is a status, not permission to invent behavior. |
 
 ## Source-of-truth order
 
@@ -53,12 +55,14 @@ The [`Recipe Detail implementation handoff`](../recipe-detail/implementation-han
 is an entry point for future issue slicing, but it remains subordinate to the
 latest consolidated decisions and the verified production contracts.
 
-## First-version boundary
+## V1 web boundary
 
-The Core Design Baseline v1 is the cross-platform contract for these primary
-journeys:
+The first production release is web-only. The Core Design Baseline v1 is the
+shared product contract plus responsive-web implementation handoff for these
+primary V1 journeys. Its shared decisions may inform V2 mobile, but no mobile
+client release or mobile Development task is a V1 acceptance outcome.
 
-| First-version journey | Core boundary | Current status |
+| V1 web journey | Core boundary | Current status |
 | --- | --- | --- |
 | Enter and access the product | Invite-only sign-up where configured, sign-in/session behavior, first-login provisioning, restricted/deactivated/deletion-pending states, and recovery/account-management boundaries | Technical contract exists; Design not started; onboarding scope needs one decision |
 | Add a recipe | Import from supported text, image, or link evidence; or start a manual recipe flow | Import API exists; Design not started |
@@ -67,21 +71,24 @@ journeys:
 | Read and use a Recipe | Default View, Cooking Focus, optional media, Import Info/review, and destructive recipe actions | Recipe Detail structural foundation partially approved; remaining sections open |
 | Edit and organize a Recipe | Recipe content draft, validation, save/exit behavior, tags, Collections, cover/media, and organization | Partial Recipe Edit UX approval; several contracts and sections open |
 | Manage Collections and Tags | Create, browse, update/delete where supported, assign/remove Recipes, and dense/empty/error states | API exists; Design not started |
-| Follow activity | Import notifications, unread/read state, notification history, and navigation to affected entities | API and mobile destination exist; Design not started |
+| Follow activity | Import notifications, unread/read state, notification history, and navigation to affected entities | API exists; V1 web Design not started; mobile presentation is a V2 input |
 | Manage the account | Profile/access state, Clerk-managed identity actions, account deletion, and eligible role/admin entry points | Technical lifecycle exists; Core Profile/account Design not started; Admin is a later Addendum |
 
-The Core quality bar applies to every journey: normal, empty, loading, error,
-permission, sparse, dense, long-content, localization-pressure,
-keyboard/accessibility, and platform-specific interaction states. This is a
-baseline gate, not evidence that those states are already designed. See the
-[Core Design Baseline gate](../roadmap.md#core-design-baseline-v1).
+The V1 quality bar applies to every web journey: normal, empty, loading, error,
+permission, sparse, dense, long-content, localization-pressure, keyboard and
+accessibility states. Record mobile interaction implications when paired Design
+work is available, but defer a mobile-specific quality bar and implementation
+gate to V2. This is a baseline gate, not evidence that those states are already
+designed. See the [Core Design Baseline gate](../roadmap.md#core-design-baseline-v1).
 
 The following are not Core Design Baseline outcomes:
 
 - admin, debug, and operational screens; these belong to the
   [Operational Surfaces Addendum](../roadmap.md#operational-surfaces-addendum-v1)
   and are non-blocking for Core Design;
-- production web/mobile implementation before the Core baseline is approved;
+- production web implementation before the V1 Web Core baseline is approved;
+- mobile client implementation before the post-V1 V2 planning and mobile Design
+  gates are approved;
 - identical web and native-mobile navigation, density, gestures, overlays, or
   keyboard behavior;
 - capabilities retained in the [Future Capabilities funnel](../../docs/future/README.md)
@@ -97,9 +104,9 @@ screen hierarchy.
 | Product vocabulary | Approved | [`CONTEXT.md`](../../CONTEXT.md) defines Recipe, Imported Recipe, Recipe Resource, Import Job, Review Flag, Collection, Design Domain, Core Design Baseline, and Future Capability. Domain children must use this vocabulary. |
 | One owner-scoped backend/API for web and mobile | Approved | [ADR-0001](../../docs/adr/0001-one-backend-for-web-and-mobile.md) and the [production architecture](../../docs/architecture/production-architecture.md) fix one API boundary while allowing platform-specific experiences. |
 | Identity and authorization boundary | Approved technical contract | [ADR-0002](../../docs/adr/0002-gateway-identity-backend-authorization.md) and the [authentication contract](../../docs/authentication-and-authorization.md) assign Clerk credentials/session work, gateway token validation, and FastAPI user/role/owner authorization to separate owners. |
-| Core Design gate for production UI | Approved planning rule | [ADR-0004](../../docs/adr/0004-design-baseline-gates-ui-implementation.md) and the [Design roadmap](../roadmap.md) keep Core web/mobile implementation behind the approved baseline. |
+| Core Design gate for production UI | Approved planning rule | [ADR-0004](../../docs/adr/0004-design-baseline-gates-ui-implementation.md) as amended by [ADR-0006](../../docs/adr/0006-v1-web-only-release-v2-mobile-boundary.md) and the [Design roadmap](../roadmap.md) gate V1 web implementation now and V2 mobile implementation later. |
 | Prototypes are evidence | Approved workflow | [ADR-0005](../../docs/adr/0005-prototypes-are-design-evidence.md) and the [shared working agreement](working-agreement.md) prohibit treating mock data, isolated styling, or prototype structure as production source. |
-| Mobile application shell | Approved shared mobile input | [`11-global-mobile-shell.md`](../recipe-detail/decisions/11-global-mobile-shell.md) approves the hierarchy-aware top bar, `Recipes | Collections | Add | Notifications | Profile`, one modal sheet layer, focused creation flows, and accessibility rules. Future screens must instantiate the shell rather than copy Recipe Detail geometry. |
+| Mobile application shell | Approved paired V2 Design input | [`11-global-mobile-shell.md`](../recipe-detail/decisions/11-global-mobile-shell.md) records the hierarchy-aware top bar, `Recipes | Collections | Add | Notifications | Profile`, one modal sheet layer, focused creation flows, and accessibility rules. It is useful V2 evidence but does not authorize mobile Development or block V1 web work. |
 | Shared visual/state system | Unresolved | The roadmap requires shared content/error conventions, accessibility, localization pressure, and cross-domain reconciliation, but no product-wide approved tokens and state contract exists yet. This is a Core integration input, not a reason to invent visuals in a domain child. |
 
 ## Design Domain inventory
@@ -141,7 +148,7 @@ Evidence: [`authentication-and-authorization.md`](../../docs/authentication-and-
   onboarding or also mandatory first-login recipe-language selection. The
   roadmap includes onboarding while
   [`product-expansion.md`](../../docs/future/product-expansion.md) explicitly
-  keeps immutable English/Russian language selection outside first-version
+  keeps immutable English/Russian language selection outside V1
   scope. This is a decision packet for human approval, not an assumed Core
   requirement.
 - Define the boundary between Recipe Manager Profile and Clerk account UI for
@@ -188,7 +195,7 @@ and the [implementation handoff](../recipe-detail/implementation-handoff.md).
 - Library/search information architecture and all web/mobile states are not
   designed. The API already has paginated Recipes, structured search chips,
   semantic search, suggestions, and owner scoping, but no Design contract
-  selects the first-version query interaction.
+  selects the V1 query interaction.
 - Recipe Edit Instructions, Cooking notes, Estimated nutrition, save request
   states, Manage Media, Organize Recipe, keyboard behavior, localization
   stress, and final visual execution remain open in
@@ -346,7 +353,7 @@ and [`11-global-mobile-shell.md`](../recipe-detail/decisions/11-global-mobile-sh
 - Define web/mobile placement, unread count, polling/refresh, toast/history
   relationship, ordering, deep-link behavior, empty/loading/error states,
   and accessible read-state announcements.
-- The list endpoint has no pagination contract; decide whether first-version
+- The list endpoint has no pagination contract; decide whether V1
   history is bounded, paginated, or deliberately limited.
 - Define behavior when a notification target is deleted, no longer accessible,
   or has changed state before the user opens it.
@@ -405,7 +412,7 @@ constraints, or an explicit human Design decision.
 | D1 | API documentation | [`docs/api.md`](../../docs/api.md) describes a narrower Recipe PATCH and omits current routes/fields such as ingredients, nutrition, cover selection, resource mutation, and recipe deletion that are present in [`recipes.py`](../../backend/app/api/routes/recipes.py) and [`schemas/recipes.py`](../../backend/app/schemas/recipes.py). | Contradictory | #22 must publish one current contract before children cite API behavior. |
 | D2 | Import states | `ImportJobStatus` includes `failed_artifacts_removed`, while the public API status list omits it; source-level statuses also include reserved transitions not assigned by the current flow. | Contradictory | #22 must map persisted, public, and user-visible states. |
 | D3 | Recipe review | Design approves one bulk `Mark all reviewed` action and no per-flag resolution controls; the active API exposes per-flag open/resolved PATCH. | Contradictory | Human/product decision plus #21/#22 contract outcome; affects web/mobile review UX and embedding state. |
-| D4 | Recipe assessment | Difficulty and Personal rating controls are structurally approved, but no model/schema/API persistence exists and Future Capabilities keeps them outside first-version scope. | Unresolved | Human decision required before Recipe Edit children can promise persistence. |
+| D4 | Recipe assessment | Difficulty and Personal rating controls are structurally approved, but no model/schema/API persistence exists and Future Capabilities keeps them outside V1 scope. | Unresolved | Human decision required before Recipe Edit children can promise persistence. |
 | D5 | Recipe content naming | Design names a `Cooking notes` section; the active model/API has `Recipe.note` and no `cooking_notes` field. | Unresolved | #21 must define meaning, storage, validation, and search effects. |
 | D6 | Media | Manage Media is described with upload/capacity/save behavior, but the active API has no existing upload/mutation boundary; additional image upload is a Future Capability. | Unresolved | Human scope decision plus #21/#22 facts; do not slice upload UI yet. |
 | D7 | Source values | Design labels the source option `TikTok`; the wire enum is `TT`. | Unresolved | #21/#22 must document display label versus wire value. |
@@ -422,7 +429,7 @@ Design Baseline v1?
 
 **Evidence:** the Design roadmap lists authentication, invitations, and
 onboarding as a Core Domain; [`product-expansion.md`](../../docs/future/product-expansion.md)
-specifies immutable English/Russian selection and labels it first-version
+specifies immutable English/Russian selection and labels it V1
 excluded.
 
 **Options and consequences:**
@@ -467,17 +474,19 @@ Before web/mobile Recipe Edit children are sliced, decide:
 
 Each row below is one bounded issue outcome. A shared child defines product
 meaning, data/state requirements, and cross-platform invariants. Its Web and
-Mobile children then define platform-specific interaction. Reconciliation is a
-separate reviewable result; it does not require identical UI.
+Mobile children then define platform-specific interaction in one paired Design
+context. The Web child and shared decisions feed the V1 handoff; the Mobile
+child may run in parallel or be deferred to V2. Reconciliation is a separate
+reviewable result and does not require identical UI.
 
-| Domain | Shared-contract child | Responsive-web child | Native-mobile child | Reconciliation child | True blockers |
+| Domain | Shared-contract child | Responsive-web child (V1) | Native-mobile child (paired/V2) | Reconciliation child | True blockers |
 | --- | --- | --- | --- | --- | --- |
-| Auth | `[DESIGN][AUTH] Define authentication, invitation, onboarding, and account-lifecycle contract` | `[DESIGN][AUTH][WEB] Design authentication, invitation, and access-state flows` | `[DESIGN][AUTH][MOBILE] Design authentication, invitation, and access-state flows` | `[DESIGN][AUTH] Reconcile authentication and access across platforms` | Shared: #20, #22; Web/Mobile: shared child; reconcile: both platform children |
-| Recipes | `[DESIGN][RECIPES] Define library, search, Recipe Detail/Edit, media, and organization contract` | `[DESIGN][RECIPES][WEB] Design Recipes library, search, Detail, Edit, and organization` | `[DESIGN][RECIPES][MOBILE] Design Recipes library, search, Detail, Edit, and organization` | `[DESIGN][RECIPES] Reconcile Recipes domain across platforms` | Shared: #20, #21, #22; Web/Mobile: shared child; reconcile: both platform children |
-| Imports | `[DESIGN][IMPORTS] Define import creation, processing, review, and retry contract` | `[DESIGN][IMPORTS][WEB] Design import creation, progress, results, and review` | `[DESIGN][IMPORTS][MOBILE] Design import creation, progress, results, and review` | `[DESIGN][IMPORTS] Reconcile import journeys across platforms` | Shared: #20, #22; #21 is a non-blocking Import Info input; reconcile: both platform children |
-| Collections and Tags | `[DESIGN][COLLECTIONS] Define Collections, Tags, selectors, and organization contract` | `[DESIGN][COLLECTIONS][WEB] Design Collections, Tags, and organization` | `[DESIGN][COLLECTIONS][MOBILE] Design Collections, Tags, and organization` | `[DESIGN][COLLECTIONS] Reconcile Collections and Tags across platforms` | Shared: #20, #22; Web/Mobile: shared child; reconcile: both platform children |
-| Notifications | `[DESIGN][NOTIFICATIONS] Define notification, unread, history, and deep-link contract` | `[DESIGN][NOTIFICATIONS][WEB] Design notification feedback and history` | `[DESIGN][NOTIFICATIONS][MOBILE] Design notification feedback and history` | `[DESIGN][NOTIFICATIONS] Reconcile notifications across platforms` | Shared: #20, #22; Web/Mobile: shared child; reconcile: both platform children |
-| Profile and Account | `[DESIGN][ACCOUNT] Define Profile, provider settings, account state, and deletion contract` | `[DESIGN][ACCOUNT][WEB] Design Profile, account settings, access state, and deletion` | `[DESIGN][ACCOUNT][MOBILE] Design Profile, account settings, access state, and deletion` | `[DESIGN][ACCOUNT] Reconcile Profile and Account across platforms` | Shared: #20, #22, Auth shared child; reconcile: both platform children |
+| Auth | `[DESIGN][AUTH] Define authentication, invitation, onboarding, and account-lifecycle contract` | `[DESIGN][AUTH][WEB] Design authentication, invitation, and access-state flows` | `[DESIGN][AUTH][MOBILE] Design authentication, invitation, and access-state flows` | `[DESIGN][AUTH] Reconcile authentication and access across platforms` | Shared: #20, #22; Web: shared child; mobile is paired/non-blocking; V1 reconcile: shared + Web |
+| Recipes | `[DESIGN][RECIPES] Define library, search, Recipe Detail/Edit, media, and organization contract` | `[DESIGN][RECIPES][WEB] Design Recipes library, search, Detail, Edit, and organization` | `[DESIGN][RECIPES][MOBILE] Design Recipes library, search, Detail, Edit, and organization` | `[DESIGN][RECIPES] Reconcile Recipes domain across platforms` | Shared: #20, #21, #22; Web: shared child; mobile is paired/non-blocking; V1 reconcile: shared + Web |
+| Imports | `[DESIGN][IMPORTS] Define import creation, processing, review, and retry contract` | `[DESIGN][IMPORTS][WEB] Design import creation, progress, results, and review` | `[DESIGN][IMPORTS][MOBILE] Design import creation, progress, results, and review` | `[DESIGN][IMPORTS] Reconcile import journeys across platforms` | Shared: #20, #22; #21 is a non-blocking Import Info input; mobile is paired/non-blocking; V1 reconcile: shared + Web |
+| Collections and Tags | `[DESIGN][COLLECTIONS] Define Collections, Tags, selectors, and organization contract` | `[DESIGN][COLLECTIONS][WEB] Design Collections, Tags, and organization` | `[DESIGN][COLLECTIONS][MOBILE] Design Collections, Tags, and organization` | `[DESIGN][COLLECTIONS] Reconcile Collections and Tags across platforms` | Shared: #20, #22; Web: shared child; mobile is paired/non-blocking; V1 reconcile: shared + Web |
+| Notifications | `[DESIGN][NOTIFICATIONS] Define notification, unread, history, and deep-link contract` | `[DESIGN][NOTIFICATIONS][WEB] Design notification feedback and history` | `[DESIGN][NOTIFICATIONS][MOBILE] Design notification feedback and history` | `[DESIGN][NOTIFICATIONS] Reconcile notifications across platforms` | Shared: #20, #22; Web: shared child; mobile is paired/non-blocking; V1 reconcile: shared + Web |
+| Profile and Account | `[DESIGN][ACCOUNT] Define Profile, provider settings, account state, and deletion contract` | `[DESIGN][ACCOUNT][WEB] Design Profile, account settings, access state, and deletion` | `[DESIGN][ACCOUNT][MOBILE] Design Profile, account settings, access state, and deletion` | `[DESIGN][ACCOUNT] Reconcile Profile and Account across platforms` | Shared: #20, #22, Auth shared child; mobile is paired/non-blocking; V1 reconcile: shared + Web |
 
 Recipe Detail remaining sections should be sliced inside the Recipes shared
 contract only after #21 resolves the listed production facts. Instructions,
@@ -525,18 +534,18 @@ flowchart TD
   accountContract --> accountWeb["Account Web"]
   accountContract --> accountMobile["Account Mobile"]
 
-  authWeb --> authReconcile["Auth reconciliation"]
-  authMobile --> authReconcile
-  recipeWeb --> recipeReconcile["Recipes reconciliation"]
-  recipeMobile --> recipeReconcile
-  importsWeb --> importsReconcile["Imports reconciliation"]
-  importsMobile --> importsReconcile
-  organizationWeb --> organizationReconcile["Collections/Tags reconciliation"]
-  organizationMobile --> organizationReconcile
-  notificationsWeb --> notificationsReconcile["Notifications reconciliation"]
-  notificationsMobile --> notificationsReconcile
-  accountWeb --> accountReconcile["Account reconciliation"]
-  accountMobile --> accountReconcile
+  authWeb --> authReconcile["Auth V1 shared/web reconciliation"]
+  authMobile -. optional mobile input .-> authReconcile
+  recipeWeb --> recipeReconcile["Recipes V1 shared/web reconciliation"]
+  recipeMobile -. optional mobile input .-> recipeReconcile
+  importsWeb --> importsReconcile["Imports V1 shared/web reconciliation"]
+  importsMobile -. optional mobile input .-> importsReconcile
+  organizationWeb --> organizationReconcile["Collections/Tags V1 shared/web reconciliation"]
+  organizationMobile -. optional mobile input .-> organizationReconcile
+  notificationsWeb --> notificationsReconcile["Notifications V1 shared/web reconciliation"]
+  notificationsMobile -. optional mobile input .-> notificationsReconcile
+  accountWeb --> accountReconcile["Account V1 shared/web reconciliation"]
+  accountMobile -. optional mobile input .-> accountReconcile
 
   authReconcile --> integration["Core cross-domain integration"]
   recipeReconcile --> integration
@@ -544,10 +553,10 @@ flowchart TD
   organizationReconcile --> integration
   notificationsReconcile --> integration
   accountReconcile --> integration
-  integration --> baseline["Core Design Baseline v1 handoff"]
+  integration --> baseline["Core Design Baseline v1<br/>V1 web implementation handoff"]
 
   frontendAudit["#24 Frontend contract audit"] -. informs web implementation .-> recipeWeb
-  mobileResearch["#27 Native client architecture research"] -. informs mobile implementation .-> recipeMobile
+  mobileResearch["#27 V2 native client architecture research"] -. informs V2 planning/design .-> recipeMobile
   tracker["#29 Core Design tracker"] -. contains and reports .-> integration
   operations["Operational Surfaces Addendum"] -. later, non-blocking .-> integration
 ```
@@ -560,24 +569,30 @@ The immediate executable frontier after this inventory is:
 3. create the six shared-contract children only after #20 is published and
    #22 has supplied the cross-domain contract matrix. The Recipes shared child
    also consumes #21;
-4. create each Web/Mobile pair from its shared contract, then each
-   reconciliation child from both platform results;
-5. run Core cross-domain integration and the final implementation handoff.
+4. create each Web/Mobile pair from its shared contract; the mobile Design
+   child may run in parallel or be deferred, while V1 reconciliation consumes
+   shared + Web results;
+5. run V1 Core cross-domain integration and the web implementation handoff;
+6. revisit paired mobile evidence during the V2 planning iteration and create
+   mobile Development issues only after that specification/design gate.
 
-`#24` and `#27` are Development-track inputs, not blockers for producing
-platform Design evidence. `#29` is a tracker/containment surface, not a
-substitute for native blocker edges. Infrastructure and production-release
-issues do not block this Design inventory.
+`#24` is a V1 web/shared-contract input. `#27` is a deferred V2 Development
+research input, not a current mobile implementation dependency and not a V1
+blocker. Neither issue blocks producing paired Design evidence. `#29` is a
+tracker/containment surface, not a substitute for native blocker edges.
+Infrastructure and production-release issues do not block this Design
+inventory.
 
-## Explicit first-version exclusions
+## Explicit V1 exclusions and V2 deferrals
 
 These exclusions are linked to their owning evidence so they are not confused
 with unresolved Core decisions:
 
 | Exclusion | Evidence | Consequence |
 | --- | --- | --- |
-| Admin, debug, and operational screens | [Design roadmap](../roadmap.md) and [Operational Surfaces Addendum](../roadmap.md#operational-surfaces-addendum-v1) | Design later as a separate shared/Web/Mobile/reconciliation track; required before Public v1, not before Core implementation. |
-| Mandatory language-selection onboarding, quotas, ratings, difficulty persistence, shared libraries, authors, and extra image upload | [`product-expansion.md`](../../docs/future/product-expansion.md) | Do not promise these as implemented first-version capabilities until #33 or a separate promotion decision changes their status. Their conflict with current Design assumptions is recorded above. |
+| Native mobile client implementation and unresolved mobile architecture/release questions | [#27 — V2 native client architecture input](https://github.com/starkovalera/recipe-manager/issues/27) and the [native-client decision packet](../../docs/architecture/native-client-decision-packet.md) | Defer all mobile Development work and owner stack/release decisions until after V1 Web Release and the dedicated V2 mobile planning iteration. Paired mobile Design evidence may be recorded earlier and is non-blocking for V1. |
+| Admin, debug, and operational screens | [Design roadmap](../roadmap.md) and [Operational Surfaces Addendum](../roadmap.md#operational-surfaces-addendum-v1) | Design later as a separate shared/Web/Mobile/reconciliation track; V1 web operational surfaces are required before Public v1, while mobile pairing may defer to V2. |
+| Mandatory language-selection onboarding, quotas, ratings, difficulty persistence, shared libraries, authors, and extra image upload | [`product-expansion.md`](../../docs/future/product-expansion.md) | Do not promise these as implemented V1 capabilities until #33 or a separate promotion decision changes their status. Their conflict with current Design assumptions is recorded above. |
 | Advanced search semantics, query expansion, numeric filters, ranking changes, and search evaluation | [`search-evolution.md`](../../docs/future/search-evolution.md) | Design the current baseline search contract first; advanced behavior needs separate refinement. |
 | Import History page, richer Tag/Collection search/sorting, expanded review-flag types, and ingredient calculator | [`list-and-review-ux.md`](../../docs/future/list-and-review-ux.md) | Treat as enhancements unless the Core domain shared contract explicitly promotes one. |
 | YouTube/video import and provider/policy/retention extensions | [`youtube-video-import.md`](../../docs/future/youtube-video-import.md) and [`import-and-ai.md`](../../docs/future/import-and-ai.md) | Keep outside Core import journeys while the investigation remains unpromoted. |
@@ -596,7 +611,8 @@ This inventory is complete when the branch contains:
 - evidence links for every approved claim;
 - separate classification of unknowns, contradictions, and deferrals;
 - cross-domain impacts and true blockers;
-- the shared/Web/Mobile/reconciliation split; and
+- the shared/Web/Mobile/reconciliation split, with V1 web blockers distinguished from paired/non-blocking mobile Design work; and
+- the V1 web handoff boundary and the deferred V2 mobile planning input; and
 - an explicit next frontier with human decision packets where needed.
 
 The next approval is not approval of a visual direction. It is approval of the

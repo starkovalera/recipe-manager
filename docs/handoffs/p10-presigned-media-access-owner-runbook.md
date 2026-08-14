@@ -194,7 +194,8 @@ The AWS-only checks no longer belong to the LocalStack acceptance task. [#59 -
 Verify Live AWS S3 media access boundaries](https://github.com/starkovalera/recipe-manager/issues/59)
 is blocked by [#30 - Owner-controlled production prerequisites](https://github.com/starkovalera/recipe-manager/issues/30)
 and gates technical production/smoke only; it does not block #23, #24, #25, #26,
-#27, or #31 refinement.
+or #31 refinement. Native-client research #27 is a deferred V2 input and is not
+a current production dependency.
 
 Prerequisites: a private disposable user-media bucket, an AWS region, and
 credentials with narrowly scoped `s3:GetObject` access. Do not commit values.

@@ -2,6 +2,29 @@
 
 Recipe Manager is a product for importing, organizing, reviewing, editing, finding, and using recipes across web and mobile clients.
 
+## Release sequencing
+
+**V1 — Web Release**:
+The first production release is web-only. V1 includes the complete approved
+responsive-web product experience, the shared contracts it needs, production
+operations, and the web release gates. A mobile client is not a V1 blocker or a
+V1 acceptance outcome.
+
+**V2 — Mobile Client**:
+After V1 Web Release, run a dedicated mobile planning iteration to produce the
+mobile specification, requirements, and implementation boundary. All mobile
+Development work — including native architecture, build/release, mobile auth,
+offline, push, background work, and mobile client implementation — targets V2.
+The V2 plan may reuse shared API contracts, but it must not expand V1 by
+assumption.
+
+**Paired Design Work**:
+Design work may be created as shared, `[WEB]`, and `[MOBILE]` slices under one
+product context. The mobile slice is useful evidence and may be completed in
+parallel with the web slice, but it is non-blocking for the V1 web handoff and
+may be deferred until V2 planning. Design pairing does not authorize mobile
+Development work.
+
 ## Product language
 
 **Recipe**:
@@ -35,7 +58,10 @@ A bounded product area whose behavior, states, responsive rules, and evidence ca
 _Avoid_: Page when the concern spans multiple screens or platforms
 
 **Core Design Baseline**:
-The approved first-version product-design contract for primary web and mobile user journeys. It is the gate for production UI implementation.
+The approved V1 product-design contract for primary web journeys, shared
+product meaning, and any paired mobile evidence that is available. It is the
+gate for V1 web UI implementation. V2 mobile UI has its own post-V1 planning
+and design gate.
 _Avoid_: Final design, mockup set
 
 **Operational Surfaces Addendum**:
@@ -47,7 +73,9 @@ Tracked research, wireframes, prototypes, screenshots, reviews, and decision rec
 _Avoid_: Production source, implementation template
 
 **Future Capability**:
-A product or technical possibility retained for refinement outside the active first-version scope.
+A product or technical possibility retained for refinement outside the active
+V1 release scope. V2 mobile work is tracked by its version label and planning
+documents rather than being silently treated as V1 work.
 _Avoid_: Active task, backlog ticket
 
 **Design Track**:
@@ -55,5 +83,7 @@ The work that establishes the Core Design Baseline and Operational Surfaces Adde
 _Avoid_: Frontend implementation
 
 **Development Track**:
-The work that builds, productionizes, operates, and verifies the product, including web and mobile implementation after the applicable design gate.
+The work that builds, productionizes, operates, and verifies the product:
+web implementation for V1 and mobile implementation for V2 after the
+applicable design and planning gates.
 _Avoid_: Production track, delivery track

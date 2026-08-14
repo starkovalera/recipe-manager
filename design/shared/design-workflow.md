@@ -1,5 +1,11 @@
 # UI/UX Design Workflow
 
+The workflow may produce a shared contract plus paired `[WEB]` and `[MOBILE]`
+Design outputs under one product context. V1 implementation and release are
+web-only: the web output and shared decisions are the V1 handoff, while mobile
+Design evidence is non-blocking and may be deferred to the V2 mobile planning
+iteration. A Design artifact never authorizes mobile Development by itself.
+
 ## Phase 1 — Establish scope
 
 Read the working agreement, product scope, decisions, scenarios, and decision log.
