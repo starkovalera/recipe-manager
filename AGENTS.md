@@ -75,6 +75,10 @@ This is a single-context repo with root `CONTEXT.md` and `docs/adr/`. See `docs/
 
 Start project planning from `docs/roadmap.md`. Active issues follow the `[DESIGN]` / `[DEV]` title convention and native blocker rules in `docs/agents/planning.md`.
 
+### Future-work TODO shorthand
+
+When the user says “добавь в todo”, “добавь в туду”, or “add to todo”, record the item in the matching canonical document under [`docs/future/`](docs/future/README.md). Preserve the document's funnel stage and enough context to support later refinement. Use the existing capability files first: `import-and-ai.md`, `operations-and-lifecycle.md`, `product-expansion.md`, `list-and-review-ux.md`, `search-evolution.md`, or `youtube-video-import.md`; if no file fits, create a new capability document and add it to `docs/future/README.md`. The umbrella refinement and prioritization task is [#33](https://github.com/starkovalera/recipe-manager/issues/33). Treat this shorthand as a documentation capture request; create or update a GitHub issue only when the user separately asks for a task or an explicit refinement decision promotes the item under `docs/agents/planning.md`.
+
 ### Task completion
 
 Development tasks use the shared completion checkpoint in `docs/agents/task-completion.md`. Backend tasks must run its refactoring review before handoff.
