@@ -118,6 +118,17 @@ uv run python -m app.local.seed_preview_users
 
 Ordinary first-login provisioning creates an active user, `UserSettings`, and default tags without privileged roles.
 
+### Local Clerk development sign-in
+
+The seeded `+clerk_test` users use Clerk's fixed development email-code flow. Do not use the password flow: Clerk may reject the seed password as compromised. In the sign-in dialog:
+
+1. Enter the email from `backend/config/preview-users.local.toml` and select **Continue**.
+2. Select **Email code to …**.
+3. Enter `424242`.
+4. Wait for the application home page and the first `POST /me/provision` request before testing protected routes.
+
+The `424242` code is only for Clerk development test users and must not be used for non-test accounts.
+
 ## Authentication Operations
 
 The frontend obtains Clerk tokens in memory. KrakenD validates each protected request and forwards only the verified subject. FastAPI resolves that subject to an internal active user and remains authoritative for fixed roles, capabilities, and owner scoping.

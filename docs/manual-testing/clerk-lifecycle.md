@@ -72,6 +72,17 @@ uv run python -m app.local.seed_preview_users
 
 For local webhook delivery, expose the selected webhook ingress with a tunnel, configure the exact public URL in Clerk, and verify the Clerk dashboard records a successful delivery. Clerk cannot deliver directly to localhost.
 
+## Local Preview Sign-In
+
+The seeded `+clerk_test` users use Clerk's fixed development email-code flow. Do not use the password flow: Clerk may reject the seed password as compromised.
+
+1. In the sign-in dialog, enter the email from `backend/config/preview-users.local.toml` and select **Continue**.
+2. Select **Email code to …**.
+3. Enter `424242`.
+4. Wait for the application home page and the first `POST /me/provision` request before testing protected routes.
+
+The `424242` code is only for Clerk development test users and must not be used for non-test accounts.
+
 ## Ordinary Login
 
 - [ ] Signed-out users see only the authentication shell.
