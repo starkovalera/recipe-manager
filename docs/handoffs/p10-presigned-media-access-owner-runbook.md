@@ -5,6 +5,40 @@ contracts, LOCAL bytes, S3 signing, frontend retrieval modes, and gateway parity
 The checks below require the repository owner because they use a browser session
 or AWS credentials.
 
+## LocalStack acceptance evidence — 2026-08-14
+
+The agent-run functional tier completed on branch `codex/issue-26-localstack-acceptance`.
+This evidence does not claim the owner-only browser, Clerk, full PREVIEW-stack, or
+live-AWS checks below.
+
+- Docker `29.5.3` / Compose `v5.1.4`; pinned image `localstack/localstack:4.14.0`.
+- `docker compose --profile local-s3 config` passed; the service is opt-in and
+  binds only `127.0.0.1:4566`.
+- LocalStack became healthy and initialized both
+  `recipe-manager-local-user-media` and
+  `recipe-manager-local-system-artifacts`. Re-running the init hook was
+  idempotent.
+- Both buckets returned `BlockPublicAcls`, `IgnorePublicAcls`,
+  `BlockPublicPolicy`, and `RestrictPublicBuckets` as `true`; ACLs contained only
+  the owner `FULL_CONTROL` grant. User-media CORS allowed both supported Vite
+  origins and `GET` with the documented exposed headers.
+- Backend baseline: `813 passed, 4 skipped, 24 warnings`; focused contract and
+  infrastructure checks: `94 passed`; Ruff check and format check passed.
+- Frontend baseline: `14` test files and `71` tests passed; typecheck and build
+  passed. KrakenD validation passed with `50` endpoints.
+- Opt-in S3 integration: `4 passed in 10.65s`, covering storage round-trip/list,
+  direct presigned retrieval, missing-object grant without a preflight lookup,
+  and shortened-TTL expiry rejection.
+- A static search found no `HeadObject`/`head_object` reference in production
+  `backend/app`. No real credentials or signed URLs were recorded.
+
+The following LocalStack owner steps remain open: complete PREVIEW stack startup,
+Clerk sign-in, fresh import, browser Network/direct-CORS checks, the authenticated
+partial-success/foreign-reference flow, and backend/worker/KrakenD log inspection.
+The Live S3 section remains a separate owner prerequisite and must use a disposable
+private bucket plus an authorized short-lived/local AWS profile; record evidence,
+never secret values.
+
 ## LOCAL / PREVIEW
 
 Prerequisites: PostgreSQL, Redis, KrakenD, backend, worker, and frontend started
