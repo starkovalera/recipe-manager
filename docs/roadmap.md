@@ -22,7 +22,7 @@ The roadmap summarizes its source documents rather than copying their contracts.
 | Track | Current state | Current destination |
 | --- | --- | --- |
 | `[DESIGN]` | Core Design Baseline v1 in progress | Approve shared product contracts, complete the V1 responsive-web design, record paired mobile design evidence where useful, and approve the V1 web implementation handoff |
-| `[DEV]` | Local baseline, P1-P10 runtime boundaries, and the P11 hardening specification complete; technical production in progress | Finish P11 implementation, artifacts, infrastructure, deployment, approved web client, operational surfaces, and Public v1 gates; start mobile only in the post-V1 V2 track |
+| `[DEV]` | Local baseline, P1-P10 runtime boundaries, and the P11 hardening specification complete; #23 closed; technical production in progress | Finish P11 implementation, artifacts, infrastructure, deployment, approved web client, operational surfaces, and Public v1 gates; start mobile only in the post-V1 V2 track |
 
 Design and Development proceed in parallel. Production UI implementation is gated by the applicable approved Design baseline; backend, infrastructure, contract discovery, and other non-visual work may proceed earlier when their own blockers are closed.
 
@@ -170,7 +170,7 @@ flowchart TD
   phase0["✓ Phase 0: stable main and CI baseline"]
   runtime["✓ P1-P10 runtime boundaries"]
 
-  p11["✓ #23 P11 hardening specification"]
+  p11["✓ #23 P11 hardening specification (closed)"]
   p11Implementation["#37 → #38 → #39 → #40 P11 implementation"]
   p12["✓ #25 P12 production artifact matrix"]
   localstack["#26 LocalStack + Preview acceptance closure"]
@@ -250,7 +250,7 @@ flowchart TD
   class result result
 ```
 
-The P11 specification in [#23](https://github.com/starkovalera/recipe-manager/issues/23) is complete in merged PR [#49](https://github.com/starkovalera/recipe-manager/pull/49). The remaining implementation gate is the native-blocked child chain [#37](https://github.com/starkovalera/recipe-manager/issues/37) → [#38](https://github.com/starkovalera/recipe-manager/issues/38) → [#39](https://github.com/starkovalera/recipe-manager/issues/39) → [#40](https://github.com/starkovalera/recipe-manager/issues/40).
+Issue [#23](https://github.com/starkovalera/recipe-manager/issues/23) is closed: merged PR [#49](https://github.com/starkovalera/recipe-manager/pull/49) delivered the complete P11 specification and child-issue graph. The remaining implementation gate is the native-blocked child chain [#37](https://github.com/starkovalera/recipe-manager/issues/37) → [#38](https://github.com/starkovalera/recipe-manager/issues/38) → [#39](https://github.com/starkovalera/recipe-manager/issues/39) → [#40](https://github.com/starkovalera/recipe-manager/issues/40).
 
 The P12 artifact matrix in [#25](https://github.com/starkovalera/recipe-manager/issues/25) is complete in merged PR [#52](https://github.com/starkovalera/recipe-manager/pull/52). It defines six production image artifacts, shared packaging and runtime invariants, compatibility triggers, release identity, rollback rules, and the independently verifiable implementation children [#41](https://github.com/starkovalera/recipe-manager/issues/41)–[#47](https://github.com/starkovalera/recipe-manager/issues/47). Those implementation children remain the active P12 work.
 

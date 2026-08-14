@@ -436,13 +436,14 @@ machine's private network, or a live provider.
 
 ## Implementation child issue graph
 
-The parent issue is scope containment. The implementation children below are
-separate executable slices; the native `blocked by` edges are only the true
-implementation gates.
+The parent issue is scope containment and is now closed because its
+specification and child-issue graph are complete. The implementation children
+below are separate executable slices; the native `blocked by` edges are only
+the true implementation gates.
 
 ```mermaid
 flowchart TD
-  parent["#23 P11 hardening specification"]
+  parent["✓ #23 P11 hardening specification (closed)"]
   url["#37 secure URL policy, DNS, and redirects"]
   stream["#38 bounded streaming, timeouts, and response policy"]
   migrate["#39 loader migration and failure semantics"]
