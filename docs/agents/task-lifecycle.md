@@ -83,6 +83,12 @@ If no natural candidate exists, report that no future item was discovered.
 
 ## 8. Publish the completed task
 
+Before creating or updating a pull request, perform a final base-freshness check even if `origin/main` was fetched at the start of the task:
+
+1. Fetch the latest `origin/main`.
+2. Check whether `origin/main` is an ancestor of the feature branch (`git merge-base --is-ancestor origin/main HEAD`).
+3. If it is not an ancestor, rebase the feature branch onto `origin/main` before creating or updating the pull request. Resolve any conflicts, rerun the affected verification, and use `git push --force-with-lease` when the rebase rewrites the published branch.
+
 For repository changes, create or update a commit, push the feature branch, and open or update a draft pull request after the completion checks. The user may explicitly request a different publication mode or ask to keep the work local; that instruction wins.
 
 The pull request should link the task and summarize the contract, delivered result, verification, refactoring outcome, human actions, future-work disposition, and documentation impact. Keep the PR draft unless the user explicitly asks for a ready-for-review PR.
