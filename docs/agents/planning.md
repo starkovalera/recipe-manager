@@ -1,6 +1,6 @@
 # Planning and Issue Conventions
 
-Use [`../roadmap.md`](../roadmap.md) to orient any project-planning task. Detailed current scope lives in the Design and Development roadmaps linked there; GitHub issues are the executable work queue.
+Use [`../roadmap.md`](../roadmap.md) to orient any project-planning task. Detailed current scope lives in the Design and Development roadmaps linked there; GitHub issues are the executable work queue. The end-to-end preflight, completion, publication, and post-merge sequence lives in [`task-lifecycle.md`](task-lifecycle.md); this document owns planning, readiness, hierarchy, and blocker rules.
 
 ## Track prefixes
 
