@@ -97,18 +97,31 @@ The pull request should link the task and summarize the contract, delivered resu
 
 ## 9. Synchronize documentation after merge
 
-When the user says that the task is ready and the PR is merged, verify the actual GitHub merge state before marking the work complete. If it is not merged, report the discrepancy and keep completion status unchanged.
+The post-merge sequence is triggered when any of the following occurs:
 
-After merge:
+- the user explicitly says that the PR or task was merged, including a short
+  message such as `merged`;
+- the user provides a link to a merged pull request; or
+- the agent discovers during its own GitHub/status checks that the pull request
+  is merged.
+
+These signals trigger verification; they are not themselves proof of merge.
+In every case, verify the actual GitHub merge state before marking the work
+complete. If verification shows that the PR is not merged, report the
+discrepancy and keep completion status unchanged.
+
+After a merge, and whenever the task's GitHub status changes as part of
+completion:
 
 1. Fetch the latest `origin/main` and create a documentation-maintenance branch if the updates are not already part of the merged PR.
 2. Update the owning detailed roadmap, architecture or design documents, and every document where the plan steps or task links are reflected.
 3. Update the corresponding node and status in [`docs/roadmap.md`](../roadmap.md), mark the completed work with `✓`, and record the concrete result.
 4. Update the target architecture diagram when an open architecture decision closed, and update unresolved questions when the merged result answers or changes them.
 5. Refresh issue links and execution status without duplicating GitHub's native blocker or acceptance data.
-6. Publish these documentation-maintenance changes through the normal PR flow when a new change is required.
+6. When the merged result satisfies the issue's own acceptance criteria and no required work remains in that issue's scope, close the corresponding GitHub issue. Do not close a parent or containment issue solely because a planning or specification PR merged while required child implementation remains; keep it open until its own scope is complete.
+7. Publish these documentation-maintenance changes through the normal PR flow when a new change is required.
 
-**Done when:** the merged result, roadmap, detailed planning documents, architecture/design records, task links, completion marks, and open-question lists agree, with no stale plan step presented as current work.
+**Done when:** the merged result, roadmap, detailed planning documents, architecture/design records, task links, completion marks, issue state, and open-question lists agree, with no stale plan step presented as current work.
 
 ## Source-of-truth map
 
