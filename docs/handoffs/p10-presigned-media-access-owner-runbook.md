@@ -44,6 +44,19 @@ never secret values.
 Prerequisites: PostgreSQL, Redis, KrakenD, backend, worker, and frontend started
 with the normal PREVIEW configuration and a signed-in Clerk test user.
 
+### Clerk development sign-in
+
+For the seeded `+clerk_test` users, use the email-code path rather than a password:
+
+1. Enter the email from `backend/config/preview-users.local.toml` and select
+   **Continue**.
+2. Select **Email code to …**.
+3. Enter the fixed Clerk development code `424242`.
+4. Wait for the application home page and `POST /me/provision` to complete.
+
+Clerk may reject the seed password as compromised. The fixed code is only for
+Clerk development test users and must not be used for non-test accounts.
+
 1. Import one image and one supported URL containing images.
 2. Confirm the recipe grid, recipe hero, cover choices, preview modal, and import
    detail images render through KrakenD.

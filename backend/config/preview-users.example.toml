@@ -1,4 +1,5 @@
 # Clerk development test email verification code for +clerk_test users: 424242
+# Local sign-in uses "Email code to ..." followed by 424242; do not use the password flow.
 # Copy this file to the ignored preview-users.local.toml and replace Clerk identity data.
 # Preview seeding uses real Clerk authentication and assigns exactly the roles listed here.
 # Ordinary provisioned users receive no roles.
