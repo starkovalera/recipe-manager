@@ -102,13 +102,17 @@ The post-merge sequence is triggered when any of the following occurs:
 - the user explicitly says that the PR or task was merged, including a short
   message such as `merged`;
 - the user provides a link to a merged pull request; or
-- the agent discovers during its own GitHub/status checks that the pull request
-  is merged.
+- a `#status` check or another GitHub/status check discovers that the pull
+  request is merged.
 
 These signals trigger verification; they are not themselves proof of merge.
 In every case, verify the actual GitHub merge state before marking the work
 complete. If verification shows that the PR is not merged, report the
 discrepancy and keep completion status unchanged.
+
+Short command recognition and side-effect rules are defined in the
+[Agent Command Dictionary](command-dictionary.md); this section remains the
+source of truth for the post-merge sequence.
 
 After a merge, and whenever the task's GitHub status changes as part of
 completion:
