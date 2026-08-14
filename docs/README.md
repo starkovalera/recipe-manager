@@ -1,6 +1,6 @@
 # Technical Documentation
 
-Start with [`roadmap.md`](roadmap.md) for current project status and [`architecture/production-roadmap.md`](architecture/production-roadmap.md) for the Development dependency plan.
+Start with the human-facing [`Project Roadmap`](roadmap.md) for the current project status, Design/Development work graphs, release outcomes, and links to the main project documents. Use [`architecture/production-roadmap.md`](architecture/production-roadmap.md) for the detailed Development dependency plan.
 
 This directory contains documentation for the production application and its delivery:
 

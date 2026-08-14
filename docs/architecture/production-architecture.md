@@ -1,7 +1,7 @@
 # Recipe Manager — Production Architecture Rules and Standards
 
 **Status:** agreed target architecture for the initial closed beta  
-**Last updated:** 2026-07-16  
+**Last updated:** 2026-08-14<br>
 **Expected scale:** fewer than 100 users, very low request volume  
 **Hosted environments:** one hosted production environment; `preview` remains local  
 **Primary goals:** low fixed cost, invite-only access, managed background execution, secure user isolation, and a clear path to public access later
@@ -213,6 +213,76 @@ flowchart TD
     deletionLambda --> s3
     deletionLambda --> clerk
 ```
+
+### Roadmap end-state view
+
+The diagram below is the human-facing target view for the end of the current roadmap. It keeps the logical contracts that are already agreed and makes unresolved deployment decisions visible instead of guessing them. Solid edges describe the intended runtime topology; dashed edges describe an input or a decision that still has to be closed.
+
+```mermaid
+flowchart LR
+    clerk["Clerk<br/>identity, invitations, sessions, JWTs"]
+    flags["Flagsmith<br/>cross-client feature flags"]
+    web["Responsive web client<br/>Cloudflare Pages"]
+    mobile["Native mobile client<br/>API boundary fixed"]
+    gateway["KrakenD gateway<br/>JWT validation, throttling, routing"]
+    api["FastAPI domain service<br/>authorization and product operations"]
+    database[("Neon PostgreSQL<br/>pgvector and durable state")]
+    queues["AWS SQS<br/>imports, embeddings, maintenance, account deletion"]
+    lambdas["Lambda workers<br/>import, embedding, maintenance, account deletion"]
+    storage[("Private S3 media")]
+    openai["OpenAI APIs"]
+    observability["CloudWatch<br/>logs, metrics, alarms, budgets"]
+
+    web -->|HTTPS + Clerk access token| gateway
+    mobile -->|HTTPS + Clerk access token| gateway
+    clerk --> web
+    clerk --> mobile
+    gateway -->|trusted private call| api
+    api -->|SQL / TLS| database
+    api -->|ID-only messages| queues
+    queues --> lambdas
+    lambdas --> database
+    lambdas --> storage
+    lambdas --> openai
+    lambdas -->|identity lifecycle where required| clerk
+    flags -. runtime flags .-> web
+    flags -. runtime flags .-> mobile
+    flags -. runtime flags .-> api
+    flags -. runtime flags .-> lambdas
+    gateway -. logs and metrics .-> observability
+    api -. logs and metrics .-> observability
+    lambdas -. logs and metrics .-> observability
+
+    mobileDecision["#27 Native stack and delivery<br/>decision pending"]
+    infraDecision["#31 Terraform/OpenTofu + deployment mechanism<br/>Lightsail vs EC2 still under refinement"]
+    ownerInputs["#30 AWS/account/domain/secret prerequisites<br/>human-owned inputs"]
+
+    mobileDecision -. selects client delivery .-> mobile
+    infraDecision -. provisions and deploys .-> gateway
+    infraDecision -. provisions .-> queues
+    infraDecision -. provisions .-> lambdas
+    infraDecision -. provisions .-> storage
+    infraDecision -. provisions .-> observability
+    ownerInputs -. enables .-> infraDecision
+
+    classDef stable fill:#dcfce7,stroke:#15803d,color:#14532d
+    classDef open fill:#fef3c7,stroke:#d97706,color:#78350f
+    classDef external fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
+
+    class clerk,flags,web,mobile,gateway,api,database,queues,lambdas,storage,openai,observability stable
+    class mobileDecision,infraDecision open
+    class ownerInputs external
+```
+
+The logical architecture is sufficiently defined to draw this target now. The exact infrastructure and client-delivery shape is not final until these questions close:
+
+| Open question | Current effect |
+| --- | --- |
+| [#27 — Native client architecture](https://github.com/starkovalera/recipe-manager/issues/27) | The mobile API boundary is fixed, but the native stack, build/signing, store delivery, and observability path are not selected. |
+| [#31 — Terraform/OpenTofu and AWS foundation](https://github.com/starkovalera/recipe-manager/issues/31) | The logical services are selected, but the exact IaC, state bootstrap, and Lightsail/EC2 deployment mechanism remain under refinement. |
+| [#30 — Owner-controlled production prerequisites](https://github.com/starkovalera/recipe-manager/issues/30) | Account, region, domains, provider projects, and secret references must be supplied before infrastructure can be provisioned. |
+
+The [#28 production security audit](https://github.com/starkovalera/recipe-manager/issues/28) is a release gate rather than an unresolved topology choice. It must pass against the exact artifacts and configuration before Public v1.
 
 ---
 
