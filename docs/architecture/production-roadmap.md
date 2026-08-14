@@ -1,7 +1,7 @@
 # Recipe Manager Production Roadmap
 
-Updated: 2026-08-13
-Status: local baseline and P1-P10 complete; technical production in progress
+Updated: 2026-08-14
+Status: local baseline and P1-P10 complete; P11 specification complete; technical production in progress
 
 This is the canonical current plan for the `[DEV]` track. Detailed architecture and behavior live in their subject documents; GitHub issues carry executable slices and native blocking edges.
 
@@ -11,7 +11,7 @@ This is the canonical current plan for the `[DEV]` track. Detailed architecture 
 | --- | --- | --- |
 | Local baseline and CI | Complete | `v0.1.0-local-baseline`, backend/frontend/gateway checks on `main` |
 | P1-P10 runtime boundaries | Complete | Merged PRs #4 and #6-#15; current architecture and subject contracts |
-| P11 SSRF and streaming hardening | Not started | First remaining Phase 1 runtime slice |
+| P11 SSRF and streaming hardening | Specification complete; implementation pending | Specification and child graph merged in PR [#49](https://github.com/starkovalera/recipe-manager/pull/49); implementation is tracked by [#37](https://github.com/starkovalera/recipe-manager/issues/37) → [#38](https://github.com/starkovalera/recipe-manager/issues/38) → [#39](https://github.com/starkovalera/recipe-manager/issues/39) → [#40](https://github.com/starkovalera/recipe-manager/issues/40) |
 | P12 production Docker artifacts | Not started | First remaining Phase 1 packaging slice |
 | LocalStack S3 smoke | Implemented; closure evidence missing | PR #15 added the service, config, integration tests, and runbook; the unchecked plan has no recorded automated/manual acceptance result |
 | Terraform, IAM, secrets | Not started | May begin in parallel with P11/P12 where runtime contracts are already fixed |
@@ -51,7 +51,7 @@ Status: complete.
 
 ## Phase 1 — Local Production Readiness
 
-Status: P1-P10 complete; P11 and P12 remain.
+Status: P1-P10 complete; P11 specification complete; P11 implementation and P12 remain.
 
 Implementation details and acceptance criteria for each subphase are agreed
 immediately before that subphase starts.
@@ -187,7 +187,8 @@ Do not invite external beta users before Phases 4 and 5 are complete.
 ```mermaid
 flowchart TD
   p10["P1-P10 complete"]
-  p10 --> p11["[DEV][BACKEND] P11 SSRF and streaming hardening"]
+  p10 --> p11Spec["✓ [DEV][BACKEND] P11 specification (#23)"]
+  p11Spec --> p11Implementation["[DEV][BACKEND] P11 implementation (#37 → #38 → #39 → #40)"]
   p10 --> p12["[DEV][INFRA] P12 production artifacts"]
   p10 --> localstack["[DEV][INFRA] LocalStack S3 smoke"]
   p10 --> tfFoundation["[DEV][INFRA] Terraform state, OIDC, and conventions"]
@@ -195,7 +196,7 @@ flowchart TD
   tfFoundation --> cloudResources["[DEV][INFRA] Provision queues, storage, compute, network, observability"]
   p12 --> cloudResources
 
-  p11 --> releaseCandidate["[DEV][OPS] Assemble production release candidate"]
+  p11Implementation --> releaseCandidate["[DEV][OPS] Assemble production release candidate"]
   p12 --> releaseCandidate
   cloudResources --> releaseCandidate
   localstack --> releaseCandidate
@@ -220,7 +221,7 @@ flowchart TD
 
 The following workstreams may start concurrently once represented by approved issues:
 
-- P11 SSRF and streaming hardening;
+- P11 implementation children for SSRF and streaming hardening;
 - P12 production Docker and Lambda artifacts;
 - LocalStack S3 smoke verification;
 - Terraform remote state, GitHub OIDC, module conventions, and environment layout;
@@ -234,8 +235,8 @@ Cloud resource provisioning is blocked only where it needs P12 artifact contract
 | Next executable or refinement issue | Readiness | Outcome / blocker |
 | --- | --- | --- |
 | `[DEV][INFRA] Run and record LocalStack S3 automated acceptance` | Agent-ready | Implementation and tests exist; Docker client/server 29.5.3 availability was confirmed on 2026-08-13; run acceptance and reconcile the stale plan |
-| `[DEV][BACKEND] Inventory P11 fetch boundaries and write the hardening specification` | Agent-ready | Current `httpx_fetch` follows redirects and buffers the full response before truncation; the spec must slice implementation children and adversarial tests |
-| P11 implementation children | Needs refinement | Become agent-ready after the hardening specification fixes DNS, redirect, streaming, size, timeout, error, and logging contracts |
+| `[DEV][BACKEND] Inventory P11 fetch boundaries and write the hardening specification` | Complete | [PR #49](https://github.com/starkovalera/recipe-manager/pull/49) merged the versioned specification, caller matrix, threat model, rejected alternatives, deterministic verification contract, and child issue graph |
+| P11 implementation children | Agent-ready | [#37](https://github.com/starkovalera/recipe-manager/issues/37) → [#38](https://github.com/starkovalera/recipe-manager/issues/38) → [#39](https://github.com/starkovalera/recipe-manager/issues/39) → [#40](https://github.com/starkovalera/recipe-manager/issues/40) are created with native blockers and acceptance criteria |
 | `[DEV][INFRA] Inventory P12 deployables and write the artifact matrix` | Agent-ready | FastAPI plus four Lambda entrypoints and independent delivery requirements are documented; concrete build contracts still need refinement |
 | P12 artifact implementation children | Needs refinement | Split into shared packaging contract, FastAPI artifact, Lambda artifacts, and CI build/invocation verification |
 | `[DEV][FRONTEND] Audit reusable non-visual frontend contracts` | Agent-ready | Read-only audit can identify reusable auth, API, query, and media boundaries without choosing the new UI |

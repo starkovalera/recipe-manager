@@ -22,7 +22,7 @@ The roadmap summarizes its source documents rather than copying their contracts.
 | Track | Current state | Current destination |
 | --- | --- | --- |
 | `[DESIGN]` | Core Design Baseline v1 in progress | Approve shared product contracts, complete web/mobile domain design, reconcile the domains, and approve the implementation handoff |
-| `[DEV]` | Local baseline and P1-P10 runtime boundaries complete; technical production in progress | Finish production hardening, artifacts, infrastructure, deployment, approved clients, operational surfaces, and Public v1 gates |
+| `[DEV]` | Local baseline, P1-P10 runtime boundaries, and the P11 hardening specification complete; technical production in progress | Finish P11 implementation, artifacts, infrastructure, deployment, approved clients, operational surfaces, and Public v1 gates |
 
 Design and Development proceed in parallel. Production UI implementation is gated by the applicable approved Design baseline; backend, infrastructure, contract discovery, and other non-visual work may proceed earlier when their own blockers are closed.
 
@@ -135,7 +135,8 @@ flowchart TD
   phase0["✓ Phase 0: stable main and CI baseline"]
   runtime["✓ P1-P10 runtime boundaries"]
 
-  p11["#23 P11 SSRF and streaming hardening"]
+  p11["✓ #23 P11 hardening specification"]
+  p11Implementation["#37 → #38 → #39 → #40 P11 implementation"]
   p12["#25 P12 production artifact matrix"]
   localstack["#26 LocalStack S3 acceptance closure"]
   frontendAudit["#24 Reusable non-visual frontend contracts"]
@@ -168,7 +169,8 @@ flowchart TD
   owner --> infra
   p12 --> infra
 
-  p11 --> candidate
+  p11 --> p11Implementation
+  p11Implementation --> candidate
   p12 --> candidate
   infra --> candidate
   localstack --> candidate
@@ -198,12 +200,15 @@ flowchart TD
   classDef result fill:#ede9fe,stroke:#7c3aed,color:#4c1d95
 
   class phase0,runtime complete
-  class p11,p12,localstack,frontendAudit,mobileResearch ready
+  class p11 complete
+  class p11Implementation,p12,localstack,frontendAudit,mobileResearch ready
   class infraRefine,owner refine
   class infra,candidate,security,technical blocked
   class design,web,mobile,webBeta,mobileBeta,designOps,ops,beta gated
   class result result
 ```
+
+The P11 specification in [#23](https://github.com/starkovalera/recipe-manager/issues/23) is complete in merged PR [#49](https://github.com/starkovalera/recipe-manager/pull/49). The remaining implementation gate is the native-blocked child chain [#37](https://github.com/starkovalera/recipe-manager/issues/37) → [#38](https://github.com/starkovalera/recipe-manager/issues/38) → [#39](https://github.com/starkovalera/recipe-manager/issues/39) → [#40](https://github.com/starkovalera/recipe-manager/issues/40).
 
 ### Development result
 
@@ -231,12 +236,15 @@ The exact infrastructure diagram remains conditional in three places: native cli
 
 ## Keeping this roadmap current
 
-After a work block or its executable issue is completed:
+After a work block or its executable issue changes status, especially after a
+merged pull request:
 
 1. update the owning detailed roadmap or architecture document;
 2. update the corresponding node and status in this overview, marking completed blocks with `✓` and recording the concrete result;
-3. revise the graph only when a real dependency, outcome, or release gate changes;
+3. revise the graph when a real dependency, outcome, or release gate changes;
 4. update the target architecture diagram when an open architecture decision closes;
-5. keep GitHub issue bodies and native blocker edges authoritative for execution details.
+5. refresh task links, status references, and open questions in the affected documents;
+6. keep GitHub issue bodies and native blocker edges authoritative for execution details; close the issue only when its own acceptance criteria and required scope are complete, leaving unfinished child work tracked separately.
 
+The task lifecycle requires this synchronization before completion is handed off.
 This document is the human-readable project map, not a second issue tracker.

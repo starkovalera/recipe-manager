@@ -79,6 +79,10 @@ Start project planning from `docs/roadmap.md`. Active issues follow the `[DESIGN
 
 Repository tasks that change files or produce a project artifact follow [`docs/agents/task-lifecycle.md`](docs/agents/task-lifecycle.md). It defines the required sequence for preflight, unresolved-question handling, contract and plan, human gates, implementation, verification and refactoring, future-work capture, PR publication, and post-merge documentation. Answer-only and status-only requests are exempt.
 
+### Short command protocol
+
+When a user message starts with `#rebase-main`, `#lifecycle`, `#status`, `#refactor`, `#next`, or `#cmd`, read [`docs/agents/command-dictionary.md`](docs/agents/command-dictionary.md) before acting. It defines command recognition, target resolution, side effects, approval gates, and result reporting. Natural-language `merged` messages and merged-PR links remain triggers for the post-merge rules in [`docs/agents/task-lifecycle.md`](docs/agents/task-lifecycle.md).
+
 ### Future-work TODO shorthand
 
 When the user says “добавь в todo”, “добавь в туду”, or “add to todo”, record the item in the matching canonical document under [`docs/future/`](docs/future/README.md). Preserve the document's funnel stage and enough context to support later refinement. Use the existing capability files first: `import-and-ai.md`, `operations-and-lifecycle.md`, `product-expansion.md`, `list-and-review-ux.md`, `search-evolution.md`, or `youtube-video-import.md`; if no file fits, create a new capability document and add it to `docs/future/README.md`. The umbrella refinement and prioritization task is [#33](https://github.com/starkovalera/recipe-manager/issues/33). Treat this shorthand as a documentation capture request; create or update a GitHub issue only when the user separately asks for a task or an explicit refinement decision promotes the item under `docs/agents/planning.md`.
