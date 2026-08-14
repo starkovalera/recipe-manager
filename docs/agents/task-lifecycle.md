@@ -35,7 +35,7 @@ If no implementation questions remain, state that the existing task contract is 
 Before implementation, present the user with:
 
 - the contract: scope, inputs, outputs, invariants, state or persistence effects, public interfaces, errors, side effects, and acceptance criteria;
-- the plan: ordered work blocks, touched areas, dependencies, verification, documentation updates, and the expected result;
+- the plan: ordered work blocks, touched areas, dependencies, the canonical documents that must change in the same pull request, verification, and the expected result;
 - any assumptions or decisions that need explicit approval.
 
 Use [`planning.md`](planning.md) for issue hierarchy, readiness, blockers, and acceptance conventions. Pause for approval when an open decision would materially change the requested scope or contract.
@@ -53,6 +53,8 @@ Tell the user about required pre-task actions before implementation. If such an 
 ## 5. Implement the scoped work
 
 Implement only the approved contract. Preserve unrelated worktree changes, keep production and design boundaries intact, and update task-specific source-of-truth documents when the work changes a decision, contract, or operational rule.
+
+When the task changes a decision, contract, plan step, status, architecture record, or issue link, update every affected canonical document in the same branch and pull request before publication. Separate commits are allowed when they make the review clearer; the merge must deliver the implementation and its documentation state together.
 
 Prefer the highest stable verification seam for the workstream. Do not turn a prototype, mock, or design artifact into production code without an approved design-to-implementation scope.
 
@@ -93,9 +95,11 @@ For repository changes, create or update a commit, push the feature branch, and 
 
 The pull request should link the task and summarize the contract, delivered result, verification, refactoring outcome, human actions, future-work disposition, and documentation impact. Keep the PR draft unless the user explicitly asks for a ready-for-review PR.
 
-**Done when:** the feature branch and PR contain exactly the intended changes, the PR has the verification and handoff information, and the local worktree status is known.
+Before opening or updating the pull request, complete the documentation synchronization for the task in that same pull request. This includes the owning detailed roadmap, [`docs/roadmap.md`](../roadmap.md), applicable architecture or design records, task links, completion marks, and open-question updates. Use the relevant link and consistency checks as part of verification.
 
-## 9. Synchronize documentation after merge
+**Done when:** the feature branch and PR contain exactly the intended implementation and documentation changes, the PR has the verification and handoff information, and the local worktree status is known.
+
+## 9. Verify documentation and state after merge
 
 The post-merge sequence is triggered when any of the following occurs:
 
@@ -117,15 +121,13 @@ source of truth for the post-merge sequence.
 After a merge, and whenever the task's GitHub status changes as part of
 completion:
 
-1. Fetch the latest `origin/main` and create a documentation-maintenance branch if the updates are not already part of the merged PR.
-2. Update the owning detailed roadmap, architecture or design documents, and every document where the plan steps or task links are reflected.
-3. Update the corresponding node and status in [`docs/roadmap.md`](../roadmap.md), mark the completed work with `✓`, and record the concrete result.
-4. Update the target architecture diagram when an open architecture decision closed, and update unresolved questions when the merged result answers or changes them.
-5. Refresh issue links and execution status without duplicating GitHub's native blocker or acceptance data.
-6. When the merged result satisfies the issue's own acceptance criteria and no required work remains in that issue's scope, close the corresponding GitHub issue. Do not close a parent or containment issue solely because a planning or specification PR merged while required child implementation remains; keep it open until its own scope is complete.
-7. Publish these documentation-maintenance changes through the normal PR flow when a new change is required.
+1. Verify the actual GitHub merge state, then fetch the latest `origin/main`.
+2. Inspect the merged pull request and `origin/main` to confirm that the required roadmap, detailed planning, architecture/design, task-link, completion-mark, and open-question updates are already part of the merged result.
+3. Verify issue state, labels, assignees, native blockers, child issues, and acceptance evidence without duplicating GitHub's native data in documentation.
+4. When the merged result satisfies the issue's own acceptance criteria and no required work remains in that issue's scope, close the corresponding GitHub issue. Do not close a parent or containment issue solely because a planning or specification PR merged while required child implementation remains; keep it open until its own scope is complete.
+5. If a required documentation update is missing, report the original pull request as incomplete and obtain explicit scope for any follow-up. The routine post-merge checkpoint does not create a documentation-maintenance branch or pull request.
 
-**Done when:** the merged result, roadmap, detailed planning documents, architecture/design records, task links, completion marks, issue state, and open-question lists agree, with no stale plan step presented as current work.
+**Done when:** the merged pull request, `origin/main`, roadmap, detailed planning documents, architecture/design records, task links, completion marks, issue state, and open-question lists agree, with no stale plan step presented as current work.
 
 ## Source-of-truth map
 
