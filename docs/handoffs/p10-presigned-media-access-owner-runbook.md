@@ -32,12 +32,12 @@ live-AWS checks below.
 - A static search found no `HeadObject`/`head_object` reference in production
   `backend/app`. No real credentials or signed URLs were recorded.
 
-The following LocalStack owner steps remain open: complete PREVIEW stack startup,
-Clerk sign-in, fresh import, browser Network/direct-CORS checks, the authenticated
-partial-success/foreign-reference flow, and backend/worker/KrakenD log inspection.
-The Live S3 section remains a separate owner prerequisite and must use a disposable
-private bucket plus an authorized short-lived/local AWS profile; record evidence,
-never secret values.
+The dated browser tier below now covers PREVIEW stack startup, Clerk sign-in, fresh
+import, browser Network/direct-CORS evidence, and UI/direct-S3 rendering. The
+authenticated browser partial-success/foreign-reference case and a complete
+backend/worker/KrakenD/LocalStack log packet remain open. The Live S3 section
+remains a separate owner prerequisite and must use a disposable private bucket plus
+an authorized short-lived/local AWS profile; record evidence, never secret values.
 
 ## LOCAL / PREVIEW
 
@@ -75,6 +75,36 @@ Clerk development test users and must not be used for non-test accounts.
 This tier exercises the real boto3 S3 adapters, storage keys, presigned URLs,
 browser CORS, signature expiry, and direct browser downloads without an AWS
 account. It does not replace the Live S3 checks for IAM and AWS infrastructure.
+
+### Agent-run browser evidence — 2026-08-14
+
+The ephemeral PREVIEW run used the documented S3 overrides, LocalStack on
+`127.0.0.1:4566`, the normal gateway, and a seeded Clerk development user.
+
+- The browser completed the Clerk email-code flow: **Email code to ...** followed
+  by `424242`; the protected recipe page loaded and `/me/provision` completed.
+- The import form accepted one local PNG upload together with a supported public
+  URL and manual text. The gateway returned `POST /imports` with `202`, and the
+  worker accepted one attachment. The job finished as `succeeded_with_flags` and
+  created a disposable recipe with fresh S3-backed image rows and objects.
+- Browser Network showed the gateway CORS preflight for `/media/access` returning
+  `204`, the grant request returning `200` with the configured frontend origin,
+  and direct image GETs to the LocalStack S3 host returning `200` with image
+  bytes. The browser observed no `mediaUrl` or storage-key fields in the access
+  response shape.
+- The recipe hero, current cover, source image cards, and image preview modal
+  rendered. The default SVG loaded from the frontend and did not produce a
+  media-access request. The loaded S3 images reported natural sizes of `1200x780`,
+  `1440x1292`, and `1200x800`.
+- The disposable recipe was deleted after the check; the Preview recipe list was
+  empty afterward. The targeted `backend/tests/api/test_media.py` module passed
+  with `3 passed, 1 warning`.
+
+This evidence does not close the remaining browser gap: an authenticated
+multi-user request containing an owned item plus a missing or foreign ID, followed
+by explicit item-level `MEDIA_NOT_FOUND` confirmation, still needs to be recorded.
+The full sanitized backend/worker/KrakenD/LocalStack log packet and the Live S3
+tier also remain open.
 
 1. Add the documented LocalStack S3 overrides to ignored `backend/.env`.
 2. Start LocalStack from the repository root:
