@@ -1,10 +1,10 @@
 # LocalStack S3 Smoke Testing Implementation Plan
 
-> **Implementation/verification record:** PR #15 implemented the LocalStack service, configuration, integration tests, and runbook while adding this plan. Unchecked boxes preserve the original plan and are not proof of missing code. The active issue is to run and record acceptance, reconcile every checkbox against the repository, and keep live-AWS-only verification separate. Complete the shared [`Development Task Completion Checkpoint`](../agents/task-completion.md) if that closure task changes code.
+> **Implementation/verification record:** PR #15 implemented the LocalStack service, configuration, integration tests, and runbook while adding this plan. Unchecked boxes preserve the original plan and are not proof of missing code. PR [#58](https://github.com/starkovalera/recipe-manager/pull/58) records the LocalStack + PREVIEW closure; live-AWS-only verification is extracted to [#59](https://github.com/starkovalera/recipe-manager/issues/59). Complete the shared [`Development Task Completion Checkpoint`](../agents/task-completion.md) if that closure task changes code.
 
 ## Acceptance closure — 2026-08-14
 
-The LocalStack functional tier is verified on branch `codex/issue-26-localstack-acceptance`, based on `origin/main` at `3611632b325b314d292a59433483bc6596c2c21d`. The original implementation checklist below is retained for traceability; every checkbox now carries an explicit status. `Implemented in PR #15` means the code or documentation exists in the current repository and was not re-created by this closure task. `Verified` means the command or behavior was exercised during this acceptance run. `Owner prerequisite` and `Live AWS only` remain intentionally open.
+The LocalStack functional tier and the signed-in PREVIEW/browser tier are verified in draft PR [#58](https://github.com/starkovalera/recipe-manager/pull/58). The original implementation checklist below is retained for traceability; every checkbox now carries an explicit status. `Implemented in PR #15` means the code or documentation exists in the current repository and was not re-created by this closure task. `Verified` means the command or behavior was exercised during this acceptance run. The AWS-only boundary remains intentionally open in [#59](https://github.com/starkovalera/recipe-manager/issues/59).
 
 ### Deterministic evidence
 
@@ -16,17 +16,19 @@ The LocalStack functional tier is verified on branch `codex/issue-26-localstack-
 - Frontend and gateway checks: `14 passed` test files / `71 passed` tests; TypeScript typecheck and production build passed; `make gateway-check` passed with `50` KrakenD endpoints.
 - Opt-in LocalStack module: with `AWS_ACCESS_KEY_ID=test`, `AWS_SECRET_ACCESS_KEY=test`, and `RUN_LOCALSTACK_INTEGRATION=1`, `4 passed in 10.65s`.
 - The missing-object test received a direct grant and observed LocalStack `404`; the expiry test observed `200` before expiry and `403` after a shortened five-second TTL. Production `backend/app` contains no `HeadObject`/`head_object` match.
+- The signed-in browser accepted the email-code flow, rendered a real LocalStack-backed PNG at `1440x1292`, returned HTTP `200` for an owned/foreign/missing batch with one grant and two `MEDIA_NOT_FOUND` items, refreshed the 60-second grant after its browser refresh window, and exercised a dangling database row without a grant-time object lookup.
+- Targeted authorization/service tests passed `6 passed, 1 warning`; disposable database rows and LocalStack objects were removed afterward and the Preview recipe list was empty.
 - No real credentials were used or committed. The only credential literals in tracked documentation/configuration are the fixed LocalStack test values `test`, supplied through the process environment or Compose.
 
 ### Intentionally unverified boundaries
 
-- The complete PREVIEW stack (PostgreSQL, Redis, Adminer, KrakenD, FastAPI, Dramatiq, Vite), Clerk sign-in, fresh import, browser Network checks, partial-success authorization flow, and application-log inspection remain owner-run steps in the runbook.
-- Live AWS IAM, Block Public Access enforcement, CloudTrail, AWS networking/TLS, exact AWS missing-object authorization, and production S3 verification remain open. The owner must provide a disposable private bucket, region, and an authorized short-lived/local AWS profile with the minimum required permissions; secret values must not be placed in the repository.
+- Live AWS IAM, Block Public Access enforcement, CloudTrail, AWS networking/TLS, exact AWS missing-object authorization, and production S3 verification remain open in [#59](https://github.com/starkovalera/recipe-manager/issues/59). The owner must provide a disposable private bucket, region, and an authorized short-lived/local AWS profile with the minimum required permissions; secret values must not be placed in the repository.
+- The local PREVIEW request logger currently includes a local `databaseUrl` field. The media evidence contains no presigned URL, query signature, or storage key, but this is not a production log-hygiene approval.
 
 ### Development Task Completion Checkpoint
 
 - This closure changes documentation only; no backend production or backend test files changed, so the backend refactoring review is not applicable.
-- Documentation verification passed: `git diff --check` and relative Markdown-link resolution for the changed plan/runbook.
+- Documentation verification passed: `git diff --check` and relative Markdown-link resolution for the changed roadmap, architecture, plan, and runbook documents.
 - No new speculative future-work item was discovered. The unverified browser/full-PREVIEW and live-AWS actions are existing owner boundaries recorded above and in the runbook.
 
 **Goal:** Add an opt-in local S3 environment that exercises the existing storage and presigned-media flows through LocalStack without requiring an AWS account or weakening production configuration.
@@ -416,11 +418,11 @@ pnpm run build
 
 Then run the repository's existing KrakenD validation command documented by the current gateway test setup.
 
-- [ ] **Step 3: Start the complete PREVIEW + LocalStack stack** — **owner prerequisite**; the full PostgreSQL/Redis/Adminer/KrakenD/FastAPI/Dramatiq/Vite stack and Clerk sign-in were not run in this closure.
+- [x] **Step 3: Start the complete PREVIEW + LocalStack stack** — **verified**; the full PostgreSQL/Redis/Adminer/KrakenD/FastAPI/Dramatiq/Vite stack, Clerk email-code sign-in, and LocalStack health were exercised in the browser run.
 
 Start PostgreSQL, Redis, Adminer, KrakenD, LocalStack, FastAPI, Dramatiq, and Vite using the documented commands. Confirm KrakenD `/__health`, backend `/health`, LocalStack health, and frontend sign-in before testing imports.
 
-- [ ] **Step 4: Create fresh S3-backed data** — **owner prerequisite**; requires the signed-in PREVIEW stack and a fresh import, which were not run in this closure.
+- [x] **Step 4: Create fresh S3-backed data** — **verified**; the signed-in PREVIEW import evidence in the runbook recorded fresh S3-backed rows/objects and disposable cleanup.
 
 Import a new image or supported URL after S3 mode is active. Do not use recipes created under LOCAL storage, because their database keys may exist while the corresponding LocalStack objects do not.
 
@@ -430,7 +432,7 @@ Verify the canonical object key appears under the user-media bucket:
 docker compose --profile local-s3 exec localstack awslocal s3 ls s3://recipe-manager-local-user-media --recursive
 ```
 
-- [ ] **Step 5: Verify the grant contract** — **owner prerequisite**; automated provider tests verify the direct grant and expiry metadata, but browser Network inspection of `/media/access` remains open.
+- [x] **Step 5: Verify the grant contract** — **verified**; browser Network observed HTTP `200`, `accessMode=direct`, approximately 60-second expiry, stable IDs in the request shape, and no `mediaUrl` or storage-key fields.
 
 In browser Network, inspect successful `POST /media/access`:
 
@@ -441,23 +443,23 @@ In browser Network, inspect successful `POST /media/access`:
 - response contains no bucket name or storage key outside the signed URL;
 - the recipe/media domain responses expose stable IDs rather than storage keys.
 
-- [ ] **Step 6: Verify direct browser retrieval** — **owner prerequisite**; host-side `httpx` retrieval passed, while the actual browser/CORS path remains open.
+- [x] **Step 6: Verify direct browser retrieval** — **verified**; the image GET went directly to the LocalStack S3 host, returned `image/png` with HTTP `200`, and decoded in the browser at `1440x1292`.
 
 Open the presigned request in Network and confirm its remote address is LocalStack `:4566`, not KrakenD `:8081` or FastAPI `:8010`. Confirm the expected MIME type and bytes are returned.
 
-- [ ] **Step 7: Verify partial success and normalized authorization failures** — **owner prerequisite**; the authenticated API flow with owned, missing, and foreign IDs was not run in the full PREVIEW stack.
+- [x] **Step 7: Verify partial success and normalized authorization failures** — **verified**; the authenticated batch returned one owned grant and indistinguishable `MEDIA_NOT_FOUND` items for foreign and missing IDs.
 
 Request one owned stable media ID plus `missing-p10-media-id`. Confirm HTTP `200`, one grant, and one `MEDIA_NOT_FOUND`. Repeat with a known foreign ID and confirm its item is indistinguishable from the missing-ID item.
 
-- [ ] **Step 8: Verify expiry** — **owner prerequisite for the documented full 60-second browser flow**; the automated shortened-TTL expiry check passed.
+- [x] **Step 8: Verify expiry** — **verified**; the five-second LocalStack test rejected the old URL, and the browser refreshed its normal 60-second grant after the refresh window with a new HTTP `200` access response.
 
 Save one signed URL, wait more than 60 seconds, and request it again. Confirm the old URL is rejected. Request a fresh grant through `/media/access` and confirm the new URL retrieves the bytes.
 
-- [ ] **Step 9: Verify a dangling DB reference** — **owner prerequisite**; the provider-level missing-object/no-preflight check passed, but the database-row/API scenario remains open.
+- [x] **Step 9: Verify a dangling DB reference** — **verified**; the owned database row retained a direct grant without `HeadObject`, while the deleted LocalStack object failed only at retrieval.
 
 Delete an object's bytes through `awslocal` while leaving its owned database row intact. Request `/media/access` and confirm it still returns a direct signed grant without `HeadObject`; requesting that URL from LocalStack returns the emulator's missing-object response.
 
-- [ ] **Step 10: Inspect logs** — **owner prerequisite**; the complete application/worker/KrakenD log inspection was not run. Static production search found no `HeadObject` implementation match.
+- [x] **Step 10: Inspect logs** — **verified for the media boundary**; sanitized media evidence contained no signed URL, query signature, or storage key, LocalStack direct GETs were observed, and static production search found no `HeadObject`. Existing PREVIEW logs still include a local `databaseUrl`, so production log hygiene remains outside this closure.
 
 Search backend, worker, KrakenD, and LocalStack logs. Confirm backend/application logs contain no full presigned URL, signature, bucket name, or storage key. Confirm LocalStack records direct GETs and no application-triggered `HeadObject` for grant creation.
 
@@ -478,14 +480,14 @@ Record exact check totals and manual outcomes. Mark LocalStack functional verifi
 - [x] PROD rejects `AWS_ENDPOINT_URL_S3` — **verified** by the focused configuration tests.
 - [x] No AWS credential fields were added to application settings — **verified** by the settings contract and tracked-file review.
 - [x] Two distinct private local buckets are initialized idempotently — **verified** by bucket listing, public-access-block/ACL checks, and a successful init-hook rerun.
-- [x] Browser CORS permits direct GETs from both supported Vite origins — **verified** by the LocalStack CORS response; actual browser execution remains an owner step.
+- [x] Browser CORS permits direct GETs from both supported Vite origins — **verified** by the LocalStack CORS response and the signed-in browser image GET.
 - [x] Existing CI suites run without LocalStack — **verified** by the full backend suite, frontend suite/build, and gateway validation run before the LocalStack integration.
-- [ ] Fresh imports write canonical keys to the LocalStack user-media bucket — **owner prerequisite**; the full signed-in import flow was not run.
-- [x] `/media/access` returns 60-second direct grants — **verified** at the provider seam (`55–65s` metadata window); browser API inspection remains an owner step.
-- [ ] Browser retrieves bytes directly from LocalStack — **owner prerequisite**; host-side direct presigned GET passed, but no signed-in browser session was available.
-- [ ] Missing and foreign references remain indistinguishable — **owner prerequisite**; the authenticated database/API flow was not run.
-- [ ] Partial success preserves successful grants — **owner prerequisite**; the authenticated database/API flow was not run.
-- [x] Expired URLs fail and fresh grants work — **verified** by the opt-in integration with a shortened five-second TTL; the full 60-second browser timing remains an owner step.
+- [x] Fresh imports write canonical keys to the LocalStack user-media bucket — **verified** by the signed-in PREVIEW import evidence in the runbook; disposable rows/objects were removed after the check.
+- [x] `/media/access` returns 60-second direct grants — **verified** at the provider seam (`55–65s` metadata window) and in browser Network with a refresh response.
+- [x] Browser retrieves bytes directly from LocalStack — **verified** by a signed-in browser GET returning `image/png` and decoding at `1440x1292`.
+- [x] Missing and foreign references remain indistinguishable — **verified** by the authenticated batch response.
+- [x] Partial success preserves successful grants — **verified** by the same authenticated batch response.
+- [x] Expired URLs fail and fresh grants work — **verified** by the opt-in five-second expiry test plus the browser's normal 60-second refresh window.
 - [x] A missing object still receives a grant without a preflight `HeadObject` — **verified** by the missing-object integration and no production `HeadObject`/`head_object` match.
-- [ ] Logs do not expose signed URLs or signatures — **owner prerequisite**; full application/worker/KrakenD log inspection was not run.
+- [x] Logs do not expose signed URLs or signatures in the media evidence — **verified**; the existing local Preview `databaseUrl` field is explicitly not approved for production logging.
 - [x] Live AWS-specific verification remains explicitly separate — **verified** by the runbook and the owner-prerequisite statement above.

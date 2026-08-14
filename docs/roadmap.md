@@ -138,7 +138,8 @@ flowchart TD
   p11["✓ #23 P11 hardening specification"]
   p11Implementation["#37 → #38 → #39 → #40 P11 implementation"]
   p12["✓ #25 P12 production artifact matrix"]
-  localstack["#26 LocalStack S3 acceptance closure"]
+  localstack["#26 LocalStack + Preview acceptance closure"]
+  liveAws["#59 Live AWS S3/provider verification"]
   frontendAudit["#24 Reusable non-visual frontend contracts"]
   mobileResearch["#27 Native client architecture research"]
   infraRefine["#31 Terraform/OpenTofu and AWS foundation refinement"]
@@ -167,6 +168,7 @@ flowchart TD
   owner -. owner inputs .-> infraRefine
   infraRefine --> infra
   owner --> infra
+  owner --> liveAws
   p12 --> infra
 
   p11 --> p11Implementation
@@ -176,6 +178,7 @@ flowchart TD
   localstack --> candidate
   candidate --> security
   security --> technical
+  liveAws --> technical
 
   design --> web
   design --> mobile
@@ -200,9 +203,9 @@ flowchart TD
   classDef result fill:#ede9fe,stroke:#7c3aed,color:#4c1d95
 
   class phase0,runtime complete
-  class p11,p12 complete
-  class p11Implementation,localstack,frontendAudit,mobileResearch ready
-  class infraRefine,owner refine
+  class p11,p12,localstack complete
+  class p11Implementation,frontendAudit,mobileResearch ready
+  class liveAws,infraRefine,owner refine
   class infra,candidate,security,technical blocked
   class design,web,mobile,webBeta,mobileBeta,designOps,ops,beta gated
   class result result
@@ -212,6 +215,8 @@ The P11 specification in [#23](https://github.com/starkovalera/recipe-manager/is
 
 The P12 artifact matrix in [#25](https://github.com/starkovalera/recipe-manager/issues/25) is complete in merged PR [#52](https://github.com/starkovalera/recipe-manager/pull/52). It defines six production image artifacts, shared packaging and runtime invariants, compatibility triggers, release identity, rollback rules, and the independently verifiable implementation children [#41](https://github.com/starkovalera/recipe-manager/issues/41)–[#47](https://github.com/starkovalera/recipe-manager/issues/47). Those implementation children remain the active P12 work.
 
+LocalStack and Preview acceptance for [#26](https://github.com/starkovalera/recipe-manager/issues/26) is recorded in draft PR [#58](https://github.com/starkovalera/recipe-manager/pull/58). The real-provider boundary is intentionally separate in [#59 — Verify Live AWS S3 media access boundaries](https://github.com/starkovalera/recipe-manager/issues/59): [#30](https://github.com/starkovalera/recipe-manager/issues/30) is its owner-input blocker, and #59 gates technical production smoke without blocking #31 refinement or the other independent Phase 1 work.
+
 ### Development result
 
 The Development track ends with Public v1: a deployable and operated production system, approved responsive web and native mobile clients, implemented operational surfaces, a passed release-candidate security gate, and recorded beta-readiness/release evidence. Technical production alone produces internal infrastructure and does not constitute a product beta.
@@ -220,7 +225,7 @@ The Development track ends with Public v1: a deployable and operated production 
 
 The source-of-truth architecture diagram is maintained in [`Production Architecture — roadmap end-state view`](architecture/production-architecture.md#roadmap-end-state-view). The logical topology is sufficiently known to draw now: web and mobile use one API boundary, FastAPI owns domain authorization, queues and Lambdas own durable background work, Neon owns durable relational state, S3 owns private media, and Clerk/Flagsmith provide cross-cutting services.
 
-The exact infrastructure diagram remains conditional in three places: native client stack and delivery ([#27](https://github.com/starkovalera/recipe-manager/issues/27)), Terraform/OpenTofu plus the Lightsail/EC2 deployment mechanism ([#31](https://github.com/starkovalera/recipe-manager/issues/31)), and owner-provided cloud/account/domain/secret prerequisites ([#30](https://github.com/starkovalera/recipe-manager/issues/30)). Those open decisions are shown explicitly in the architecture source instead of being guessed here.
+The exact infrastructure diagram remains conditional in three places: native client stack and delivery ([#27](https://github.com/starkovalera/recipe-manager/issues/27)), Terraform/OpenTofu plus the Lightsail/EC2 deployment mechanism ([#31](https://github.com/starkovalera/recipe-manager/issues/31)), and owner-provided cloud/account/domain/secret prerequisites ([#30](https://github.com/starkovalera/recipe-manager/issues/30)). Those open decisions are shown explicitly in the architecture source instead of being guessed here. Separately, [#59](https://github.com/starkovalera/recipe-manager/issues/59) validates the real AWS provider boundary after #30; it is a production gate, not a topology decision or a blocker for #31 refinement.
 
 ## Human-facing project documents
 

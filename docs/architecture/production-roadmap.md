@@ -13,7 +13,8 @@ This is the canonical current plan for the `[DEV]` track. Detailed architecture 
 | P1-P10 runtime boundaries | Complete | Merged PRs #4 and #6-#15; current architecture and subject contracts |
 | P11 SSRF and streaming hardening | Specification complete; implementation pending | Specification and child graph merged in PR [#49](https://github.com/starkovalera/recipe-manager/pull/49); implementation is tracked by [#37](https://github.com/starkovalera/recipe-manager/issues/37) → [#38](https://github.com/starkovalera/recipe-manager/issues/38) → [#39](https://github.com/starkovalera/recipe-manager/issues/39) → [#40](https://github.com/starkovalera/recipe-manager/issues/40) |
 | P12 production Docker artifacts | Not started | First remaining Phase 1 packaging slice |
-| LocalStack S3 smoke | Implemented; closure evidence missing | PR #15 added the service, config, integration tests, and runbook; the unchecked plan has no recorded automated/manual acceptance result |
+| LocalStack S3 + PREVIEW acceptance | Evidence recorded | PR #15 added the service/config/tests; draft PR [#58](https://github.com/starkovalera/recipe-manager/pull/58) records the LocalStack and signed-in browser checks |
+| Live AWS S3/provider verification | Ready for human; blocked by owner inputs | [#59](https://github.com/starkovalera/recipe-manager/issues/59) requires #30 prerequisites and gates technical production smoke without blocking #31 refinement |
 | Terraform, IAM, secrets | Not started | May begin in parallel with P11/P12 where runtime contracts are already fixed |
 | Technical production and CD | Blocked | Requires deployable artifacts, infrastructure, and hardening gates |
 | Production release-candidate security audit | Blocked | Runs against the exact production build and configuration after its blockers close; production release cannot proceed with unresolved release-blocking findings |
@@ -134,7 +135,7 @@ Iteration 11 covers P11. Harden every remote-fetch and streaming boundary agains
 
 Iteration 12 covers P12. Produce independently buildable production artifacts for FastAPI and each Lambda entrypoint, with pinned runtime dependencies, non-root/minimal execution where applicable, deterministic build metadata, local invocation checks, and CI validation. Artifact construction does not provision AWS resources.
 
-LocalStack S3 implementation landed with P10. The remaining local task is to run and record automated/manual acceptance, reconcile the stale unchecked plan, and preserve the separate live-AWS verification gap. It does not block starting P11 or P12, but live AWS IAM and bucket-policy verification must close during technical production.
+LocalStack S3 implementation landed with P10, and its LocalStack/PREVIEW acceptance is recorded in draft PR #58. The real-provider gap is separated into [#59](https://github.com/starkovalera/recipe-manager/issues/59). It does not block starting P11 or P12, and it does not block #31 infrastructure refinement, but live AWS IAM, bucket-policy, and provider-boundary verification must close before technical production smoke.
 
 ## Phase 2 — Terraform, IAM, and Secrets Foundation
 
@@ -192,6 +193,8 @@ flowchart TD
   p10 --> p12["[DEV][INFRA] P12 production artifacts"]
   p10 --> localstack["[DEV][INFRA] LocalStack S3 smoke"]
   p10 --> tfFoundation["[DEV][INFRA] Terraform state, OIDC, and conventions"]
+  ownerInputs["[DEV][INFRA] Owner-controlled production prerequisites (#30)"]
+  ownerInputs --> liveAws["[DEV][INFRA] Live AWS S3/provider verification (#59)"]
 
   tfFoundation --> cloudResources["[DEV][INFRA] Provision queues, storage, compute, network, observability"]
   p12 --> cloudResources
@@ -202,6 +205,7 @@ flowchart TD
   localstack --> releaseCandidate
   releaseCandidate --> security["[DEV][OPS] Audit release-candidate security and remediate"]
   security --> technicalProd["[DEV][OPS] Production deployment and smoke"]
+  liveAws --> technicalProd
 
   designCore["Core Design Baseline v1"] --> web["[DEV][FRONTEND] Core responsive web"]
   designCore --> mobile["[DEV][MOBILE] Core native mobile"]
@@ -223,7 +227,8 @@ The following workstreams may start concurrently once represented by approved is
 
 - P11 implementation children for SSRF and streaming hardening;
 - P12 production Docker and Lambda artifacts;
-- LocalStack S3 smoke verification;
+- LocalStack S3 + PREVIEW acceptance is recorded in draft PR #58;
+- Live AWS S3/provider verification in #59 after owner inputs in #30;
 - Terraform remote state, GitHub OIDC, module conventions, and environment layout;
 - non-visual contract discovery required by the Design track;
 - Future Capability investigation that does not change first-version scope.
@@ -234,7 +239,7 @@ Cloud resource provisioning is blocked only where it needs P12 artifact contract
 
 | Next executable or refinement issue | Readiness | Outcome / blocker |
 | --- | --- | --- |
-| `[DEV][INFRA] Run and record LocalStack S3 automated acceptance` | Agent-ready | Implementation and tests exist; Docker client/server 29.5.3 availability was confirmed on 2026-08-13; run acceptance and reconcile the stale plan |
+| `[DEV][INFRA] Run and record LocalStack S3 + PREVIEW acceptance` | Evidence recorded | [Draft PR #58](https://github.com/starkovalera/recipe-manager/pull/58) records the automated and signed-in browser acceptance; live AWS is intentionally separate |
 | `[DEV][BACKEND] Inventory P11 fetch boundaries and write the hardening specification` | Complete | [PR #49](https://github.com/starkovalera/recipe-manager/pull/49) merged the versioned specification, caller matrix, threat model, rejected alternatives, deterministic verification contract, and child issue graph |
 | P11 implementation children | Agent-ready | [#37](https://github.com/starkovalera/recipe-manager/issues/37) → [#38](https://github.com/starkovalera/recipe-manager/issues/38) → [#39](https://github.com/starkovalera/recipe-manager/issues/39) → [#40](https://github.com/starkovalera/recipe-manager/issues/40) are created with native blockers and acceptance criteria |
 | `[DEV][INFRA] Inventory P12 deployables and write the artifact matrix` | Complete | [PR #52](https://github.com/starkovalera/recipe-manager/pull/52) merged the [P12 artifact matrix](../specs/2026-08-14-p12-production-artifact-matrix.md), recording six image artifacts, compatibility triggers, rollback identity, and child issues #41–#47 |
@@ -245,4 +250,4 @@ Cloud resource provisioning is blocked only where it needs P12 artifact contract
 | AWS account, MFA/billing, production projects, domains, and secret values | Ready for human | Complete the applicable owner actions in [`../production-prerequisites.md`](../production-prerequisites.md); record identifiers and secret references, never secret values |
 | `[DEV][OPS] Audit the production release candidate and remediate security findings` | Blocked release gate | Requires the exact production artifacts, dependency locks, IaC, gateway and deployment configuration; blocks production release until Critical/High and other declared release blockers are fixed and checks rerun |
 | Core responsive-web and native-mobile implementation children | Blocked | Require the applicable approved Design Baseline and platform-specific implementation handoff |
-| Live AWS S3/IAM/Block Public Access verification | Ready for human prerequisite | Requires a disposable private AWS bucket and authorized local/CI AWS profile before an agent can run the checks |
+| [#59 — Verify Live AWS S3 media access boundaries](https://github.com/starkovalera/recipe-manager/issues/59) | Ready for human; blocked by #30 | Requires a disposable private AWS bucket and authorized local/CI AWS profile; gates technical production smoke and does not block #31 refinement |
