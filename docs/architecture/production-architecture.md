@@ -162,6 +162,10 @@ account-deletion Lambda changes
 
 Use path-based CI filters plus an explicit dependency map.
 
+The concrete P12 image matrix, runtime invariants, migration ownership, release
+identity, and artifact compatibility triggers are maintained in
+[`P12 Production Artifact Matrix`](../specs/2026-08-14-p12-production-artifact-matrix.md).
+
 Backend and Lambda code should remain together because they share:
 
 - SQLAlchemy models;
