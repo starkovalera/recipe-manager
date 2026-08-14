@@ -1,9 +1,9 @@
 # Product Design Roadmap
 
-Updated: 2026-08-13
+Updated: 2026-08-14
 Status: Core Design Baseline v1 in progress
 
-This is the canonical current plan for the `[DESIGN]` track. It covers responsive web and native mobile product design. Platform-specific navigation, gestures, overlays, keyboard behavior, and density may differ while preserving shared product concepts and visual continuity where appropriate.
+This is the canonical current plan for the `[DESIGN]` track. It covers responsive web and native mobile product design. Platform-specific navigation, gestures, overlays, keyboard behavior, and density may differ while preserving shared product concepts and visual continuity where appropriate. The cross-domain scope and decision evidence for the current frontier is maintained in [`shared/scope-and-decision-inventory.md`](shared/scope-and-decision-inventory.md).
 
 ## Gates
 
@@ -27,8 +27,8 @@ The Addendum covers admin, debug, and operational screens on web and mobile. It 
 
 | Design Domain | Status | Notes |
 | --- | --- | --- |
-| Shared product foundation | In progress | Working agreement and mobile shell exist; complete cross-product shell, tokens, responsive and content conventions |
-| Recipe Detail and Edit | In progress | Structural foundation is approved; remaining sections and visual execution are listed in [`recipe-detail/decisions/current-scope.md`](recipe-detail/decisions/current-scope.md) |
+| Shared product foundation | In progress | Product vocabulary, Design boundary, and mobile shell evidence exist; the first-version inventory is recorded, while cross-product tokens, responsive conventions, and state reconciliation remain open |
+| Recipe Detail and Edit | In progress | Structural foundation is approved; the current inventory and remaining sections/contracts are listed in [`shared/scope-and-decision-inventory.md`](shared/scope-and-decision-inventory.md) and [`recipe-detail/decisions/current-scope.md`](recipe-detail/decisions/current-scope.md) |
 | Authentication, invitations, onboarding | Not started | Include web/mobile entry, restricted registration, recovery, and user lifecycle states |
 | Recipe library and search | Not started | Include list, search, filtering, sorting, pagination, and transition to detail |
 | Import journeys | Not started | Include creation, progress, terminal results, retry, resource failure, and navigation |
@@ -92,7 +92,7 @@ Feature workstreams may proceed in parallel. A change to a shared decision recor
 
 | Candidate child issue | Readiness | Why |
 | --- | --- | --- |
-| `[DESIGN][SHARED] Inventory first-version scope and existing decisions` | Agent-ready | Repository evidence is sufficient for a bounded reconciliation report |
+| `[DESIGN][SHARED] Inventory first-version scope and existing decisions` | Evidence recorded | [`shared/scope-and-decision-inventory.md`](shared/scope-and-decision-inventory.md) accounts for the Core domains, discrepancies, deferrals, decision packets, and next issue split; publication of #20 is the gate before creating shared-contract children |
 | `[DESIGN][SHARED] Audit API, schema, and platform constraints` | Agent-ready | This is read-only contract discovery with a checkable change list |
 | `[DESIGN][RECIPES] Verify Recipe Detail/Edit contracts` | Agent-ready | Existing decisions name the missing backend facts explicitly |
 | Domain `[WEB]` and `[MOBILE]` design children | Refinement or blocker-dependent | Start after the domain's shared product contract is explicit; each produces evidence and then waits for user approval |
