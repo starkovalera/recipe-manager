@@ -92,7 +92,7 @@ Feature workstreams may proceed in parallel. A change to a shared decision recor
 
 | Candidate child issue | Readiness | Why |
 | --- | --- | --- |
-| `[DESIGN][SHARED] Inventory first-version scope and existing decisions` | Evidence recorded | [`shared/scope-and-decision-inventory.md`](shared/scope-and-decision-inventory.md) accounts for the Core domains, discrepancies, deferrals, decision packets, and next issue split; publication of #20 is the gate before creating shared-contract children |
+| `[DESIGN][SHARED] Inventory first-version scope and existing decisions` | Completed | [`shared/scope-and-decision-inventory.md`](shared/scope-and-decision-inventory.md) accounts for the Core domains, discrepancies, deferrals, decision packets, and next issue split; #20 is published in [PR #51](https://github.com/starkovalera/recipe-manager/pull/51), so shared-contract children may be created after #22 supplies the cross-domain contract matrix (the Recipes child also consumes #21) |
 | `[DESIGN][SHARED] Audit API, schema, and platform constraints` | Agent-ready | This is read-only contract discovery with a checkable change list |
 | `[DESIGN][RECIPES] Verify Recipe Detail/Edit contracts` | Agent-ready | Existing decisions name the missing backend facts explicitly |
 | Domain `[WEB]` and `[MOBILE]` design children | Refinement or blocker-dependent | Start after the domain's shared product contract is explicit; each produces evidence and then waits for user approval |

@@ -67,7 +67,7 @@ The graph uses one node for each logically independent Design Domain. Each domai
 ```mermaid
 flowchart TD
   foundation["✓ Shared design foundation and Recipe Detail structural foundation"]
-  scope["#20 Scope and decision inventory<br/>evidence packet"]
+  scope["✓ #20 Scope and decision inventory<br/>published evidence packet"]
   constraints["#22 API, schema, and platform constraints<br/>ready frontier"]
   recipeFacts["#21 Recipe Detail/Edit contract facts<br/>ready frontier"]
 
