@@ -98,3 +98,5 @@ Reference the shared checkpoint instead of copying its current steps into each i
 ## Future capabilities
 
 Future Capabilities live under [`../future/`](../future/README.md), not as active implementation issues. Promotion requires a refined scope, decisions, dependencies, acceptance boundary, and target track. Create prefixed issues only after promotion, then link them back to the capability document.
+
+For the shorthand requests “добавь в todo”, “добавь в туду”, or “add to todo”, follow the canonical capture rule in the root [`AGENTS.md`](../../AGENTS.md): write the item into the matching `docs/future/*.md` capability document and keep [#33](https://github.com/starkovalera/recipe-manager/issues/33) as the umbrella refinement task. Do not interpret the shorthand as an automatic request to create an active issue.
