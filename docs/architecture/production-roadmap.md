@@ -135,7 +135,7 @@ Iteration 11 covers P11. Harden every remote-fetch and streaming boundary agains
 
 Iteration 12 covers P12. Produce independently buildable production artifacts for FastAPI and each Lambda entrypoint, with pinned runtime dependencies, non-root/minimal execution where applicable, deterministic build metadata, local invocation checks, and CI validation. Artifact construction does not provision AWS resources.
 
-LocalStack S3 implementation landed with P10, and its LocalStack/PREVIEW acceptance is recorded in draft PR #58. The real-provider gap is separated into [#59](https://github.com/starkovalera/recipe-manager/issues/59). It does not block starting P11 or P12, and it does not block #31 infrastructure refinement, but live AWS IAM, bucket-policy, and provider-boundary verification must close before technical production smoke.
+LocalStack S3 implementation landed with P10, and its LocalStack/PREVIEW acceptance is recorded in [merged PR #58](https://github.com/starkovalera/recipe-manager/pull/58). The real-provider gap is separated into [#59](https://github.com/starkovalera/recipe-manager/issues/59). It does not block starting P11 or P12, and it does not block #31 infrastructure refinement, but live AWS IAM, bucket-policy, and provider-boundary verification must close before technical production smoke.
 
 ## Phase 2 — Terraform, IAM, and Secrets Foundation
 
@@ -227,7 +227,7 @@ The following workstreams may start concurrently once represented by approved is
 
 - P11 implementation children for SSRF and streaming hardening;
 - P12 production Docker and Lambda artifacts;
-- LocalStack S3 + PREVIEW acceptance is recorded in draft PR #58;
+- LocalStack S3 + PREVIEW acceptance is recorded in merged PR [#58](https://github.com/starkovalera/recipe-manager/pull/58);
 - Live AWS S3/provider verification in #59 after owner inputs in #30;
 - Terraform remote state, GitHub OIDC, module conventions, and environment layout;
 - non-visual contract discovery required by the Design track;
@@ -239,7 +239,7 @@ Cloud resource provisioning is blocked only where it needs P12 artifact contract
 
 | Next executable or refinement issue | Readiness | Outcome / blocker |
 | --- | --- | --- |
-| `[DEV][INFRA] Run and record LocalStack S3 + PREVIEW acceptance` | Evidence recorded | [Draft PR #58](https://github.com/starkovalera/recipe-manager/pull/58) records the automated and signed-in browser acceptance; live AWS is intentionally separate |
+| `[DEV][INFRA] Run and record LocalStack S3 + PREVIEW acceptance` | Evidence recorded | [Merged PR #58](https://github.com/starkovalera/recipe-manager/pull/58) records the automated and signed-in browser acceptance; live AWS is intentionally separate |
 | `[DEV][BACKEND] Inventory P11 fetch boundaries and write the hardening specification` | Complete | [PR #49](https://github.com/starkovalera/recipe-manager/pull/49) merged the versioned specification, caller matrix, threat model, rejected alternatives, deterministic verification contract, and child issue graph |
 | P11 implementation children | Agent-ready | [#37](https://github.com/starkovalera/recipe-manager/issues/37) → [#38](https://github.com/starkovalera/recipe-manager/issues/38) → [#39](https://github.com/starkovalera/recipe-manager/issues/39) → [#40](https://github.com/starkovalera/recipe-manager/issues/40) are created with native blockers and acceptance criteria |
 | `[DEV][INFRA] Inventory P12 deployables and write the artifact matrix` | Complete | [PR #52](https://github.com/starkovalera/recipe-manager/pull/52) merged the [P12 artifact matrix](../specs/2026-08-14-p12-production-artifact-matrix.md), recording six image artifacts, compatibility triggers, rollback identity, and child issues #41–#47 |
