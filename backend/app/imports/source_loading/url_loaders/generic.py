@@ -2,8 +2,7 @@ import re
 from html import unescape
 from urllib.parse import urljoin
 
-import httpx
-
+from app.imports.source_loading.remote_fetch import FetchErrorCode, RemoteFetcher, RemoteFetchError
 from app.imports.source_loading.results import (
     SecondaryResourceKind,
     SecondaryResourceLoadResult,
@@ -14,18 +13,26 @@ from app.imports.source_loading.url_loaders.types import Fetch, FetchResponse, L
 SUPPORTED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
 
 
+_remote_fetcher = RemoteFetcher()
+
+
 async def httpx_fetch(url: str, max_bytes: int) -> FetchResponse:
-    async with httpx.AsyncClient(follow_redirects=True, timeout=10) as client:
-        response = await client.get(
-            url,
-            headers={
-                "accept": "application/activity+json,application/json,text/html,*/*",
-                "user-agent": "Mozilla/5.0 recipe-importer",
-            },
-        )
-        response.raise_for_status()
+    response = await _remote_fetcher.fetch(url)
+    try:
+        try:
+            response.raise_for_status()
+        except Exception as error:
+            raise RemoteFetchError(FetchErrorCode.UPSTREAM_STATUS) from error
+        # Child #38 replaces this compatibility read with bounded decoded
+        # streaming.  Child #37 owns validation and destination pinning only.
         content = response.content[:max_bytes]
-        return FetchResponse(content=content, headers={key.lower(): value for key, value in response.headers.items()})
+        return FetchResponse(
+            content=content,
+            headers={key.lower(): value for key, value in response.headers.items()},
+            final_url=str(response.url),
+        )
+    finally:
+        await response.aclose()
 
 
 def _meta_content(html: str, key: str) -> str | None:
