@@ -95,9 +95,21 @@ For repository changes, create or update a commit, push the feature branch, and 
 
 The pull request should link the task and summarize the contract, delivered result, verification, refactoring outcome, human actions, future-work disposition, and documentation impact. Keep the PR draft unless the user explicitly asks for a ready-for-review PR.
 
-Before opening or updating the pull request, complete the documentation synchronization for the task in that same pull request. This includes the owning detailed roadmap, [`docs/roadmap.md`](../roadmap.md), applicable architecture or design records, task links, completion marks, and open-question updates. Use the relevant link and consistency checks as part of verification.
+Before opening or updating the pull request, complete the documentation synchronization for the task in that same pull request. Documentation synchronization is a release gate, not post-merge cleanup. Treat changes to implementation status, readiness, blocker or child frontiers, completion evidence, task links, or open questions as documentation changes even when no API, contract, or architecture decision changed. Review the owning detailed roadmap, [`docs/roadmap.md`](../roadmap.md), applicable architecture or design records, task links, completion marks, and open-question updates.
 
-**Done when:** the feature branch and PR contain exactly the intended implementation and documentation changes, the PR has the verification and handoff information, and the local worktree status is known.
+Record this checklist in the pull request description:
+
+```markdown
+- [ ] Owning detailed roadmap reviewed: updated or `N/A` with a named document and reason
+- [ ] [`docs/roadmap.md`](../roadmap.md) reviewed: updated or `N/A` with a named document and reason
+- [ ] Applicable architecture, design, and specification records reviewed: updated or `N/A` with a reason
+- [ ] Task links, completion marks, blockers, child issues, and open questions synchronized
+- [ ] No completed issue is still presented as an active frontier or `Agent-ready`; no newly unblocked issue is still presented as blocked
+```
+
+A generic `no documentation change required` statement is not evidence. Re-read the affected source-of-truth documents after editing and use their links and consistency checks during verification.
+
+**Done when:** the feature branch and PR contain exactly the intended implementation and documentation changes, the documentation checklist is complete, the PR has the verification and handoff information, and the local worktree status is known.
 
 ## 9. Verify documentation and state after merge
 
@@ -122,10 +134,10 @@ After a merge, and whenever the task's GitHub status changes as part of
 completion:
 
 1. Verify the actual GitHub merge state, then fetch the latest `origin/main`.
-2. Inspect the merged pull request and `origin/main` to confirm that the required roadmap, detailed planning, architecture/design, task-link, completion-mark, and open-question updates are already part of the merged result.
+2. Inspect the merged pull request and `origin/main` to confirm that the required roadmap, detailed planning, architecture/design, task-link, completion-mark, and open-question updates are already part of the merged result. This is an audit of the §8 gate, not a replacement for it.
 3. Verify issue state, labels, assignees, native blockers, child issues, and acceptance evidence without duplicating GitHub's native data in documentation.
 4. When the merged result satisfies the issue's own acceptance criteria and no required work remains in that issue's scope, close the corresponding GitHub issue. Do not close a parent or containment issue solely because a planning or specification PR merged while required child implementation remains; keep it open until its own scope is complete.
-5. If a required documentation update is missing, report the original pull request as incomplete and obtain explicit scope for any follow-up. The routine post-merge checkpoint does not create a documentation-maintenance branch or pull request.
+5. If a required documentation update is missing, report the original pull request as incomplete, name the stale source-of-truth entry and required status change, and obtain explicit scope for any follow-up. The routine post-merge checkpoint does not create a documentation-maintenance branch or pull request.
 
 **Done when:** the merged pull request, `origin/main`, roadmap, detailed planning documents, architecture/design records, task links, completion marks, issue state, and open-question lists agree, with no stale plan step presented as current work.
 
