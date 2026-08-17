@@ -35,6 +35,7 @@ class LoadedUrlContent:
 class FetchResponse:
     content: bytes
     headers: dict[str, str]
+    final_url: str = ""
 
 
 Fetch = Callable[[str, int], Awaitable[FetchResponse]]
