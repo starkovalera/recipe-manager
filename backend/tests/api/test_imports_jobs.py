@@ -1169,9 +1169,9 @@ def test_url_secondary_resource_failure_is_audited_when_manual_evidence_can_cont
                 "kind": "URL_CONTENT",
                 "status": "FAILED",
                 "position": None,
-                "url": "https://example.com/recipe",
+                "url": "https://example.com",
                 "original_name": None,
-                "error": "RuntimeError('secondary source failed')",
+                "error": "NETWORK_ERROR",
             }
         ]
 

@@ -7,8 +7,9 @@ import anyio
 from app.core.logging import bind_logger, log_error
 from app.imports.config import ImportConfig
 from app.imports.constants import IMPORT_LOG_COMPONENT
-from app.imports.error_codes import SecondaryResourceUploadError
+from app.imports.error_codes import ImportGeneralErrorCode, SecondaryResourceUploadError
 from app.imports.job_context import ImportJobContext, ImportJobSourceContext
+from app.imports.source_loading.remote_fetch import stable_fetch_error_code
 from app.imports.source_loading.results import (
     SecondaryResourceKind,
     SecondaryResourceLoadResult,
@@ -181,7 +182,7 @@ def _append_url_raw_sources(
                 kind=SecondaryResourceKind.URL_CONTENT,
                 status=SecondaryResourceLoadStatus.FAILED,
                 url=job_source.url,
-                error=repr(error),
+                error=stable_fetch_error_code(error),
             )
         )
         return UrlRawSourcesResult(
@@ -217,7 +218,7 @@ def _append_url_raw_sources(
                 remote_image.mime_type,
                 context=context.storage_write_context,
             )
-        except Exception as error:
+        except Exception:
             secondary_resource_results.append(
                 SecondaryResourceLoadResult(
                     kind=SecondaryResourceKind.IMAGE,
@@ -225,7 +226,7 @@ def _append_url_raw_sources(
                     position=remote_image.position,
                     url=remote_image.url,
                     original_name=remote_image.original_name,
-                    error=repr(error),
+                    error=ImportGeneralErrorCode.UNEXPECTED_ERROR,
                 )
             )
             continue
@@ -286,7 +287,7 @@ def _append_url_video_raw_sources(
             component=IMPORT_LOG_COMPONENT,
             job=context.job.to_dict(),
             video_count=len(loaded_videos),
-            error=repr(error),
+            error=stable_fetch_error_code(error),
         )
         return [
             SecondaryResourceLoadResult(
@@ -295,7 +296,7 @@ def _append_url_video_raw_sources(
                 position=video.position,
                 url=video.url,
                 original_name=video.original_name,
-                error=repr(error),
+                error=stable_fetch_error_code(error),
             )
             for video in loaded_videos
         ]
@@ -333,7 +334,7 @@ def _append_url_video_raw_sources(
                 poster.mime_type,
                 context=context.storage_write_context,
             )
-        except Exception as error:
+        except Exception:
             secondary_resource_results.append(
                 SecondaryResourceLoadResult(
                     kind=SecondaryResourceKind.VIDEO_POSTER,
@@ -341,7 +342,7 @@ def _append_url_video_raw_sources(
                     position=poster.position,
                     url=poster.url,
                     original_name=poster.original_name,
-                    error=repr(error),
+                    error=ImportGeneralErrorCode.UNEXPECTED_ERROR,
                 )
             )
             continue

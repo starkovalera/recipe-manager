@@ -8,17 +8,18 @@ from openai import OpenAI
 from app.core.config import Settings, get_settings
 from app.core.logging import bind_logger
 from app.imports.constants import IMPORT_VIDEO_LOG_COMPONENT
+from app.imports.source_loading.remote_fetch import FetchErrorCode, RemoteFetchError, stable_fetch_error_code
 from app.imports.source_loading.types import (
     SecondaryResourceKind,
     SecondaryResourceLoadResult,
     SecondaryResourceLoadStatus,
 )
 from app.imports.source_loading.url_loaders.generic import httpx_fetch
+from app.imports.source_loading.url_loaders.media import image_mime_type, video_response_is_supported
 from app.imports.source_loading.url_loaders.types import Fetch, LoadedRemoteImage, LoadedRemoteVideo
 from app.imports.source_loading.video_processors.types import FirstPassVideoSources
 
 logger = logging.getLogger(IMPORT_VIDEO_LOG_COMPONENT)
-SUPPORTED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
 
 
 class VideoProcessor:
@@ -36,8 +37,8 @@ class VideoProcessor:
         if not video.poster_url:
             return None
         response = await self.fetch(video.poster_url, max_image_bytes)
-        mime_type = response.headers.get("content-type", "").split(";")[0].lower()
-        if mime_type not in SUPPORTED_IMAGE_TYPES or not response.content:
+        mime_type = image_mime_type(response)
+        if mime_type is None:
             return None
         return LoadedRemoteImage(
             bytes=response.content,
@@ -55,6 +56,8 @@ class VideoProcessor:
         response = await self.fetch(video.url, max_video_bytes)
         if not response.content:
             return None
+        if not video_response_is_supported(response):
+            raise RemoteFetchError(FetchErrorCode.RESPONSE_TYPE_UNSUPPORTED)
         file_obj = BytesIO(response.content)
         file_obj.name = video.original_name or "video.mp4"
         result = client.audio.transcriptions.create(
@@ -80,9 +83,9 @@ class VideoProcessor:
             try:
                 poster = await self._download_poster(video, max_image_bytes)
             except Exception as error:
-                bind_logger(logger, component=IMPORT_VIDEO_LOG_COMPONENT, video_url=video.url).error(
+                bind_logger(logger, component=IMPORT_VIDEO_LOG_COMPONENT, position=video.position).error(
                     f"{IMPORT_VIDEO_LOG_COMPONENT} Video poster download failed",
-                    error=repr(error),
+                    error=stable_fetch_error_code(error),
                 )
                 resource_results.append(
                     SecondaryResourceLoadResult(
@@ -91,7 +94,7 @@ class VideoProcessor:
                         position=video.position,
                         url=video.poster_url,
                         original_name=video.original_name,
-                        error=repr(error),
+                        error=stable_fetch_error_code(error),
                     )
                 )
             else:
@@ -111,9 +114,9 @@ class VideoProcessor:
             try:
                 transcript = await self._transcribe(video, max_video_bytes)
             except Exception as error:
-                bind_logger(logger, component=IMPORT_VIDEO_LOG_COMPONENT, video_url=video.url).error(
+                bind_logger(logger, component=IMPORT_VIDEO_LOG_COMPONENT, position=video.position).error(
                     f"{IMPORT_VIDEO_LOG_COMPONENT} Video transcription failed",
-                    error=repr(error),
+                    error=stable_fetch_error_code(error),
                 )
                 resource_results.append(
                     SecondaryResourceLoadResult(
@@ -122,7 +125,7 @@ class VideoProcessor:
                         position=video.position,
                         url=video.url,
                         original_name=video.original_name,
-                        error=repr(error),
+                        error=stable_fetch_error_code(error),
                     )
                 )
             else:
