@@ -422,6 +422,8 @@ async def _read_bounded_response(response: TransportResponse, max_bytes: int) ->
                 content_size += len(chunk)
         except RemoteFetchError:
             raise
+        except (httpx.TimeoutException, TimeoutError) as error:
+            raise RemoteFetchError(FetchErrorCode.TIMEOUT) from error
         except (httpx.DecodingError, httpx.RemoteProtocolError) as error:
             raise RemoteFetchError(FetchErrorCode.RESPONSE_HEADERS_INVALID) from error
         except Exception as error:
