@@ -1,8 +1,9 @@
-"""Secure remote URL validation and vetted-destination fetching.
+"""Secure remote URL validation, streaming, and vetted-destination fetching.
 
-This module owns the P11 Child A seam.  It validates every URL and redirect,
-resolves every hostname before connecting, and pins the TCP connection to a
-validated address while retaining the hostname for HTTP Host and TLS SNI.
+This module owns the P11 Child A and Child B fetch seam. It validates every URL
+and redirect, resolves every hostname before connecting, pins the TCP
+connection to a validated address, and bounds the decoded response while
+retaining the hostname for HTTP Host and TLS SNI.
 
 The remaining residual assumption is that the selected direct transport and
 the execution environment do not perform an unvalidated second lookup or
@@ -15,7 +16,7 @@ from __future__ import annotations
 import ipaddress
 import re
 import socket
-from collections.abc import Awaitable, Callable, Iterable, Mapping, Sequence
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from enum import Enum
 from inspect import isawaitable
@@ -70,6 +71,30 @@ class ValidatedURL:
 
 
 @dataclass(frozen=True)
+class FetchTimeouts:
+    """Per-request transport budgets; operation bounds the whole fetch."""
+
+    connect: float
+    read: float
+    pool: float
+    operation: float
+
+    def __post_init__(self) -> None:
+        if any(value <= 0 for value in (self.connect, self.read, self.pool, self.operation)):
+            raise ValueError("fetch timeouts must be positive")
+
+    def httpx_timeout(self) -> httpx.Timeout:
+        return httpx.Timeout(connect=self.connect, read=self.read, write=self.read, pool=self.pool)
+
+
+HTML_FETCH_TIMEOUTS = FetchTimeouts(connect=3.0, read=5.0, pool=1.0, operation=15.0)
+VIDEO_FETCH_TIMEOUTS = FetchTimeouts(connect=5.0, read=15.0, pool=1.0, operation=90.0)
+DEFAULT_HTTP_LIMITS = httpx.Limits(max_connections=4, max_keepalive_connections=0)
+_MAX_STREAM_CHUNK = 64 * 1024
+_SUPPORTED_CONTENT_ENCODINGS = frozenset({"identity", "gzip", "deflate", "br", "zstd"})
+
+
+@dataclass(frozen=True)
 class VettedDestination:
     """A globally reachable address approved for one connection attempt."""
 
@@ -79,10 +104,22 @@ class VettedDestination:
     port: int = 443
 
 
+@dataclass(frozen=True)
+class BoundedFetchResponse:
+    """Decoded response data that has passed the shared fetch policy."""
+
+    content: bytes
+    headers: dict[str, str]
+    final_url: str
+
+
 class TransportResponse(Protocol):
     status_code: int
     headers: Mapping[str, str]
     url: httpx.URL
+
+    def aiter_bytes(self, chunk_size: int | None = None) -> AsyncIterator[bytes]:
+        """Yield decoded response bytes without buffering the complete body."""
 
     async def aclose(self) -> None:
         """Release response resources."""
@@ -279,13 +316,14 @@ async def _vetted_destination(validated: ValidatedURL, resolver: Resolver) -> Ve
     return VettedDestination(hostname=validated.hostname, address=address, family=family)
 
 
-async def _close_response(response: TransportResponse) -> None:
-    try:
-        await response.aclose()
-    except Exception:
-        # Preserve the stable policy error that caused the cleanup rather than
-        # exposing a transport-specific close failure.
-        pass
+async def close_response(response: TransportResponse) -> None:
+    with anyio.CancelScope(shield=True):
+        try:
+            await response.aclose()
+        except Exception:
+            # Preserve the stable policy error that caused the cleanup rather
+            # than exposing a transport-specific close failure.
+            pass
 
 
 def _header(response: TransportResponse, name: str) -> str | None:
@@ -294,6 +332,127 @@ def _header(response: TransportResponse, name: str) -> str | None:
         if key.lower() == wanted:
             return value
     return None
+
+
+def _header_values(headers: Mapping[str, str], name: str) -> list[str]:
+    get_list = getattr(headers, "get_list", None)
+    if callable(get_list):
+        values = [str(value) for value in get_list(name)]
+    else:
+        values = [str(value) for key, value in headers.items() if key.lower() == name.lower()]
+    return values
+
+
+def _declared_content_length(headers: Mapping[str, str]) -> int | None:
+    values: list[str] = []
+    for raw_value in _header_values(headers, "content-length"):
+        values.extend(raw_value.split(","))
+    if not values:
+        return None
+
+    parsed: list[int] = []
+    for value in values:
+        normalized = value.strip()
+        if not re.fullmatch(r"[0-9]+", normalized):
+            raise RemoteFetchError(FetchErrorCode.RESPONSE_HEADERS_INVALID)
+        try:
+            parsed.append(int(normalized))
+        except ValueError as error:
+            raise RemoteFetchError(FetchErrorCode.RESPONSE_HEADERS_INVALID) from error
+    if len(set(parsed)) != 1:
+        raise RemoteFetchError(FetchErrorCode.RESPONSE_HEADERS_INVALID)
+    return parsed[0]
+
+
+def _validate_content_encodings(headers: Mapping[str, str]) -> None:
+    encodings: list[str] = []
+    for raw_value in _header_values(headers, "content-encoding"):
+        encodings.extend(part.strip().lower() for part in raw_value.split(","))
+    if any(not encoding or encoding not in _SUPPORTED_CONTENT_ENCODINGS for encoding in encodings):
+        raise RemoteFetchError(FetchErrorCode.RESPONSE_HEADERS_INVALID)
+
+
+def _normalized_headers(headers: Mapping[str, str]) -> dict[str, str]:
+    return {str(key).lower(): str(value) for key, value in headers.items()}
+
+
+async def _read_bounded_response(response: TransportResponse, max_bytes: int) -> BoundedFetchResponse:
+    """Read decoded response bytes without ever retaining more than limit + 1."""
+
+    try:
+        status_code = response.status_code
+        headers = response.headers
+        if not 200 <= status_code < 300:
+            raise RemoteFetchError(FetchErrorCode.UPSTREAM_STATUS)
+
+        declared_length = _declared_content_length(headers)
+        if declared_length is not None and declared_length > max_bytes:
+            raise RemoteFetchError(FetchErrorCode.RESPONSE_TOO_LARGE)
+        _validate_content_encodings(headers)
+
+        chunk_size = min(_MAX_STREAM_CHUNK, max_bytes + 1)
+        content: list[bytes] = []
+        content_size = 0
+        try:
+            stream = response.aiter_bytes(chunk_size=chunk_size)
+            async for chunk in stream:
+                if not isinstance(chunk, bytes):
+                    raise RemoteFetchError(FetchErrorCode.NETWORK_ERROR)
+                remaining = max_bytes + 1 - content_size
+                if len(chunk) >= remaining:
+                    content.append(chunk[:remaining])
+                    raise RemoteFetchError(FetchErrorCode.RESPONSE_TOO_LARGE)
+                content.append(chunk)
+                content_size += len(chunk)
+        except RemoteFetchError:
+            raise
+        except (httpx.DecodingError, httpx.RemoteProtocolError) as error:
+            raise RemoteFetchError(FetchErrorCode.RESPONSE_HEADERS_INVALID) from error
+        except Exception as error:
+            raise RemoteFetchError(FetchErrorCode.NETWORK_ERROR) from error
+
+        return BoundedFetchResponse(
+            content=b"".join(content),
+            headers=_normalized_headers(headers),
+            final_url=str(response.url),
+        )
+    finally:
+        await close_response(response)
+
+
+class _ScopedHTTPXResponse:
+    """Keep the HTTPX client alive until the streaming response is closed."""
+
+    def __init__(self, response: httpx.Response, client: httpx.AsyncClient) -> None:
+        self._response = response
+        self._client = client
+        self._closed = False
+
+    @property
+    def status_code(self) -> int:
+        return self._response.status_code
+
+    @property
+    def headers(self) -> httpx.Headers:
+        return self._response.headers
+
+    @property
+    def url(self) -> httpx.URL:
+        return self._response.url
+
+    async def aiter_bytes(self, chunk_size: int | None = None) -> AsyncIterator[bytes]:
+        iterator = self._response.aiter_bytes(chunk_size=chunk_size)
+        async for chunk in iterator:
+            yield chunk
+
+    async def aclose(self) -> None:
+        if self._closed:
+            return
+        self._closed = True
+        try:
+            await self._response.aclose()
+        finally:
+            await self._client.aclose()
 
 
 class RemoteFetcher:
@@ -305,12 +464,27 @@ class RemoteFetcher:
         resolver: Resolver = _system_resolver,
         transport: DestinationTransport | None = None,
         max_redirects: int = MAX_REDIRECTS,
+        timeouts: FetchTimeouts = HTML_FETCH_TIMEOUTS,
+        limits: httpx.Limits | None = None,
     ) -> None:
         if max_redirects < 0:
             raise ValueError("max_redirects must not be negative")
         self.resolver = resolver
-        self.transport = transport or httpx_destination_request
         self.max_redirects = max_redirects
+        self.timeouts = timeouts
+        self.limits = limits or DEFAULT_HTTP_LIMITS
+        if transport is not None:
+            self.transport = transport
+        else:
+            async def default_transport(validated: ValidatedURL, destination: VettedDestination) -> TransportResponse:
+                return await httpx_destination_request(
+                    validated,
+                    destination,
+                    timeouts=self.timeouts,
+                    limits=self.limits,
+                )
+
+            self.transport = default_transport
 
     async def fetch(self, raw_url: str) -> TransportResponse:
         current = validate_url(raw_url)
@@ -330,6 +504,8 @@ class RemoteFetcher:
                     response = await response
             except RemoteFetchError:
                 raise
+            except (httpx.TimeoutException, TimeoutError) as error:
+                raise _error(FetchErrorCode.TIMEOUT, error) from error
             except Exception as error:
                 raise _error(FetchErrorCode.NETWORK_ERROR, error) from error
 
@@ -337,29 +513,47 @@ class RemoteFetcher:
                 return response
 
             if response.status_code not in _REDIRECT_STATUSES:
-                await _close_response(response)
+                await close_response(response)
                 raise _error(FetchErrorCode.REDIRECT_BLOCKED)
             location = _header(response, "location")
             if not location:
-                await _close_response(response)
+                await close_response(response)
                 raise _error(FetchErrorCode.REDIRECT_BLOCKED)
             if redirect_count >= self.max_redirects:
-                await _close_response(response)
+                await close_response(response)
                 raise _error(FetchErrorCode.REDIRECT_LIMIT)
 
             try:
                 next_url = validate_url(urljoin(current.value, location))
             except Exception as error:
-                await _close_response(response)
+                await close_response(response)
                 raise _error(FetchErrorCode.REDIRECT_BLOCKED, error) from error
             if next_url.value in visited:
-                await _close_response(response)
+                await close_response(response)
                 raise _error(FetchErrorCode.REDIRECT_LIMIT)
 
             visited.add(next_url.value)
             redirect_count += 1
-            await _close_response(response)
+            await close_response(response)
             current = next_url
+
+    async def fetch_bounded(self, raw_url: str, max_bytes: int) -> BoundedFetchResponse:
+        """Fetch one response and enforce status, metadata, time, and byte limits."""
+
+        if max_bytes < 0:
+            raise ValueError("max_bytes must not be negative")
+        try:
+            with anyio.fail_after(self.timeouts.operation):
+                response = await self.fetch(raw_url)
+                return await _read_bounded_response(response, max_bytes)
+        except RemoteFetchError:
+            raise
+        except TimeoutError as error:
+            raise _error(FetchErrorCode.TIMEOUT, error) from error
+        except httpx.TimeoutException as error:
+            raise _error(FetchErrorCode.TIMEOUT, error) from error
+        except Exception as error:
+            raise _error(FetchErrorCode.NETWORK_ERROR, error) from error
 
 
 class _PinnedNetworkBackend(httpcore.AsyncNetworkBackend):
@@ -420,18 +614,50 @@ class PinnedAsyncHTTPTransport(httpx.AsyncHTTPTransport):
         )
 
 
-async def httpx_destination_request(validated: ValidatedURL, destination: VettedDestination) -> TransportResponse:
-    """Perform one GET without allowing HTTPX to resolve or redirect implicitly."""
+async def httpx_destination_request(
+    validated: ValidatedURL,
+    destination: VettedDestination,
+    *,
+    timeouts: FetchTimeouts = HTML_FETCH_TIMEOUTS,
+    limits: httpx.Limits = DEFAULT_HTTP_LIMITS,
+    network_backend: httpcore.AsyncNetworkBackend | None = None,
+) -> TransportResponse:
+    """Perform one GET without implicit DNS resolution or redirect following."""
 
-    async with httpx.AsyncClient(
-        transport=PinnedAsyncHTTPTransport(destination),
+    return await _httpx_destination_request_with_options(
+        validated,
+        destination,
+        timeouts=timeouts,
+        limits=limits,
+        network_backend=network_backend,
+    )
+
+
+async def _httpx_destination_request_with_options(
+    validated: ValidatedURL,
+    destination: VettedDestination,
+    *,
+    timeouts: FetchTimeouts,
+    limits: httpx.Limits,
+    network_backend: httpcore.AsyncNetworkBackend | None,
+) -> TransportResponse:
+    client = httpx.AsyncClient(
+        transport=PinnedAsyncHTTPTransport(destination, network_backend=network_backend),
         follow_redirects=False,
         trust_env=False,
         cookies={},
-        timeout=httpx.Timeout(10.0),
+        timeout=timeouts.httpx_timeout(),
+        limits=limits,
         headers={
             "accept": "application/activity+json,application/json,text/html,*/*",
             "user-agent": "Mozilla/5.0 recipe-importer",
         },
-    ) as client:
-        return await client.get(validated.value)
+    )
+    try:
+        request = client.build_request("GET", validated.value)
+        response = await client.send(request, stream=True)
+    except BaseException:
+        with anyio.CancelScope(shield=True):
+            await client.aclose()
+        raise
+    return _ScopedHTTPXResponse(response, client)

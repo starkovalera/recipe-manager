@@ -2,7 +2,7 @@ import re
 from html import unescape
 from urllib.parse import urljoin
 
-from app.imports.source_loading.remote_fetch import FetchErrorCode, RemoteFetcher, RemoteFetchError
+from app.imports.source_loading.remote_fetch import RemoteFetcher
 from app.imports.source_loading.results import (
     SecondaryResourceKind,
     SecondaryResourceLoadResult,
@@ -17,22 +17,8 @@ _remote_fetcher = RemoteFetcher()
 
 
 async def httpx_fetch(url: str, max_bytes: int) -> FetchResponse:
-    response = await _remote_fetcher.fetch(url)
-    try:
-        try:
-            response.raise_for_status()
-        except Exception as error:
-            raise RemoteFetchError(FetchErrorCode.UPSTREAM_STATUS) from error
-        # Child #38 replaces this compatibility read with bounded decoded
-        # streaming.  Child #37 owns validation and destination pinning only.
-        content = response.content[:max_bytes]
-        return FetchResponse(
-            content=content,
-            headers={key.lower(): value for key, value in response.headers.items()},
-            final_url=str(response.url),
-        )
-    finally:
-        await response.aclose()
+    response = await _remote_fetcher.fetch_bounded(url, max_bytes)
+    return FetchResponse(content=response.content, headers=response.headers, final_url=response.final_url)
 
 
 def _meta_content(html: str, key: str) -> str | None:
