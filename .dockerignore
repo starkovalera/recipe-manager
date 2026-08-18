@@ -1,0 +1,23 @@
+# Keep build contexts free of credentials, local state, development tooling,
+# and unrelated product/design artifacts. Production Dockerfiles copy only the
+# explicit backend paths they need after this filter is applied.
+.git
+.github
+.codex
+.agents
+
+**/.env*
+.env*
+**/.pytest_cache
+**/.pytest-tmp
+**/__pycache__
+**/.mypy_cache
+**/.ruff_cache
+**/node_modules
+
+backend/tests
+backend/storage
+backend/config/*.local.toml
+frontend
+design
+docs
