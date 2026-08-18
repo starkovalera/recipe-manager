@@ -574,5 +574,6 @@ this specification.
 - `backend/tests/imports/url_loaders/test_generic.py`
 - `backend/tests/imports/url_loaders/test_platforms.py`
 - `backend/tests/imports/test_video_processor.py`
+- `backend/tests/imports/test_p11_integration.py`
 - `docs/architecture/production-roadmap.md`
 - `docs/refactoring-guidelines.md`

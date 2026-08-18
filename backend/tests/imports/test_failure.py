@@ -16,6 +16,7 @@ from app.imports.error_codes import (
 )
 from app.imports.job_stages.failure import process_import_failure
 from app.imports.outcomes import ImportProcessingDisposition
+from app.imports.source_loading.remote_fetch import FetchErrorCode, RemoteFetchError
 from app.imports.storage_cleanup import cleanup_import_storage
 from app.local.users import ensure_default_user
 from app.models import (
@@ -129,6 +130,7 @@ def test_retryable_failure_returns_job_to_queue_without_final_notification() -> 
     ("error_factory", "expected_code", "expected_message"),
     [
         (lambda: RuntimeError("raw unexpected detail"), "UNEXPECTED_ERROR", "Import failed."),
+        (lambda: RemoteFetchError(FetchErrorCode.TIMEOUT), "UNEXPECTED_ERROR", "Import failed."),
         (
             lambda: SecondaryResourceUploadError(resource_type="URL"),
             "SECONDARY_RESOURCE_UPLOADING_FAILED",

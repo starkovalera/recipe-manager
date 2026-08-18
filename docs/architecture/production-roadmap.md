@@ -1,7 +1,7 @@
 # Recipe Manager Production Roadmap
 
 Updated: 2026-08-18
-Status: local baseline and P1-P10 complete; P11 specification complete and #23 closed; P11 Children A-B complete and Child C #39 in progress; technical production in progress
+Status: local baseline and P1-P10 complete; P11 specification complete and #23 closed; P11 Children A-C complete and Child D #40 in progress; technical production in progress
 
 This is the canonical current plan for the `[DEV]` track. Detailed architecture and behavior live in their subject documents; GitHub issues carry executable slices and native blocking edges.
 
@@ -11,7 +11,7 @@ This is the canonical current plan for the `[DEV]` track. Detailed architecture 
 | --- | --- | --- |
 | Local baseline and CI | Complete | `v0.1.0-local-baseline`, backend/frontend/gateway checks on `main` |
 | P1-P10 runtime boundaries | Complete | Merged PRs #4 and #6-#15; current architecture and subject contracts |
-| P11 SSRF and streaming hardening | Specification complete; #23 closed; Children A-B complete; Child C #39 in progress and Child D #40 remains blocked by it | Specification and child graph merged in PR [#49](https://github.com/starkovalera/recipe-manager/pull/49); secure URL policy, DNS validation, and redirects merged in PR [#63](https://github.com/starkovalera/recipe-manager/pull/63); bounded streaming, response policy, timeouts, and cleanup merged in PR [#65](https://github.com/starkovalera/recipe-manager/pull/65); loader migration and failure-semantics work is tracked by [#39](https://github.com/starkovalera/recipe-manager/issues/39) → [#40](https://github.com/starkovalera/recipe-manager/issues/40) |
+| P11 SSRF and streaming hardening | Specification complete; #23 closed; Children A-C complete; Child D #40 in progress | Specification and child graph merged in PR [#49](https://github.com/starkovalera/recipe-manager/pull/49); secure URL policy, DNS validation, and redirects merged in PR [#63](https://github.com/starkovalera/recipe-manager/pull/63); bounded streaming, response policy, timeouts, and cleanup merged in PR [#65](https://github.com/starkovalera/recipe-manager/pull/65); loader migration and failure-semantics work merged in PR [#66](https://github.com/starkovalera/recipe-manager/pull/66); integrated adversarial verification is tracked by [#40](https://github.com/starkovalera/recipe-manager/issues/40) |
 | P12 production Docker artifacts | Not started | First remaining Phase 1 packaging slice |
 | LocalStack S3 + PREVIEW acceptance | Evidence recorded | PR #15 added the service/config/tests; draft PR [#58](https://github.com/starkovalera/recipe-manager/pull/58) records the LocalStack and signed-in browser checks |
 | Live AWS S3/provider verification | Ready for human; blocked by owner inputs | [#59](https://github.com/starkovalera/recipe-manager/issues/59) requires #30 prerequisites and gates technical production smoke without blocking #31 refinement |
@@ -66,7 +66,7 @@ Status: complete.
 
 ## Phase 1 — Local Production Readiness
 
-Status: P1-P10 complete; P11 specification complete and #23 closed; P11 Children A-B are complete, Child C #39 is in progress, and Child D #40 plus P12 remain.
+Status: P1-P10 complete; P11 specification complete and #23 closed; P11 Children A-C are complete, Child D #40 is in progress, and P12 remains.
 
 Implementation details and acceptance criteria for each subphase are agreed
 immediately before that subphase starts.
@@ -216,7 +216,7 @@ Do not invite external beta users before Phases 4 and 5 are complete.
 flowchart TD
   p10["P1-P10 complete"]
   p10 --> p11Spec["✓ [DEV][BACKEND] P11 specification (#23 closed)"]
-  p11Spec --> p11Implementation["[DEV][BACKEND] P11 implementation (#37 ✓; #38 ✓; #39 in progress → #40)"]
+  p11Spec --> p11Implementation["[DEV][BACKEND] P11 implementation (#37 ✓; #38 ✓; #39 ✓; #40 in progress)"]
   p10 --> p12["[DEV][INFRA] P12 production artifacts"]
   p10 --> localstack["[DEV][INFRA] LocalStack S3 smoke"]
   p10 --> tfFoundation["[DEV][INFRA] Terraform state, OIDC, and conventions"]
@@ -255,7 +255,7 @@ flowchart TD
 
 The following workstreams may start concurrently once represented by approved issues:
 
-- P11 Child C #39 and the subsequent SSRF/streaming hardening children after Child B #38 is complete;
+- P11 Child D #40 integrated verification;
 - P12 production Docker and Lambda artifacts;
 - LocalStack S3 + PREVIEW acceptance is recorded in merged PR [#58](https://github.com/starkovalera/recipe-manager/pull/58);
 - Live AWS S3/provider verification in #59 after owner inputs in #30;
@@ -271,7 +271,7 @@ Cloud resource provisioning is blocked only where it needs P12 artifact contract
 | --- | --- | --- |
 | `[DEV][INFRA] Run and record LocalStack S3 + PREVIEW acceptance` | Evidence recorded | [Merged PR #58](https://github.com/starkovalera/recipe-manager/pull/58) records the automated and signed-in browser acceptance; live AWS is intentionally separate |
 | `[DEV][BACKEND] Inventory P11 fetch boundaries and write the hardening specification` | Complete; #23 closed | [PR #49](https://github.com/starkovalera/recipe-manager/pull/49) merged the versioned specification, caller matrix, threat model, rejected alternatives, deterministic verification contract, and child issue graph |
-| P11 implementation children | #37 and #38 complete; #39 in progress; #40 blocked by #39 | [#37](https://github.com/starkovalera/recipe-manager/issues/37) is complete in merged [PR #63](https://github.com/starkovalera/recipe-manager/pull/63); [#38](https://github.com/starkovalera/recipe-manager/issues/38) is complete in merged [PR #65](https://github.com/starkovalera/recipe-manager/pull/65); [#39](https://github.com/starkovalera/recipe-manager/issues/39) is the current implementation frontier, and [#40](https://github.com/starkovalera/recipe-manager/issues/40) remains blocked by #39 |
+| P11 implementation children | #37, #38, and #39 complete; #40 in progress | [#37](https://github.com/starkovalera/recipe-manager/issues/37) is complete in merged [PR #63](https://github.com/starkovalera/recipe-manager/pull/63); [#38](https://github.com/starkovalera/recipe-manager/issues/38) is complete in merged [PR #65](https://github.com/starkovalera/recipe-manager/pull/65); [#39](https://github.com/starkovalera/recipe-manager/issues/39) is complete in merged [PR #66](https://github.com/starkovalera/recipe-manager/pull/66); [#40](https://github.com/starkovalera/recipe-manager/issues/40) is the current integrated-verification frontier |
 | `[DEV][INFRA] Inventory P12 deployables and write the artifact matrix` | Complete | [PR #52](https://github.com/starkovalera/recipe-manager/pull/52) merged the [P12 artifact matrix](../specs/2026-08-14-p12-production-artifact-matrix.md), recording six image artifacts, compatibility triggers, rollback identity, and child issues #41–#47 |
 | P12 artifact implementation children | Agent-ready | #41 is the shared packaging frontier; #42–#46 are parallel artifact slices after #41; #47 verifies all artifacts after the artifact slices |
 | `[DEV][FRONTEND] Audit reusable non-visual frontend contracts` | Agent-ready | Read-only audit can identify reusable auth, API, query, and media boundaries without choosing the new UI |
