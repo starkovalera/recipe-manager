@@ -1,14 +1,17 @@
 import json
 
+from app.imports.source_loading.remote_fetch import FetchErrorCode
 from app.imports.source_loading.types import SecondaryResourceKind, SecondaryResourceLoadStatus
 from app.imports.source_loading.url_loaders import InstagramUrlContentLoader
+from app.imports.source_loading.url_loaders.platforms import load_platform_fixture
 from app.imports.source_loading.url_loaders.threads import ThreadsUrlContentLoader
 
 
 class FakeResponse:
-    def __init__(self, content: bytes, content_type: str = "text/html"):
+    def __init__(self, content: bytes, content_type: str = "text/html", final_url: str = ""):
         self.content = content
         self.headers = {"content-type": content_type, "content-length": str(len(content))}
+        self.final_url = final_url
 
 
 def instagram_embed_html(media: dict) -> bytes:
@@ -292,3 +295,32 @@ async def test_threads_loader_reports_image_failure_without_discarding_caption()
     assert len(loaded.resource_results) == 1
     assert loaded.resource_results[0].kind == SecondaryResourceKind.IMAGE
     assert loaded.resource_results[0].status == SecondaryResourceLoadStatus.FAILED
+
+
+async def test_fixture_loader_uses_effective_url_and_stable_image_failure_code():
+    payload = {
+        "caption": "Fixture caption",
+        "media": [
+            {"type": "image", "url": "/good.jpg"},
+            {"type": "image", "url": "/bad.jpg"},
+        ],
+    }
+
+    async def fetch(url: str, max_bytes: int) -> FakeResponse:
+        if url.endswith("good.jpg"):
+            return FakeResponse(b"image", "image/png")
+        if url.endswith("bad.jpg"):
+            return FakeResponse(b"not-image", "text/html")
+        html = f'<script id="recipe-manager-fixture">{json.dumps(payload)}</script>'.encode()
+        return FakeResponse(html, final_url="https://fixture.example/final/page")
+
+    loaded = await load_platform_fixture(
+        "https://submitted.example/fixture?token=secret",
+        fetch,
+        max_images=2,
+        max_image_bytes=1000,
+    )
+
+    assert loaded.url == "https://submitted.example/fixture?token=secret"
+    assert loaded.images[0].url == "https://fixture.example/good.jpg"
+    assert loaded.resource_results[0].error == FetchErrorCode.RESPONSE_TYPE_UNSUPPORTED.value

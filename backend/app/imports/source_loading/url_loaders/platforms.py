@@ -1,9 +1,16 @@
 import json
 import re
 from html import unescape
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
+from app.imports.source_loading.remote_fetch import FetchErrorCode, RemoteFetchError, stable_fetch_error_code
+from app.imports.source_loading.results import (
+    SecondaryResourceKind,
+    SecondaryResourceLoadResult,
+    SecondaryResourceLoadStatus,
+)
 from app.imports.source_loading.url_loaders.generic import httpx_fetch
+from app.imports.source_loading.url_loaders.media import html_response_is_supported, image_mime_type
 from app.imports.source_loading.url_loaders.types import Fetch, LoadedRemoteImage, LoadedUrlContent
 
 FIXTURE_SCRIPT_ID = "recipe-manager-fixture"
@@ -34,31 +41,50 @@ async def load_platform_fixture(
     max_image_bytes: int,
 ) -> LoadedUrlContent:
     page = await fetch(url, 512_000)
+    if not html_response_is_supported(page):
+        raise RemoteFetchError(FetchErrorCode.RESPONSE_TYPE_UNSUPPORTED)
     html = page.content.decode("utf-8", errors="replace")
     payload = fixture_payload(html)
     images: list[LoadedRemoteImage] = []
+    resource_results: list[SecondaryResourceLoadResult] = []
+    effective_url = getattr(page, "final_url", "") or url
     for position, media in enumerate(payload.get("media", [])):
         if len(images) >= max_images:
             break
         if media.get("type") != "image" or not media.get("url"):
             continue
-        image_url = str(media["url"])
-        image = await fetch(image_url, max_image_bytes)
-        mime_type = image.headers.get("content-type", "application/octet-stream").split(";")[0]
-        images.append(
-            LoadedRemoteImage(
-                bytes=image.content,
-                mime_type=mime_type,
-                original_name=f"platform-image-{position}",
-                url=image_url,
-                position=position,
+        image_url = urljoin(effective_url, str(media["url"]))
+        try:
+            image = await fetch(image_url, max_image_bytes)
+            mime_type = image_mime_type(image)
+            if mime_type is None:
+                raise RemoteFetchError(FetchErrorCode.RESPONSE_TYPE_UNSUPPORTED)
+            images.append(
+                LoadedRemoteImage(
+                    bytes=image.content,
+                    mime_type=mime_type,
+                    original_name=f"platform-image-{position}",
+                    url=image_url,
+                    position=position,
+                )
             )
-        )
+        except Exception as error:
+            resource_results.append(
+                SecondaryResourceLoadResult(
+                    kind=SecondaryResourceKind.IMAGE,
+                    status=SecondaryResourceLoadStatus.FAILED,
+                    position=position,
+                    url=image_url,
+                    original_name=f"platform-image-{position}",
+                    error=stable_fetch_error_code(error),
+                )
+            )
     return LoadedUrlContent(
         url=url,
         text=str(payload.get("caption") or ""),
         author_name=payload.get("authorName"),
         images=images,
+        resource_results=resource_results,
     )
 
 

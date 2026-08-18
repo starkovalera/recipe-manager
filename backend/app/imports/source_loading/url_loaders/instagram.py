@@ -5,16 +5,17 @@ from dataclasses import dataclass
 from urllib.parse import urlparse
 
 from app.core.logging import log_error, log_info
+from app.imports.source_loading.remote_fetch import FetchErrorCode, RemoteFetchError, stable_fetch_error_code
 from app.imports.source_loading.results import (
     SecondaryResourceKind,
     SecondaryResourceLoadResult,
     SecondaryResourceLoadStatus,
 )
 from app.imports.source_loading.url_loaders.generic import GenericUrlContentLoader, httpx_fetch
+from app.imports.source_loading.url_loaders.media import html_response_is_supported, image_mime_type
 from app.imports.source_loading.url_loaders.types import Fetch, LoadedRemoteImage, LoadedRemoteVideo, LoadedUrlContent
 
 logger = logging.getLogger("recipes.url.instagram")
-SUPPORTED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
 MAX_EMBED_BYTES = 2 * 1024 * 1024
 
 
@@ -132,6 +133,8 @@ async def _fetch_instagram_embed(
 ) -> tuple[str, str | None, str, list[ImageDescriptor], list[VideoDescriptor]]:
     normalized_url = _instagram_post_url(raw_url)
     response = await fetch(_instagram_embed_url(raw_url), MAX_EMBED_BYTES)
+    if not html_response_is_supported(response):
+        raise RemoteFetchError(FetchErrorCode.RESPONSE_TYPE_UNSUPPORTED)
     html = response.content.decode("utf-8", errors="replace")
     context = _parse_context_json(html)
     media = context.get("gql_data", {}).get("shortcode_media")
@@ -154,10 +157,8 @@ def _original_video_name_from_url(url: str) -> str:
 
 async def _download_image(descriptor: ImageDescriptor, fetch: Fetch, max_image_bytes: int) -> LoadedRemoteImage | None:
     response = await fetch(descriptor.url, max_image_bytes)
-    mime_type = response.headers.get("content-type", "").split(";")[0].lower()
-    if mime_type not in SUPPORTED_IMAGE_TYPES:
-        return None
-    if not response.content:
+    mime_type = image_mime_type(response)
+    if mime_type is None:
         return None
     return LoadedRemoteImage(
         bytes=response.content,
@@ -184,7 +185,7 @@ class InstagramUrlContentLoader:
                 url, self.fetch, max_images, max_videos
             )
         except Exception as error:
-            log_error(logger, "[recipes.url.instagram] Load fallback", error=repr(error), url=url)
+            log_error(logger, "[recipes.url.instagram] Load fallback", error=stable_fetch_error_code(error))
             return await self.fallback.load(url, max_images=max_images, max_image_bytes=max_image_bytes)
         images: list[LoadedRemoteImage] = []
         resource_results: list[SecondaryResourceLoadResult] = []
@@ -195,8 +196,7 @@ class InstagramUrlContentLoader:
                 log_error(
                     logger,
                     "[recipes.url.instagram] Image download failed",
-                    error=repr(error),
-                    url=descriptor.url,
+                    error=stable_fetch_error_code(error),
                     position=descriptor.position,
                 )
                 resource_results.append(
@@ -205,7 +205,7 @@ class InstagramUrlContentLoader:
                         status=SecondaryResourceLoadStatus.FAILED,
                         position=descriptor.position,
                         url=descriptor.url,
-                        error=repr(error),
+                        error=stable_fetch_error_code(error),
                     )
                 )
                 continue
@@ -216,7 +216,7 @@ class InstagramUrlContentLoader:
                         status=SecondaryResourceLoadStatus.FAILED,
                         position=descriptor.position,
                         url=descriptor.url,
-                        error="Instagram image could not be downloaded.",
+                        error=FetchErrorCode.RESPONSE_TYPE_UNSUPPORTED.value,
                     )
                 )
                 continue
@@ -224,7 +224,6 @@ class InstagramUrlContentLoader:
         log_info(
             logger,
             "[recipes.url.instagram] Loaded Instagram content",
-            url=normalized_url,
             detected_image_count=len(descriptors),
             accepted_image_count=len(images),
             detected_video_count=len(video_descriptors),

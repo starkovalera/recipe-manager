@@ -6,16 +6,17 @@ from html import unescape
 from urllib.parse import urlparse
 
 from app.core.logging import log_error, log_info
+from app.imports.source_loading.remote_fetch import FetchErrorCode, RemoteFetchError, stable_fetch_error_code
 from app.imports.source_loading.results import (
     SecondaryResourceKind,
     SecondaryResourceLoadResult,
     SecondaryResourceLoadStatus,
 )
 from app.imports.source_loading.url_loaders.generic import httpx_fetch
+from app.imports.source_loading.url_loaders.media import html_response_is_supported, image_mime_type
 from app.imports.source_loading.url_loaders.types import Fetch, LoadedRemoteImage, LoadedRemoteVideo, LoadedUrlContent
 
 logger = logging.getLogger("recipes.url.threads")
-SUPPORTED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
 MAX_HTML_BYTES = 2 * 1024 * 1024
 
 
@@ -310,8 +311,8 @@ def _original_video_name_from_url(url: str) -> str:
 
 async def _download_image(descriptor: ImageDescriptor, fetch: Fetch, max_image_bytes: int) -> LoadedRemoteImage | None:
     response = await fetch(descriptor.url, max_image_bytes)
-    mime_type = response.headers.get("content-type", "").split(";")[0].lower()
-    if mime_type not in SUPPORTED_IMAGE_TYPES or not response.content:
+    mime_type = image_mime_type(response)
+    if mime_type is None:
         return None
     return LoadedRemoteImage(
         bytes=response.content,
@@ -334,6 +335,8 @@ class ThreadsUrlContentLoader:
     async def load(self, url: str, max_images: int, max_image_bytes: int, max_videos: int = 1) -> LoadedUrlContent:
         normalized_url = _threads_post_url(url)
         response = await self.fetch(normalized_url, MAX_HTML_BYTES)
+        if not html_response_is_supported(response):
+            raise RemoteFetchError(FetchErrorCode.RESPONSE_TYPE_UNSUPPORTED)
         html = response.content.decode("utf-8", errors="replace")
         payloads = _extract_script_json(html)
         shortcode = normalized_url.rstrip("/").split("/")[-1]
@@ -354,8 +357,7 @@ class ThreadsUrlContentLoader:
                 log_error(
                     logger,
                     "[recipes.url.threads] Image download failed",
-                    error=repr(error),
-                    url=descriptor.url,
+                    error=stable_fetch_error_code(error),
                     position=descriptor.position,
                 )
                 resource_results.append(
@@ -364,7 +366,7 @@ class ThreadsUrlContentLoader:
                         status=SecondaryResourceLoadStatus.FAILED,
                         position=descriptor.position,
                         url=descriptor.url,
-                        error=repr(error),
+                        error=stable_fetch_error_code(error),
                     )
                 )
                 continue
@@ -375,7 +377,7 @@ class ThreadsUrlContentLoader:
                         status=SecondaryResourceLoadStatus.FAILED,
                         position=descriptor.position,
                         url=descriptor.url,
-                        error="Threads image could not be downloaded.",
+                        error=FetchErrorCode.RESPONSE_TYPE_UNSUPPORTED.value,
                     )
                 )
                 continue
@@ -384,7 +386,6 @@ class ThreadsUrlContentLoader:
         log_info(
             logger,
             "[recipes.url.threads] Loaded Threads content",
-            url=normalized_url,
             detected_image_count=len(descriptors),
             accepted_image_count=len(images),
             detected_video_count=len(video_descriptors),

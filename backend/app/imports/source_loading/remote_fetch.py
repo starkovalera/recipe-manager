@@ -53,6 +53,22 @@ class RemoteFetchError(RuntimeError):
         super().__init__(code.value)
 
 
+def stable_fetch_error_code(
+    error: BaseException,
+    *,
+    fallback: FetchErrorCode = FetchErrorCode.NETWORK_ERROR,
+) -> str:
+    """Return the safe, stable diagnostic code for a fetch-boundary error."""
+
+    if isinstance(error, RemoteFetchError):
+        return error.code.value
+    if isinstance(error, (httpx.TimeoutException, TimeoutError)):
+        return FetchErrorCode.TIMEOUT.value
+    if isinstance(error, (httpx.DecodingError, httpx.RemoteProtocolError)):
+        return FetchErrorCode.RESPONSE_HEADERS_INVALID.value
+    return fallback.value
+
+
 @dataclass(frozen=True)
 class ResolvedAddress:
     """One address returned by the resolver seam."""

@@ -2,16 +2,14 @@ import re
 from html import unescape
 from urllib.parse import urljoin
 
-from app.imports.source_loading.remote_fetch import RemoteFetcher
+from app.imports.source_loading.remote_fetch import FetchErrorCode, RemoteFetcher, RemoteFetchError, stable_fetch_error_code
 from app.imports.source_loading.results import (
     SecondaryResourceKind,
     SecondaryResourceLoadResult,
     SecondaryResourceLoadStatus,
 )
+from app.imports.source_loading.url_loaders.media import html_response_is_supported, image_mime_type
 from app.imports.source_loading.url_loaders.types import Fetch, FetchResponse, LoadedRemoteImage, LoadedUrlContent
-
-SUPPORTED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
-
 
 _remote_fetcher = RemoteFetcher()
 
@@ -41,6 +39,8 @@ class GenericUrlContentLoader:
 
     async def load(self, url: str, max_images: int, max_image_bytes: int, max_videos: int = 0) -> LoadedUrlContent:
         page = await self.fetch(url, 256_000)
+        if not html_response_is_supported(page):
+            raise RemoteFetchError(FetchErrorCode.RESPONSE_TYPE_UNSUPPORTED)
         html = page.content.decode("utf-8", errors="replace")
         description = _meta_content(html, "og:description")
         text = description or _body_text(html)
@@ -48,12 +48,13 @@ class GenericUrlContentLoader:
         images: list[LoadedRemoteImage] = []
         resource_results: list[SecondaryResourceLoadResult] = []
         if image_url and max_images > 0:
-            resolved = urljoin(url, image_url)
+            effective_url = getattr(page, "final_url", "") or url
+            resolved = urljoin(effective_url, image_url)
             try:
                 image = await self.fetch(resolved, max_image_bytes)
-                mime_type = image.headers.get("content-type", "application/octet-stream").split(";")[0]
-                if not image.content or mime_type not in SUPPORTED_IMAGE_TYPES:
-                    raise ValueError("Generic preview image is empty or has an unsupported content type.")
+                mime_type = image_mime_type(image)
+                if mime_type is None:
+                    raise RemoteFetchError(FetchErrorCode.RESPONSE_TYPE_UNSUPPORTED)
                 images.append(
                     LoadedRemoteImage(
                         bytes=image.content,
@@ -71,7 +72,7 @@ class GenericUrlContentLoader:
                         position=0,
                         url=resolved,
                         original_name="preview-image",
-                        error=repr(error),
+                        error=stable_fetch_error_code(error),
                     )
                 )
         return LoadedUrlContent(url=url, text=text or None, images=images, resource_results=resource_results)
