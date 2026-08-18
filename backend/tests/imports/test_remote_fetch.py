@@ -1,3 +1,5 @@
+import asyncio
+import gzip
 import socket
 
 import httpcore
@@ -6,12 +8,16 @@ import pytest
 
 import app.imports.source_loading.url_loaders.generic as generic_loader
 from app.imports.source_loading.remote_fetch import (
+    HTML_FETCH_TIMEOUTS,
+    VIDEO_FETCH_TIMEOUTS,
     FetchErrorCode,
+    FetchTimeouts,
     PinnedAsyncHTTPTransport,
     RemoteFetcher,
     RemoteFetchError,
     ResolvedAddress,
     VettedDestination,
+    httpx_destination_request,
     validate_url,
 )
 
@@ -218,9 +224,9 @@ async def test_default_fetch_adapter_returns_final_url_and_preserves_stable_stat
 
     monkeypatch.setattr(generic_loader, "_remote_fetcher", RemoteFetcher(resolver=resolver, transport=transport))
 
-    fetched = await generic_loader.httpx_fetch("https://example.test/start", max_bytes=1)
+    fetched = await generic_loader.httpx_fetch("https://example.test/start", max_bytes=2)
 
-    assert fetched.content == b"o"
+    assert fetched.content == b"ok"
     assert fetched.final_url == "https://example.test/final"
 
     async def failed_transport(url, _destination):
@@ -276,6 +282,53 @@ class RecordingBackend(httpcore.AsyncNetworkBackend):
         del seconds
 
 
+class StreamingResponse:
+    def __init__(
+        self,
+        url: str,
+        chunks: list[bytes],
+        *,
+        status_code: int = 200,
+        headers: dict[str, str] | None = None,
+        wait_after_first_chunk: float | None = None,
+    ):
+        self.status_code = status_code
+        self.headers = httpx.Headers(headers or {})
+        self.url = httpx.URL(url)
+        self.chunks = chunks
+        self.read_bytes = 0
+        self.closed = False
+        self.wait_after_first_chunk = wait_after_first_chunk
+
+    async def aiter_bytes(self, chunk_size: int | None = None):
+        del chunk_size
+        for index, chunk in enumerate(self.chunks):
+            self.read_bytes += len(chunk)
+            yield chunk
+            if index == 0 and self.wait_after_first_chunk is not None:
+                await asyncio.sleep(self.wait_after_first_chunk)
+
+    async def aclose(self) -> None:
+        self.closed = True
+
+
+TEST_FETCH_TIMEOUTS = FetchTimeouts(3, 5, 1, 15)
+
+
+def streaming_fetcher(monkeypatch, response: StreamingResponse, *, timeouts: FetchTimeouts = TEST_FETCH_TIMEOUTS):
+    async def resolver(_hostname: str, _port: int):
+        return (ResolvedAddress(PUBLIC_V4, socket.AF_INET),)
+
+    async def transport(_url, _destination):
+        return response
+
+    monkeypatch.setattr(
+        generic_loader,
+        "_remote_fetcher",
+        RemoteFetcher(resolver=resolver, transport=transport, timeouts=timeouts),
+    )
+
+
 @pytest.mark.asyncio
 async def test_actual_connection_uses_vetted_ip_and_original_hostname_for_tls_and_host():
     backend = RecordingBackend()
@@ -294,3 +347,193 @@ async def test_actual_connection_uses_vetted_ip_and_original_hostname_for_tls_an
     assert backend.stream.sni_hostname == "example.test"
     assert b"Host: example.test" in b"".join(backend.stream.writes)
     assert backend.stream.closed
+
+
+@pytest.mark.asyncio
+async def test_scoped_httpx_response_streams_before_closing_its_client():
+    backend = RecordingBackend()
+    destination = VettedDestination(
+        hostname="example.test",
+        address=PUBLIC_V4,
+        family=socket.AF_INET,
+    )
+
+    response = await httpx_destination_request(
+        validate_url("https://example.test/recipe"),
+        destination,
+        network_backend=backend,
+    )
+    assert [chunk async for chunk in response.aiter_bytes(chunk_size=2)] == [b"ok"]
+    await response.aclose()
+
+    assert backend.stream.closed
+
+
+def test_fetch_timeout_profiles_match_p11_budgets():
+    assert (HTML_FETCH_TIMEOUTS.connect, HTML_FETCH_TIMEOUTS.read, HTML_FETCH_TIMEOUTS.pool, HTML_FETCH_TIMEOUTS.operation) == (
+        3.0,
+        5.0,
+        1.0,
+        15.0,
+    )
+    assert (VIDEO_FETCH_TIMEOUTS.connect, VIDEO_FETCH_TIMEOUTS.read, VIDEO_FETCH_TIMEOUTS.pool, VIDEO_FETCH_TIMEOUTS.operation) == (
+        5.0,
+        15.0,
+        1.0,
+        90.0,
+    )
+
+
+@pytest.mark.asyncio
+async def test_bounded_fetch_accepts_at_limit_and_rejects_the_first_extra_decoded_byte(monkeypatch):
+    at_limit = StreamingResponse("https://example.test/at-limit", [b"abc"], headers={"Content-Length": "3"})
+    streaming_fetcher(monkeypatch, at_limit)
+
+    fetched = await generic_loader.httpx_fetch("https://example.test/at-limit", max_bytes=3)
+
+    assert fetched.content == b"abc"
+    assert at_limit.read_bytes == 3
+    assert at_limit.closed
+
+    over_limit = StreamingResponse("https://example.test/over-limit", [b"abcd"], headers={"Content-Length": "4"})
+    streaming_fetcher(monkeypatch, over_limit)
+
+    with pytest.raises(RemoteFetchError) as raised:
+        await generic_loader.httpx_fetch("https://example.test/over-limit", max_bytes=3)
+
+    assert raised.value.code == FetchErrorCode.RESPONSE_TOO_LARGE
+    assert over_limit.read_bytes == 0
+    assert over_limit.closed
+
+    lying_length = StreamingResponse("https://example.test/lying", [b"abcd"], headers={"Content-Length": "2"})
+    streaming_fetcher(monkeypatch, lying_length)
+
+    with pytest.raises(RemoteFetchError) as raised:
+        await generic_loader.httpx_fetch("https://example.test/lying", max_bytes=3)
+
+    assert raised.value.code == FetchErrorCode.RESPONSE_TOO_LARGE
+    assert lying_length.read_bytes == 4
+    assert lying_length.closed
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "content_length",
+    ["invalid", "-1", "2,3"],
+)
+async def test_bounded_fetch_rejects_invalid_or_conflicting_content_length(monkeypatch, content_length: str):
+    response_to_read = StreamingResponse(
+        "https://example.test/headers",
+        [b"ok"],
+        headers={"Content-Length": content_length},
+    )
+    streaming_fetcher(monkeypatch, response_to_read)
+
+    with pytest.raises(RemoteFetchError) as raised:
+        await generic_loader.httpx_fetch("https://example.test/headers", max_bytes=10)
+
+    assert raised.value.code == FetchErrorCode.RESPONSE_HEADERS_INVALID
+    assert response_to_read.read_bytes == 0
+    assert response_to_read.closed
+
+
+@pytest.mark.asyncio
+async def test_bounded_fetch_handles_unknown_length_and_supported_encoding_without_truncation(monkeypatch):
+    response_to_read = StreamingResponse(
+        "https://example.test/chunked",
+        [b"ab", b"c"],
+        headers={"Transfer-Encoding": "chunked", "Content-Encoding": "gzip"},
+    )
+    streaming_fetcher(monkeypatch, response_to_read)
+
+    fetched = await generic_loader.httpx_fetch("https://example.test/chunked", max_bytes=3)
+
+    assert fetched.content == b"abc"
+    assert fetched.headers["content-encoding"] == "gzip"
+    assert response_to_read.closed
+
+
+@pytest.mark.asyncio
+async def test_bounded_fetch_applies_limit_to_decoded_compressed_bytes(monkeypatch):
+    compressed_response = httpx.Response(
+        200,
+        headers={"Content-Encoding": "gzip"},
+        content=gzip.compress(b"abcd"),
+        request=httpx.Request("GET", "https://example.test/compressed"),
+    )
+    streaming_fetcher(monkeypatch, compressed_response)
+
+    with pytest.raises(RemoteFetchError) as raised:
+        await generic_loader.httpx_fetch("https://example.test/compressed", max_bytes=3)
+
+    assert raised.value.code == FetchErrorCode.RESPONSE_TOO_LARGE
+    assert compressed_response.is_closed
+
+
+@pytest.mark.asyncio
+async def test_bounded_fetch_rejects_unknown_content_encoding_before_reading(monkeypatch):
+    response_to_read = StreamingResponse(
+        "https://example.test/encoded",
+        [b"secret"],
+        headers={"Content-Encoding": "x-custom"},
+    )
+    streaming_fetcher(monkeypatch, response_to_read)
+
+    with pytest.raises(RemoteFetchError) as raised:
+        await generic_loader.httpx_fetch("https://example.test/encoded", max_bytes=100)
+
+    assert raised.value.code == FetchErrorCode.RESPONSE_HEADERS_INVALID
+    assert response_to_read.read_bytes == 0
+    assert response_to_read.closed
+
+
+@pytest.mark.asyncio
+async def test_bounded_fetch_maps_non_success_status_and_closes_response(monkeypatch):
+    response_to_read = StreamingResponse("https://example.test/failure", [b"error"], status_code=503)
+    streaming_fetcher(monkeypatch, response_to_read)
+
+    with pytest.raises(RemoteFetchError) as raised:
+        await generic_loader.httpx_fetch("https://example.test/failure", max_bytes=100)
+
+    assert raised.value.code == FetchErrorCode.UPSTREAM_STATUS
+    assert response_to_read.read_bytes == 0
+    assert response_to_read.closed
+
+
+@pytest.mark.asyncio
+async def test_bounded_fetch_maps_wall_clock_timeout_and_closes_stream(monkeypatch):
+    response_to_read = StreamingResponse(
+        "https://example.test/slow",
+        [b"a", b"b"],
+        wait_after_first_chunk=1,
+    )
+    streaming_fetcher(monkeypatch, response_to_read, timeouts=FetchTimeouts(3, 5, 1, 0.01))
+
+    with pytest.raises(RemoteFetchError) as raised:
+        await generic_loader.httpx_fetch("https://example.test/slow", max_bytes=100)
+
+    assert raised.value.code == FetchErrorCode.TIMEOUT
+    assert response_to_read.closed
+
+
+@pytest.mark.asyncio
+async def test_bounded_fetch_preserves_cancellation_after_cleanup(monkeypatch):
+    started = asyncio.Event()
+
+    class CancellableResponse(StreamingResponse):
+        async def aiter_bytes(self, chunk_size: int | None = None):
+            del chunk_size
+            started.set()
+            await asyncio.sleep(10)
+            yield b"never"
+
+    response_to_read = CancellableResponse("https://example.test/cancel", [])
+    streaming_fetcher(monkeypatch, response_to_read)
+    task = asyncio.create_task(generic_loader.httpx_fetch("https://example.test/cancel", max_bytes=100))
+
+    await started.wait()
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    assert response_to_read.closed
