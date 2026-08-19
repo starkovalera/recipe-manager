@@ -262,7 +262,7 @@ flowchart TD
   embedding["✓ #44 Embedding Lambda artifact complete/delivered in PR #83"]
   maintenance["✓ #45 Maintenance Lambda artifact delivered in PR #84"]
   deletion["✓ #46 Account-deletion Lambda artifact delivered in PR #85"]
-  ci["✓ #47 CI build, invocation, reproducibility, and scan verification (complete/delivered in this PR)"]
+  ci["✓ #47 CI build, invocation, reproducibility, and scan verification (complete/delivered in draft PR #87)"]
   infra["#31 Terraform/AWS foundation refinement (needs triage)"]
 
   p25 -. contains .-> shared
@@ -295,7 +295,7 @@ flowchart TD
 | [#44](https://github.com/starkovalera/recipe-manager/issues/44) | Embedding Lambda image | Complete/delivered in merged [PR #83](https://github.com/starkovalera/recipe-manager/pull/83); #41 complete |
 | [#45](https://github.com/starkovalera/recipe-manager/issues/45) | Maintenance Lambda image | Complete/delivered in merged [PR #84](https://github.com/starkovalera/recipe-manager/pull/84); #41 complete |
 | [#46](https://github.com/starkovalera/recipe-manager/issues/46) | Account-deletion Lambda image | Complete/delivered in merged [PR #85](https://github.com/starkovalera/recipe-manager/pull/85); #41 complete |
-| [#47](https://github.com/starkovalera/recipe-manager/issues/47) | Cross-artifact CI, fixtures, manifests, and vulnerability scans | Complete/delivered in this PR |
+| [#47](https://github.com/starkovalera/recipe-manager/issues/47) | Cross-artifact CI, fixtures, manifests, and vulnerability scans | Complete/delivered in draft [PR #87](https://github.com/starkovalera/recipe-manager/pull/87) |
 
 P12 does not add native blockers from #23, #26, #30, or #31 to the artifact
 children. Those workstreams provide independent inputs or later provisioning
