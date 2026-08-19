@@ -153,6 +153,8 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 
 See [`host-unit.md`](host-unit.md) for the clean API and KrakenD builds, private
 network deployment unit, health smoke, release manifest, and rollback contract.
+The cross-artifact build, health/invocation, scan, and manifest acceptance
+contract is owned by [`ci-verification.md`](ci-verification.md).
 
 Each Lambda child (#43–#46) follows the Lambda shape and sets its own handler:
 
@@ -266,19 +268,19 @@ uv --directory backend run pytest tests/infra/test_embedding_lambda_artifact.py 
 
 The runtime request proves the container-to-Lambda handler wiring; the direct
 fixture test avoids requiring a database, provider credentials, or AWS
-resources. Use the exact scanner version selected by the artifact pipeline
-(the initial local contract uses Trivy `0.63.0`) and fail on unresolved High or
-Critical vulnerabilities or detected secrets:
+resources. Use the exact scanner image selected by the artifact pipeline
+(Trivy `0.73.0`, pinned by digest in the CI harness) and fail on unaccepted
+High or Critical vulnerabilities or detected secrets:
 
 ```powershell
 docker run --rm -v /var/run/docker.sock:/var/run/docker.sock `
-  aquasec/trivy:0.63.0 image --scanners vuln,secret `
+  aquasec/trivy:0.73.0@sha256:7cced7cae583819fc7806d4cbc0dbbc7cad18b99f7d3e235192e6da8c091045c image --scanners vuln,secret `
   --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 $embeddingTag
 ```
 
 Cross-artifact scanner pinning, manifest generation, and CI failure policy are
-owned by #47. This child documents the image-specific command and boundaries;
-it does not push to ECR or provision Lambda, SQS, IAM, or event-source mappings.
+documented in [`ci-verification.md`](ci-verification.md). The artifact contract
+does not push to ECR or provision Lambda, SQS, IAM, or event-source mappings.
 
 The #43 import artifact target, native-tool provenance, deterministic SQS
 fixtures, Lambda Runtime Interface Emulator invocation, and scan commands are

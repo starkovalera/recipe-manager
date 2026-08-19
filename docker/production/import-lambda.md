@@ -123,7 +123,7 @@ try {
   docker save --output $scanArchive $image
   docker run --rm `
     -v "${scanDirectory}:/workspace:ro" `
-    aquasec/trivy:0.73.0 image `
+    aquasec/trivy:0.73.0@sha256:7cced7cae583819fc7806d4cbc0dbbc7cad18b99f7d3e235192e6da8c091045c image `
     --input /workspace/import.tar `
     --scanners vuln,secret `
     --severity CRITICAL,HIGH `
@@ -139,7 +139,8 @@ The archive is mounted read-only; the scanner does not receive the host
 Docker socket. The initial release policy fails on unresolved Critical or
 High findings and any detected secret.
 
-The scanner version is fixed in this command; the cross-artifact CI issue
-(`#47`) owns the CI image digest, release manifest, and final scanner policy.
+The scanner version is fixed in this command; the completed cross-artifact CI
+contract is documented in [`ci-verification.md`](ci-verification.md), including
+the CI image digest, release manifest, and final scanner policy.
 No application secret, `.env` file, provider credential, local database, or
 generated media is part of the build context or image.

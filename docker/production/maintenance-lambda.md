@@ -123,7 +123,7 @@ detected secret:
 docker run --rm `
   -v /var/run/docker.sock:/var/run/docker.sock `
   -v ${PWD}:/workspace:ro `
-  aquasec/trivy:0.73.0 image `
+  aquasec/trivy:0.73.0@sha256:7cced7cae583819fc7806d4cbc0dbbc7cad18b99f7d3e235192e6da8c091045c image `
   --scanners vuln,secret `
   --severity CRITICAL,HIGH `
   --exit-code 1 `
@@ -133,4 +133,4 @@ docker run --rm `
 No `.env` file, provider credential, local database, test storage, generated
 media, ECR repository, IAM resource, Terraform file, or deployment mutation is
 part of this build. Cross-artifact CI, release manifests, and the final scanner
-policy remain owned by [#47](https://github.com/starkovalera/recipe-manager/issues/47).
+policy are documented in [`ci-verification.md`](ci-verification.md).

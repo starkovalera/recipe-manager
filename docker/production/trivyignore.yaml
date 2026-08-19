@@ -1,0 +1,105 @@
+# Time-limited upstream exceptions for the latest official KrakenD 2.13.8 image.
+# Each finding is scoped to the gateway binary and expires automatically. The
+# CI scan still fails on every other unresolved HIGH or CRITICAL finding and
+# shows these suppressions in its log so they cannot become invisible debt.
+vulnerabilities:
+  - id: CVE-2026-56864
+    paths:
+      - "usr/bin/krakend"
+    expired_at: 2026-09-19
+    statement: The latest official KrakenD 2.13.8 image has no patched release yet.
+  - id: CVE-2026-56865
+    paths:
+      - "usr/bin/krakend"
+    expired_at: 2026-09-19
+    statement: The latest official KrakenD 2.13.8 image has no patched release yet.
+  - id: CVE-2026-46600
+    paths:
+      - "usr/bin/krakend"
+    expired_at: 2026-09-19
+    statement: The latest official KrakenD 2.13.8 image has no patched release yet.
+  - id: CVE-2026-56852
+    paths:
+      - "usr/bin/krakend"
+    expired_at: 2026-09-19
+    statement: The latest official KrakenD 2.13.8 image has no patched release yet.
+  - id: GHSA-hrxh-6v49-42gf
+    paths:
+      - "usr/bin/krakend"
+    expired_at: 2026-09-19
+    statement: The latest official KrakenD 2.13.8 image has no patched release yet.
+  - id: CVE-2026-33818
+    paths:
+      - "usr/bin/krakend"
+    expired_at: 2026-09-19
+    statement: The latest official KrakenD 2.13.8 image has no patched release yet.
+  - id: CVE-2026-39821
+    paths:
+      - "usr/bin/krakend"
+    expired_at: 2026-09-19
+    statement: The latest official KrakenD 2.13.8 image has no patched release yet.
+  - id: CVE-2026-56853
+    paths:
+      - "usr/bin/krakend"
+    expired_at: 2026-09-19
+    statement: The latest official KrakenD 2.13.8 image has no patched release yet.
+  - id: CVE-2026-56858
+    paths:
+      - "usr/bin/krakend"
+    expired_at: 2026-09-19
+    statement: The latest official KrakenD 2.13.8 image has no patched release yet.
+  - id: CVE-2026-56859
+    paths:
+      - "usr/bin/krakend"
+    expired_at: 2026-09-19
+    statement: The latest official KrakenD 2.13.8 image has no patched release yet.
+  - id: CVE-2026-56860
+    paths:
+      - "usr/bin/krakend"
+    expired_at: 2026-09-19
+    statement: The latest official KrakenD 2.13.8 image has no patched release yet.
+  - id: CVE-2026-56862
+    paths:
+      - "usr/bin/krakend"
+    expired_at: 2026-09-19
+    statement: The latest official KrakenD 2.13.8 image has no patched release yet.
+  - id: CVE-2026-33818
+    paths:
+      - "usr/local/bin/aws-lambda-rie"
+    expired_at: 2026-09-19
+    statement: The latest official AWS Lambda Python 3.12 amd64 image still contains RIE built with Go 1.26.5.
+  - id: CVE-2026-39821
+    paths:
+      - "usr/local/bin/aws-lambda-rie"
+    expired_at: 2026-09-19
+    statement: The latest official AWS Lambda Python 3.12 amd64 image still contains RIE built with Go 1.26.5.
+  - id: CVE-2026-46600
+    paths:
+      - "usr/local/bin/aws-lambda-rie"
+    expired_at: 2026-09-19
+    statement: The latest official AWS Lambda Python 3.12 amd64 image still contains RIE built with Go 1.26.5.
+  - id: CVE-2026-56853
+    paths:
+      - "usr/local/bin/aws-lambda-rie"
+    expired_at: 2026-09-19
+    statement: The latest official AWS Lambda Python 3.12 amd64 image still contains RIE built with Go 1.26.5.
+  - id: CVE-2026-56858
+    paths:
+      - "usr/local/bin/aws-lambda-rie"
+    expired_at: 2026-09-19
+    statement: The latest official AWS Lambda Python 3.12 amd64 image still contains RIE built with Go 1.26.5.
+  - id: CVE-2026-56859
+    paths:
+      - "usr/local/bin/aws-lambda-rie"
+    expired_at: 2026-09-19
+    statement: The latest official AWS Lambda Python 3.12 amd64 image still contains RIE built with Go 1.26.5.
+  - id: CVE-2026-56860
+    paths:
+      - "usr/local/bin/aws-lambda-rie"
+    expired_at: 2026-09-19
+    statement: The latest official AWS Lambda Python 3.12 amd64 image still contains RIE built with Go 1.26.5.
+  - id: CVE-2026-56862
+    paths:
+      - "usr/local/bin/aws-lambda-rie"
+    expired_at: 2026-09-19
+    statement: The latest official AWS Lambda Python 3.12 amd64 image still contains RIE built with Go 1.26.5.
