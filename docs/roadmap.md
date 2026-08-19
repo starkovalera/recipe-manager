@@ -91,7 +91,7 @@ block V1.
 flowchart TD
   foundation["✓ Shared design foundation and Recipe Detail structural foundation"]
   scope["✓ #20 Scope and decision inventory<br/>published evidence packet"]
-  constraints["#22 API, schema, and platform constraints<br/>ready frontier"]
+  constraints["✓ #22 API, schema, and platform constraints<br/>delivered in draft PR #82"]
   recipeFacts["#21 Recipe Detail/Edit contract audit<br/>delivered in PR #80"]
   recipeGaps["#71-#79 Recipe-specific production contract gaps<br/>candidate DEV work"]
 
@@ -147,7 +147,8 @@ flowchart TD
   classDef result fill:#ede9fe,stroke:#7c3aed,color:#4c1d95
 
   class foundation complete
-  class scope,constraints,recipeFacts ready
+  class scope,recipeFacts ready
+  class constraints complete
   class recipeGaps blocked
   class auth,recipes,imports,collections,notifications,account planned
   class integration blocked
@@ -305,6 +306,7 @@ native client. The native stack and delivery decision ([#27](https://github.com/
 | [`V1/V2 release boundary ADR`](adr/0006-v1-web-only-release-v2-mobile-boundary.md) | Accepted sequencing rule: V1 web-only, V2 mobile after post-V1 planning |
 | [`Future Capabilities`](future/README.md) | Product ideas, technical debt, and intentional deferrals outside active scope |
 | [`Shared product scope`](../design/shared/product-scope.md) | Human-readable cross-product scope and V1/V2 boundaries |
+| [`API, schema, and platform constraints`](../design/shared/api-schema-platform-constraints.md) | Verified cross-domain contract matrix, lifecycle mapping, platform split, and Development candidate seams for #22 |
 | [`Recipe Detail current scope`](../design/recipe-detail/decisions/current-scope.md) | Human-readable Design Domain decisions and remaining Recipe Detail work |
 | [`API documentation`](api.md) | Current API contracts and integration-facing behavior |
 
