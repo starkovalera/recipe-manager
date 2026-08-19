@@ -84,12 +84,14 @@ Pop-Location
 
 For a runtime-contract smoke, start the image with the AWS Lambda Runtime
 Interface Emulator supplied by the base image and invoke the malformed fixture.
-It requires no production settings and must return one addressable
-`batchItemFailures` entry:
+The existing maintenance module initializes its DB engine during import, so the
+local smoke supplies only non-secret TEST settings and a SQLite path on the
+`/tmp` tmpfs; it must return one addressable `batchItemFailures` entry:
 
 ```powershell
 docker run --rm --name recipe-manager-maintenance-rie `
   --read-only --tmpfs /tmp:rw,noexec,nosuid,size=512m `
+  -e APP_ENV=TEST -e DATABASE_URL=sqlite:////tmp/maintenance.db `
   -p 9000:8080 $image
 
 curl.exe -sS -X POST `
