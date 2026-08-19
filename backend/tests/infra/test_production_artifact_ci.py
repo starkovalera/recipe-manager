@@ -53,6 +53,9 @@ def test_harness_builds_and_verifies_every_p12_artifact_with_one_pinned_policy()
     ):
         assert required_text in harness
 
+    assert "docker build --platform linux/amd64 --provenance=false" in harness
+    assert '--build-arg "PACKAGING_IMAGE=${LAMBDA_BASE_IMAGE}"' in harness
+
 
 def test_upstream_scanner_exceptions_are_scoped_expiring_and_visible() -> None:
     policy = TRIVY_IGNORE.read_text(encoding="utf-8")

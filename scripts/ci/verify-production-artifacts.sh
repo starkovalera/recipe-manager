@@ -54,7 +54,7 @@ build_target maintenance-lambda-runtime "${MAINTENANCE_IMAGE}"
 build_target account-deletion-lambda-runtime "${ACCOUNT_DELETION_IMAGE}"
 build_target lambda-runtime "${LAMBDA_BASE_IMAGE}"
 
-docker buildx build --platform linux/amd64 --provenance=false --load \
+docker build --platform linux/amd64 --provenance=false \
   --file docker/production/embedding.Dockerfile --target embedding-runtime \
   --tag "${EMBEDDING_IMAGE}" --build-arg "PACKAGING_IMAGE=${LAMBDA_BASE_IMAGE}" \
   "${build_arguments[@]}" .
