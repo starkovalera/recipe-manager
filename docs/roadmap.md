@@ -91,7 +91,7 @@ block V1.
 flowchart TD
   foundation["✓ Shared design foundation and Recipe Detail structural foundation"]
   scope["✓ #20 Scope and decision inventory<br/>published evidence packet"]
-  constraints["#22 API, schema, and platform constraints<br/>contract packet in progress"]
+  constraints["✓ #22 API, schema, and platform constraints<br/>delivered in draft PR #82"]
   recipeFacts["#21 Recipe Detail/Edit contract audit<br/>delivered in PR #80"]
   recipeGaps["#71-#79 Recipe-specific production contract gaps<br/>candidate DEV work"]
 
@@ -147,7 +147,8 @@ flowchart TD
   classDef result fill:#ede9fe,stroke:#7c3aed,color:#4c1d95
 
   class foundation complete
-  class scope,constraints,recipeFacts ready
+  class scope,recipeFacts ready
+  class constraints complete
   class recipeGaps blocked
   class auth,recipes,imports,collections,notifications,account planned
   class integration blocked

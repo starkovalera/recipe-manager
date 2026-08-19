@@ -599,9 +599,11 @@ The immediate executable frontier after this inventory is:
 
 1. publish this #20 result;
 2. continue #21; the [#22 cross-domain contract matrix](api-schema-platform-constraints.md)
-   is now the technical input for the next shared-contract children and is not
-   a visual or production implementation approval;
-3. create the six shared-contract children after the #22 packet is reviewed.
+   is published in [draft PR #82](https://github.com/starkovalera/recipe-manager/pull/82)
+   as the technical input for the next shared-contract children and is not a
+   visual or production implementation approval;
+3. create the six shared-contract children after the #22 packet is reviewed
+   and merged.
    The Recipes shared child also consumes #21;
 4. create each Web/Mobile pair from its shared contract; the mobile Design
    child may run in parallel or be deferred, while V1 reconciliation consumes
