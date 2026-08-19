@@ -30,7 +30,7 @@ COPY config/auth.json config/endpoints.json config-production/settings.json /etc
 RUN krakend check -tnd -c /etc/krakend/krakend.tmpl; \
     FC_SETTINGS=/etc/krakend/config-production krakend check -tnd -c /etc/krakend/krakend.tmpl
 
-FROM ${KRAKEND_BASE_IMAGE}
+FROM ${KRAKEND_BASE_IMAGE} AS krakend-runtime
 
 ARG KRAKEND_BASE_IMAGE
 ARG SOURCE_REPOSITORY
