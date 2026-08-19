@@ -258,7 +258,7 @@ flowchart TD
   p25["✓ #25 P12 artifact matrix"]
   shared["✓ #41 Shared packaging contract"]
   api["✓ #42 FastAPI and KrakenD artifacts complete in PR #70"]
-  import["#43 Import Lambda artifact (ready)"]
+  import["✓ #43 Import Lambda artifact complete/delivered in PR #81"]
   embedding["✓ #44 Embedding Lambda artifact complete/delivered in draft PR #83"]
   maintenance["✓ #45 Maintenance Lambda artifact delivered in draft PR #84"]
   deletion["✓ #46 Account-deletion Lambda artifact delivered in draft PR #85"]
@@ -280,7 +280,8 @@ flowchart TD
   shared --> deletion
 
   api --> ci
-  import --> ci
+  embedding --> ci
+  maintenance --> ci
   deletion --> ci
 
   infra -. host/deployment input .-> api
@@ -290,7 +291,7 @@ flowchart TD
 | --- | --- | --- |
 | [#41](https://github.com/starkovalera/recipe-manager/issues/41) | Shared dependency/build, metadata, architecture, and runtime packaging seam | Complete in [PR #68](https://github.com/starkovalera/recipe-manager/pull/68) |
 | [#42](https://github.com/starkovalera/recipe-manager/issues/42) | FastAPI image and KrakenD image in one host deployment unit | Complete in [PR #70](https://github.com/starkovalera/recipe-manager/pull/70); closes on merge; #41 complete |
-| [#43](https://github.com/starkovalera/recipe-manager/issues/43) | Import Lambda image, import-only `ffmpeg`/`ffprobe`, and invocation seam | Ready; #41 complete |
+| [#43](https://github.com/starkovalera/recipe-manager/issues/43) | Import Lambda image, import-only `ffmpeg`/`ffprobe`, and invocation seam | Complete/delivered in [PR #81](https://github.com/starkovalera/recipe-manager/pull/81); closes on merge; #41 complete |
 | [#44](https://github.com/starkovalera/recipe-manager/issues/44) | Embedding Lambda image | Complete/delivered in draft [PR #83](https://github.com/starkovalera/recipe-manager/pull/83); closes on merge; #41 complete |
 | [#45](https://github.com/starkovalera/recipe-manager/issues/45) | Maintenance Lambda image | Complete/delivered in draft [PR #84](https://github.com/starkovalera/recipe-manager/pull/84); closes on merge; #41 complete |
 | [#46](https://github.com/starkovalera/recipe-manager/issues/46) | Account-deletion Lambda image | Complete/delivered in draft [PR #85](https://github.com/starkovalera/recipe-manager/pull/85); closes on merge; #41 complete |
@@ -341,18 +342,20 @@ decisions owned by later phases.
 The current checkout provides the following evidence for the child work:
 
 - `docker/production/Dockerfile` provides the shared runtime targets, the #42
-  FastAPI artifact target, and the #45 maintenance Lambda target;
+  FastAPI artifact target, the #43 import Lambda target, and the #45
+  maintenance Lambda target;
 - `infra/krakend/Dockerfile` provides the pinned #42 KrakenD artifact and
   validates its local and production configuration;
--- The embedding Lambda artifact is delivered in draft [PR #83](https://github.com/starkovalera/recipe-manager/pull/83), and the maintenance Lambda artifact is delivered in draft [PR #84](https://github.com/starkovalera/recipe-manager/pull/84); the remaining Lambda artifact definition is #43;
--- `backend/tests/infra/test_maintenance_lambda_artifact.py` and the four
+- The embedding Lambda artifact is delivered in draft [PR #83](https://github.com/starkovalera/recipe-manager/pull/83); the maintenance Lambda artifact is delivered in draft [PR #84](https://github.com/starkovalera/recipe-manager/pull/84); the #43 import Lambda artifact is delivered in [PR #81](https://github.com/starkovalera/recipe-manager/pull/81); the #46 account-deletion Lambda artifact is delivered in draft [PR #85](https://github.com/starkovalera/recipe-manager/pull/85);
+- `backend/tests/infra/test_maintenance_lambda_artifact.py` and the four
   `docker/production/fixtures/maintenance-lambda/` events verify the #45
   handler/dispatcher boundary without production service state;
--- `docker/production/maintenance-lambda.md` records the #45 build, runtime,
+- `docker/production/maintenance-lambda.md` records the #45 build, runtime,
   digest, local invocation, and scan evidence commands;
-- `docker/production/Dockerfile` and `account-deletion-lambda.md` provide the
-  #46 account-deletion artifact target, deterministic fixtures, runtime smoke,
-  and scan runbook;
+- `docker/production/account-deletion-lambda.md` provides the #46 account-deletion
+  artifact target, deterministic fixtures, runtime smoke, and scan runbook;
+- `docker/production/import-lambda.md` records the #43 native-tool provenance,
+  deterministic SQS fixtures, Lambda runtime invocation, and scan runbook;
 - PROD FastAPI startup delegates Alembic to the controlled #42 release command;
 - the four Lambda handlers and their tests already exist under
   `backend/app/lambdas/` and `backend/tests/lambdas/`;
