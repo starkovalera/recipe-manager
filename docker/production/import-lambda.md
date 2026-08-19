@@ -84,9 +84,15 @@ provided by the AWS Python base image:
 
 ```powershell
 docker run --rm --name recipe-manager-import-rie `
+  -e APP_ENV=TEST `
   --read-only --tmpfs /tmp:rw,noexec,nosuid,size=512m `
   -p 9000:8080 $image
 ```
+
+`APP_ENV=TEST` is deliberate: these fixtures exercise the runtime and SQS
+partial-batch contract without production credentials or provider state. A
+production invocation must supply the real locked settings through the
+deployment environment instead.
 
 Invoke each fixture from a second terminal:
 
@@ -106,20 +112,32 @@ record behavior.
 
 ## Vulnerability and secret scan
 
-Run the pinned scanner against the exact local image before publication. The
-initial release policy fails on unresolved Critical or High findings and any
-detected secret:
+Run the pinned scanner against the exact local image before publication:
 
 ```powershell
-docker run --rm `
-  -v /var/run/docker.sock:/var/run/docker.sock `
-  -v ${PWD}:/workspace:ro `
-  aquasec/trivy:0.73.0 image `
-  --scanners vuln,secret `
-  --severity CRITICAL,HIGH `
-  --exit-code 1 `
-  $image
+$scanDirectory = Join-Path $PWD.Path ".trivy-issue-43"
+$scanArchive = Join-Path $scanDirectory "import.tar"
+New-Item -ItemType Directory -Path $scanDirectory -Force | Out-Null
+
+try {
+  docker save --output $scanArchive $image
+  docker run --rm `
+    -v "${scanDirectory}:/workspace:ro" `
+    aquasec/trivy:0.73.0 image `
+    --input /workspace/import.tar `
+    --scanners vuln,secret `
+    --severity CRITICAL,HIGH `
+    --exit-code 1 `
+    --no-progress `
+    --timeout 15m
+} finally {
+  Remove-Item -LiteralPath $scanDirectory -Recurse -Force
+}
 ```
+
+The archive is mounted read-only; the scanner does not receive the host
+Docker socket. The initial release policy fails on unresolved Critical or
+High findings and any detected secret.
 
 The scanner version is fixed in this command; the cross-artifact CI issue
 (`#47`) owns the CI image digest, release manifest, and final scanner policy.
