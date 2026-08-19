@@ -1,7 +1,7 @@
 # Recipe Manager Production Roadmap
 
 Updated: 2026-08-19
-Status: local baseline, P1-P10, and P11 hardening complete; P12 shared packaging #41 and FastAPI/KrakenD artifact child #42 complete in PR #70; embedding Lambda #44 complete/delivered in draft PR #83; artifact children #43, #45, and #46 ready and cross-artifact CI #47 blocked only by them
+Status: local baseline, P1-P10, and P11 hardening complete; P12 shared packaging #41 and FastAPI/KrakenD artifact child #42 complete in PR #70; embedding Lambda #44 complete/delivered in draft PR #83; maintenance Lambda #45 delivered in draft PR #84; artifact children #43 and #46 remain ready and cross-artifact CI #47 is blocked only by them
 
 This is the canonical current plan for the `[DEV]` track. Detailed architecture and behavior live in their subject documents; GitHub issues carry executable slices and native blocking edges.
 
@@ -12,7 +12,7 @@ This is the canonical current plan for the `[DEV]` track. Detailed architecture 
 | Local baseline and CI | Complete | `v0.1.0-local-baseline`, backend/frontend/gateway checks on `main` |
 | P1-P10 runtime boundaries | Complete | Merged PRs #4 and #6-#15; current architecture and subject contracts |
 | P11 SSRF and streaming hardening | Complete; #23 and children #37-#40 closed | Specification and child graph merged in PR [#49](https://github.com/starkovalera/recipe-manager/pull/49); secure URL policy, DNS validation, and redirects merged in PR [#63](https://github.com/starkovalera/recipe-manager/pull/63); bounded streaming, response policy, timeouts, and cleanup merged in PR [#65](https://github.com/starkovalera/recipe-manager/pull/65); loader migration and failure-semantics work merged in PR [#66](https://github.com/starkovalera/recipe-manager/pull/66); integrated adversarial verification merged in PR [#67](https://github.com/starkovalera/recipe-manager/pull/67) |
-| P12 production Docker artifacts | Shared packaging #41 and FastAPI/KrakenD #42 complete in PR #70; embedding Lambda #44 complete/delivered in draft PR #83; #43, #45, and #46 ready; #47 blocked only by those remaining children | [#41](https://github.com/starkovalera/recipe-manager/issues/41) delivered the digest-pinned, frozen-dependency Docker seam in merged [PR #68](https://github.com/starkovalera/recipe-manager/pull/68); [#42](https://github.com/starkovalera/recipe-manager/issues/42) delivers the API/gateway host unit and controlled migration boundary in [PR #70](https://github.com/starkovalera/recipe-manager/pull/70), which closes it on merge; [#44](https://github.com/starkovalera/recipe-manager/issues/44) delivers the embedding Lambda image in draft [PR #83](https://github.com/starkovalera/recipe-manager/pull/83), which closes it on merge; remaining Lambda artifact images are [#43](https://github.com/starkovalera/recipe-manager/issues/43), [#45](https://github.com/starkovalera/recipe-manager/issues/45), and [#46](https://github.com/starkovalera/recipe-manager/issues/46), followed by cross-artifact CI in [#47](https://github.com/starkovalera/recipe-manager/issues/47) |
+| P12 production Docker artifacts | Shared packaging #41 and FastAPI/KrakenD #42 complete in PR #70; embedding Lambda #44 complete/delivered in draft PR #83; maintenance Lambda #45 delivered in draft PR #84; #43 and #46 ready; #47 blocked only by those remaining children | [#41](https://github.com/starkovalera/recipe-manager/issues/41) delivered the digest-pinned, frozen-dependency Docker seam in merged [PR #68](https://github.com/starkovalera/recipe-manager/pull/68); [#42](https://github.com/starkovalera/recipe-manager/issues/42) delivers the API/gateway host unit and controlled migration boundary in [PR #70](https://github.com/starkovalera/recipe-manager/pull/70), which closes it on merge; [#44](https://github.com/starkovalera/recipe-manager/issues/44) delivers the embedding Lambda image in draft [PR #83](https://github.com/starkovalera/recipe-manager/pull/83), which closes it on merge; [#45](https://github.com/starkovalera/recipe-manager/issues/45) delivers the maintenance Lambda image in draft [PR #84](https://github.com/starkovalera/recipe-manager/pull/84), which closes it on merge; remaining Lambda artifact images are [#43](https://github.com/starkovalera/recipe-manager/issues/43) and [#46](https://github.com/starkovalera/recipe-manager/issues/46), followed by cross-artifact CI in [#47](https://github.com/starkovalera/recipe-manager/issues/47) |
 | LocalStack S3 + PREVIEW acceptance | Evidence recorded | PR #15 added the service/config/tests; merged PR [#58](https://github.com/starkovalera/recipe-manager/pull/58) records the LocalStack and signed-in browser checks |
 | Live AWS S3/provider verification | Ready for human; blocked by owner inputs | [#59](https://github.com/starkovalera/recipe-manager/issues/59) requires #30 prerequisites and gates technical production smoke without blocking #31 refinement |
 | Terraform, IAM, secrets | Not started | Refinement may begin in parallel with the remaining P12 work where runtime contracts are already fixed |
@@ -66,7 +66,7 @@ Status: complete.
 
 ## Phase 1 — Local Production Readiness
 
-Status: P1-P10 and P11 complete; P12 shared packaging children #41 and #42 are complete in PRs #68 and #70, embedding child #44 is complete/delivered in draft PR #83, artifact children #43, #45, and #46 are ready, and cross-artifact CI child #47 remains blocked only by those three Lambda artifacts.
+Status: P1-P10 and P11 complete; P12 shared packaging children #41 and #42 are complete in PRs #68 and #70, embedding child #44 is complete/delivered in draft PR #83, maintenance child #45 is delivered in draft PR #84, artifact children #43 and #46 are ready, and cross-artifact CI child #47 remains blocked only by those two Lambda artifacts.
 
 Implementation details and acceptance criteria for each subphase are agreed
 immediately before that subphase starts.
@@ -219,8 +219,8 @@ flowchart TD
   p11Spec --> p11Implementation["✓ [DEV][BACKEND] P11 implementation (#37-#40 closed)"]
   p10 --> p12Spec["✓ [DEV][INFRA] P12 artifact matrix (#25 closed)"]
   p12Spec --> p12Shared["✓ [DEV][INFRA] Shared packaging (#41 closed)"]
-  p12Shared --> p12Artifacts["✓ [DEV][INFRA] FastAPI/KrakenD #42 complete in PR #70; ✓ embedding #44 delivered in draft PR #83; #43/#45/#46 ready"]
-  p12Artifacts --> p12Ci["[DEV][INFRA] Cross-artifact CI (#47 blocked by #43/#45/#46)"]
+  p12Shared --> p12Artifacts["✓ [DEV][INFRA] FastAPI/KrakenD #42 complete in PR #70; ✓ embedding #44 delivered in draft PR #83; ✓ maintenance #45 delivered in draft PR #84; #43/#46 ready"]
+  p12Artifacts --> p12Ci["[DEV][INFRA] Cross-artifact CI (#47 blocked by #43/#46)"]
   p10 --> localstack["✓ [DEV][INFRA] LocalStack S3 + PREVIEW acceptance (#26 closed)"]
   p10 --> tfFoundation["[DEV][INFRA] Terraform/AWS foundation refinement (#31 needs triage)"]
   ownerInputs["[DEV][INFRA] Owner-controlled production prerequisites (#30 ready for human)"]
