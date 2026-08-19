@@ -259,7 +259,7 @@ flowchart TD
   shared["✓ #41 Shared packaging contract"]
   api["✓ #42 FastAPI and KrakenD artifacts complete in PR #70"]
   import["#43 Import Lambda artifact (ready)"]
-  embedding["#44 Embedding Lambda artifact (ready)"]
+  embedding["✓ #44 Embedding Lambda artifact complete/delivered in draft PR #83"]
   maintenance["#45 Maintenance Lambda artifact (ready)"]
   deletion["#46 Account-deletion Lambda artifact (ready)"]
   ci["#47 CI build, invocation, reproducibility, and scan verification (blocked)"]
@@ -281,7 +281,6 @@ flowchart TD
 
   api --> ci
   import --> ci
-  embedding --> ci
   maintenance --> ci
   deletion --> ci
 
@@ -293,10 +292,10 @@ flowchart TD
 | [#41](https://github.com/starkovalera/recipe-manager/issues/41) | Shared dependency/build, metadata, architecture, and runtime packaging seam | Complete in [PR #68](https://github.com/starkovalera/recipe-manager/pull/68) |
 | [#42](https://github.com/starkovalera/recipe-manager/issues/42) | FastAPI image and KrakenD image in one host deployment unit | Complete in [PR #70](https://github.com/starkovalera/recipe-manager/pull/70); closes on merge; #41 complete |
 | [#43](https://github.com/starkovalera/recipe-manager/issues/43) | Import Lambda image, import-only `ffmpeg`/`ffprobe`, and invocation seam | Ready; #41 complete |
-| [#44](https://github.com/starkovalera/recipe-manager/issues/44) | Embedding Lambda image | Ready; #41 complete |
+| [#44](https://github.com/starkovalera/recipe-manager/issues/44) | Embedding Lambda image | Complete/delivered in draft [PR #83](https://github.com/starkovalera/recipe-manager/pull/83); closes on merge; #41 complete |
 | [#45](https://github.com/starkovalera/recipe-manager/issues/45) | Maintenance Lambda image | Ready; #41 complete |
 | [#46](https://github.com/starkovalera/recipe-manager/issues/46) | Account-deletion Lambda image | Ready; #41 complete |
-| [#47](https://github.com/starkovalera/recipe-manager/issues/47) | Cross-artifact CI, fixtures, manifests, and vulnerability scans | Blocked by #43–#46 |
+| [#47](https://github.com/starkovalera/recipe-manager/issues/47) | Cross-artifact CI, fixtures, manifests, and vulnerability scans | Blocked by #43, #45, and #46 |
 
 P12 does not add native blockers from #23, #26, #30, or #31 to the artifact
 children. Those workstreams provide independent inputs or later provisioning
@@ -346,7 +345,7 @@ The current checkout provides the following evidence for the child work:
   #42 FastAPI artifact target;
 - `infra/krakend/Dockerfile` provides the pinned #42 KrakenD artifact and
   validates its local and production configuration;
-- Lambda artifact definitions remain in #43–#46;
+- The embedding Lambda artifact is delivered in draft [PR #83](https://github.com/starkovalera/recipe-manager/pull/83); the remaining Lambda artifact definitions are #43, #45, and #46;
 - PROD FastAPI startup delegates Alembic to the controlled #42 release command;
 - the four Lambda handlers and their tests already exist under
   `backend/app/lambdas/` and `backend/tests/lambdas/`;
