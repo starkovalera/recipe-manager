@@ -46,9 +46,12 @@ domain decisions:
    [`authentication and authorization`](../../docs/authentication-and-authorization.md),
    [`production roadmap`](../../docs/architecture/production-roadmap.md), and
    [`production architecture`](../../docs/architecture/production-architecture.md);
-5. [`docs/future/`](../../docs/future/README.md) for explicit exclusions and
+5. the verified [#22 API, schema, and platform constraint handoff](api-schema-platform-constraints.md)
+   for the cross-domain matrix, lifecycle mapping, platform split, and
+   candidate Development seams;
+6. [`docs/future/`](../../docs/future/README.md) for explicit exclusions and
    capabilities that have not been promoted;
-6. prototypes, screenshots, and historical comparisons as evidence of the
+7. prototypes, screenshots, and historical comparisons as evidence of the
    decision process, never as an independent current requirement.
 
 The [`Recipe Detail implementation handoff`](../recipe-detail/implementation-handoff.md)
@@ -438,8 +441,8 @@ constraints, or an explicit human Design decision.
 
 | ID | Area | Evidence-backed discrepancy | Classification | Owner / consequence |
 | --- | --- | --- | --- | --- |
-| D1 | API documentation | [`docs/api.md`](../../docs/api.md) describes a narrower Recipe PATCH and omits current routes/fields such as ingredients, nutrition, cover selection, resource mutation, and recipe deletion that are present in [`recipes.py`](../../backend/app/api/routes/recipes.py) and [`schemas/recipes.py`](../../backend/app/schemas/recipes.py). | Contradictory | #22 must publish one current contract before children cite API behavior. |
-| D2 | Import states | `ImportJobStatus` includes `failed_artifacts_removed`, while the public API status list omits it; source-level statuses also include reserved transitions not assigned by the current flow. | Contradictory | #22 must map persisted, public, and user-visible states. |
+| D1 | API documentation | [`docs/api.md`](../../docs/api.md) describes a narrower Recipe PATCH and omits current routes/fields such as ingredients, nutrition, cover selection, resource mutation, and recipe deletion that are present in [`recipes.py`](../../backend/app/api/routes/recipes.py) and [`schemas/recipes.py`](../../backend/app/schemas/recipes.py). | Contradictory | The [#22 constraint handoff](api-schema-platform-constraints.md) records the runtime contract and makes canonical API/schema drift enforcement a Development candidate. |
+| D2 | Import states | `ImportJobStatus` includes `failed_artifacts_removed`, while the public API status list omits it; source-level statuses also include reserved transitions not assigned by the current flow. | Contradictory | The [#22 constraint handoff](api-schema-platform-constraints.md) maps persisted, public, user-visible, reserved, and unreachable states; lifecycle publication remains a Development candidate. |
 | D3 | Recipe review | Design approves one bulk `Mark all reviewed` action and no per-flag resolution controls; the active API exposes per-flag open/resolved PATCH. | Contradictory | Human/product decision plus #21/#22 contract outcome; affects web/mobile review UX and embedding state. |
 | D4 | Recipe assessment | Difficulty and Personal rating controls are structurally approved, but no model/schema/API persistence exists and Future Capabilities keeps them outside V1 scope. | Unresolved | Human decision required before Recipe Edit children can promise persistence. |
 | D5 | Recipe content naming | Design names a `Cooking notes` section; the active model/API has `Recipe.note` and no `cooking_notes` field. | Unresolved | #21 must define meaning, storage, validation, and search effects. |
@@ -447,7 +450,7 @@ constraints, or an explicit human Design decision.
 | D7 | Source values | Design labels the source option `TikTok`; the wire enum is `TT`. | Unresolved | #21/#22 must document display label versus wire value. |
 | D8 | Historical Recipe Detail decisions | Older `decision-log.md` entries mention a mobile section index, mobile ingredient reordering, and Media as an Edit panel. Later explicit entries supersede them and the current-scope/numbered decisions record the current behavior. | Stale historical assumption, not an active current contradiction | Keep the source-of-truth order visible; future issue bodies must link current files, not historical checklist text. |
 | D9 | Mobile shell wording | One historical log entry calls the shell "four stable top-level destinations" around a central action; the current approved shell defines five stable slots including the central Add action. | Stale wording | Use [`11-global-mobile-shell.md`](../recipe-detail/decisions/11-global-mobile-shell.md) as the current contract. |
-| D10 | Auth/production topology | The auth document's older diagram labels the non-production queue/storage as Redis/Dramatiq and local storage, while the current production architecture requires SQS and S3 in PROD. | Stale technical evidence | #22 should separate preview adapters from production topology before client contracts cite the diagram. |
+| D10 | Auth/production topology | The auth document's older diagram labels the non-production queue/storage as Redis/Dramatiq and local storage, while the current production architecture requires SQS and S3 in PROD. | Stale technical evidence | The [#22 constraint handoff](api-schema-platform-constraints.md) separates preview adapters from production topology before client contracts cite the diagram. |
 | D11 | Auth onboarding | The active Design roadmap names onboarding in Core; the Future Capability document excludes mandatory first-login language selection. | Scope contradiction | Human decision packet: keep Core onboarding to access/lifecycle, promote language onboarding, or remove the term until refined. |
 | D12 | Organization | Basic Collection/Tag APIs exist, but no Design contract says how Organize Recipe, selectors, membership errors, Collection description editing, and large-set pagination fit together. | Unresolved | Shared Collections contract is blocked by #20 and #22; no web/mobile slice yet. |
 
@@ -595,11 +598,11 @@ flowchart TD
 The immediate executable frontier after this inventory is:
 
 1. publish this #20 result;
-2. continue #21 and #22 in parallel; both are already `ready-for-agent` and
-   are not blocked by the platform design children;
-3. create the six shared-contract children only after #20 is published and
-   #22 has supplied the cross-domain contract matrix. The Recipes shared child
-   also consumes #21;
+2. continue #21; the [#22 cross-domain contract matrix](api-schema-platform-constraints.md)
+   is now the technical input for the next shared-contract children and is not
+   a visual or production implementation approval;
+3. create the six shared-contract children after the #22 packet is reviewed.
+   The Recipes shared child also consumes #21;
 4. create each Web/Mobile pair from its shared contract; the mobile Design
    child may run in parallel or be deferred, while V1 reconciliation consumes
    shared + Web results;

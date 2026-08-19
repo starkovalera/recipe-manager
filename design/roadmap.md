@@ -11,7 +11,9 @@ continuity where appropriate. Mobile Design children may be created alongside
 web children, but their completion is non-blocking for V1 and does not
 authorize mobile Development. The cross-domain scope and decision evidence
 for the current frontier is maintained in
-[`shared/scope-and-decision-inventory.md`](shared/scope-and-decision-inventory.md).
+[`shared/scope-and-decision-inventory.md`](shared/scope-and-decision-inventory.md);
+the verified API, schema, lifecycle, and platform handoff is maintained in
+[`shared/api-schema-platform-constraints.md`](shared/api-schema-platform-constraints.md).
 
 ## Gates
 
@@ -127,7 +129,7 @@ Feature workstreams may proceed in parallel. A change to a shared decision recor
 | Candidate child issue | Readiness | Why |
 | --- | --- | --- |
 | `[DESIGN][SHARED] Inventory first-version scope and existing decisions` | Completed | [`shared/scope-and-decision-inventory.md`](shared/scope-and-decision-inventory.md) accounts for the Core domains, discrepancies, deferrals, decision packets, and next issue split; #20 is published in [PR #51](https://github.com/starkovalera/recipe-manager/pull/51), so shared-contract children may be created after #22 supplies the cross-domain contract matrix (the Recipes child also consumes #21) |
-| `[DESIGN][SHARED] Audit API, schema, and platform constraints` | Agent-ready | This is read-only contract discovery with a checkable change list |
+| `[DESIGN][SHARED] Audit API, schema, and platform constraints` | In progress | The verified cross-domain packet is drafted in [`shared/api-schema-platform-constraints.md`](shared/api-schema-platform-constraints.md); publication through the task lifecycle is the remaining handoff step |
 | `[DESIGN][RECIPES] Verify Recipe Detail/Edit contracts` | Contract audit complete; delivered in [draft PR #80](https://github.com/starkovalera/recipe-manager/pull/80) | [`15-verified-recipe-detail-contracts.md`](recipe-detail/decisions/15-verified-recipe-detail-contracts.md) separates verified behavior from candidates [#71](https://github.com/starkovalera/recipe-manager/issues/71)–[#79](https://github.com/starkovalera/recipe-manager/issues/79) |
 | Domain `[WEB]` and paired `[MOBILE]` design children | Blocker-dependent | Read-only structural slices are unblocked; remaining Edit/Manage Media/Organize children use the exact prerequisites in the verified contract packet; mobile remains paired/non-blocking for V1 |
 | V1 shared/web reconciliation children | Blocked | Require the shared contract and web child; mobile evidence is an optional input |
