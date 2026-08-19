@@ -1,6 +1,6 @@
 # P10 Owner Verification Runbook
 
-Use the branch SHA recorded in the draft PR. Automated tests cover authorization,
+Use the merge commit recorded in PR #58. Automated tests cover authorization,
 contracts, LOCAL bytes, S3 signing, frontend retrieval modes, and gateway parity.
 The checks below require the repository owner because they use a browser session
 or AWS credentials.
@@ -8,8 +8,8 @@ or AWS credentials.
 ## LocalStack acceptance evidence — 2026-08-14
 
 The functional LocalStack tier and the signed-in PREVIEW/browser tier are recorded
-in draft PR [#58](https://github.com/starkovalera/recipe-manager/pull/58) on
-`codex/issue-26-preview-evidence`. This section records the local/provider
+in merged PR [#58](https://github.com/starkovalera/recipe-manager/pull/58). This
+section records the local/provider
 boundary only; the AWS-only verification is now a separate task, [#59 - Verify
 Live AWS S3 media access boundaries](https://github.com/starkovalera/recipe-manager/issues/59).
 
