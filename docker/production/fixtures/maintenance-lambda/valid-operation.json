@@ -1,0 +1,8 @@
+{
+  "Records": [
+    {
+      "messageId": "maintenance-fixture-completed",
+      "body": "{\"operation\":\"pending_outbox_reconciliation\"}"
+    }
+  ]
+}

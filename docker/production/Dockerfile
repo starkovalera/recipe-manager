@@ -153,3 +153,13 @@ LABEL org.opencontainers.image.source="${SOURCE_REPOSITORY}" \
       com.recipe-manager.target-architecture="linux/amd64" \
       com.recipe-manager.source-date-epoch="${SOURCE_DATE_EPOCH}" \
       com.recipe-manager.packaging-contract="docker/production/v1"
+
+FROM lambda-runtime AS maintenance-lambda-runtime
+
+RUN set -eux; \
+    test ! -e /usr/local/bin/ffmpeg; \
+    test ! -e /usr/local/bin/ffprobe
+
+LABEL com.recipe-manager.artifact="recipe-manager-maintenance"
+
+CMD ["app.lambdas.maintenance.handler"]

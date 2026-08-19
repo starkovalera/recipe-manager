@@ -1,0 +1,8 @@
+{
+  "Records": [
+    {
+      "messageId": "maintenance-fixture-retryable",
+      "body": "{\"operation\":\"stale_import_reconciliation\"}"
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "Records": [
+    {
+      "messageId": "maintenance-fixture-anomaly",
+      "body": "{\"operation\":\"integrity_check\"}"
+    }
+  ]
+}

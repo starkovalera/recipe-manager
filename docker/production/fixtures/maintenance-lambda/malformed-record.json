@@ -1,0 +1,8 @@
+{
+  "Records": [
+    {
+      "messageId": "maintenance-fixture-malformed",
+      "body": "{\"operation\":\"not_a_maintenance_operation\"}"
+    }
+  ]
+}
