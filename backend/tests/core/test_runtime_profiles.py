@@ -1,11 +1,41 @@
 from pathlib import Path
+from unittest.mock import Mock
 
 import pytest
 
 from app.core.config import AppEnv, Settings
 from app.core.runtime import prepare_runtime
+from app.main import prepare_application_runtime
 
 CLERK_SETTINGS = {"clerk_secret_key": "secret"}
+
+
+def test_production_application_startup_does_not_prepare_local_state_or_run_migrations(monkeypatch):
+    settings = Mock(app_env=AppEnv.PROD, database_url="postgresql+psycopg://production", upload_dir=None)
+    prepare = Mock()
+    migrate = Mock()
+    monkeypatch.setattr("app.main.prepare_runtime", prepare)
+    monkeypatch.setattr("app.main.run_migrations", migrate)
+
+    prepare_application_runtime(settings)
+
+    prepare.assert_not_called()
+    migrate.assert_not_called()
+
+
+def test_non_production_application_startup_keeps_runtime_preparation_and_migrations(monkeypatch):
+    settings = Mock(app_env=AppEnv.DEV, database_url="sqlite:///dev.db")
+    prepare = Mock()
+    migrate = Mock()
+    reset = Mock()
+    monkeypatch.setattr("app.main.prepare_runtime", prepare)
+    monkeypatch.setattr("app.main.run_migrations", migrate)
+    monkeypatch.setattr("app.main.reset_database_schema", reset)
+
+    prepare_application_runtime(settings)
+
+    prepare.assert_called_once_with(settings, reset_database=reset)
+    migrate.assert_called_once_with("sqlite:///dev.db")
 
 
 def test_dev_runtime_does_not_delete_existing_files(tmp_path: Path):

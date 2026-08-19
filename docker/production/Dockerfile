@@ -82,6 +82,15 @@ LABEL org.opencontainers.image.source="${SOURCE_REPOSITORY}" \
 USER recipe
 CMD ["python", "--version"]
 
+FROM python-runtime AS api-runtime
+
+LABEL com.recipe-manager.artifact="recipe-manager-api"
+
+EXPOSE 8000
+HEALTHCHECK --interval=15s --timeout=5s --start-period=10s --retries=5 \
+    CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3).read()"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+
 FROM ${LAMBDA_BASE_IMAGE} AS lambda-base
 
 ARG TARGETPLATFORM

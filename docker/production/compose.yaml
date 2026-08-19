@@ -1,0 +1,76 @@
+name: recipe-manager-production
+
+services:
+  api:
+    image: ${API_IMAGE:?Set API_IMAGE to the immutable recipe-manager-api tag or digest}
+    env_file:
+      - ${API_ENV_FILE:?Set API_ENV_FILE to the host-owned production environment file}
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    expose:
+      - "8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3).read()"]
+      interval: 15s
+      timeout: 5s
+      start_period: 10s
+      retries: 5
+    networks:
+      - service
+
+  krakend:
+    image: ${KRAKEND_IMAGE:?Set KRAKEND_IMAGE to the immutable recipe-manager-krakend tag or digest}
+    environment:
+      FC_ENABLE: "1"
+      FC_SETTINGS: /etc/krakend/config-production
+      FC_OUT: /tmp/krakend.generated.json
+      CLERK_ISSUER: ${CLERK_ISSUER:?Set CLERK_ISSUER}
+      CLERK_JWKS_URL: ${CLERK_JWKS_URL:?Set CLERK_JWKS_URL}
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "${KRAKEND_HTTP_BIND:-0.0.0.0}:${KRAKEND_HTTP_PORT:-80}:8080"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/__health"]
+      interval: 15s
+      timeout: 5s
+      start_period: 10s
+      retries: 5
+    networks:
+      - service
+
+  migration:
+    profiles: ["release"]
+    image: ${API_IMAGE:?Set API_IMAGE to the immutable recipe-manager-api tag or digest}
+    env_file:
+      - ${API_ENV_FILE:?Set API_ENV_FILE to the host-owned production environment file}
+    command: ["alembic", "upgrade", "head"]
+    restart: "no"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    networks:
+      - service
+
+networks:
+  service:
+    driver: bridge

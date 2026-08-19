@@ -60,6 +60,12 @@ services:
   krakend:
     build:
       context: ./infra/krakend
+      args:
+        SOURCE_REPOSITORY: local-development
+        SOURCE_REVISION: "0000000000000000000000000000000000000000"
+        SOURCE_DATE_EPOCH: "0"
+        SOURCE_CREATED: "1970-01-01T00:00:00Z"
+        IMAGE_VERSION: local-development
     ports:
       - "127.0.0.1:8081:8080"
     extra_hosts:

@@ -20,7 +20,7 @@ frontend-dev:
 	cd frontend && pnpm dev
 
 gateway-check:
-	docker build --target validator -t recipe-manager-krakend-check ./infra/krakend
+	docker compose build krakend
 
 gateway-up:
 	docker compose up -d --build krakend

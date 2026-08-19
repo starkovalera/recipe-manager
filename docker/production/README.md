@@ -6,7 +6,8 @@ named runtime targets:
 
 | Target | Consumer | Contents |
 | --- | --- | --- |
-| `python-runtime` | #42 FastAPI image | Python 3.12, application source, Alembic source, and the frozen production dependency set; runs as the named non-root `recipe` user |
+| `python-runtime` | Shared Python base | Python 3.12, application source, Alembic source, and the frozen production dependency set; runs as the named non-root `recipe` user |
+| `api-runtime` | #42 FastAPI image | The shared Python runtime plus the production Uvicorn command, private port, health check, and API artifact identity |
 | `lambda-runtime` | #43–#46 Lambda images | AWS Lambda Python 3.12 base, application source, and the frozen production dependency set; retains the base image's least-privilege runtime user and entrypoint |
 
 The intermediate `python-dependencies` and `lambda-dependencies` targets are
@@ -139,15 +140,16 @@ source-specific local tag, then use that tag as their `PACKAGING_IMAGE` base.
 The shared labels and runtime filesystem defaults are inherited; the child adds
 only its artifact-specific command and any artifact-specific labels.
 
-FastAPI (#42) follows this shape after it owns the controlled migration command:
+FastAPI (#42) is the named `api-runtime` target in this Dockerfile. It owns the
+production command while the release process owns the controlled migration:
 
 ```dockerfile
-ARG PACKAGING_IMAGE
-FROM ${PACKAGING_IMAGE}
-
-USER recipe
+FROM python-runtime AS api-runtime
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 ```
+
+See [`host-unit.md`](host-unit.md) for the clean API and KrakenD builds, private
+network deployment unit, health smoke, release manifest, and rollback contract.
 
 Each Lambda child (#43–#46) follows the Lambda shape and sets its own handler:
 
