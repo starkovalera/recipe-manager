@@ -166,6 +166,103 @@ digest-pinned KrakenD base, reapplies the same five metadata arguments/labels,
 and does not inherit a Python runtime image. This keeps API, gateway, and every
 Lambda independently addressable while preserving one source/build identity.
 
+## Embedding Lambda artifact (#44)
+
+The embedding child is a thin final image over the shared `lambda-runtime`
+target. Build the shared target and the child from the same source revision;
+`PACKAGING_IMAGE` must be the local full-SHA tag of that shared target. The
+child sets `CMD ["app.lambdas.embeddings.handler"]`, does not install
+dependencies, add AWS resources, or copy any fixture into the image.
+
+PowerShell:
+
+```powershell
+$sourceRepository = "https://github.com/starkovalera/recipe-manager"
+$sourceRevision = (git rev-parse HEAD).Trim()
+$sourceDateEpoch = (git show -s --format=%ct HEAD).Trim()
+$sourceCreated = (git show -s --format=%cI HEAD).Trim()
+$imageVersion = "git-$sourceRevision"
+$lambdaTag = "recipe-manager-lambda-runtime:$imageVersion"
+$embeddingTag = "recipe-manager-embedding:$imageVersion"
+
+docker buildx build --platform linux/amd64 --provenance=false --load `
+  --file docker/production/Dockerfile `
+  --target lambda-runtime `
+  --tag $lambdaTag `
+  --build-arg SOURCE_REPOSITORY=$sourceRepository `
+  --build-arg SOURCE_REVISION=$sourceRevision `
+  --build-arg SOURCE_DATE_EPOCH=$sourceDateEpoch `
+  --build-arg SOURCE_CREATED=$sourceCreated `
+  --build-arg IMAGE_VERSION=$imageVersion `
+  .
+
+docker buildx build --platform linux/amd64 --provenance=false --load `
+  --file docker/production/embedding.Dockerfile `
+  --tag $embeddingTag `
+  --build-arg PACKAGING_IMAGE=$lambdaTag `
+  --build-arg SOURCE_REPOSITORY=$sourceRepository `
+  --build-arg SOURCE_REVISION=$sourceRevision `
+  --build-arg SOURCE_DATE_EPOCH=$sourceDateEpoch `
+  --build-arg SOURCE_CREATED=$sourceCreated `
+  --build-arg IMAGE_VERSION=$imageVersion `
+  .
+```
+
+Inspect the final image identity and boundaries:
+
+```powershell
+docker image inspect $embeddingTag --format '{{json .Config.Labels}}'
+docker image inspect $embeddingTag --format 'architecture={{.Architecture}} user={{.Config.User}} entrypoint={{json .Config.Entrypoint}} cmd={{json .Config.Cmd}}'
+docker image inspect $embeddingTag --format 'content={{.Id}} RepoDigests={{join .RepoDigests "\n"}}'
+docker run --rm --entrypoint /bin/sh $embeddingTag -c 'set -eu; ! command -v ffmpeg; ! command -v ffprobe; test ! -e /var/task/.env; test ! -e /var/task/backend/.env'
+```
+
+The expected tag is `recipe-manager-embedding:git-<full-sha>`. The content
+digest from `docker image inspect` is the local identity; after publication,
+record the registry `RepoDigests` value in the release manifest and deploy by
+digest rather than by a mutable tag.
+
+The AWS Lambda base image supplies the runtime interface entrypoint. Start the
+image with a read-only root and writable `/tmp`, then invoke the runtime from a
+second terminal with the deterministic SQS event fixture:
+
+```powershell
+docker run --rm --read-only --tmpfs /tmp:rw,noexec,nosuid,size=64m `
+  --publish 9000:8080 $embeddingTag
+
+Invoke-RestMethod -Method Post `
+  -Uri http://127.0.0.1:9000/2015-03-31/functions/function/invocations `
+  -ContentType application/json `
+  -InFile docker/production/fixtures/embedding-sqs-event.json
+```
+
+`embedding-sqs-event.json` contains only ID-only `recipeId` messages plus one
+addressable malformed body. Its direct-handler verification maps the records to
+the expected outcomes: `SUCCEEDED` and `NOOP` are acknowledged, `BUSY` and
+`RETRYABLE_FAILURE` are returned as partial-batch failures, and the malformed
+record is returned as a partial-batch failure without calling the processor.
+Run that deterministic behavior check with:
+
+```powershell
+uv --directory backend run pytest tests/infra/test_embedding_lambda_artifact.py -q
+```
+
+The runtime request proves the container-to-Lambda handler wiring; the direct
+fixture test avoids requiring a database, provider credentials, or AWS
+resources. Use the exact scanner version selected by the artifact pipeline
+(the initial local contract uses Trivy `0.63.0`) and fail on unresolved High or
+Critical vulnerabilities or detected secrets:
+
+```powershell
+docker run --rm -v /var/run/docker.sock:/var/run/docker.sock `
+  aquasec/trivy:0.63.0 image --scanners vuln,secret `
+  --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 $embeddingTag
+```
+
+Cross-artifact scanner pinning, manifest generation, and CI failure policy are
+owned by #47. This child documents the image-specific command and boundaries;
+it does not push to ECR or provision Lambda, SQS, IAM, or event-source mappings.
+
 ## Inspect the shared targets
 
 ```powershell
