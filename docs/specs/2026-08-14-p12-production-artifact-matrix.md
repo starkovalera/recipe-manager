@@ -139,11 +139,12 @@ not an arbitrary API replica:
 6. run smoke and queue/DLQ checks;
 7. retain the release manifest for rollback.
 
-The current `backend/app/main.py` lifespan runs migrations during FastAPI
-startup. Child issue #42 must move that responsibility to the controlled release
-step before the production artifact is accepted. A database downgrade is never
-an automatic image rollback: incompatible schema changes require an explicitly
-reviewed migration/restore procedure.
+Before child issue #42, `backend/app/main.py` ran migrations during every
+FastAPI startup. The #42 implementation delegates PROD migrations to the
+controlled release step while preserving the local DEV/PREVIEW/TEST startup
+behavior. A database downgrade is never an automatic image rollback:
+incompatible schema changes require an explicitly reviewed migration/restore
+procedure.
 
 ### Compatibility triggers
 
@@ -181,7 +182,7 @@ wall-clock value.
 docker run --rm <recipe-manager-api>:git-<full-sha> <controlled-migration-command>
 docker run --rm -p <private-port>:8000 <recipe-manager-api>:git-<full-sha>
 curl.exe http://127.0.0.1:<private-port>/health
-docker build --target validator -t recipe-manager-krakend-check ./infra/krakend
+docker compose build krakend
 curl.exe http://127.0.0.1:<gateway-port>/__health
 curl.exe http://127.0.0.1:<gateway-port>/health
 ```
@@ -256,7 +257,7 @@ blockers, and dashed arrows are non-blocking inputs.
 flowchart TD
   p25["✓ #25 P12 artifact matrix"]
   shared["✓ #41 Shared packaging contract"]
-  api["#42 FastAPI and KrakenD artifacts (ready)"]
+  api["✓ #42 FastAPI and KrakenD artifacts complete in PR #70"]
   import["#43 Import Lambda artifact (ready)"]
   embedding["#44 Embedding Lambda artifact (ready)"]
   maintenance["#45 Maintenance Lambda artifact (ready)"]
@@ -290,12 +291,12 @@ flowchart TD
 | Child | Scope | Dependency |
 | --- | --- | --- |
 | [#41](https://github.com/starkovalera/recipe-manager/issues/41) | Shared dependency/build, metadata, architecture, and runtime packaging seam | Complete in [PR #68](https://github.com/starkovalera/recipe-manager/pull/68) |
-| [#42](https://github.com/starkovalera/recipe-manager/issues/42) | FastAPI image and KrakenD image in one host deployment unit | Ready; #41 complete |
+| [#42](https://github.com/starkovalera/recipe-manager/issues/42) | FastAPI image and KrakenD image in one host deployment unit | Complete in [PR #70](https://github.com/starkovalera/recipe-manager/pull/70); closes on merge; #41 complete |
 | [#43](https://github.com/starkovalera/recipe-manager/issues/43) | Import Lambda image, import-only `ffmpeg`/`ffprobe`, and invocation seam | Ready; #41 complete |
 | [#44](https://github.com/starkovalera/recipe-manager/issues/44) | Embedding Lambda image | Ready; #41 complete |
 | [#45](https://github.com/starkovalera/recipe-manager/issues/45) | Maintenance Lambda image | Ready; #41 complete |
 | [#46](https://github.com/starkovalera/recipe-manager/issues/46) | Account-deletion Lambda image | Ready; #41 complete |
-| [#47](https://github.com/starkovalera/recipe-manager/issues/47) | Cross-artifact CI, fixtures, manifests, and vulnerability scans | Blocked by #42–#46 |
+| [#47](https://github.com/starkovalera/recipe-manager/issues/47) | Cross-artifact CI, fixtures, manifests, and vulnerability scans | Blocked by #43–#46 |
 
 P12 does not add native blockers from #23, #26, #30, or #31 to the artifact
 children. Those workstreams provide independent inputs or later provisioning
@@ -337,14 +338,16 @@ Rejected because artifact construction must remain testable without billable
 resources and must not absorb Terraform, IAM, ECR, queue, or deployment
 decisions owned by later phases.
 
-## Current evidence and intentional gaps
+## Implementation evidence and intentional gaps
 
 The current checkout provides the following evidence for the child work:
 
-- `infra/krakend/Dockerfile` is the only existing production-oriented image
-  definition;
-- FastAPI and Lambda image definitions do not yet exist;
-- `backend/app/main.py` currently runs Alembic during FastAPI lifespan startup;
+- `docker/production/Dockerfile` provides the shared runtime targets and the
+  #42 FastAPI artifact target;
+- `infra/krakend/Dockerfile` provides the pinned #42 KrakenD artifact and
+  validates its local and production configuration;
+- Lambda artifact definitions remain in #43–#46;
+- PROD FastAPI startup delegates Alembic to the controlled #42 release command;
 - the four Lambda handlers and their tests already exist under
   `backend/app/lambdas/` and `backend/tests/lambdas/`;
 - `ffmpeg_path` and `ffprobe_path` are declared but unused;

@@ -2,6 +2,13 @@
 
 KrakenD Community Edition `2.13.8` is the local browser ingress and Clerk JWT validation boundary.
 
+The production artifact pins the `linux/amd64` KrakenD 2.13.8 manifest digest,
+adds the shared OCI release labels, validates both local and production Flexible
+Configuration inputs during the build, and retains the non-root `krakend` user.
+Production uses `/etc/krakend/config-production`, where the upstream is the
+private `http://api:8000` service. Build, host-unit, migration, health, digest,
+and rollback commands live in [`docker/production/host-unit.md`](../../docker/production/host-unit.md).
+
 ```text
 React/Vite :5173
     -> KrakenD container 127.0.0.1:8081
@@ -62,7 +69,6 @@ The local configuration is bound to loopback. Before production, verify the narr
 Validate the Flexible Configuration render in the pinned image:
 
 ```powershell
-docker build --target validator -t recipe-manager-krakend-check ./infra/krakend
 docker compose build krakend
 ```
 

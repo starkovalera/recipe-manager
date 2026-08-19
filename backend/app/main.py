@@ -18,7 +18,7 @@ from app.api.routes.search import router as search_router
 from app.api.routes.tags import router as tags_router
 from app.api.routes.users import router as users_router
 from app.api.routes.webhooks import router as webhooks_router
-from app.core.config import AppEnv, get_settings
+from app.core.config import AppEnv, Settings, get_settings
 from app.core.errors import install_error_handlers
 from app.core.logging import configure_logging, log_error, log_info
 from app.core.runtime import prepare_runtime
@@ -27,6 +27,23 @@ from app.db.session import SessionLocal
 from app.local.users import seed_preview_users
 
 logger = logging.getLogger(__name__)
+
+
+def prepare_application_runtime(settings: Settings) -> None:
+    if settings.app_env is AppEnv.PROD:
+        log_info(
+            logger,
+            "[recipes.runtime] Production startup delegates database migrations to the release process",
+            pid=os.getpid(),
+            appEnv=settings.app_env,
+            databaseUrl=settings.database_url,
+        )
+        return
+
+    prepare_runtime(settings, reset_database=reset_database_schema)
+    if settings.database_url is None:
+        raise RuntimeError("Application startup requires a configured database URL.")
+    run_migrations(settings.database_url)
 
 
 @asynccontextmanager
@@ -40,8 +57,7 @@ async def lifespan(app: FastAPI):
         databaseUrl=settings.database_url,
         uploadDir=str(settings.upload_dir),
     )
-    prepare_runtime(settings, reset_database=reset_database_schema)
-    run_migrations(settings.database_url)
+    prepare_application_runtime(settings)
     if settings.app_env is AppEnv.PREVIEW:
         with SessionLocal.begin() as session:
             count = seed_preview_users(session, settings.preview_users_file, recipe_language=settings.recipe_language)

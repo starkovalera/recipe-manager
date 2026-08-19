@@ -1,0 +1,4 @@
+{
+  "upstream_host": "http://api:8000",
+  "cors_origins": []
+}
