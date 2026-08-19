@@ -9,6 +9,8 @@ ARG TARGETPLATFORM=linux/amd64
 ARG PYTHON_BASE_IMAGE=python:3.12-slim-bookworm@sha256:a116514e19457bcb7af7efe9c3dd0b9b71e85b317694e7882a1c52aa15a78134
 ARG UV_IMAGE=ghcr.io/astral-sh/uv:0.8.14-python3.12-bookworm-slim@sha256:b748a09ec61c993083278020a84e16f0c81485c5349b30c64dd29d6a22da7462
 ARG LAMBDA_BASE_IMAGE=public.ecr.aws/lambda/python:3.12@sha256:9109e6ad351e8ff59a9a22d11f0d2ba4de60593e70a2370c7683f32edc4b0fa4
+ARG FFMPEG_IMAGE=mwader/static-ffmpeg:8.1.2-amd64@sha256:3bfa407c614a29a4535f1e3220fd9f6bc9cd7c25483036962e3c8ff711b56e01
+ARG FFMPEG_VERSION=8.1.2
 
 FROM ${UV_IMAGE} AS uv
 
@@ -173,3 +175,28 @@ RUN set -eux; \
 LABEL com.recipe-manager.artifact="recipe-manager-account-deletion"
 
 CMD ["app.lambdas.account_deletion.handler"]
+
+FROM ${FFMPEG_IMAGE} AS ffmpeg-source
+
+FROM lambda-runtime AS import-lambda-runtime
+
+ARG FFMPEG_IMAGE
+ARG FFMPEG_VERSION
+
+COPY --chmod=0555 --from=ffmpeg-source /ffmpeg /usr/local/bin/ffmpeg
+COPY --chmod=0555 --from=ffmpeg-source /ffprobe /usr/local/bin/ffprobe
+COPY --from=ffmpeg-source /versions.json /opt/recipe-manager/ffmpeg/versions.json
+
+RUN set -eux; \
+    test -x /usr/local/bin/ffmpeg; \
+    test -x /usr/local/bin/ffprobe; \
+    /usr/local/bin/ffmpeg -version; \
+    /usr/local/bin/ffprobe -version; \
+    test -s /opt/recipe-manager/ffmpeg/versions.json
+
+LABEL com.recipe-manager.artifact="recipe-manager-import" \
+      com.recipe-manager.ffmpeg.source="${FFMPEG_IMAGE}" \
+      com.recipe-manager.ffmpeg.version="${FFMPEG_VERSION}" \
+      com.recipe-manager.ffmpeg.provenance="/opt/recipe-manager/ffmpeg/versions.json"
+
+CMD ["app.lambdas.imports.handler"]

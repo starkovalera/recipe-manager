@@ -11,6 +11,7 @@ named runtime targets:
 | `lambda-runtime` | #43–#46 Lambda images | AWS Lambda Python 3.12 base, application source, and the frozen production dependency set; retains the base image's least-privilege runtime user and entrypoint |
 | `maintenance-lambda-runtime` | #45 maintenance Lambda image | The shared Lambda runtime plus the operation-only maintenance handler; no native media tools |
 | `account-deletion-lambda-runtime` | #46 account-deletion Lambda image | The shared Lambda runtime plus the ID-only account-deletion handler; no native media tools |
+| `import-lambda-runtime` | #43 import Lambda image | The shared Lambda runtime plus import-only `ffmpeg`, `ffprobe`, provenance metadata, and `app.lambdas.imports.handler` |
 
 The intermediate `python-dependencies` and `lambda-dependencies` targets are
 build stages, not deployable artifacts. They install from exactly
@@ -278,6 +279,11 @@ docker run --rm -v /var/run/docker.sock:/var/run/docker.sock `
 Cross-artifact scanner pinning, manifest generation, and CI failure policy are
 owned by #47. This child documents the image-specific command and boundaries;
 it does not push to ECR or provision Lambda, SQS, IAM, or event-source mappings.
+
+The #43 import artifact target, native-tool provenance, deterministic SQS
+fixtures, Lambda Runtime Interface Emulator invocation, and scan commands are
+documented in [`import-lambda.md`](import-lambda.md). The other Lambda children
+must consume `lambda-runtime` without inheriting the import-only native tools.
 
 ## Inspect the shared targets
 
