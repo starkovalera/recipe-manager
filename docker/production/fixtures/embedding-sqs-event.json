@@ -1,0 +1,24 @@
+{
+  "Records": [
+    {
+      "messageId": "embedding-success-1",
+      "body": "{\"recipeId\":\"fixture-success\"}"
+    },
+    {
+      "messageId": "embedding-noop-1",
+      "body": "{\"recipeId\":\"fixture-noop\"}"
+    },
+    {
+      "messageId": "embedding-busy-1",
+      "body": "{\"recipeId\":\"fixture-busy\"}"
+    },
+    {
+      "messageId": "embedding-retryable-1",
+      "body": "{\"recipeId\":\"fixture-retryable\"}"
+    },
+    {
+      "messageId": "embedding-malformed-1",
+      "body": "{\"recipeId\":\"fixture-malformed\",\"unexpected\":\"rejected\"}"
+    }
+  ]
+}
