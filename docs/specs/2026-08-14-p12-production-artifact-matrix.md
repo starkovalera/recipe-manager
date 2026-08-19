@@ -261,7 +261,7 @@ flowchart TD
   import["#43 Import Lambda artifact (ready)"]
   embedding["✓ #44 Embedding Lambda artifact complete/delivered in draft PR #83"]
   maintenance["✓ #45 Maintenance Lambda artifact delivered in draft PR #84"]
-  deletion["#46 Account-deletion Lambda artifact<br/>implementation complete; draft PR pending"]
+  deletion["✓ #46 Account-deletion Lambda artifact delivered in draft PR #85"]
   ci["#47 CI build, invocation, reproducibility, and scan verification (blocked)"]
   infra["#31 Terraform/AWS foundation refinement (needs triage)"]
 
@@ -293,7 +293,7 @@ flowchart TD
 | [#43](https://github.com/starkovalera/recipe-manager/issues/43) | Import Lambda image, import-only `ffmpeg`/`ffprobe`, and invocation seam | Ready; #41 complete |
 | [#44](https://github.com/starkovalera/recipe-manager/issues/44) | Embedding Lambda image | Complete/delivered in draft [PR #83](https://github.com/starkovalera/recipe-manager/pull/83); closes on merge; #41 complete |
 | [#45](https://github.com/starkovalera/recipe-manager/issues/45) | Maintenance Lambda image | Complete/delivered in draft [PR #84](https://github.com/starkovalera/recipe-manager/pull/84); closes on merge; #41 complete |
-| [#46](https://github.com/starkovalera/recipe-manager/issues/46) | Account-deletion Lambda image | Implementation complete on the issue branch; draft PR publication pending; #41 complete |
+| [#46](https://github.com/starkovalera/recipe-manager/issues/46) | Account-deletion Lambda image | Complete/delivered in draft [PR #85](https://github.com/starkovalera/recipe-manager/pull/85); closes on merge; #41 complete |
 | [#47](https://github.com/starkovalera/recipe-manager/issues/47) | Cross-artifact CI, fixtures, manifests, and vulnerability scans | Blocked by #43 and #46 |
 
 P12 does not add native blockers from #23, #26, #30, or #31 to the artifact
