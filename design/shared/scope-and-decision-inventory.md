@@ -188,7 +188,9 @@ Evidence: [`Recipe Detail current scope`](../recipe-detail/decisions/current-sco
 [`Edit Mode decisions`](../recipe-detail/decisions/07-edit-mode-current-decisions.md),
 [`approved UX foundation`](../recipe-detail/decisions/06-approved-ux-foundation.md),
 [`global mobile shell`](../recipe-detail/decisions/11-global-mobile-shell.md),
-and the [implementation handoff](../recipe-detail/implementation-handoff.md).
+the [implementation handoff](../recipe-detail/implementation-handoff.md), and
+the [verified production contract packet](../recipe-detail/decisions/15-verified-recipe-detail-contracts.md).
+The issue #21 audit was delivered in [draft PR #80](https://github.com/starkovalera/recipe-manager/pull/80).
 
 **Unresolved or contradictory:**
 
@@ -203,15 +205,40 @@ and the [implementation handoff](../recipe-detail/implementation-handoff.md).
 - Difficulty and Personal rating have approved structural controls but no
   `Recipe` model or API persistence. The decision files call persistence
   future work, while the current Design still treats the controls as part of
-  the Basics shape. Keep this as an unresolved contract decision.
+  the Basics shape. Candidate [#79](https://github.com/starkovalera/recipe-manager/issues/79)
+  owns this unresolved contract decision.
 - "Cooking notes" is a Design concept, while the active model/API exposes a
   generic `Recipe.note`. Decide whether they are the same field, a renamed
   contract, or separate content before platform children define editing and
-  validation.
+  validation; candidate [#78](https://github.com/starkovalera/recipe-manager/issues/78)
+  records the gap.
 - The Design contract approves Manage Media upload/capacity behavior, but the
   current API exposes media access and cover selection without an existing
   upload/mutation contract. Additional image upload is also retained as a
-  Future Capability. Decide whether Manage Media upload is Core or deferred.
+  Future Capability. Candidate [#75](https://github.com/starkovalera/recipe-manager/issues/75)
+  owns the Core/deferred and capacity decision.
+- The approved fixed Unit selector has no current dictionary or validation
+  source; candidate [#71](https://github.com/starkovalera/recipe-manager/issues/71)
+  owns canonical values, aliases, and persistence behavior.
+- The current API has aggregate limits but not a complete field/range matrix;
+  candidate [#72](https://github.com/starkovalera/recipe-manager/issues/72)
+  owns the missing limits and error contract.
+- Ingredients have stable identity and positions, while instructions are a
+  positional JSON string list with no stable step identity; candidate
+  [#73](https://github.com/starkovalera/recipe-manager/issues/73) owns the
+  instruction ordering decision.
+- Recipe PATCH returns `updatedAt` but has no optimistic-concurrency token or
+  Recipe conflict response; candidate
+  [#74](https://github.com/starkovalera/recipe-manager/issues/74) owns that
+  contract.
+- Collection/Tag lists provide owner-scoped offset pagination, but no
+  selector-specific filtering/search or unified assignment boundary exists;
+  candidate [#76](https://github.com/starkovalera/recipe-manager/issues/76)
+  owns the selector contract.
+- Nutrition is nullable untyped JSON with optional floats and no completeness
+  or range semantics; candidate
+  [#77](https://github.com/starkovalera/recipe-manager/issues/77) owns the
+  missing/partial/complete contract.
 - The approved Import Info behavior says review flags use one bulk `Mark all
   reviewed` action and no per-flag controls, while the active API exposes a
   per-flag `PATCH /recipes/{recipeId}/review-flags/{flagId}`. The product
@@ -230,6 +257,8 @@ Evidence for the active technical boundary: [`docs/api.md`](../../docs/api.md),
 [`backend/app/schemas/recipes.py`](../../backend/app/schemas/recipes.py),
 [`backend/app/models/__init__.py`](../../backend/app/models/__init__.py), and
 the [Recipe Detail functional scope](../recipe-detail/functional-scope.md).
+The complete Recipe-specific audit and child readiness table are in the
+[verified contract packet](../recipe-detail/decisions/15-verified-recipe-detail-contracts.md).
 
 ### 3. Import journeys
 
@@ -482,18 +511,20 @@ reviewable result and does not require identical UI.
 | Domain | Shared-contract child | Responsive-web child (V1) | Native-mobile child (paired/V2) | Reconciliation child | True blockers |
 | --- | --- | --- | --- | --- | --- |
 | Auth | `[DESIGN][AUTH] Define authentication, invitation, onboarding, and account-lifecycle contract` | `[DESIGN][AUTH][WEB] Design authentication, invitation, and access-state flows` | `[DESIGN][AUTH][MOBILE] Design authentication, invitation, and access-state flows` | `[DESIGN][AUTH] Reconcile authentication and access across platforms` | Shared: #20, #22; Web: shared child; mobile is paired/non-blocking; V1 reconcile: shared + Web |
-| Recipes | `[DESIGN][RECIPES] Define library, search, Recipe Detail/Edit, media, and organization contract` | `[DESIGN][RECIPES][WEB] Design Recipes library, search, Detail, Edit, and organization` | `[DESIGN][RECIPES][MOBILE] Design Recipes library, search, Detail, Edit, and organization` | `[DESIGN][RECIPES] Reconcile Recipes domain across platforms` | Shared: #20, #21, #22; Web: shared child; mobile is paired/non-blocking; V1 reconcile: shared + Web |
+| Recipes | `[DESIGN][RECIPES] Define library, search, Recipe Detail/Edit, media, and organization contract` | `[DESIGN][RECIPES][WEB] Design Recipes library, search, Detail, Edit, and organization` | `[DESIGN][RECIPES][MOBILE] Design Recipes library, search, Detail, Edit, and organization` | `[DESIGN][RECIPES] Reconcile Recipes domain across platforms` | Shared discovery: #20, #22, and applicable #71–#79; Web: shared contract plus applicable gaps; mobile is paired/non-blocking; V1 reconcile: shared + Web |
 | Imports | `[DESIGN][IMPORTS] Define import creation, processing, review, and retry contract` | `[DESIGN][IMPORTS][WEB] Design import creation, progress, results, and review` | `[DESIGN][IMPORTS][MOBILE] Design import creation, progress, results, and review` | `[DESIGN][IMPORTS] Reconcile import journeys across platforms` | Shared: #20, #22; #21 is a non-blocking Import Info input; mobile is paired/non-blocking; V1 reconcile: shared + Web |
 | Collections and Tags | `[DESIGN][COLLECTIONS] Define Collections, Tags, selectors, and organization contract` | `[DESIGN][COLLECTIONS][WEB] Design Collections, Tags, and organization` | `[DESIGN][COLLECTIONS][MOBILE] Design Collections, Tags, and organization` | `[DESIGN][COLLECTIONS] Reconcile Collections and Tags across platforms` | Shared: #20, #22; Web: shared child; mobile is paired/non-blocking; V1 reconcile: shared + Web |
 | Notifications | `[DESIGN][NOTIFICATIONS] Define notification, unread, history, and deep-link contract` | `[DESIGN][NOTIFICATIONS][WEB] Design notification feedback and history` | `[DESIGN][NOTIFICATIONS][MOBILE] Design notification feedback and history` | `[DESIGN][NOTIFICATIONS] Reconcile notifications across platforms` | Shared: #20, #22; Web: shared child; mobile is paired/non-blocking; V1 reconcile: shared + Web |
 | Profile and Account | `[DESIGN][ACCOUNT] Define Profile, provider settings, account state, and deletion contract` | `[DESIGN][ACCOUNT][WEB] Design Profile, account settings, access state, and deletion` | `[DESIGN][ACCOUNT][MOBILE] Design Profile, account settings, access state, and deletion` | `[DESIGN][ACCOUNT] Reconcile Profile and Account across platforms` | Shared: #20, #22, Auth shared child; mobile is paired/non-blocking; V1 reconcile: shared + Web |
 
 Recipe Detail remaining sections should be sliced inside the Recipes shared
-contract only after #21 resolves the listed production facts. Instructions,
-Cooking notes, Estimated nutrition, Manage Media, Organize Recipe, and save
-request states are separate bounded outcomes when their shared contract is
-ready; they are not implied to be complete by the existing Recipe Detail
-foundation.
+contract after the issue #21 audit and the applicable production contract gaps
+are closed or explicitly accepted. The permanent audit packet
+[`15-verified-recipe-detail-contracts.md`](../recipe-detail/decisions/15-verified-recipe-detail-contracts.md)
+maps each section to its prerequisite candidates. Instructions, Cooking notes,
+Estimated nutrition, Manage Media, Organize Recipe, and save request states are
+separate bounded outcomes when their shared contract is ready; they are not
+implied to be complete by the existing Recipe Detail foundation.
 
 ## Dependency and readiness map
 

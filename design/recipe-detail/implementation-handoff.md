@@ -1,7 +1,7 @@
 # Recipe Detail Design-to-Implementation Handoff Context
 
-Status: intermediate approved design context; prepared for future GitHub issue slicing
-Updated: 2026-08-13
+Status: intermediate approved design context; production contract audit complete in [draft PR #80](https://github.com/starkovalera/recipe-manager/pull/80); prepared for future GitHub issue slicing
+Updated: 2026-08-19
 
 ## Purpose
 
@@ -20,10 +20,11 @@ When artifacts conflict, use this order:
 
 1. `decisions/decision-log.md` — latest explicit approvals and supersessions;
 2. `decisions/current-scope.md` — current boundary and remaining work;
-3. numbered decision files, especially `06`, `07`, `11`, `12`, and `13`;
-4. approved prototype README and review files;
-5. the prototype behavior and screenshots;
-6. historical comparisons only as rationale, never as current requirements.
+3. `decisions/15-verified-recipe-detail-contracts.md` — verified production facts and explicit contract gaps; it does not override UX decisions;
+4. numbered decision files, especially `06`, `07`, `11`, `12`, and `13`;
+5. approved prototype README and review files;
+6. the prototype behavior and screenshots;
+7. historical comparisons only as rationale, never as current requirements.
 
 The promotion record for temporary session material is `decisions/14-temporary-artifact-consolidation-map.md`.
 
@@ -64,8 +65,24 @@ These are coherent future issue domains, not final issue titles or dependency es
 | Desktop Recipe Edit shell | Continuous page, sticky rail, scrollspy, one recipe draft and Save/Cancel pair | `decisions/13-desktop-edit-basics-validation-and-entry-behavior.md`, Prototype 17 | Ready for Basics/Ingredients scope |
 | Mobile Recipe Edit shell | Compact Back/title/Save/Overflow, global navigation, single-open accordion | `decisions/12-mobile-edit-shell-and-save-action.md`, Prototypes 12–13 | Ready |
 | Basics editing | Fixed Source, compact numeric fields, positive-whole Cooking time/Servings, direct Difficulty, whole-star Rating | Prototypes 14–17, decision files `07` and `13` | Ready; persistence support must be verified |
-| Ingredients editing | 50-item limit, fixed Unit, desktop reorder, compact mobile rows and single-item sheet | Prototypes 14–17, decision files `07` and `13` | Ready except exact Unit dictionary |
+| Ingredients editing | 50-item limit, fixed Unit, desktop reorder, compact mobile rows and single-item sheet | Prototypes 14–17, decision files `07` and `13` | Structural UX ready; production Unit/field/order contracts tracked in [#71](https://github.com/starkovalera/recipe-manager/issues/71), [#72](https://github.com/starkovalera/recipe-manager/issues/72), and [#73](https://github.com/starkovalera/recipe-manager/issues/73) |
 | Validation and dirty guard | Hybrid timing, linked summary, error counts, local ingredient errors, desktop dialog, mobile sheet | Prototypes 16–17 and their reviews, decision files `07` and `13` | Approved behavior |
+
+## Verified production contract packet
+
+[`15-verified-recipe-detail-contracts.md`](decisions/15-verified-recipe-detail-contracts.md)
+is the permanent evidence packet for issue #21, delivered in [draft PR #80](https://github.com/starkovalera/recipe-manager/pull/80). It confirms the current
+owner-only authorization boundary, ingredient identity/position behavior,
+implemented aggregate limits, owner/lifecycle media access, and offset
+pagination. It also records the missing Unit, field-limit, instruction,
+concurrency, media-management, selector, nutrition, cooking-notes, and
+missing contracts with candidate `[DEV]` issues [#71](https://github.com/starkovalera/recipe-manager/issues/71)
+through [#79](https://github.com/starkovalera/recipe-manager/issues/79), including
+the adjacent Difficulty/rating and Cooking notes decisions.
+
+The packet is shared product meaning for future clients, not a web or native
+interaction prescription. The responsive-web child is the V1 gate; the paired
+native-mobile child remains useful evidence and is non-blocking for V1.
 
 ## Superseded behavior that must not become requirements
 
@@ -97,22 +114,23 @@ Every future issue touching these surfaces must account for:
 - localization pressure and long labels;
 - role-gated debug information in Import Info.
 
-## Data and backend questions to verify before issue creation
+## Data and backend contract status
 
-Do not invent these contracts from mock data. Inspect the current production schemas and APIs when implementation planning begins:
+Do not invent these contracts from mock data. The current production audit is
+recorded in [`15-verified-recipe-detail-contracts.md`](decisions/15-verified-recipe-detail-contracts.md):
 
-- persistence support for Difficulty and Personal rating;
-- Source enum values and localization ownership;
-- Unit dictionary, aliases, ordering, and canonical stored value;
-- exact field maximum lengths;
-- ingredient and instruction ordering/stable identity;
-- import flag bulk-review mutation;
-- primary/derived resource relationship payloads;
-- ignored/removed resource summaries and removal consequences;
-- current-cover exception during primary-resource deletion;
-- media capacity and upload constraints;
-- save concurrency, server validation, retry, and conflict behavior;
-- role checks for debug import details.
+- verified: Source enum wire values, primary/derived resource payloads,
+  ignored/removed resource behavior, current-cover deletion exception,
+  owner/lifecycle media access, offset pagination, aggregate limits, and
+  role-gated debug detail;
+- missing or partial: Difficulty and Personal rating persistence (#79), Unit
+  dictionary (#71), exact field limits (#72), instruction identity/order (#73),
+  save concurrency/conflicts (#74), Manage Media capacity/upload (#75),
+  selector behavior (#76), nutrition completeness/validation (#77), and
+  Cooking notes/`Recipe.note` meaning (#78);
+- cross-domain and still owned by [#22](https://github.com/starkovalera/recipe-manager):
+  Import Info bulk review versus per-flag API mutation and the `TikTok`/`TT`
+  label/wire-value mapping.
 
 ## Not ready for implementation issue slicing
 
@@ -173,7 +191,8 @@ Do not attach `.superpowers` paths to implementation issues. Only permanent trac
 
 ## Current next design step
 
-Complete Recipe Edit in this order:
+Complete Recipe Edit in this order after the applicable shared contract issue
+is closed or explicitly accepted:
 
 1. Instructions;
 2. Cooking notes;

@@ -1,7 +1,7 @@
 # Recipe Detail — Current Design Scope
 
-Status: structural UX approved; Recipe Edit core partially complete; visual execution not started
-Updated: 2026-08-13
+Status: structural UX approved; Recipe Edit core partially complete; production contract audit complete in [draft PR #80](https://github.com/starkovalera/recipe-manager/pull/80); visual execution not started
+Updated: 2026-08-19
 
 ## Purpose
 
@@ -48,6 +48,12 @@ These contexts have separate task and draft boundaries. Import resource actions 
 
 The consolidated contract is `06-approved-ux-foundation.md`; reusable cross-page lessons are in `../reusable-product-patterns.md`.
 
+The production contract audit for the remaining Recipe Detail/Edit work is
+[`15-verified-recipe-detail-contracts.md`](15-verified-recipe-detail-contracts.md).
+It is an evidence packet, not a new UX decision: current behavior is separated
+from missing contracts and every missing contract is linked to a candidate
+`[DEV]` issue.
+
 ## Approved Recipe Edit foundation
 
 ### Shared model
@@ -63,6 +69,10 @@ The consolidated contract is `06-approved-ux-foundation.md`; reusable cross-page
 - Two-zone Basics without card containers.
 - Compact Ingredients rows with reorder, optional Quantity, fixed Unit, required name, and trash action.
 - Hybrid validation, linked failed-Save summary, rail error counts, and centered unsaved-changes guard.
+
+The fixed Unit, field-level validation, instruction identity, and Save conflict
+assumptions remain Design-only until the corresponding production contract
+gaps are resolved. See the verified audit for the exact boundary.
 
 ### Mobile
 
@@ -87,6 +97,7 @@ The detailed contract is `07-edit-mode-current-decisions.md`. Prototype 16 is th
 - Mobile validation and unsaved-changes guard: approved through Prototype 16.
 - Desktop Basics, Ingredients, validation, and unsaved-changes guard: approved and consolidated in Prototype 17.
 - Desktop Recipe Edit Basics, Ingredients, validation, and guard: approved low-fidelity direction.
+- Production contract audit for Recipe Detail/Edit: complete and delivered in [draft PR #80](https://github.com/starkovalera/recipe-manager/pull/80); missing contracts are recorded as candidate `[DEV]` issues in `15-verified-recipe-detail-contracts.md`.
 
 ## Remaining design work
 
@@ -113,9 +124,17 @@ The detailed contract is `07-edit-mode-current-decisions.md`. Prototype 16 is th
 
 ## Still unresolved
 
-- Exact Unit dictionary, localized aliases, and ordering.
+- Exact Unit dictionary, localized aliases, and ordering — candidate [#71](https://github.com/starkovalera/recipe-manager/issues/71).
+- Exact field-level and aggregate limits beyond the verified current defaults — candidate [#72](https://github.com/starkovalera/recipe-manager/issues/72).
+- Stable instruction identity and reorder semantics — candidate [#73](https://github.com/starkovalera/recipe-manager/issues/73).
+- Optimistic concurrency and stale-save conflict behavior — candidate [#74](https://github.com/starkovalera/recipe-manager/issues/74).
+- Recipe-level media capacity and Manage Media mutation lifecycle — candidate [#75](https://github.com/starkovalera/recipe-manager/issues/75).
+- Collection/Tag selector search, ordering, pagination, and assignment boundary — candidate [#76](https://github.com/starkovalera/recipe-manager/issues/76).
+- Nutrition completeness and validation semantics — candidate [#77](https://github.com/starkovalera/recipe-manager/issues/77).
+- `Cooking notes` versus `Recipe.note` — candidate [#78](https://github.com/starkovalera/recipe-manager/issues/78).
+- Difficulty and Personal rating persistence — candidate [#79](https://github.com/starkovalera/recipe-manager/issues/79).
 - Exact desktop threshold where the section rail becomes compact.
-- Exact maximum lengths for Title, Author, and Ingredient name.
+- Exact maximum lengths for Title, Author, and Ingredient name are included in [#72](https://github.com/starkovalera/recipe-manager/issues/72).
 - Detailed Instructions, Cooking notes, Nutrition, Manage Media, and Organize Recipe behavior.
 - Final visual system and high-fidelity responsive execution.
 
@@ -129,4 +148,11 @@ The detailed contract is `07-edit-mode-current-decisions.md`. Prototype 16 is th
 
 ## Next gate
 
-Complete the remaining Recipe Edit sections, beginning with Instructions, then Cooking notes and Estimated nutrition. Preserve Prototype 16 mobile and Prototype 17 desktop validation/guard behavior. After the feature-level UX is complete, design the separate Manage Media workspace and proceed to the visual-direction comparison defined in `../visual-execution-brief.md`.
+Close or explicitly accept the shared contract candidates listed in
+[`15-verified-recipe-detail-contracts.md`](15-verified-recipe-detail-contracts.md)
+before marking the corresponding `[WEB]` or paired `[MOBILE]` child ready.
+Then complete the remaining Recipe Edit sections, beginning with Instructions,
+then Cooking notes and Estimated nutrition. Preserve Prototype 16 mobile and
+Prototype 17 desktop validation/guard behavior. After the feature-level UX is
+complete, design the separate Manage Media workspace and proceed to the
+visual-direction comparison defined in `../visual-execution-brief.md`.
