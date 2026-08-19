@@ -97,6 +97,25 @@ The pull request should link the task and summarize the contract, delivered resu
 
 Before opening or updating the pull request, complete the documentation synchronization for the task in that same pull request. Documentation synchronization is a release gate, not post-merge cleanup. Treat changes to implementation status, readiness, blocker or child frontiers, completion evidence, task links, or open questions as documentation changes even when no API, contract, or architecture decision changed. Review the owning detailed roadmap, [`docs/roadmap.md`](../roadmap.md), applicable architecture or design records, task links, completion marks, and open-question updates.
 
+### Atomic completion state
+
+When the implementation satisfies the issue contract and the pull request is
+intended to close that issue, the pull request must carry the final
+post-merge documentation state. Mark the task as **complete/delivered in PR
+#N** in every applicable source-of-truth document and link the pull request;
+do not leave `pending merge`, `in progress`, or an active-frontier status for
+the completed task. The pull request body must contain GitHub's `Closes #N`
+closing directive and state that the implementation and documentation are
+complete. The GitHub issue may remain technically `OPEN` until the merge
+event; that is the one expected transient tracker state, not a reason to defer
+documentation.
+
+The same rule applies to dependent frontiers: once a completed child will be
+closed by the merge, remove it from active or blocking status in the
+post-merge representation and leave only genuinely remaining children or
+blockers. The branch and PR are the atomic delivery unit for implementation,
+completion evidence, status, and documentation.
+
 Record this checklist in the pull request description:
 
 ```markdown
@@ -136,8 +155,8 @@ completion:
 1. Verify the actual GitHub merge state, then fetch the latest `origin/main`.
 2. Inspect the merged pull request and `origin/main` to confirm that the required roadmap, detailed planning, architecture/design, task-link, completion-mark, and open-question updates are already part of the merged result. This is an audit of the §8 gate, not a replacement for it.
 3. Verify issue state, labels, assignees, native blockers, child issues, and acceptance evidence without duplicating GitHub's native data in documentation.
-4. When the merged result satisfies the issue's own acceptance criteria and no required work remains in that issue's scope, close the corresponding GitHub issue. Do not close a parent or containment issue solely because a planning or specification PR merged while required child implementation remains; keep it open until its own scope is complete.
-5. If a required documentation update is missing, report the original pull request as incomplete, name the stale source-of-truth entry and required status change, and obtain explicit scope for any follow-up. The routine post-merge checkpoint does not create a documentation-maintenance branch or pull request.
+4. Verify that the `Closes #N` directive closed the corresponding GitHub issue and that no required work remains in its scope. Do not close a parent or containment issue solely because a planning or specification PR merged while required child implementation remains; keep it open until its own scope is complete.
+5. Confirm that the completed status, dependent frontier, and completion evidence already present in the merged result remain current. The routine post-merge checkpoint is read-only: it must not create a documentation-maintenance branch or pull request. If the merged result is missing the §8 atomic completion state, report the original pull request as incomplete and name the discrepancy for explicit follow-up rather than silently patching documentation after merge.
 
 **Done when:** the merged pull request, `origin/main`, roadmap, detailed planning documents, architecture/design records, task links, completion marks, issue state, and open-question lists agree, with no stale plan step presented as current work.
 

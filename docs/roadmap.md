@@ -22,7 +22,7 @@ The roadmap summarizes its source documents rather than copying their contracts.
 | Track | Current state | Current destination |
 | --- | --- | --- |
 | `[DESIGN]` | Core Design Baseline v1 in progress | Approve shared product contracts, complete the V1 responsive-web design, record paired mobile design evidence where useful, and approve the V1 web implementation handoff |
-| `[DEV]` | Local baseline, P1-P10 runtime boundaries, and P11 hardening complete; P12 shared packaging #41 complete, FastAPI/KrakenD #42 implemented pending merge, and Lambda artifact children #43-#46 ready; technical production in progress | Finish P12 artifacts, infrastructure, deployment, approved web client, operational surfaces, and Public v1 gates; start mobile only in the post-V1 V2 track |
+| `[DEV]` | Local baseline, P1-P10 runtime boundaries, and P11 hardening complete; P12 shared packaging #41 and FastAPI/KrakenD #42 complete in PR #70, and Lambda artifact children #43-#46 ready; technical production in progress | Finish P12 artifacts, infrastructure, deployment, approved web client, operational surfaces, and Public v1 gates; start mobile only in the post-V1 V2 track |
 
 Design and Development proceed in parallel. Production UI implementation is gated by the applicable approved Design baseline; backend, infrastructure, contract discovery, and other non-visual work may proceed earlier when their own blockers are closed.
 
@@ -174,8 +174,8 @@ flowchart TD
   p11Implementation["✓ #37-#40 P11 implementation"]
   p12Spec["✓ #25 P12 production artifact matrix"]
   p12Shared["✓ #41 Shared packaging contract"]
-  p12Artifacts["#42 FastAPI/KrakenD implemented pending merge<br/>#43-#46 ready frontier"]
-  p12Ci["#47 Cross-artifact CI<br/>blocked by #42-#46"]
+  p12Artifacts["✓ #42 FastAPI/KrakenD complete in PR #70<br/>#43-#46 ready frontier"]
+  p12Ci["#47 Cross-artifact CI<br/>blocked by #43-#46"]
   localstack["✓ #26 LocalStack + Preview acceptance closure"]
   liveAws["#59 Live AWS S3/provider verification<br/>ready for human; blocked by #30"]
   frontendAudit["✓ #24 Reusable non-visual frontend contracts"]
@@ -259,7 +259,7 @@ flowchart TD
 
 Issue [#23](https://github.com/starkovalera/recipe-manager/issues/23) is closed: merged PR [#49](https://github.com/starkovalera/recipe-manager/pull/49) delivered the complete P11 specification and child-issue graph. Child A [#37](https://github.com/starkovalera/recipe-manager/issues/37) is complete in merged [PR #63](https://github.com/starkovalera/recipe-manager/pull/63); Child B [#38](https://github.com/starkovalera/recipe-manager/issues/38) is complete in merged [PR #65](https://github.com/starkovalera/recipe-manager/pull/65); Child C [#39](https://github.com/starkovalera/recipe-manager/issues/39) is complete in merged [PR #66](https://github.com/starkovalera/recipe-manager/pull/66); and Child D [#40](https://github.com/starkovalera/recipe-manager/issues/40) is complete in merged [PR #67](https://github.com/starkovalera/recipe-manager/pull/67). P11 implementation is complete.
 
-The P12 artifact matrix in [#25](https://github.com/starkovalera/recipe-manager/issues/25) is complete in merged PR [#52](https://github.com/starkovalera/recipe-manager/pull/52). Shared packaging child [#41](https://github.com/starkovalera/recipe-manager/issues/41) is complete in merged [PR #68](https://github.com/starkovalera/recipe-manager/pull/68). FastAPI/KrakenD child [#42](https://github.com/starkovalera/recipe-manager/issues/42) is implemented pending merge; Lambda artifact children [#43](https://github.com/starkovalera/recipe-manager/issues/43)-[#46](https://github.com/starkovalera/recipe-manager/issues/46) are the remaining unblocked, independently executable P12 frontier. Cross-artifact CI child [#47](https://github.com/starkovalera/recipe-manager/issues/47) remains blocked by all five artifact children until their issues close.
+The P12 artifact matrix in [#25](https://github.com/starkovalera/recipe-manager/issues/25) is complete in merged PR [#52](https://github.com/starkovalera/recipe-manager/pull/52). Shared packaging child [#41](https://github.com/starkovalera/recipe-manager/issues/41) is complete in merged [PR #68](https://github.com/starkovalera/recipe-manager/pull/68). FastAPI/KrakenD child [#42](https://github.com/starkovalera/recipe-manager/issues/42) is complete in [PR #70](https://github.com/starkovalera/recipe-manager/pull/70), which closes the issue on merge; Lambda artifact children [#43](https://github.com/starkovalera/recipe-manager/issues/43)-[#46](https://github.com/starkovalera/recipe-manager/issues/46) are the remaining unblocked, independently executable P12 frontier. Cross-artifact CI child [#47](https://github.com/starkovalera/recipe-manager/issues/47) remains blocked only by #43-#46 until those issues close.
 
 LocalStack and Preview acceptance for [#26](https://github.com/starkovalera/recipe-manager/issues/26) is recorded in merged PR [#58](https://github.com/starkovalera/recipe-manager/pull/58). The real-provider boundary is intentionally separate in [#59 — Verify Live AWS S3 media access boundaries](https://github.com/starkovalera/recipe-manager/issues/59): [#30](https://github.com/starkovalera/recipe-manager/issues/30) is its owner-input blocker, and #59 gates technical production smoke without blocking #31 refinement or the other independent Phase 1 work.
 

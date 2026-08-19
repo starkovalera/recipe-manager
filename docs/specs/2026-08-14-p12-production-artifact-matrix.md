@@ -257,7 +257,7 @@ blockers, and dashed arrows are non-blocking inputs.
 flowchart TD
   p25["✓ #25 P12 artifact matrix"]
   shared["✓ #41 Shared packaging contract"]
-  api["#42 FastAPI and KrakenD artifacts (implemented pending merge)"]
+  api["✓ #42 FastAPI and KrakenD artifacts complete in PR #70"]
   import["#43 Import Lambda artifact (ready)"]
   embedding["#44 Embedding Lambda artifact (ready)"]
   maintenance["#45 Maintenance Lambda artifact (ready)"]
@@ -291,12 +291,12 @@ flowchart TD
 | Child | Scope | Dependency |
 | --- | --- | --- |
 | [#41](https://github.com/starkovalera/recipe-manager/issues/41) | Shared dependency/build, metadata, architecture, and runtime packaging seam | Complete in [PR #68](https://github.com/starkovalera/recipe-manager/pull/68) |
-| [#42](https://github.com/starkovalera/recipe-manager/issues/42) | FastAPI image and KrakenD image in one host deployment unit | Implemented pending merge; #41 complete |
+| [#42](https://github.com/starkovalera/recipe-manager/issues/42) | FastAPI image and KrakenD image in one host deployment unit | Complete in [PR #70](https://github.com/starkovalera/recipe-manager/pull/70); closes on merge; #41 complete |
 | [#43](https://github.com/starkovalera/recipe-manager/issues/43) | Import Lambda image, import-only `ffmpeg`/`ffprobe`, and invocation seam | Ready; #41 complete |
 | [#44](https://github.com/starkovalera/recipe-manager/issues/44) | Embedding Lambda image | Ready; #41 complete |
 | [#45](https://github.com/starkovalera/recipe-manager/issues/45) | Maintenance Lambda image | Ready; #41 complete |
 | [#46](https://github.com/starkovalera/recipe-manager/issues/46) | Account-deletion Lambda image | Ready; #41 complete |
-| [#47](https://github.com/starkovalera/recipe-manager/issues/47) | Cross-artifact CI, fixtures, manifests, and vulnerability scans | Blocked by #42–#46 |
+| [#47](https://github.com/starkovalera/recipe-manager/issues/47) | Cross-artifact CI, fixtures, manifests, and vulnerability scans | Blocked by #43–#46 |
 
 P12 does not add native blockers from #23, #26, #30, or #31 to the artifact
 children. Those workstreams provide independent inputs or later provisioning
