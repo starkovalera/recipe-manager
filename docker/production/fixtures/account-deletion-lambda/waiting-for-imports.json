@@ -1,0 +1,8 @@
+{
+  "Records": [
+    {
+      "messageId": "account-deletion-fixture-waiting",
+      "body": "{\"userId\":\"account-deletion-fixture-waiting\"}"
+    }
+  ]
+}

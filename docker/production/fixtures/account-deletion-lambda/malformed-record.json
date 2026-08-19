@@ -1,0 +1,8 @@
+{
+  "Records": [
+    {
+      "messageId": "account-deletion-fixture-malformed",
+      "body": "{\"userId\":\"account-deletion-fixture-malformed\",\"unexpected\":\"rejected\"}"
+    }
+  ]
+}

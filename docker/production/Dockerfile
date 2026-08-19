@@ -163,3 +163,13 @@ RUN set -eux; \
 LABEL com.recipe-manager.artifact="recipe-manager-maintenance"
 
 CMD ["app.lambdas.maintenance.handler"]
+
+FROM lambda-runtime AS account-deletion-lambda-runtime
+
+RUN set -eux; \
+    test ! -e /usr/local/bin/ffmpeg; \
+    test ! -e /usr/local/bin/ffprobe
+
+LABEL com.recipe-manager.artifact="recipe-manager-account-deletion"
+
+CMD ["app.lambdas.account_deletion.handler"]
