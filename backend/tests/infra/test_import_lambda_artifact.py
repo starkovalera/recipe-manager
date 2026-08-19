@@ -23,7 +23,8 @@ def test_import_lambda_target_uses_shared_runtime_and_pinned_ffmpeg_source() -> 
 
 def test_import_lambda_verifies_native_tools_without_adding_them_to_shared_runtime() -> None:
     dockerfile = DOCKERFILE.read_text(encoding="utf-8")
-    shared_runtime, import_target = dockerfile.split("FROM ${FFMPEG_IMAGE} AS ffmpeg-source", maxsplit=1)
+    shared_runtime, import_target = dockerfile.split("FROM lambda-runtime AS maintenance-lambda-runtime", maxsplit=1)
+    _, import_target = import_target.split("FROM ${FFMPEG_IMAGE} AS ffmpeg-source", maxsplit=1)
 
     assert "COPY --from=ffmpeg-source" not in shared_runtime
     assert "/usr/local/bin/ffmpeg" not in shared_runtime
