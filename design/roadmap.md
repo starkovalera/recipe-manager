@@ -1,6 +1,6 @@
 # Product Design Roadmap
 
-Updated: 2026-08-14
+Updated: 2026-08-19
 Status: Core Design Baseline v1 in progress
 
 This is the canonical current plan for the `[DESIGN]` track. It covers the V1
@@ -55,7 +55,7 @@ Internal Web Beta.
 | Design Domain | Status | Notes |
 | --- | --- | --- |
 | Shared product foundation | In progress | Product vocabulary, Design boundary, and mobile shell evidence exist; the V1 web inventory is recorded, while cross-product tokens, responsive conventions, and state reconciliation remain open |
-| Recipe Detail and Edit | In progress | Structural foundation is approved; the current inventory and remaining sections/contracts are listed in [`shared/scope-and-decision-inventory.md`](shared/scope-and-decision-inventory.md) and [`recipe-detail/decisions/current-scope.md`](recipe-detail/decisions/current-scope.md) |
+| Recipe Detail and Edit | In progress | Structural foundation is approved; issue #21 was verified and delivered in [draft PR #80](https://github.com/starkovalera/recipe-manager/pull/80), with the current production boundary in [`recipe-detail/decisions/15-verified-recipe-detail-contracts.md`](recipe-detail/decisions/15-verified-recipe-detail-contracts.md); remaining gaps are candidate [#71](https://github.com/starkovalera/recipe-manager/issues/71)–[#79](https://github.com/starkovalera/recipe-manager/issues/79) |
 | Authentication, invitations, onboarding | Not started | Define the V1 web entry and lifecycle states; capture mobile implications as paired evidence or defer them to V2 |
 | Recipe library and search | Not started | Include list, search, filtering, sorting, pagination, and transition to detail |
 | Import journeys | Not started | Include creation, progress, terminal results, retry, resource failure, and navigation |
@@ -128,8 +128,8 @@ Feature workstreams may proceed in parallel. A change to a shared decision recor
 | --- | --- | --- |
 | `[DESIGN][SHARED] Inventory first-version scope and existing decisions` | Completed | [`shared/scope-and-decision-inventory.md`](shared/scope-and-decision-inventory.md) accounts for the Core domains, discrepancies, deferrals, decision packets, and next issue split; #20 is published in [PR #51](https://github.com/starkovalera/recipe-manager/pull/51), so shared-contract children may be created after #22 supplies the cross-domain contract matrix (the Recipes child also consumes #21) |
 | `[DESIGN][SHARED] Audit API, schema, and platform constraints` | Agent-ready | This is read-only contract discovery with a checkable change list |
-| `[DESIGN][RECIPES] Verify Recipe Detail/Edit contracts` | Agent-ready | Existing decisions name the missing backend facts explicitly |
-| Domain `[WEB]` and paired `[MOBILE]` design children | Refinement or blocker-dependent | Start after the domain's shared product contract is explicit; create the pair in one context, while allowing the mobile child to remain deferred without blocking V1 |
+| `[DESIGN][RECIPES] Verify Recipe Detail/Edit contracts` | Contract audit complete; delivered in [draft PR #80](https://github.com/starkovalera/recipe-manager/pull/80) | [`15-verified-recipe-detail-contracts.md`](recipe-detail/decisions/15-verified-recipe-detail-contracts.md) separates verified behavior from candidates [#71](https://github.com/starkovalera/recipe-manager/issues/71)–[#79](https://github.com/starkovalera/recipe-manager/issues/79) |
+| Domain `[WEB]` and paired `[MOBILE]` design children | Blocker-dependent | Read-only structural slices are unblocked; remaining Edit/Manage Media/Organize children use the exact prerequisites in the verified contract packet; mobile remains paired/non-blocking for V1 |
 | V1 shared/web reconciliation children | Blocked | Require the shared contract and web child; mobile evidence is an optional input |
 | V2 mobile reconciliation children | Deferred | Run during or after the post-V1 mobile planning iteration when mobile requirements are approved |
 | Core baseline integration | Blocked | Requires reconciled shared/web output from every Core Design Domain; mobile completion is not a V1 gate |
@@ -142,7 +142,7 @@ and a paired native-mobile child when useful. The responsive-web child is the
 V1 handoff; the mobile child may be completed in parallel or deferred to V2.
 Its current parallelizable work is:
 
-- verify Unit dictionary, field limits, ordering identity, persistence, concurrency, media capacity, and permission contracts;
+- close or explicitly accept the verified Unit, field-limit, ordering, persistence, concurrency, media-capacity, selector, nutrition, notes, and rating contract gaps;
 - design Instructions editing and validation;
 - design Cooking notes editing and validation;
 - design Estimated nutrition editing and incomplete states;
@@ -151,9 +151,11 @@ Its current parallelizable work is:
 - design Organize Recipe.
 
 Instructions, notes, nutrition, Manage Media, and Organize may proceed in
-parallel after their required contract facts are known. Within each area, web
-and mobile may also proceed in parallel, followed by V1 shared/web
-reconciliation; mobile-specific reconciliation may follow later. Visual-
+parallel after their required contract facts are known. The current packet
+does not mark any remaining Recipe Edit platform child agent-ready; it names
+the exact blockers so children can open independently as their contracts close.
+Within each area, web and mobile may also proceed in parallel, followed by V1
+shared/web reconciliation; mobile-specific reconciliation may follow later. Visual-
 direction comparison for Recipe Detail follows structural reconciliation of
 those areas and then feeds the shared visual-system work; it is not an isolated
 production implementation source.

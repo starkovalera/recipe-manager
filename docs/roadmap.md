@@ -92,7 +92,8 @@ flowchart TD
   foundation["✓ Shared design foundation and Recipe Detail structural foundation"]
   scope["✓ #20 Scope and decision inventory<br/>published evidence packet"]
   constraints["#22 API, schema, and platform constraints<br/>ready frontier"]
-  recipeFacts["#21 Recipe Detail/Edit contract facts<br/>ready frontier"]
+  recipeFacts["#21 Recipe Detail/Edit contract audit<br/>delivered in PR #80"]
+  recipeGaps["#71-#79 Recipe-specific production contract gaps<br/>candidate DEV work"]
 
   auth["Auth, invitations, and onboarding<br/>shared + V1 web + paired mobile"]
   recipes["Recipe library, detail, edit, and search<br/>shared + V1 web + paired mobile"]
@@ -120,7 +121,8 @@ flowchart TD
   constraints --> collections
   constraints --> notifications
   constraints --> account
-  recipeFacts --> recipes
+  recipeFacts --> recipeGaps
+  recipeGaps --> recipes
 
   auth --> integration
   recipes --> integration
@@ -146,11 +148,22 @@ flowchart TD
 
   class foundation complete
   class scope,constraints,recipeFacts ready
+  class recipeGaps blocked
   class auth,recipes,imports,collections,notifications,account planned
   class integration blocked
   class operational deferred
   class result result
 ```
+
+Issue #21's Recipe-specific audit is recorded and delivered in
+[`15-verified-recipe-detail-contracts.md`](../design/recipe-detail/decisions/15-verified-recipe-detail-contracts.md).
+The publication is [draft PR #80](https://github.com/starkovalera/recipe-manager/pull/80).
+It confirms the current owner-only authorization and existing read-only/API
+boundaries, while candidate [#71](https://github.com/starkovalera/recipe-manager/issues/71)–[#79](https://github.com/starkovalera/recipe-manager/issues/79)
+hold the missing Unit, validation, ordering, concurrency, media, selector,
+nutrition, notes, and rating contracts. Those gaps remain prerequisites for
+the applicable Recipe platform children; paired mobile work is non-blocking for
+V1.
 
 ### Design result
 
