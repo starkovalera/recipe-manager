@@ -10,6 +10,7 @@ named runtime targets:
 | `api-runtime` | #42 FastAPI image | The shared Python runtime plus the production Uvicorn command, private port, health check, and API artifact identity |
 | `lambda-runtime` | #43–#46 Lambda images | AWS Lambda Python 3.12 base, application source, and the frozen production dependency set; retains the base image's least-privilege runtime user and entrypoint |
 | `maintenance-lambda-runtime` | #45 maintenance Lambda image | The shared Lambda runtime plus the operation-only maintenance handler; no native media tools |
+| `account-deletion-lambda-runtime` | #46 account-deletion Lambda image | The shared Lambda runtime plus the ID-only account-deletion handler; no native media tools |
 
 The intermediate `python-dependencies` and `lambda-dependencies` targets are
 build stages, not deployable artifacts. They install from exactly
@@ -167,6 +168,13 @@ only `MaintenanceQueueMessage` boundary, and invokes
 `app.lambdas.maintenance.handler`. Its deterministic fixture, runtime-contract
 smoke, image inspection, digest, and scanner commands are documented in
 [`maintenance-lambda.md`](maintenance-lambda.md).
+
+The #46 account-deletion artifact target is `account-deletion-lambda-runtime`.
+It inherits the shared read-only-root and `/tmp` assumptions, keeps the strict
+ID-only `AccountDeletionQueueMessage` boundary, and invokes
+`app.lambdas.account_deletion.handler`. Its deterministic fixture,
+runtime-contract smoke, image inspection, digest, and scanner commands are
+documented in [`account-deletion-lambda.md`](account-deletion-lambda.md).
 
 The import child may add `ffmpeg`/`ffprobe`; those binaries are deliberately not
 part of `lambda-runtime`. The gateway half of #42 starts from its own

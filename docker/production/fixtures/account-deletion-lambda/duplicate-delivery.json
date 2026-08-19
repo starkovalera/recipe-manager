@@ -1,0 +1,12 @@
+{
+  "Records": [
+    {
+      "messageId": "account-deletion-fixture-duplicate-1",
+      "body": "{\"userId\":\"account-deletion-fixture-duplicate\"}"
+    },
+    {
+      "messageId": "account-deletion-fixture-duplicate-2",
+      "body": "{\"userId\":\"account-deletion-fixture-duplicate\"}"
+    }
+  ]
+}
