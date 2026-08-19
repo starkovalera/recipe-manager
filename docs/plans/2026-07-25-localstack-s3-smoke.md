@@ -4,7 +4,7 @@
 
 ## Acceptance closure — 2026-08-14
 
-The LocalStack functional tier and the signed-in PREVIEW/browser tier are verified in draft PR [#58](https://github.com/starkovalera/recipe-manager/pull/58). The original implementation checklist below is retained for traceability; every checkbox now carries an explicit status. `Implemented in PR #15` means the code or documentation exists in the current repository and was not re-created by this closure task. `Verified` means the command or behavior was exercised during this acceptance run. The AWS-only boundary remains intentionally open in [#59](https://github.com/starkovalera/recipe-manager/issues/59).
+The LocalStack functional tier and the signed-in PREVIEW/browser tier are verified in merged PR [#58](https://github.com/starkovalera/recipe-manager/pull/58). The original implementation checklist below is retained for traceability; every checkbox now carries an explicit status. `Implemented in PR #15` means the code or documentation exists in the current repository and was not re-created by this closure task. `Verified` means the command or behavior was exercised during this acceptance run. The AWS-only boundary remains intentionally open in [#59](https://github.com/starkovalera/recipe-manager/issues/59).
 
 ### Deterministic evidence
 

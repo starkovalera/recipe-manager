@@ -254,15 +254,15 @@ blockers, and dashed arrows are non-blocking inputs.
 
 ```mermaid
 flowchart TD
-  p25["#25 P12 artifact matrix"]
-  shared["#41 Shared packaging contract"]
-  api["#42 FastAPI and KrakenD artifacts"]
-  import["#43 Import Lambda artifact"]
-  embedding["#44 Embedding Lambda artifact"]
-  maintenance["#45 Maintenance Lambda artifact"]
-  deletion["#46 Account-deletion Lambda artifact"]
-  ci["#47 CI build, invocation, reproducibility, and scan verification"]
-  infra["#31 Terraform/AWS foundation refinement"]
+  p25["✓ #25 P12 artifact matrix"]
+  shared["✓ #41 Shared packaging contract"]
+  api["#42 FastAPI and KrakenD artifacts (ready)"]
+  import["#43 Import Lambda artifact (ready)"]
+  embedding["#44 Embedding Lambda artifact (ready)"]
+  maintenance["#45 Maintenance Lambda artifact (ready)"]
+  deletion["#46 Account-deletion Lambda artifact (ready)"]
+  ci["#47 CI build, invocation, reproducibility, and scan verification (blocked)"]
+  infra["#31 Terraform/AWS foundation refinement (needs triage)"]
 
   p25 -. contains .-> shared
   p25 -. contains .-> api
@@ -289,12 +289,12 @@ flowchart TD
 
 | Child | Scope | Dependency |
 | --- | --- | --- |
-| [#41](https://github.com/starkovalera/recipe-manager/issues/41) | Shared dependency/build, metadata, architecture, and runtime packaging seam | Frontier |
-| [#42](https://github.com/starkovalera/recipe-manager/issues/42) | FastAPI image and KrakenD image in one host deployment unit | Blocked by #41 |
-| [#43](https://github.com/starkovalera/recipe-manager/issues/43) | Import Lambda image, import-only `ffmpeg`/`ffprobe`, and invocation seam | Blocked by #41 |
-| [#44](https://github.com/starkovalera/recipe-manager/issues/44) | Embedding Lambda image | Blocked by #41 |
-| [#45](https://github.com/starkovalera/recipe-manager/issues/45) | Maintenance Lambda image | Blocked by #41 |
-| [#46](https://github.com/starkovalera/recipe-manager/issues/46) | Account-deletion Lambda image | Blocked by #41 |
+| [#41](https://github.com/starkovalera/recipe-manager/issues/41) | Shared dependency/build, metadata, architecture, and runtime packaging seam | Complete in [PR #68](https://github.com/starkovalera/recipe-manager/pull/68) |
+| [#42](https://github.com/starkovalera/recipe-manager/issues/42) | FastAPI image and KrakenD image in one host deployment unit | Ready; #41 complete |
+| [#43](https://github.com/starkovalera/recipe-manager/issues/43) | Import Lambda image, import-only `ffmpeg`/`ffprobe`, and invocation seam | Ready; #41 complete |
+| [#44](https://github.com/starkovalera/recipe-manager/issues/44) | Embedding Lambda image | Ready; #41 complete |
+| [#45](https://github.com/starkovalera/recipe-manager/issues/45) | Maintenance Lambda image | Ready; #41 complete |
+| [#46](https://github.com/starkovalera/recipe-manager/issues/46) | Account-deletion Lambda image | Ready; #41 complete |
 | [#47](https://github.com/starkovalera/recipe-manager/issues/47) | Cross-artifact CI, fixtures, manifests, and vulnerability scans | Blocked by #42–#46 |
 
 P12 does not add native blockers from #23, #26, #30, or #31 to the artifact
