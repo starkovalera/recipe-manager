@@ -1,6 +1,6 @@
 # Pen and Penpot for Recipe Manager design operations
 
-Status: research recommendation, not an adoption decision
+Status: architecture selected; Core Pen experiment planned in issue #90
 Verified: 2026-08-19
 
 ## Decision to make
@@ -39,12 +39,15 @@ identify the product with a link.
   intentionally incomplete. That is not an unattended, low-effort lifecycle
   synchronization path.
 
-The recommendation is a **repository-owned design graph plus generated web
-cockpit**, integrated into lifecycle commands and CI. Keep GitHub and decision
-records authoritative; generate the human view from them. Use Pen only if a
-spatial authoring canvas materially improves that generated view. Use Penpot
-only for journeys where real clickable transitions and stakeholder comments
-justify a separate hosted design surface.
+On 2026-08-19, the project selected a **repository-owned design graph plus
+generated web cockpit**, integrated into lifecycle commands and CI, with
+**Pen as a derived spatial companion**. GitHub and decision records remain
+authoritative; the human view is generated from them. The durable boundary is
+recorded in
+[`ADR-0007`](../../../docs/adr/0007-repository-owned-design-operations-cockpit.md).
+Penpot is not part of the selected baseline; it remains an option only for a
+future journey where native hosted comments and transitions justify its separate
+synchronization boundary.
 
 ## Why synchronization is the deciding constraint
 
@@ -307,8 +310,9 @@ Make synchronization a normal ceremony rather than a separate manual task:
    navigation/link checks.
 4. **PR publication:** generate the cockpit snapshot and fail CI on stale or
    contradictory status where a deterministic rule exists.
-5. **Post-merge:** refresh merged PR/issue state, update the generated artifact,
-   and reconcile roadmap wording in the same maintenance change.
+5. **Post-merge:** audit the merged cockpit, graph, roadmap, and GitHub state.
+   Missing synchronization is an incomplete delivery to report for explicit
+   follow-up, not a routine maintenance patch.
 
 The repository can store a cached GitHub snapshot for reproducible builds, but
 it must carry `asOf`, source URL, and source revision. Secrets remain in CI, not
@@ -391,17 +395,20 @@ not the source of task/approval truth.
   provenance models; exported ZIP backups do not solve that automatically.
 - Neither tool has been exercised against this repository in this research.
 
-## Recommendation
+## Accepted direction
 
-Do not select a design SaaS as the architecture. Build the minimal
-repository-owned graph and generated interactive cockpit first, integrate its
-refresh into the existing lifecycle, and prove that it stays current through a
-real merge.
+The selected architecture is the minimal repository-owned graph and generated
+interactive cockpit, with Pen as a non-authoritative spatial projection. The
+cockpit will build on the existing decision gallery and HTML prototypes and will
+be refreshed and verified as part of the repository lifecycle. Issue #88 owns
+the accepted specification, #89 owns the human setup, and #90 owns the bounded
+Core experiment; installation remains gated by those published tasks.
 
-After that proof:
+After the first separately approved pilot proves that the representation stays
+current through a real merge:
 
-- add Pen only if its spatial canvas and CI export save review time without
-  introducing nondeterministic diffs;
+- retain Pen in the workflow only if its spatial canvas and CI export save
+  review time without introducing nondeterministic diffs;
 - add Penpot only for journeys where native transitions, sharing, and comments
   produce enough review value to justify the hosted synchronization boundary.
 

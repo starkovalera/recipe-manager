@@ -1,6 +1,6 @@
 # Recipe Manager Roadmap
 
-Updated: 2026-08-19<br>
+Updated: 2026-08-20<br>
 Audience: human project planning
 
 This is the canonical human-facing project overview. It shows the major work blocks, their status, the order in which results become available, and links to the documents that own the detail. It is intentionally concise: product decisions, technical contracts, and executable issue bodies remain in their subject documents and GitHub.
@@ -21,7 +21,7 @@ The roadmap summarizes its source documents rather than copying their contracts.
 
 | Track | Current state | Current destination |
 | --- | --- | --- |
-| `[DESIGN]` | Core Design Baseline v1 in progress | Approve shared product contracts, complete the V1 responsive-web design, record paired mobile design evidence where useful, and approve the V1 web implementation handoff |
+| `[DESIGN]` | Core Design Baseline v1 in progress; Design Operations contract #88 delivered in draft PR #86 and pilot #89–#94 planned | Prove the repository-owned graph/cockpit workflow on Recipe Detail desktop web, then resume measured V1 Design rollout and approve the web implementation handoff |
 | `[DEV]` | Local baseline, P1-P10 runtime boundaries, P11 hardening, and all P12 production artifacts and cross-artifact CI complete; #47 complete/delivered in draft PR #87; technical production in progress | Finish infrastructure, deployment, approved web client, operational surfaces, and Public v1 gates; start mobile only in the post-V1 V2 track |
 
 Design and Development proceed in parallel. Production UI implementation is gated by the applicable approved Design baseline; backend, infrastructure, contract discovery, and other non-visual work may proceed earlier when their own blockers are closed.
@@ -165,6 +165,26 @@ hold the missing Unit, validation, ordering, concurrency, media, selector,
 nutrition, notes, and rating contracts. Those gaps remain prerequisites for
 the applicable Recipe platform children; paired mobile work is non-blocking for
 V1.
+
+### Design Operations visibility
+
+The accepted
+[`Design Operations cockpit specification`](../design/shared/design-operations-cockpit-spec.md)
+keeps GitHub/current decisions authoritative and generates a visual current
+slice from a repository-owned graph. The primary interactive surface is a static
+web cockpit; Pen is a bounded parallel experiment, not a source of status.
+
+The workstream is [#88](https://github.com/starkovalera/recipe-manager/issues/88)–[#94](https://github.com/starkovalera/recipe-manager/issues/94),
+all with the `[DESIGN][SHARED]` prefix. Its immediate sequence is specification
+#88, human setup #89, and Core Pen experiment #90. Product Design execution is
+temporarily held until #90 records the Pen role, but no product Design issue has
+a native Pen blocker. Recipe Detail cockpit #92 remains architecturally
+independent; #93 automates the proven lifecycle, and #94 refines rollout tasks
+for every remaining Design Domain.
+
+Known stale tracker/roadmap state is deliberately retained for the first map.
+Issue #91 reconciles it only after #90 demonstrates `verification_needed`, so
+the same change becomes the controlled regeneration proof.
 
 ### Design result
 
