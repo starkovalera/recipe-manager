@@ -1,6 +1,6 @@
 # Repository-owned Design Operations cockpit
 
-Status: accepted; complete and delivered in draft PR #86 for issue #88<br>
+Status: accepted; complete and delivered in merged PR #86 for issue #88<br>
 Decision date: 2026-08-20<br>
 Initial slice: Recipe Detail, desktop web only
 
@@ -240,17 +240,21 @@ part of Core.
 
 ### Checkpoints and decision method
 
-1. **Setup:** Pen runs, Codex sees the actual MCP tools, and configuration changes
-   are understood.
-2. **First map:** a small current desktop slice is visible and reviewable.
-3. **Core map:** all three journeys and the selected 20–30 nodes are present.
-4. **Regeneration proof:** identical-input and controlled-change runs are
-   inspected through the headless path.
+1. **Setup (#89, evidence recorded in #90):** Pen runs, Codex sees the actual
+   MCP tools, and configuration changes are understood.
+2. **First map (#95):** a small current desktop slice is visible and reviewable.
+   Its owner decision opens #90 and #91 as parallel work.
+3. **Core map (#90):** all three journeys and the selected 20–30 nodes are
+   present while #91 owns the independent controlled source correction.
+4. **Regeneration proof and decision (#96):** identical-input and controlled-
+   change runs are inspected through the headless path after #90 and #91.
 
 At every checkpoint, the agent presents the visible result, actual agent/human
 time, unexpected complications or advantages, remaining work, and a recommendation
 to continue, change scope, or stop. The human owner makes the decision; numerical
-thresholds do not decide automatically.
+thresholds do not decide automatically. A checkpoint that opens two or more
+independently executable branches is its own issue; it must not be hidden inside
+one of the downstream branches.
 
 Planning guides are a maximum of 28 agent-hours and 4 human-hours, no more than
 90 minutes of initial human setup, and an expected steady-state update of no
@@ -274,7 +278,7 @@ Stages:
 5. Install the VS Code extension only if desktop MCP discovery fails.
 6. Authenticate Claude Code only if the installed Pen version demonstrably
    requires it for the bounded Codex MCP operation.
-7. Perform the visual reviews requested at checkpoints 2–4.
+7. Perform the visual reviews requested by #95, #90, and #96.
 
 The agent owns safe backup/comparison commands, version capture, smoke-file
 preparation, MCP inspection, CLI checks, and cleanup of temporary evidence.
@@ -290,8 +294,9 @@ contradictions. Do not fix it before the first data-backed map.
 4. Regenerate from the corrected sources.
 5. Verify that warnings clear and only expected nodes change.
 
-This maintenance task does not block setup or the first map. It blocks completion
-of the controlled-change regeneration proof and final Pen decision.
+This maintenance task does not block setup or the first map. After #95 it runs
+in parallel with #90, and both tasks block the controlled-change regeneration
+proof and final Pen decision in #96.
 
 ## Lifecycle contract
 
@@ -349,32 +354,33 @@ repository graph/cockpit remain usable if Pen is removed.
 flowchart TD
   spec["#88 [DESIGN][SHARED] Specify graph and cockpit contract"]
   setup["#89 [DESIGN][SHARED] Complete local Pen setup"]
-  first["#90 [DESIGN][SHARED] Core Pen experiment: first map"]
+  first["#95 [DESIGN][SHARED] Build First map"]
+  core["#90 [DESIGN][SHARED] Build Core map"]
   maintenance["#91 [DESIGN][SHARED] Reconcile roadmap and tracker drift"]
-  regen["Same Core Pen experiment: regeneration proof"]
-  decision["#90 human checkpoint: Decide Pen workflow role"]
+  decision["#96 [DESIGN][SHARED] Regeneration proof and Pen decision"]
   cockpit["#92 [DESIGN][SHARED] Build Recipe Detail web cockpit pilot"]
   automation["#93 [DESIGN][SHARED] Automate lifecycle refresh and validation"]
   refinement["#94 [DESIGN][SHARED] Refine rollout for remaining domains"]
 
   spec --> setup
-  spec --> first
   setup --> first
+  first --> core
   first --> maintenance
-  first --> regen
-  maintenance --> regen
-  regen --> decision
+  core --> decision
+  maintenance --> decision
 
-  spec --> cockpit
+  spec -. accepted architecture input .-> cockpit
   decision -. temporary scheduling hold .-> cockpit
   cockpit --> automation
   cockpit --> refinement
   decision --> refinement
 ```
 
-The two Core Pen nodes are checkpoints inside one experiment issue, not separate
-implementation issues. The specification issue is contained by the Core Design
-Baseline tracker #29. The human setup issue blocks only the Pen experiment.
+First map is an independent fork task because its approval opens Core-map work
+and drift reconciliation in parallel. Regeneration and the final Pen decision
+are an independent join task blocked by both branches. The specification issue
+is contained by the Core Design Baseline tracker #29. The human setup issue
+blocks only the Pen experiment.
 Product Design issues do not receive false native Pen blockers. The refinement
 issue contains an explicit checklist for Auth/onboarding, Recipe library/search,
 Imports, Collections/tags, Notifications, Profile/account, shared integration,
@@ -384,7 +390,7 @@ series uses the same `[DESIGN][SHARED]` title prefix.
 
 ## Decision after the experiment
 
-The checkpoint evidence supports one explicit outcome:
+The #96 checkpoint evidence supports one explicit outcome:
 
 - **adopted:** Pen requirements join cockpit automation and future domain tasks;
 - **optional:** Pen remains a manually invoked companion and cockpit delivery is
