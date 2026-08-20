@@ -1,6 +1,6 @@
 # Product Design Roadmap
 
-Updated: 2026-08-19
+Updated: 2026-08-20
 Status: Core Design Baseline v1 in progress
 
 This is the canonical current plan for the `[DESIGN]` track. It covers the V1
@@ -52,11 +52,39 @@ paired or deferred to V2. The Addendum may run in parallel with V1 Core web
 implementation after the Core baseline is approved. It blocks Public v1, not
 Internal Web Beta.
 
+### Design Operations visibility pilot
+
+The accepted
+[`Design Operations cockpit specification`](shared/design-operations-cockpit-spec.md)
+adds a repository-owned graph and generated interactive web cockpit, with Pen
+evaluated only as a derived spatial companion. The first slice is Recipe Detail
+desktop web. All tasks in this workstream use the common `[DESIGN][SHARED]`
+prefix and are contained by tracker [#29](https://github.com/starkovalera/recipe-manager/issues/29).
+
+Product Design execution is on a temporary scheduling hold until the Core Pen
+experiment records `adopted`, `optional`, or `rejected`. This is not a product
+dependency and no product Design issue receives a native Pen blocker.
+
+| Design Operations issue | Current gate |
+| --- | --- |
+| [#88 — Specify graph and cockpit contract](https://github.com/starkovalera/recipe-manager/issues/88) | Complete and delivered in draft PR #86; awaiting human review/merge |
+| [#89 — Complete local Pen setup](https://github.com/starkovalera/recipe-manager/issues/89) | Blocked by #88; becomes `ready-for-human` after the specification merges |
+| [#90 — Run the Recipe Detail desktop Core Pen experiment](https://github.com/starkovalera/recipe-manager/issues/90) | Blocked by #88 and #89; owns four human checkpoints and the Pen decision |
+| [#91 — Reconcile roadmap and tracker drift](https://github.com/starkovalera/recipe-manager/issues/91) | Do not start until #90 checkpoint 2 captures current contradictions; must finish before checkpoint 4 closes |
+| [#92 — Build the Recipe Detail desktop web cockpit](https://github.com/starkovalera/recipe-manager/issues/92) | Temporarily held for the #90 decision; blocked natively only by #88 |
+| [#93 — Automate lifecycle refresh and validation](https://github.com/starkovalera/recipe-manager/issues/93) | Blocked by #92 |
+| [#94 — Refine rollout for remaining domains](https://github.com/starkovalera/recipe-manager/issues/94) | Blocked by #90 and #92; checklist covers every remaining Design Domain |
+
+The current known tracker/roadmap contradictions are intentionally preserved as
+checkpoint input for #90 and owned by #91. They must appear as
+`verification_needed` in the first data-backed projection rather than being
+silently repaired in this specification delivery.
+
 ## Domain status
 
 | Design Domain | Status | Notes |
 | --- | --- | --- |
-| Shared product foundation | In progress | Product vocabulary, Design boundary, and mobile shell evidence exist; the V1 web inventory is recorded, while cross-product tokens, responsive conventions, and state reconciliation remain open |
+| Shared product foundation | In progress | Product vocabulary, Design boundary, mobile shell evidence, and the accepted Design Operations contract in #88 exist; #89–#94 own its pilot and rollout while cross-product tokens, responsive conventions, and state reconciliation remain open |
 | Recipe Detail and Edit | In progress | Structural foundation is approved; issue #21 was verified and delivered in [draft PR #80](https://github.com/starkovalera/recipe-manager/pull/80), with the current production boundary in [`recipe-detail/decisions/15-verified-recipe-detail-contracts.md`](recipe-detail/decisions/15-verified-recipe-detail-contracts.md); remaining gaps are candidate [#71](https://github.com/starkovalera/recipe-manager/issues/71)–[#79](https://github.com/starkovalera/recipe-manager/issues/79) |
 | Authentication, invitations, onboarding | Not started | Define the V1 web entry and lifecycle states; capture mobile implications as paired evidence or defer them to V2 |
 | Recipe library and search | Not started | Include list, search, filtering, sorting, pagination, and transition to detail |
@@ -131,6 +159,7 @@ Feature workstreams may proceed in parallel. A change to a shared decision recor
 | `[DESIGN][SHARED] Inventory first-version scope and existing decisions` | Completed | [`shared/scope-and-decision-inventory.md`](shared/scope-and-decision-inventory.md) accounts for the Core domains, discrepancies, deferrals, decision packets, and next issue split; #20 is published in [PR #51](https://github.com/starkovalera/recipe-manager/pull/51), so shared-contract children may be created after #22 supplies the cross-domain contract matrix (the Recipes child also consumes #21) |
 | `[DESIGN][SHARED] Audit API, schema, and platform constraints` | Contract packet complete; delivered in [draft PR #82](https://github.com/starkovalera/recipe-manager/pull/82) | The verified cross-domain packet is in [`shared/api-schema-platform-constraints.md`](shared/api-schema-platform-constraints.md); proposed Development candidates remain separate follow-up work |
 | `[DESIGN][RECIPES] Verify Recipe Detail/Edit contracts` | Contract audit complete; delivered in [draft PR #80](https://github.com/starkovalera/recipe-manager/pull/80) | [`15-verified-recipe-detail-contracts.md`](recipe-detail/decisions/15-verified-recipe-detail-contracts.md) separates verified behavior from candidates [#71](https://github.com/starkovalera/recipe-manager/issues/71)–[#79](https://github.com/starkovalera/recipe-manager/issues/79) |
+| `[DESIGN][SHARED]` Design Operations #88–#94 | Specification delivered; pilot gated | #89 becomes the human frontier after #88 merges; #90 owns the Pen checkpoints, #92 the cockpit, and #94 the measured remaining-domain rollout |
 | Domain `[WEB]` and paired `[MOBILE]` design children | Blocker-dependent | Read-only structural slices are unblocked; remaining Edit/Manage Media/Organize children use the exact prerequisites in the verified contract packet; mobile remains paired/non-blocking for V1 |
 | V1 shared/web reconciliation children | Blocked | Require the shared contract and web child; mobile evidence is an optional input |
 | V2 mobile reconciliation children | Deferred | Run during or after the post-V1 mobile planning iteration when mobile requirements are approved |
