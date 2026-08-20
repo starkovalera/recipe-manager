@@ -25,7 +25,10 @@ The setup provenance is recorded in the
 2. Run `node scripts/design-ops/generate-first-map.mjs` and
    `node scripts/design-ops/validate-first-map.mjs`.
 3. Update the `.pen` projection only from the normalized input.
-4. Export and review the fixed image before merge.
+4. Save the repository `.pen`, copy it to a new pathname in the same directory,
+   and open that copy through Pencil. Verify three lanes, seven image fills, and
+   no clipping before deleting the verification copy.
+5. Export and review the fixed image before merge.
 
 Never edit Design or Delivery status only inside Pen. Never commit account
 sessions, OTPs, API keys, or local Codex/Pen configuration.
@@ -35,18 +38,20 @@ sessions, OTPs, API keys, or local Codex/Pen configuration.
 The First map exposed two local-runtime costs that future Core work must retain
 as experiment evidence:
 
-- MCP `Insert` operations created valid nodes with schema and bounds, but the
-  new nodes did not render. Copying the already-visible smoke primitive and
-  applying bounded overrides rendered correctly. The committed atlas therefore
-  uses copied visible primitives; stable repository IDs live in node metadata
-  and the normalized input, not in Pen-generated IDs.
-- The current MCP surface has no Save As operation. The agent preserved the
-  managed source, copied the opaque `.pen` file without parsing it, and then
-  retained only the derived atlas in the repository copy. Screenshot fills use
-  repository-relative paths in the committed `.pen`; the fixed review export
-  was captured from the same atlas with temporary absolute local paths because
-  the active managed document did not rebase relative assets until the
-  repository file is opened directly.
+- Flat MCP `Insert` operations created valid nodes with schema and bounds, but
+  those nodes did not render. A single nested tree inserted as one top-level
+  frame rendered correctly and is the construction seam used by the committed
+  atlas. Stable repository IDs remain in card text and normalized input rather
+  than depending on Pen-generated IDs.
+- The MCP surface has no Save As operation. An initial opaque copy of the
+  managed file was a false positive because the visible canvas was still an
+  unsaved editor session; a byte-identical repository copy reopened as the
+  welcome document and relative screenshots did not resolve from the managed
+  directory. The final atlas was rebuilt directly in the repository document,
+  saved by the owner, and reopened from a new pathname in the same directory.
+  That fresh-open proof found three lanes, seven resolved image fills, and zero
+  clipping problems.
 
 These are bounded Core-experiment observations, not adoption conclusions. The
-headless CLI and a fresh direct open of the committed file remain outside #95.
+headless CLI remains outside #95; a fresh direct open of the committed file is
+now required review evidence.

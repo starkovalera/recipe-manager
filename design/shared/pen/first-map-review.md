@@ -1,6 +1,6 @@
 # Recipe Detail desktop First map review
 
-Status: awaiting owner fork decision<br>
+Status: owner chose `continue`; publication in draft PR #98<br>
 Issue: [#95](https://github.com/starkovalera/recipe-manager/issues/95)<br>
 Setup provenance: [#90 checkpoint 1](https://github.com/starkovalera/recipe-manager/issues/90#issuecomment-5356621586)<br>
 Reviewed: 2026-08-20
@@ -29,6 +29,11 @@ Artifacts:
   projection;
 - [`exports/recipe-detail-first-map.png`](exports/recipe-detail-first-map.png)
   — fixed owner-review export.
+
+The saved repository `.pen` was copied to a new pathname and opened through
+Pencil as a fresh document. The reopened artifact contained three lanes, seven
+resolved screenshot fills, and zero clipping problems. This specifically guards
+against accepting an unsaved managed-canvas session as a repository artifact.
 
 ## Preserved decisions and boundaries
 
@@ -88,19 +93,23 @@ status badges fit without clipping. The First map deliberately avoids the
 
 ## Measured effort and unexpected cost
 
-- Active #95 agent elapsed time to the review gate: approximately 40 minutes.
-- New human time: 0 minutes; owner visual review is pending.
+- Active #95 agent elapsed time to the initial review gate: approximately 40
+  minutes; recovery and fresh-open verification added approximately 30 minutes.
+- Human hands-on time was not timed; it was limited to visual inspection and
+  the Save/Save As operations unavailable through MCP.
 - Benefit: the normalized graph and validation path were straightforward, and
   the existing screenshots make the current desktop slice quickly legible.
-- Unexpected cost: Pen 1.2.5 `Insert` nodes existed but rendered invisibly;
-  visible `Copy` primitives were required. The MCP also lacks Save As, so the
-  repository file required an opaque managed-file copy. These anomalies added
-  roughly 15 minutes and are recorded in the Pen README.
+- Unexpected cost: Pen 1.2.5 flat `Insert` nodes existed but rendered
+  invisibly, and the MCP lacks Save As. The initial managed-file copy captured
+  the unsaved welcome document rather than the visible atlas. The atlas was
+  rebuilt as one nested repository-root tree and verified from a new pathname;
+  these anomalies and the regression seam are recorded in the Pen README.
 
 ## Remaining work after the fork gate
 
-If the owner chooses `continue`, #90 may expand to the 20–30-node Core map while
-#91 reconciles drift in parallel. #95 itself does not execute either task.
+The owner chose `continue`. After #95 closes, #90 may expand to the 20–30-node
+Core map while #91 reconciles drift in parallel. #95 itself does not execute
+either task.
 
 ## Recommendation and requested decision
 
@@ -108,4 +117,4 @@ Recommendation: **continue**. The First map is coherent, source-owned inputs
 survive without Pen, and the runtime anomalies are bounded enough to test in
 Core rather than grounds for immediate rejection.
 
-Owner decision required: `continue`, `change scope`, or `stop`.
+Owner decision recorded: `continue`.
