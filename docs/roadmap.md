@@ -21,7 +21,7 @@ The roadmap summarizes its source documents rather than copying their contracts.
 
 | Track | Current state | Current destination |
 | --- | --- | --- |
-| `[DESIGN]` | Core Design Baseline v1 in progress; Design Operations contract #88 merged, setup #89 complete, and pilot #90–#96 planned | Prove the repository-owned graph/cockpit workflow on Recipe Detail desktop web, then resume measured V1 Design rollout and approve the web implementation handoff |
+| `[DESIGN]` | Core Design Baseline v1 in progress; Design Operations contract #88 and setup #89 complete, First map #95 delivered in [PR #98](https://github.com/starkovalera/recipe-manager/pull/98), and #90/#91 are the parallel frontiers | Prove the repository-owned graph/cockpit workflow on Recipe Detail desktop web, then resume measured V1 Design rollout and approve the web implementation handoff |
 | `[DEV]` | Local baseline, P1-P10 runtime boundaries, P11 hardening, and all P12 production artifacts and cross-artifact CI complete; #47 complete/delivered in draft PR #87; technical production in progress | Finish infrastructure, deployment, approved web client, operational surfaces, and Public v1 gates; start mobile only in the post-V1 V2 track |
 
 Design and Development proceed in parallel. Production UI implementation is gated by the applicable approved Design baseline; backend, infrastructure, contract discovery, and other non-visual work may proceed earlier when their own blockers are closed.
@@ -175,18 +175,20 @@ slice from a repository-owned graph. The primary interactive surface is a static
 web cockpit; Pen is a bounded parallel experiment, not a source of status.
 
 The workstream is [#88](https://github.com/starkovalera/recipe-manager/issues/88)–[#96](https://github.com/starkovalera/recipe-manager/issues/96),
-all with the `[DESIGN][SHARED]` prefix. Specification #88 and human setup #89
-are complete. First map #95 is the current fork gate; after it, Core map #90
-and drift reconciliation #91 run in parallel, and #96 joins them for the
-regeneration proof and final Pen decision. Product Design execution is
+all with the `[DESIGN][SHARED]` prefix. Specification #88, human setup #89, and
+First map #95 are complete; #95 is delivered in
+[PR #98](https://github.com/starkovalera/recipe-manager/pull/98) with the owner decision
+`continue`. Core map #90 and drift reconciliation #91 are now the parallel
+frontiers, and #96 joins them for the regeneration proof and final Pen decision.
+Product Design execution is
 temporarily held until #96 records the Pen role, but no product Design issue has
 a native Pen blocker. Recipe Detail cockpit #92 remains architecturally
 independent; #93 automates the proven lifecycle, and #94 refines rollout tasks
 for every remaining Design Domain.
 
-Known stale tracker/roadmap state is deliberately retained for the first map.
-Issue #91 reconciles it only after #95 demonstrates `verification_needed`, so
-the same change becomes the controlled regeneration proof in #96.
+Known stale tracker/roadmap state is visible as `verification_needed` in the
+completed First map. Issue #91 owns reconciliation so the same change becomes
+the controlled regeneration proof in #96.
 
 ### Design result
 
