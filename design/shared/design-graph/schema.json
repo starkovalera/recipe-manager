@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/starkovalera/recipe-manager/design/shared/design-graph/schema.json",
+  "title": "Recipe Manager Design Graph Root",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schemaVersion", "domains", "snapshots", "precedence"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schemaVersion": { "const": "1.0.0" },
+    "domains": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "source"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^domain\\.[a-z0-9-]+$" },
+          "source": { "type": "string", "pattern": "^domains/.+\\.json$" }
+        }
+      }
+    },
+    "snapshots": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "source"],
+        "properties": {
+          "kind": { "enum": ["github"] },
+          "source": { "type": "string", "pattern": "^snapshots/.+\\.json$" }
+        }
+      }
+    },
+    "precedence": {
+      "type": "array",
+      "const": ["current_decision", "github_snapshot", "canonical_roadmap", "evidence"]
+    }
+  }
+}

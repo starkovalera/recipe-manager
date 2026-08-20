@@ -1,0 +1,652 @@
+{
+  "schemaVersion": "1.0.0",
+  "generatedFrom": {
+    "domain": "domains/recipe-detail-first-map.json",
+    "githubSnapshot": "snapshots/github.json",
+    "asOf": "2026-08-20T13:46:45Z",
+    "sourceRevision": "8bb54c5f98f1b06709b0f45c3a38eff732547dbe",
+    "precedence": [
+      "current_decision",
+      "github_snapshot",
+      "canonical_roadmap",
+      "evidence"
+    ]
+  },
+  "map": {
+    "id": "domain.recipe-detail",
+    "title": "Recipe Detail desktop First map",
+    "platform": "desktop_web",
+    "release": "v1",
+    "issue": "https://github.com/starkovalera/recipe-manager/issues/95",
+    "setupProvenance": "https://github.com/starkovalera/recipe-manager/issues/90#issuecomment-5356621586"
+  },
+  "journeys": [
+    {
+      "id": "journey.read-focus",
+      "order": 1,
+      "title": "Read / Focus",
+      "description": "Open a current recipe, resolve the one-time flagged entry, and move between reading and Cooking Focus.",
+      "nodes": [
+        {
+          "id": "recipe-detail.read-focus.default-view",
+          "order": 1,
+          "journeyId": "journey.read-focus",
+          "type": "screen",
+          "title": "Default Recipe View",
+          "summary": "Compact recipe identity, corrected-B action band, bounded Ingredients, and readable Instructions.",
+          "designStatus": "approved",
+          "deliveryStatus": "verification_needed",
+          "sources": {
+            "decisions": [
+              "design/recipe-detail/decisions/06-approved-ux-foundation.md",
+              "design/recipe-detail/decisions/current-scope.md"
+            ],
+            "prototype": "design/recipe-detail/prototypes/05-main-actions-and-responsive-panels/index.html",
+            "screenshot": "design/recipe-detail/screenshots/05-main-actions-and-responsive-panels/desktop-approved-b-main-actions-1440x900.png",
+            "issues": [
+              {
+                "number": 21,
+                "state": "closed",
+                "labels": [
+                  "ready-for-agent",
+                  "v1"
+                ],
+                "url": "https://github.com/starkovalera/recipe-manager/issues/21"
+              }
+            ],
+            "pullRequests": [
+              {
+                "number": 80,
+                "state": "merged",
+                "mergedAt": "2026-08-19T13:45:23Z",
+                "url": "https://github.com/starkovalera/recipe-manager/pull/80"
+              }
+            ]
+          },
+          "verificationNeeded": [
+            "warning.roadmap-pr80-state"
+          ]
+        },
+        {
+          "id": "recipe-detail.read-focus.flagged-entry",
+          "order": 2,
+          "journeyId": "journey.read-focus",
+          "type": "state",
+          "title": "Flagged first entry",
+          "summary": "Import Info opens automatically once for a flagged imported recipe, then stays dismissed for the visit.",
+          "designStatus": "approved",
+          "deliveryStatus": "not_planned",
+          "sources": {
+            "decisions": [
+              "design/recipe-detail/decisions/13-desktop-edit-basics-validation-and-entry-behavior.md"
+            ],
+            "prototype": "design/recipe-detail/prototypes/05-main-actions-and-responsive-panels/index.html",
+            "issues": [
+              {
+                "number": 21,
+                "state": "closed",
+                "labels": [
+                  "ready-for-agent",
+                  "v1"
+                ],
+                "url": "https://github.com/starkovalera/recipe-manager/issues/21"
+              }
+            ],
+            "pullRequests": [
+              {
+                "number": 80,
+                "state": "merged",
+                "mergedAt": "2026-08-19T13:45:23Z",
+                "url": "https://github.com/starkovalera/recipe-manager/pull/80"
+              }
+            ]
+          }
+        },
+        {
+          "id": "recipe-detail.read-focus.cooking-focus",
+          "order": 3,
+          "journeyId": "journey.read-focus",
+          "type": "screen",
+          "title": "Cooking Focus",
+          "summary": "Simplified reading context retaining title, cooking facts, ingredients, instructions, notes, and primary actions.",
+          "designStatus": "approved",
+          "deliveryStatus": "not_planned",
+          "sources": {
+            "decisions": [
+              "design/recipe-detail/decisions/06-approved-ux-foundation.md"
+            ],
+            "prototype": "design/recipe-detail/prototypes/05-main-actions-and-responsive-panels/index.html",
+            "screenshot": "design/recipe-detail/screenshots/02-feedback-refinement/desktop-focus-simplified-1440x900.png",
+            "issues": [
+              {
+                "number": 21,
+                "state": "closed",
+                "labels": [
+                  "ready-for-agent",
+                  "v1"
+                ],
+                "url": "https://github.com/starkovalera/recipe-manager/issues/21"
+              }
+            ],
+            "pullRequests": [
+              {
+                "number": 80,
+                "state": "merged",
+                "mergedAt": "2026-08-19T13:45:23Z",
+                "url": "https://github.com/starkovalera/recipe-manager/pull/80"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journey.edit-save",
+      "order": 2,
+      "title": "Edit / Save",
+      "description": "Edit Basics and Ingredients, encounter validation, and protect a dirty draft on navigation.",
+      "nodes": [
+        {
+          "id": "recipe-detail.edit-save.basics",
+          "order": 1,
+          "journeyId": "journey.edit-save",
+          "type": "screen",
+          "title": "Edit Basics",
+          "summary": "Continuous desktop editor with two-zone Basics, one recipe draft, and one global save outcome.",
+          "designStatus": "approved",
+          "deliveryStatus": "blocked",
+          "sources": {
+            "decisions": [
+              "design/recipe-detail/decisions/13-desktop-edit-basics-validation-and-entry-behavior.md"
+            ],
+            "prototype": "design/recipe-detail/prototypes/17-desktop-edit-basics-validation-and-guard/index.html",
+            "screenshot": "design/recipe-detail/screenshots/edit-mode/17a-desktop-edit-basics-ingredients-v1.png",
+            "issues": [
+              {
+                "number": 21,
+                "state": "closed",
+                "labels": [
+                  "ready-for-agent",
+                  "v1"
+                ],
+                "url": "https://github.com/starkovalera/recipe-manager/issues/21"
+              },
+              {
+                "number": 71,
+                "state": "open",
+                "labels": [
+                  "needs-triage",
+                  "v1"
+                ],
+                "url": "https://github.com/starkovalera/recipe-manager/issues/71"
+              },
+              {
+                "number": 72,
+                "state": "open",
+                "labels": [
+                  "needs-triage",
+                  "v1"
+                ],
+                "url": "https://github.com/starkovalera/recipe-manager/issues/72"
+              },
+              {
+                "number": 79,
+                "state": "open",
+                "labels": [
+                  "needs-triage",
+                  "v1"
+                ],
+                "url": "https://github.com/starkovalera/recipe-manager/issues/79"
+              }
+            ],
+            "pullRequests": [
+              {
+                "number": 80,
+                "state": "merged",
+                "mergedAt": "2026-08-19T13:45:23Z",
+                "url": "https://github.com/starkovalera/recipe-manager/pull/80"
+              }
+            ]
+          }
+        },
+        {
+          "id": "recipe-detail.edit-save.ingredients",
+          "order": 2,
+          "journeyId": "journey.edit-save",
+          "type": "screen",
+          "title": "Edit Ingredients",
+          "summary": "Compact rows with reorder, optional Quantity, fixed Unit, required name, and draft-only removal.",
+          "designStatus": "approved",
+          "deliveryStatus": "blocked",
+          "sources": {
+            "decisions": [
+              "design/recipe-detail/decisions/13-desktop-edit-basics-validation-and-entry-behavior.md"
+            ],
+            "prototype": "design/recipe-detail/prototypes/17-desktop-edit-basics-validation-and-guard/index.html",
+            "issues": [
+              {
+                "number": 21,
+                "state": "closed",
+                "labels": [
+                  "ready-for-agent",
+                  "v1"
+                ],
+                "url": "https://github.com/starkovalera/recipe-manager/issues/21"
+              },
+              {
+                "number": 71,
+                "state": "open",
+                "labels": [
+                  "needs-triage",
+                  "v1"
+                ],
+                "url": "https://github.com/starkovalera/recipe-manager/issues/71"
+              },
+              {
+                "number": 72,
+                "state": "open",
+                "labels": [
+                  "needs-triage",
+                  "v1"
+                ],
+                "url": "https://github.com/starkovalera/recipe-manager/issues/72"
+              }
+            ],
+            "pullRequests": [
+              {
+                "number": 80,
+                "state": "merged",
+                "mergedAt": "2026-08-19T13:45:23Z",
+                "url": "https://github.com/starkovalera/recipe-manager/pull/80"
+              }
+            ]
+          }
+        },
+        {
+          "id": "recipe-detail.edit-save.validation",
+          "order": 3,
+          "journeyId": "journey.edit-save",
+          "type": "state",
+          "title": "Failed-save validation",
+          "summary": "Linked error summary, rail counts, field messages, and focus recovery after a failed Save.",
+          "designStatus": "approved",
+          "deliveryStatus": "blocked",
+          "sources": {
+            "decisions": [
+              "design/recipe-detail/decisions/13-desktop-edit-basics-validation-and-entry-behavior.md"
+            ],
+            "prototype": "design/recipe-detail/prototypes/17-desktop-edit-basics-validation-and-guard/index.html",
+            "screenshot": "design/recipe-detail/screenshots/edit-mode/17b-desktop-edit-validation-v1.png",
+            "issues": [
+              {
+                "number": 21,
+                "state": "closed",
+                "labels": [
+                  "ready-for-agent",
+                  "v1"
+                ],
+                "url": "https://github.com/starkovalera/recipe-manager/issues/21"
+              },
+              {
+                "number": 71,
+                "state": "open",
+                "labels": [
+                  "needs-triage",
+                  "v1"
+                ],
+                "url": "https://github.com/starkovalera/recipe-manager/issues/71"
+              },
+              {
+                "number": 72,
+                "state": "open",
+                "labels": [
+                  "needs-triage",
+                  "v1"
+                ],
+                "url": "https://github.com/starkovalera/recipe-manager/issues/72"
+              }
+            ],
+            "pullRequests": [
+              {
+                "number": 80,
+                "state": "merged",
+                "mergedAt": "2026-08-19T13:45:23Z",
+                "url": "https://github.com/starkovalera/recipe-manager/pull/80"
+              }
+            ]
+          }
+        },
+        {
+          "id": "recipe-detail.edit-save.unsaved-guard",
+          "order": 4,
+          "journeyId": "journey.edit-save",
+          "type": "state",
+          "title": "Unsaved changes guard",
+          "summary": "Blocking desktop dialog with Save, Discard, and Cancel when navigation would abandon the recipe draft.",
+          "designStatus": "approved",
+          "deliveryStatus": "not_planned",
+          "sources": {
+            "decisions": [
+              "design/recipe-detail/decisions/13-desktop-edit-basics-validation-and-entry-behavior.md"
+            ],
+            "prototype": "design/recipe-detail/prototypes/17-desktop-edit-basics-validation-and-guard/index.html",
+            "screenshot": "design/recipe-detail/screenshots/edit-mode/17c-desktop-edit-unsaved-guard-v1.png",
+            "issues": [
+              {
+                "number": 21,
+                "state": "closed",
+                "labels": [
+                  "ready-for-agent",
+                  "v1"
+                ],
+                "url": "https://github.com/starkovalera/recipe-manager/issues/21"
+              },
+              {
+                "number": 74,
+                "state": "open",
+                "labels": [
+                  "needs-triage",
+                  "v1"
+                ],
+                "url": "https://github.com/starkovalera/recipe-manager/issues/74"
+              }
+            ],
+            "pullRequests": [
+              {
+                "number": 80,
+                "state": "merged",
+                "mergedAt": "2026-08-19T13:45:23Z",
+                "url": "https://github.com/starkovalera/recipe-manager/pull/80"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "journey.resources-media",
+      "order": 3,
+      "title": "Resources / Media",
+      "description": "Inspect cooking media and import provenance, including an irreversible resource-removal confirmation.",
+      "nodes": [
+        {
+          "id": "recipe-detail.resources-media.media",
+          "order": 1,
+          "journeyId": "journey.resources-media",
+          "type": "screen",
+          "title": "Media panel",
+          "summary": "Read-only images and understandable cooking links in the shared auxiliary slot.",
+          "designStatus": "approved",
+          "deliveryStatus": "not_planned",
+          "sources": {
+            "decisions": [
+              "design/recipe-detail/decisions/06-approved-ux-foundation.md"
+            ],
+            "prototype": "design/recipe-detail/prototypes/05-main-actions-and-responsive-panels/index.html",
+            "screenshot": "design/recipe-detail/screenshots/04-visual-control-refinement/desktop-media-images-and-links-1440x900.png",
+            "issues": [
+              {
+                "number": 21,
+                "state": "closed",
+                "labels": [
+                  "ready-for-agent",
+                  "v1"
+                ],
+                "url": "https://github.com/starkovalera/recipe-manager/issues/21"
+              }
+            ],
+            "pullRequests": [
+              {
+                "number": 80,
+                "state": "merged",
+                "mergedAt": "2026-08-19T13:45:23Z",
+                "url": "https://github.com/starkovalera/recipe-manager/pull/80"
+              }
+            ]
+          }
+        },
+        {
+          "id": "recipe-detail.resources-media.import-info",
+          "order": 2,
+          "journeyId": "journey.resources-media",
+          "type": "screen",
+          "title": "Import Info",
+          "summary": "Review flags and grouped primary/derived resources without duplicating the recipe page.",
+          "designStatus": "approved",
+          "deliveryStatus": "verification_needed",
+          "sources": {
+            "decisions": [
+              "design/recipe-detail/decisions/06-approved-ux-foundation.md",
+              "design/recipe-detail/decisions/15-verified-recipe-detail-contracts.md"
+            ],
+            "prototype": "design/recipe-detail/prototypes/05-main-actions-and-responsive-panels/index.html",
+            "screenshot": "design/recipe-detail/screenshots/05-main-actions-and-responsive-panels/desktop-import-ignored-and-cascade-1440x900.png",
+            "issues": [
+              {
+                "number": 21,
+                "state": "closed",
+                "labels": [
+                  "ready-for-agent",
+                  "v1"
+                ],
+                "url": "https://github.com/starkovalera/recipe-manager/issues/21"
+              }
+            ],
+            "pullRequests": [
+              {
+                "number": 80,
+                "state": "merged",
+                "mergedAt": "2026-08-19T13:45:23Z",
+                "url": "https://github.com/starkovalera/recipe-manager/pull/80"
+              }
+            ]
+          },
+          "verificationNeeded": [
+            "warning.import-review-contract"
+          ]
+        },
+        {
+          "id": "recipe-detail.resources-media.cascade-confirmation",
+          "order": 3,
+          "journeyId": "journey.resources-media",
+          "type": "state",
+          "title": "Cascade removal confirmation",
+          "summary": "Inline irreversible confirmation names affected resources, preserves the current cover, and leaves saved recipe content unchanged.",
+          "designStatus": "approved",
+          "deliveryStatus": "not_planned",
+          "sources": {
+            "decisions": [
+              "design/recipe-detail/decisions/06-approved-ux-foundation.md"
+            ],
+            "prototype": "design/recipe-detail/prototypes/05-main-actions-and-responsive-panels/index.html",
+            "issues": [
+              {
+                "number": 21,
+                "state": "closed",
+                "labels": [
+                  "ready-for-agent",
+                  "v1"
+                ],
+                "url": "https://github.com/starkovalera/recipe-manager/issues/21"
+              }
+            ],
+            "pullRequests": [
+              {
+                "number": 80,
+                "state": "merged",
+                "mergedAt": "2026-08-19T13:45:23Z",
+                "url": "https://github.com/starkovalera/recipe-manager/pull/80"
+              }
+            ]
+          }
+        },
+        {
+          "id": "recipe-detail.resources-media.reviewed",
+          "order": 4,
+          "journeyId": "journey.resources-media",
+          "type": "state",
+          "title": "Import review cleared",
+          "summary": "The panel remains in place after review; warning state clears without changing resource hierarchy.",
+          "designStatus": "approved",
+          "deliveryStatus": "verification_needed",
+          "sources": {
+            "decisions": [
+              "design/recipe-detail/decisions/06-approved-ux-foundation.md",
+              "design/recipe-detail/decisions/15-verified-recipe-detail-contracts.md"
+            ],
+            "prototype": "design/recipe-detail/prototypes/05-main-actions-and-responsive-panels/index.html",
+            "issues": [
+              {
+                "number": 21,
+                "state": "closed",
+                "labels": [
+                  "ready-for-agent",
+                  "v1"
+                ],
+                "url": "https://github.com/starkovalera/recipe-manager/issues/21"
+              }
+            ],
+            "pullRequests": [
+              {
+                "number": 80,
+                "state": "merged",
+                "mergedAt": "2026-08-19T13:45:23Z",
+                "url": "https://github.com/starkovalera/recipe-manager/pull/80"
+              }
+            ]
+          },
+          "verificationNeeded": [
+            "warning.import-review-contract"
+          ]
+        }
+      ]
+    }
+  ],
+  "transitions": [
+    {
+      "id": "transition.auto-open-import",
+      "from": "recipe-detail.read-focus.default-view",
+      "to": "recipe-detail.read-focus.flagged-entry",
+      "label": "First flagged entry",
+      "provenance": "docs-derived"
+    },
+    {
+      "id": "transition.cancel-removal",
+      "from": "recipe-detail.resources-media.cascade-confirmation",
+      "to": "recipe-detail.resources-media.import-info",
+      "label": "Cancel",
+      "provenance": "docs-derived"
+    },
+    {
+      "id": "transition.close-first-import",
+      "from": "recipe-detail.read-focus.flagged-entry",
+      "to": "recipe-detail.read-focus.default-view",
+      "label": "Close Import Info",
+      "provenance": "docs-derived"
+    },
+    {
+      "id": "transition.dirty-navigation",
+      "from": "recipe-detail.edit-save.basics",
+      "to": "recipe-detail.edit-save.unsaved-guard",
+      "label": "Navigate with changes",
+      "provenance": "docs-derived"
+    },
+    {
+      "id": "transition.edit-ingredients",
+      "from": "recipe-detail.edit-save.basics",
+      "to": "recipe-detail.edit-save.ingredients",
+      "label": "Scroll to Ingredients",
+      "provenance": "docs-derived"
+    },
+    {
+      "id": "transition.enter-edit",
+      "from": "recipe-detail.read-focus.default-view",
+      "to": "recipe-detail.edit-save.basics",
+      "label": "Choose Edit",
+      "provenance": "docs-derived"
+    },
+    {
+      "id": "transition.enter-focus",
+      "from": "recipe-detail.read-focus.default-view",
+      "to": "recipe-detail.read-focus.cooking-focus",
+      "label": "Choose Focus",
+      "provenance": "docs-derived"
+    },
+    {
+      "id": "transition.failed-save",
+      "from": "recipe-detail.edit-save.ingredients",
+      "to": "recipe-detail.edit-save.validation",
+      "label": "Save invalid draft",
+      "provenance": "docs-derived"
+    },
+    {
+      "id": "transition.keep-editing",
+      "from": "recipe-detail.edit-save.unsaved-guard",
+      "to": "recipe-detail.edit-save.basics",
+      "label": "Cancel",
+      "provenance": "docs-derived"
+    },
+    {
+      "id": "transition.mark-reviewed",
+      "from": "recipe-detail.resources-media.import-info",
+      "to": "recipe-detail.resources-media.reviewed",
+      "label": "Mark all reviewed",
+      "provenance": "docs-derived"
+    },
+    {
+      "id": "transition.open-import-info",
+      "from": "recipe-detail.read-focus.default-view",
+      "to": "recipe-detail.resources-media.import-info",
+      "label": "Overflow → Import Info",
+      "provenance": "docs-derived"
+    },
+    {
+      "id": "transition.open-media",
+      "from": "recipe-detail.read-focus.default-view",
+      "to": "recipe-detail.resources-media.media",
+      "label": "Open Media",
+      "provenance": "docs-derived"
+    },
+    {
+      "id": "transition.open-recipe",
+      "from": "entry.recipes",
+      "to": "recipe-detail.read-focus.default-view",
+      "label": "Open recipe",
+      "provenance": "curated"
+    },
+    {
+      "id": "transition.request-removal",
+      "from": "recipe-detail.resources-media.import-info",
+      "to": "recipe-detail.resources-media.cascade-confirmation",
+      "label": "Remove primary source",
+      "provenance": "docs-derived"
+    },
+    {
+      "id": "transition.return-view",
+      "from": "recipe-detail.read-focus.cooking-focus",
+      "to": "recipe-detail.read-focus.default-view",
+      "label": "Choose View",
+      "provenance": "docs-derived"
+    }
+  ],
+  "warnings": [
+    {
+      "id": "warning.import-review-contract",
+      "title": "Import review mutation contract disagrees",
+      "details": "Approved Design uses Mark all reviewed while the verified production audit records current per-flag PATCH behavior.",
+      "sources": [
+        "design/recipe-detail/decisions/06-approved-ux-foundation.md",
+        "design/recipe-detail/decisions/15-verified-recipe-detail-contracts.md"
+      ]
+    },
+    {
+      "id": "warning.roadmap-pr80-state",
+      "title": "PR #80 delivery state disagrees",
+      "details": "Current Recipe Detail scope calls PR #80 draft while the cached GitHub snapshot records it merged. Delivery is not inferred until canonical text is reconciled.",
+      "sources": [
+        "design/recipe-detail/decisions/current-scope.md",
+        "https://github.com/starkovalera/recipe-manager/pull/80"
+      ]
+    }
+  ]
+}
