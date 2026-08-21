@@ -157,8 +157,8 @@ The runtime contract is broader than the current hand-maintained API index:
   influence embedding planning and the detail/list hasOpenReviewFlags
   projection.
 
-The following cannot be represented as current capabilities until #21 and the
-named human decisions resolve them:
+The #21 audit is complete, but the following cannot be represented as current
+capabilities until the named human decisions resolve them:
 
 - difficulty and personal rating persistence;
 - whether Cooking notes is the existing Recipe.note or a new field;
