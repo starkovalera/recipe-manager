@@ -1,7 +1,7 @@
 # API, Schema, and Platform Constraints
 
 Status: verified technical-constraint input for issue #22; delivered in
-[draft PR #82](https://github.com/starkovalera/recipe-manager/pull/82).
+[merged PR #82](https://github.com/starkovalera/recipe-manager/pull/82).
 Proposed changes are not implemented.
 
 Task: [#22 — Audit API, schema, and platform constraints](https://github.com/starkovalera/recipe-manager/issues/22)

@@ -1,5 +1,5 @@
 {
-  "asOf": "2026-08-21T13:36:07Z",
+  "asOf": "2026-08-21T13:42:15Z",
   "repository": "starkovalera/recipe-manager",
   "sourceRevision": "d64b471d0b1fa883b1208d3fcd9495d1ca81ce99",
   "issues": [
@@ -15,7 +15,7 @@
     { "number": 78, "state": "open", "labels": ["needs-triage", "v1"], "url": "https://github.com/starkovalera/recipe-manager/issues/78" },
     { "number": 79, "state": "open", "labels": ["needs-triage", "v1"], "url": "https://github.com/starkovalera/recipe-manager/issues/79" },
     { "number": 90, "state": "open", "labels": ["ready-for-agent", "v1"], "assignees": ["starkovalera"], "url": "https://github.com/starkovalera/recipe-manager/issues/90" },
-    { "number": 91, "state": "open", "labels": ["v1"], "url": "https://github.com/starkovalera/recipe-manager/issues/91" },
+    { "number": 91, "state": "open", "labels": ["ready-for-agent", "v1"], "url": "https://github.com/starkovalera/recipe-manager/issues/91" },
     { "number": 95, "state": "closed", "labels": ["v1"], "assignees": ["starkovalera"], "url": "https://github.com/starkovalera/recipe-manager/issues/95" },
     { "number": 96, "state": "open", "labels": ["v1"], "url": "https://github.com/starkovalera/recipe-manager/issues/96" }
   ],

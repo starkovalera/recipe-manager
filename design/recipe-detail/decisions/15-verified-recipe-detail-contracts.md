@@ -1,8 +1,8 @@
 # Recipe Detail/Edit — Verified Production Contracts
 
-Status: contract audit complete; delivered in [draft PR #80](https://github.com/starkovalera/recipe-manager/pull/80); implementation gaps are tracked as candidate `[DEV]` issues
+Status: contract audit complete; delivered in [merged PR #80](https://github.com/starkovalera/recipe-manager/pull/80); implementation gaps are tracked as candidate `[DEV]` issues
 Task: [#21 — Verify Recipe Detail/Edit contracts](https://github.com/starkovalera/recipe-manager/issues/21)
-Updated: 2026-08-19
+Updated: 2026-08-21
 
 ## Purpose and boundary
 

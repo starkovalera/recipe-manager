@@ -193,7 +193,7 @@ Evidence: [`Recipe Detail current scope`](../recipe-detail/decisions/current-sco
 [`global mobile shell`](../recipe-detail/decisions/11-global-mobile-shell.md),
 the [implementation handoff](../recipe-detail/implementation-handoff.md), and
 the [verified production contract packet](../recipe-detail/decisions/15-verified-recipe-detail-contracts.md).
-The issue #21 audit was delivered in [draft PR #80](https://github.com/starkovalera/recipe-manager/pull/80).
+The issue #21 audit was delivered in [merged PR #80](https://github.com/starkovalera/recipe-manager/pull/80).
 
 **Unresolved or contradictory:**
 
@@ -599,7 +599,7 @@ The immediate executable frontier after this inventory is:
 
 1. publish this #20 result;
 2. continue #21; the [#22 cross-domain contract matrix](api-schema-platform-constraints.md)
-   is published in [draft PR #82](https://github.com/starkovalera/recipe-manager/pull/82)
+   is published in [merged PR #82](https://github.com/starkovalera/recipe-manager/pull/82)
    as the technical input for the next shared-contract children and is not a
    visual or production implementation approval;
 3. create the six shared-contract children after the #22 packet is reviewed

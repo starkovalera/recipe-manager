@@ -1,6 +1,6 @@
 # Product Design Roadmap
 
-Updated: 2026-08-20
+Updated: 2026-08-21
 Status: Core Design Baseline v1 in progress
 
 This is the canonical current plan for the `[DESIGN]` track. It covers the V1
@@ -87,7 +87,7 @@ the fork checkpoint or Core-map construction.
 | Design Domain | Status | Notes |
 | --- | --- | --- |
 | Shared product foundation | In progress | Product vocabulary, Design boundary, mobile shell evidence, and the accepted Design Operations contract in #88 exist; #89–#96 own its pilot and rollout while cross-product tokens, responsive conventions, and state reconciliation remain open |
-| Recipe Detail and Edit | In progress | Structural foundation is approved; issue #21 was verified and delivered in [draft PR #80](https://github.com/starkovalera/recipe-manager/pull/80), with the current production boundary in [`recipe-detail/decisions/15-verified-recipe-detail-contracts.md`](recipe-detail/decisions/15-verified-recipe-detail-contracts.md); remaining gaps are candidate [#71](https://github.com/starkovalera/recipe-manager/issues/71)–[#79](https://github.com/starkovalera/recipe-manager/issues/79) |
+| Recipe Detail and Edit | In progress | Structural foundation is approved; issue #21 was verified and delivered in [merged PR #80](https://github.com/starkovalera/recipe-manager/pull/80), with the current production boundary in [`recipe-detail/decisions/15-verified-recipe-detail-contracts.md`](recipe-detail/decisions/15-verified-recipe-detail-contracts.md); remaining gaps are candidate [#71](https://github.com/starkovalera/recipe-manager/issues/71)–[#79](https://github.com/starkovalera/recipe-manager/issues/79) |
 | Authentication, invitations, onboarding | Not started | Define the V1 web entry and lifecycle states; capture mobile implications as paired evidence or defer them to V2 |
 | Recipe library and search | Not started | Include list, search, filtering, sorting, pagination, and transition to detail |
 | Import journeys | Not started | Include creation, progress, terminal results, retry, resource failure, and navigation |
@@ -159,8 +159,8 @@ Feature workstreams may proceed in parallel. A change to a shared decision recor
 | Candidate child issue | Readiness | Why |
 | --- | --- | --- |
 | `[DESIGN][SHARED] Inventory first-version scope and existing decisions` | Completed | [`shared/scope-and-decision-inventory.md`](shared/scope-and-decision-inventory.md) accounts for the Core domains, discrepancies, deferrals, decision packets, and next issue split; #20 is published in [PR #51](https://github.com/starkovalera/recipe-manager/pull/51), so shared-contract children may be created after #22 supplies the cross-domain contract matrix (the Recipes child also consumes #21) |
-| `[DESIGN][SHARED] Audit API, schema, and platform constraints` | Contract packet complete; delivered in [draft PR #82](https://github.com/starkovalera/recipe-manager/pull/82) | The verified cross-domain packet is in [`shared/api-schema-platform-constraints.md`](shared/api-schema-platform-constraints.md); proposed Development candidates remain separate follow-up work |
-| `[DESIGN][RECIPES] Verify Recipe Detail/Edit contracts` | Contract audit complete; delivered in [draft PR #80](https://github.com/starkovalera/recipe-manager/pull/80) | [`15-verified-recipe-detail-contracts.md`](recipe-detail/decisions/15-verified-recipe-detail-contracts.md) separates verified behavior from candidates [#71](https://github.com/starkovalera/recipe-manager/issues/71)–[#79](https://github.com/starkovalera/recipe-manager/issues/79) |
+| `[DESIGN][SHARED] Audit API, schema, and platform constraints` | Contract packet complete; delivered in [merged PR #82](https://github.com/starkovalera/recipe-manager/pull/82) | The verified cross-domain packet is in [`shared/api-schema-platform-constraints.md`](shared/api-schema-platform-constraints.md); proposed Development candidates remain separate follow-up work |
+| `[DESIGN][RECIPES] Verify Recipe Detail/Edit contracts` | Contract audit complete; delivered in [merged PR #80](https://github.com/starkovalera/recipe-manager/pull/80) | [`15-verified-recipe-detail-contracts.md`](recipe-detail/decisions/15-verified-recipe-detail-contracts.md) separates verified behavior from candidates [#71](https://github.com/starkovalera/recipe-manager/issues/71)–[#79](https://github.com/starkovalera/recipe-manager/issues/79) |
 | `[DESIGN][SHARED]` Design Operations #88–#96 | Parallel Core-map and drift frontiers | #95 completed the fork checkpoint in [PR #98](https://github.com/starkovalera/recipe-manager/pull/98); #90 and #91 are next in parallel; #96 joins them for regeneration and the Pen decision; #92 owns the cockpit and #94 the measured remaining-domain rollout |
 | Domain `[WEB]` and paired `[MOBILE]` design children | Blocker-dependent | Read-only structural slices are unblocked; remaining Edit/Manage Media/Organize children use the exact prerequisites in the verified contract packet; mobile remains paired/non-blocking for V1 |
 | V1 shared/web reconciliation children | Blocked | Require the shared contract and web child; mobile evidence is an optional input |

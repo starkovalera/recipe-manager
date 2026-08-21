@@ -1,6 +1,6 @@
 # Recipe Manager Roadmap
 
-Updated: 2026-08-20<br>
+Updated: 2026-08-21<br>
 Audience: human project planning
 
 This is the canonical human-facing project overview. It shows the major work blocks, their status, the order in which results become available, and links to the documents that own the detail. It is intentionally concise: product decisions, technical contracts, and executable issue bodies remain in their subject documents and GitHub.
@@ -22,7 +22,7 @@ The roadmap summarizes its source documents rather than copying their contracts.
 | Track | Current state | Current destination |
 | --- | --- | --- |
 | `[DESIGN]` | Core Design Baseline v1 in progress; Design Operations contract #88 and setup #89 complete, First map #95 delivered in [PR #98](https://github.com/starkovalera/recipe-manager/pull/98), and #90/#91 are the parallel frontiers | Prove the repository-owned graph/cockpit workflow on Recipe Detail desktop web, then resume measured V1 Design rollout and approve the web implementation handoff |
-| `[DEV]` | Local baseline, P1-P10 runtime boundaries, P11 hardening, and all P12 production artifacts and cross-artifact CI complete; #47 complete/delivered in draft PR #87; technical production in progress | Finish infrastructure, deployment, approved web client, operational surfaces, and Public v1 gates; start mobile only in the post-V1 V2 track |
+| `[DEV]` | Local baseline, P1-P10 runtime boundaries, P11 hardening, and all P12 production artifacts and cross-artifact CI complete; #47 complete/delivered in merged PR #87; technical production in progress | Finish infrastructure, deployment, approved web client, operational surfaces, and Public v1 gates; start mobile only in the post-V1 V2 track |
 
 Design and Development proceed in parallel. Production UI implementation is gated by the applicable approved Design baseline; backend, infrastructure, contract discovery, and other non-visual work may proceed earlier when their own blockers are closed.
 
@@ -91,7 +91,7 @@ block V1.
 flowchart TD
   foundation["✓ Shared design foundation and Recipe Detail structural foundation"]
   scope["✓ #20 Scope and decision inventory<br/>published evidence packet"]
-  constraints["✓ #22 API, schema, and platform constraints<br/>delivered in draft PR #82"]
+  constraints["✓ #22 API, schema, and platform constraints<br/>delivered in merged PR #82"]
   recipeFacts["#21 Recipe Detail/Edit contract audit<br/>delivered in PR #80"]
   recipeGaps["#71-#79 Recipe-specific production contract gaps<br/>candidate DEV work"]
 
@@ -158,7 +158,7 @@ flowchart TD
 
 Issue #21's Recipe-specific audit is recorded and delivered in
 [`15-verified-recipe-detail-contracts.md`](../design/recipe-detail/decisions/15-verified-recipe-detail-contracts.md).
-The publication is [draft PR #80](https://github.com/starkovalera/recipe-manager/pull/80).
+The publication is [merged PR #80](https://github.com/starkovalera/recipe-manager/pull/80).
 It confirms the current owner-only authorization and existing read-only/API
 boundaries, while candidate [#71](https://github.com/starkovalera/recipe-manager/issues/71)–[#79](https://github.com/starkovalera/recipe-manager/issues/79)
 hold the missing Unit, validation, ordering, concurrency, media, selector,
@@ -215,7 +215,7 @@ flowchart TD
   p12Spec["✓ #25 P12 production artifact matrix"]
   p12Shared["✓ #41 Shared packaging contract"]
   p12Artifacts["✓ #42 FastAPI/KrakenD complete in PR #70<br/>✓ #43 import Lambda delivered in PR #81<br/>✓ #44 Embedding Lambda delivered in PR #83<br/>✓ #45 maintenance Lambda delivered in PR #84<br/>✓ #46 account-deletion delivered in PR #85"]
-  p12Ci["✓ #47 Cross-artifact CI<br/>complete/delivered in draft PR #87"]
+  p12Ci["✓ #47 Cross-artifact CI<br/>complete/delivered in merged PR #87"]
   localstack["✓ #26 LocalStack + Preview acceptance closure"]
   liveAws["#59 Live AWS S3/provider verification<br/>ready for human; blocked by #30"]
   frontendAudit["✓ #24 Reusable non-visual frontend contracts"]
@@ -288,8 +288,7 @@ flowchart TD
 
   class phase0,runtime complete
   class p11,p11Implementation,p12Spec,p12Shared,localstack,frontendAudit complete
-  class p12Artifacts ready
-  class p12Ci blocked
+  class p12Artifacts,p12Ci complete
   class liveAws,infraRefine,owner refine
   class infra,candidate,security,technical blocked
   class design,web,webBeta,designOps,ops,beta gated
@@ -299,7 +298,7 @@ flowchart TD
 
 Issue [#23](https://github.com/starkovalera/recipe-manager/issues/23) is closed: merged PR [#49](https://github.com/starkovalera/recipe-manager/pull/49) delivered the complete P11 specification and child-issue graph. Child A [#37](https://github.com/starkovalera/recipe-manager/issues/37) is complete in merged [PR #63](https://github.com/starkovalera/recipe-manager/pull/63); Child B [#38](https://github.com/starkovalera/recipe-manager/issues/38) is complete in merged [PR #65](https://github.com/starkovalera/recipe-manager/pull/65); Child C [#39](https://github.com/starkovalera/recipe-manager/issues/39) is complete in merged [PR #66](https://github.com/starkovalera/recipe-manager/pull/66); and Child D [#40](https://github.com/starkovalera/recipe-manager/issues/40) is complete in merged [PR #67](https://github.com/starkovalera/recipe-manager/pull/67). P11 implementation is complete.
 
-The P12 artifact matrix in [#25](https://github.com/starkovalera/recipe-manager/issues/25) is complete in merged PR [#52](https://github.com/starkovalera/recipe-manager/pull/52). Shared packaging child [#41](https://github.com/starkovalera/recipe-manager/issues/41) is complete in merged [PR #68](https://github.com/starkovalera/recipe-manager/pull/68). FastAPI/KrakenD child [#42](https://github.com/starkovalera/recipe-manager/issues/42) is complete in [PR #70](https://github.com/starkovalera/recipe-manager/pull/70); import Lambda child [#43](https://github.com/starkovalera/recipe-manager/issues/43) is complete/delivered in [PR #81](https://github.com/starkovalera/recipe-manager/pull/81); embedding Lambda child [#44](https://github.com/starkovalera/recipe-manager/issues/44) is complete/delivered in [PR #83](https://github.com/starkovalera/recipe-manager/pull/83); maintenance Lambda child [#45](https://github.com/starkovalera/recipe-manager/issues/45) is complete/delivered in [PR #84](https://github.com/starkovalera/recipe-manager/pull/84); and account-deletion artifact child [#46](https://github.com/starkovalera/recipe-manager/issues/46) is complete/delivered in [PR #85](https://github.com/starkovalera/recipe-manager/pull/85). Cross-artifact CI child [#47](https://github.com/starkovalera/recipe-manager/issues/47) is complete/delivered in draft [PR #87](https://github.com/starkovalera/recipe-manager/pull/87), closing P12 with six-image build, health/invocation, identity, scan, and manifest verification.
+The P12 artifact matrix in [#25](https://github.com/starkovalera/recipe-manager/issues/25) is complete in merged PR [#52](https://github.com/starkovalera/recipe-manager/pull/52). Shared packaging child [#41](https://github.com/starkovalera/recipe-manager/issues/41) is complete in merged [PR #68](https://github.com/starkovalera/recipe-manager/pull/68). FastAPI/KrakenD child [#42](https://github.com/starkovalera/recipe-manager/issues/42) is complete in [PR #70](https://github.com/starkovalera/recipe-manager/pull/70); import Lambda child [#43](https://github.com/starkovalera/recipe-manager/issues/43) is complete/delivered in [PR #81](https://github.com/starkovalera/recipe-manager/pull/81); embedding Lambda child [#44](https://github.com/starkovalera/recipe-manager/issues/44) is complete/delivered in [PR #83](https://github.com/starkovalera/recipe-manager/pull/83); maintenance Lambda child [#45](https://github.com/starkovalera/recipe-manager/issues/45) is complete/delivered in [PR #84](https://github.com/starkovalera/recipe-manager/pull/84); and account-deletion artifact child [#46](https://github.com/starkovalera/recipe-manager/issues/46) is complete/delivered in [PR #85](https://github.com/starkovalera/recipe-manager/pull/85). Cross-artifact CI child [#47](https://github.com/starkovalera/recipe-manager/issues/47) is complete/delivered in merged [PR #87](https://github.com/starkovalera/recipe-manager/pull/87), closing P12 with six-image build, health/invocation, identity, scan, and manifest verification.
 
 LocalStack and Preview acceptance for [#26](https://github.com/starkovalera/recipe-manager/issues/26) is recorded in merged PR [#58](https://github.com/starkovalera/recipe-manager/pull/58). The real-provider boundary is intentionally separate in [#59 — Verify Live AWS S3 media access boundaries](https://github.com/starkovalera/recipe-manager/issues/59): [#30](https://github.com/starkovalera/recipe-manager/issues/30) is its owner-input blocker, and #59 gates technical production smoke without blocking #31 refinement or the other independent Phase 1 work.
 

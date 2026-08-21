@@ -3,8 +3,8 @@
   "generatedFrom": {
     "domain": "domains/recipe-detail-first-map.json",
     "githubSnapshot": "snapshots/github.json",
-    "asOf": "2026-08-20T13:46:45Z",
-    "sourceRevision": "8bb54c5f98f1b06709b0f45c3a38eff732547dbe",
+    "asOf": "2026-08-21T13:42:15Z",
+    "sourceRevision": "d64b471d0b1fa883b1208d3fcd9495d1ca81ce99",
     "precedence": [
       "current_decision",
       "github_snapshot",
