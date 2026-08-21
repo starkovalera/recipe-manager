@@ -242,8 +242,10 @@ part of Core.
 
 1. **Setup (#89, evidence recorded in #90):** Pen runs, Codex sees the actual
    MCP tools, and configuration changes are understood.
-2. **First map (#95):** a small current desktop slice is visible and reviewable.
-   Its owner decision opens #90 and #91 as parallel work.
+2. **First map (#95):** complete; the small current desktop slice, review
+   evidence, and owner `continue` decision are delivered in
+   [PR #98](https://github.com/starkovalera/recipe-manager/pull/98). The decision
+   opens #90 and #91 as parallel work.
 3. **Core map (#90):** all three journeys and the selected 20–30 nodes are
    present while #91 owns the independent controlled source correction.
 4. **Regeneration proof and decision (#96):** identical-input and controlled-
@@ -294,9 +296,9 @@ contradictions. Do not fix it before the first data-backed map.
 4. Regenerate from the corrected sources.
 5. Verify that warnings clear and only expected nodes change.
 
-This maintenance task does not block setup or the first map. After #95 it runs
-in parallel with #90, and both tasks block the controlled-change regeneration
-proof and final Pen decision in #96.
+This maintenance task did not block setup or the first map. With #95 complete,
+it is a parallel frontier with #90, and both tasks block the controlled-change
+regeneration proof and final Pen decision in #96.
 
 ## Lifecycle contract
 
@@ -354,9 +356,9 @@ repository graph/cockpit remain usable if Pen is removed.
 flowchart TD
   spec["#88 [DESIGN][SHARED] Specify graph and cockpit contract"]
   setup["#89 [DESIGN][SHARED] Complete local Pen setup"]
-  first["#95 [DESIGN][SHARED] Build First map"]
-  core["#90 [DESIGN][SHARED] Build Core map"]
-  maintenance["#91 [DESIGN][SHARED] Reconcile roadmap and tracker drift"]
+  first["#95 [DESIGN][SHARED] First map — complete in PR #98"]
+  core["#90 [DESIGN][SHARED] Build Core map — next frontier"]
+  maintenance["#91 [DESIGN][SHARED] Reconcile drift — next frontier"]
   decision["#96 [DESIGN][SHARED] Regeneration proof and Pen decision"]
   cockpit["#92 [DESIGN][SHARED] Build Recipe Detail web cockpit pilot"]
   automation["#93 [DESIGN][SHARED] Automate lifecycle refresh and validation"]
@@ -376,11 +378,11 @@ flowchart TD
   decision --> refinement
 ```
 
-First map is an independent fork task because its approval opens Core-map work
-and drift reconciliation in parallel. Regeneration and the final Pen decision
-are an independent join task blocked by both branches. The specification issue
-is contained by the Core Design Baseline tracker #29. The human setup issue
-blocks only the Pen experiment.
+First map was an independent fork task; its recorded `continue` decision opens
+Core-map work and drift reconciliation in parallel. Regeneration and the final
+Pen decision are an independent join task blocked by both branches. The
+specification issue is contained by the Core Design Baseline tracker #29. The
+human setup issue blocks only the Pen experiment.
 Product Design issues do not receive false native Pen blockers. The refinement
 issue contains an explicit checklist for Auth/onboarding, Recipe library/search,
 Imports, Collections/tags, Notifications, Profile/account, shared integration,

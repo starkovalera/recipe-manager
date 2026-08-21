@@ -1,0 +1,22 @@
+{
+  "$schema": "./schema.json",
+  "schemaVersion": "1.0.0",
+  "domains": [
+    {
+      "id": "domain.recipe-detail",
+      "source": "domains/recipe-detail-first-map.json"
+    }
+  ],
+  "snapshots": [
+    {
+      "kind": "github",
+      "source": "snapshots/github.json"
+    }
+  ],
+  "precedence": [
+    "current_decision",
+    "github_snapshot",
+    "canonical_roadmap",
+    "evidence"
+  ]
+}

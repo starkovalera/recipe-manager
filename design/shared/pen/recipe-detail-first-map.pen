@@ -1,0 +1,3127 @@
+{
+  "version": "2.17",
+  "children": [
+    {
+      "type": "frame",
+      "id": "c4aD4T",
+      "x": 0,
+      "y": 0,
+      "name": "Recipe Detail First Map",
+      "clip": true,
+      "width": 2800,
+      "height": 2472,
+      "fill": "#081118",
+      "layout": "vertical",
+      "gap": 24,
+      "padding": 56,
+      "children": [
+        {
+          "type": "frame",
+          "id": "jIMkU",
+          "name": "Atlas Header",
+          "width": "fill_container",
+          "height": 160,
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "GmBlE",
+              "name": "Header Copy",
+              "width": 1900,
+              "layout": "vertical",
+              "gap": 12,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "o9BA6S",
+                  "name": "Eyebrow",
+                  "fill": "#63E2D0",
+                  "content": "RECIPE DETAIL · DESKTOP WEB · FIRST MAP",
+                  "fontFamily": "Inter",
+                  "fontSize": 18,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "D90f6f",
+                  "name": "Main Title",
+                  "fill": "#F4F7F8",
+                  "content": "Three journeys. One current slice.",
+                  "fontFamily": "Inter",
+                  "fontSize": 48,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "oe98b",
+                  "name": "Subtitle",
+                  "fill": "#A8B5BC",
+                  "content": "A repository-derived spatial companion for 11 approved screen and state nodes. Status is never authored here.",
+                  "fontFamily": "Inter",
+                  "fontSize": 20
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "S1dOK7",
+              "name": "Owner Gate",
+              "width": 600,
+              "layout": "vertical",
+              "gap": 10,
+              "alignItems": "end",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "JImYm",
+                  "name": "Gate Label",
+                  "fill": "#F4F7F8",
+                  "content": "#95 · OWNER REVIEW GATE",
+                  "fontFamily": "Inter",
+                  "fontSize": 18,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "R2cCU",
+                  "name": "Source Revision",
+                  "fill": "#A8B5BC",
+                  "content": "source 8bb54c5 · snapshot 2026-08-20 13:46Z",
+                  "fontFamily": "Inter",
+                  "fontSize": 14
+                },
+                {
+                  "type": "text",
+                  "id": "NocNt",
+                  "name": "Projection Note",
+                  "fill": "#F4B84A",
+                  "content": "Derived projection · not an interactive prototype",
+                  "fontFamily": "Inter",
+                  "fontSize": 15
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "wxIED",
+          "name": "Verification Needed Banner",
+          "width": "fill_container",
+          "height": 96,
+          "fill": "#2B2112",
+          "cornerRadius": 8,
+          "stroke": "#6C4C1D",
+          "strokeWidth": 1,
+          "gap": 20,
+          "padding": [
+            18,
+            24
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "d1l9NT",
+              "name": "Warning Count",
+              "width": 50,
+              "height": 50,
+              "fill": "#F4B84A",
+              "cornerRadius": 25,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "Dza47",
+                  "name": "Warning Count Text",
+                  "fill": "#161006",
+                  "content": "2",
+                  "fontFamily": "Inter",
+                  "fontSize": 22,
+                  "fontWeight": "700"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "Q6OMAi",
+              "name": "Warning Copy",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 7,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "uBSfk",
+                  "name": "Warning Title",
+                  "fill": "#F4B84A",
+                  "content": "verification_needed — sources disagree; generation does not guess",
+                  "fontFamily": "Inter",
+                  "fontSize": 19,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "XqMZM",
+                  "name": "Warning Details",
+                  "fill": "#F4F7F8",
+                  "content": "PR #80 is merged while current scope still calls it draft. Import review Design specifies “Mark all reviewed” while production records per-flag PATCH.",
+                  "fontFamily": "Inter",
+                  "fontSize": 15
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "jpgnM",
+          "name": "01 Read Focus",
+          "width": "fill_container",
+          "height": 540,
+          "fill": "#101D26",
+          "cornerRadius": 10,
+          "stroke": "#2A424E",
+          "strokeWidth": 1,
+          "layout": "vertical",
+          "gap": 18,
+          "padding": 24,
+          "children": [
+            {
+              "type": "frame",
+              "id": "zBPos",
+              "name": "01 Read Focus Header",
+              "width": "fill_container",
+              "justifyContent": "space_between",
+              "alignItems": "end",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "QjA55",
+                  "name": "01 Read Focus Header Copy",
+                  "width": 2000,
+                  "layout": "vertical",
+                  "gap": 6,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "frdmm",
+                      "name": "01 Read Focus Kicker",
+                      "fill": "#63E2D0",
+                      "content": "01 · READ / FOCUS",
+                      "fontFamily": "Inter",
+                      "fontSize": 13,
+                      "fontWeight": "700"
+                    },
+                    {
+                      "type": "text",
+                      "id": "S3Uk9",
+                      "name": "01 Read Focus Heading",
+                      "fill": "#F4F7F8",
+                      "content": "From recipe entry to a calmer cooking context",
+                      "fontFamily": "Inter",
+                      "fontSize": 24,
+                      "fontWeight": "700"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "k7COdG",
+                  "name": "01 Read Focus Count",
+                  "fill": "#A8B5BC",
+                  "content": "3 nodes · 5 labeled transitions",
+                  "fontFamily": "Inter",
+                  "fontSize": 12
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "UY9c2",
+              "name": "01 Read Focus Flow",
+              "width": "fill_container",
+              "height": 350,
+              "gap": 14,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "F8vURW",
+                  "name": "Default Recipe View",
+                  "width": 720,
+                  "height": 350,
+                  "fill": "#172731",
+                  "cornerRadius": 8,
+                  "stroke": "#2A424E",
+                  "strokeWidth": 1,
+                  "layout": "vertical",
+                  "gap": 10,
+                  "padding": 18,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "o4S7y",
+                      "name": "Default Recipe View Metadata",
+                      "width": "fill_container",
+                      "justifyContent": "space_between",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "IyjbG",
+                          "name": "Default Recipe View Type",
+                          "fill": "#63E2D0",
+                          "content": "SCREEN",
+                          "fontFamily": "Inter",
+                          "fontSize": 12,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "NaG0n",
+                          "name": "Default Recipe View Id",
+                          "fill": "#A8B5BC",
+                          "content": "recipe-detail.read-focus.default-view",
+                          "fontFamily": "Inter",
+                          "fontSize": 10
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "k39mo",
+                      "name": "Default Recipe View Screenshot",
+                      "clip": true,
+                      "width": "fill_container",
+                      "height": 145,
+                      "fill": {
+                        "type": "image",
+                        "enabled": true,
+                        "url": "../../recipe-detail/screenshots/05-main-actions-and-responsive-panels/desktop-approved-b-main-actions-1440x900.png",
+                        "mode": "fill"
+                      },
+                      "cornerRadius": 4
+                    },
+                    {
+                      "type": "text",
+                      "id": "CrMWi",
+                      "name": "Default Recipe View Title",
+                      "fill": "#F4F7F8",
+                      "textGrowth": "fixed-width",
+                      "width": 684,
+                      "content": "Default Recipe View",
+                      "fontFamily": "Inter",
+                      "fontSize": 22,
+                      "fontWeight": "700"
+                    },
+                    {
+                      "type": "text",
+                      "id": "S5MF6",
+                      "name": "Default Recipe View Summary",
+                      "fill": "#A8B5BC",
+                      "textGrowth": "fixed-width",
+                      "width": 684,
+                      "content": "Current reading entry with stable actions and bounded content.",
+                      "fontFamily": "Inter",
+                      "fontSize": 13
+                    },
+                    {
+                      "type": "frame",
+                      "id": "ysx47",
+                      "name": "Default Recipe View Statuses",
+                      "width": "fill_container",
+                      "gap": 10,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "t9MhB",
+                          "name": "Default Recipe View Design Status",
+                          "height": 28,
+                          "fill": "#153523",
+                          "cornerRadius": 4,
+                          "padding": [
+                            6,
+                            10
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "jFemU",
+                              "name": "Default Recipe View Design Label",
+                              "fill": "#71D68A",
+                              "content": "DESIGN · APPROVED",
+                              "fontFamily": "Inter",
+                              "fontSize": 10,
+                              "fontWeight": "700"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "DM5s7",
+                          "name": "Default Recipe View Delivery Status",
+                          "height": 28,
+                          "fill": "#3B2C12",
+                          "cornerRadius": 4,
+                          "padding": [
+                            6,
+                            10
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "w00wOX",
+                              "name": "Default Recipe View Delivery Label",
+                              "fill": "#F4B84A",
+                              "content": "DELIVERY · VERIFICATION NEEDED",
+                              "fontFamily": "Inter",
+                              "fontSize": 10,
+                              "fontWeight": "700"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "PEvRE",
+                      "name": "Default Recipe View Provenance",
+                      "fill": "#A8B5BC",
+                      "textGrowth": "fixed-width",
+                      "width": 684,
+                      "content": "decisions 06 · prototype 05 · issue #21 · PR #80",
+                      "fontFamily": "Inter",
+                      "fontSize": 10
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "QLgjt",
+                  "name": "Transition first flagged entry",
+                  "width": 176,
+                  "height": 350,
+                  "layout": "vertical",
+                  "gap": 10,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "r4Vbjd",
+                      "name": "Arrow first flagged entry",
+                      "fill": "#63E2D0",
+                      "content": "→",
+                      "fontFamily": "Inter",
+                      "fontSize": 34,
+                      "fontWeight": "500"
+                    },
+                    {
+                      "type": "text",
+                      "id": "e1jAh",
+                      "name": "Transition Label first flagged entry",
+                      "fill": "#A8B5BC",
+                      "textGrowth": "fixed-width",
+                      "width": 176,
+                      "content": "first flagged entry",
+                      "fontFamily": "Inter",
+                      "fontSize": 11
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "Id6sK",
+                  "name": "Flagged first entry",
+                  "width": 720,
+                  "height": 350,
+                  "fill": "#172731",
+                  "cornerRadius": 8,
+                  "stroke": "#2A424E",
+                  "strokeWidth": 1,
+                  "layout": "vertical",
+                  "gap": 10,
+                  "padding": 18,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "YUqVX",
+                      "name": "Flagged first entry Metadata",
+                      "width": "fill_container",
+                      "justifyContent": "space_between",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "z485q",
+                          "name": "Flagged first entry Type",
+                          "fill": "#63E2D0",
+                          "content": "STATE",
+                          "fontFamily": "Inter",
+                          "fontSize": 12,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "Y2pod",
+                          "name": "Flagged first entry Id",
+                          "fill": "#A8B5BC",
+                          "content": "recipe-detail.read-focus.flagged-entry",
+                          "fontFamily": "Inter",
+                          "fontSize": 10
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "xNKr2",
+                      "name": "Flagged first entry Evidence",
+                      "width": "fill_container",
+                      "height": 145,
+                      "fill": "#0D1921",
+                      "cornerRadius": 4,
+                      "padding": [
+                        12,
+                        14
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "ir3W0",
+                          "name": "Flagged first entry Evidence Text",
+                          "fill": "#A8B5BC",
+                          "content": "DECISION + EXECUTABLE PROTOTYPE",
+                          "fontFamily": "Inter",
+                          "fontSize": 11,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "o5H9el",
+                      "name": "Flagged first entry Title",
+                      "fill": "#F4F7F8",
+                      "textGrowth": "fixed-width",
+                      "width": 684,
+                      "content": "Flagged first entry",
+                      "fontFamily": "Inter",
+                      "fontSize": 22,
+                      "fontWeight": "700"
+                    },
+                    {
+                      "type": "text",
+                      "id": "ZgEYJ",
+                      "name": "Flagged first entry Summary",
+                      "fill": "#A8B5BC",
+                      "textGrowth": "fixed-width",
+                      "width": 684,
+                      "content": "Import Info auto-opens once, then remains dismissed for the visit.",
+                      "fontFamily": "Inter",
+                      "fontSize": 13
+                    },
+                    {
+                      "type": "frame",
+                      "id": "h4zBfS",
+                      "name": "Flagged first entry Statuses",
+                      "width": "fill_container",
+                      "gap": 10,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "q0xMYB",
+                          "name": "Flagged first entry Design Status",
+                          "height": 28,
+                          "fill": "#153523",
+                          "cornerRadius": 4,
+                          "padding": [
+                            6,
+                            10
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "V224Jg",
+                              "name": "Flagged first entry Design Label",
+                              "fill": "#71D68A",
+                              "content": "DESIGN · APPROVED",
+                              "fontFamily": "Inter",
+                              "fontSize": 10,
+                              "fontWeight": "700"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "Y07YSI",
+                          "name": "Flagged first entry Delivery Status",
+                          "height": 28,
+                          "fill": "#0D1921",
+                          "cornerRadius": 4,
+                          "padding": [
+                            6,
+                            10
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "Sjd8d",
+                              "name": "Flagged first entry Delivery Label",
+                              "fill": "#A8B5BC",
+                              "content": "DELIVERY · NOT PLANNED",
+                              "fontFamily": "Inter",
+                              "fontSize": 10,
+                              "fontWeight": "700"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "HPfqH",
+                      "name": "Flagged first entry Provenance",
+                      "fill": "#A8B5BC",
+                      "textGrowth": "fixed-width",
+                      "width": 684,
+                      "content": "decision 13 · prototype 05 · issue #21",
+                      "fontFamily": "Inter",
+                      "fontSize": 10
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "oIfpI",
+                  "name": "Transition choose Focus",
+                  "width": 176,
+                  "height": 350,
+                  "layout": "vertical",
+                  "gap": 10,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "qiqer",
+                      "name": "Arrow choose Focus",
+                      "fill": "#63E2D0",
+                      "content": "→",
+                      "fontFamily": "Inter",
+                      "fontSize": 34,
+                      "fontWeight": "500"
+                    },
+                    {
+                      "type": "text",
+                      "id": "TX9ga",
+                      "name": "Transition Label choose Focus",
+                      "fill": "#A8B5BC",
+                      "textGrowth": "fixed-width",
+                      "width": 176,
+                      "content": "choose Focus",
+                      "fontFamily": "Inter",
+                      "fontSize": 11
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "fGAv9",
+                  "name": "Cooking Focus",
+                  "width": 720,
+                  "height": 350,
+                  "fill": "#172731",
+                  "cornerRadius": 8,
+                  "stroke": "#2A424E",
+                  "strokeWidth": 1,
+                  "layout": "vertical",
+                  "gap": 10,
+                  "padding": 18,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "ELDfW",
+                      "name": "Cooking Focus Metadata",
+                      "width": "fill_container",
+                      "justifyContent": "space_between",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "JdcDf",
+                          "name": "Cooking Focus Type",
+                          "fill": "#63E2D0",
+                          "content": "SCREEN",
+                          "fontFamily": "Inter",
+                          "fontSize": 12,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "Hytyj",
+                          "name": "Cooking Focus Id",
+                          "fill": "#A8B5BC",
+                          "content": "recipe-detail.read-focus.cooking-focus",
+                          "fontFamily": "Inter",
+                          "fontSize": 10
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "A0KrKV",
+                      "name": "Cooking Focus Screenshot",
+                      "clip": true,
+                      "width": "fill_container",
+                      "height": 145,
+                      "fill": {
+                        "type": "image",
+                        "enabled": true,
+                        "url": "../../recipe-detail/screenshots/02-feedback-refinement/desktop-focus-simplified-1440x900.png",
+                        "mode": "fill"
+                      },
+                      "cornerRadius": 4
+                    },
+                    {
+                      "type": "text",
+                      "id": "u6dVda",
+                      "name": "Cooking Focus Title",
+                      "fill": "#F4F7F8",
+                      "textGrowth": "fixed-width",
+                      "width": 684,
+                      "content": "Cooking Focus",
+                      "fontFamily": "Inter",
+                      "fontSize": 22,
+                      "fontWeight": "700"
+                    },
+                    {
+                      "type": "text",
+                      "id": "heNyJ",
+                      "name": "Cooking Focus Summary",
+                      "fill": "#A8B5BC",
+                      "textGrowth": "fixed-width",
+                      "width": 684,
+                      "content": "Recipe facts and cooking content remain; admin and organization recede.",
+                      "fontFamily": "Inter",
+                      "fontSize": 13
+                    },
+                    {
+                      "type": "frame",
+                      "id": "EExSf",
+                      "name": "Cooking Focus Statuses",
+                      "width": "fill_container",
+                      "gap": 10,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "bh6wj",
+                          "name": "Cooking Focus Design Status",
+                          "height": 28,
+                          "fill": "#153523",
+                          "cornerRadius": 4,
+                          "padding": [
+                            6,
+                            10
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "Ym7pT",
+                              "name": "Cooking Focus Design Label",
+                              "fill": "#71D68A",
+                              "content": "DESIGN · APPROVED",
+                              "fontFamily": "Inter",
+                              "fontSize": 10,
+                              "fontWeight": "700"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "sigTF",
+                          "name": "Cooking Focus Delivery Status",
+                          "height": 28,
+                          "fill": "#0D1921",
+                          "cornerRadius": 4,
+                          "padding": [
+                            6,
+                            10
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "nID3Z",
+                              "name": "Cooking Focus Delivery Label",
+                              "fill": "#A8B5BC",
+                              "content": "DELIVERY · NOT PLANNED",
+                              "fontFamily": "Inter",
+                              "fontSize": 10,
+                              "fontWeight": "700"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "wOKcE",
+                      "name": "Cooking Focus Provenance",
+                      "fill": "#A8B5BC",
+                      "textGrowth": "fixed-width",
+                      "width": 684,
+                      "content": "decision 06 · prototype 05 · issue #21",
+                      "fontFamily": "Inter",
+                      "fontSize": 10
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "L8sg2g",
+              "name": "01 Read Focus Return Paths",
+              "fill": "#A8B5BC",
+              "textGrowth": "fixed-width",
+              "width": 2550,
+              "content": "RETURN PATHS · Close Import Info → Default Recipe View · Choose View → Default Recipe View",
+              "fontFamily": "Inter",
+              "fontSize": 11
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "wp1fL",
+          "name": "02 Edit Save",
+          "width": "fill_container",
+          "height": 540,
+          "fill": "#101D26",
+          "cornerRadius": 10,
+          "stroke": "#2A424E",
+          "strokeWidth": 1,
+          "layout": "vertical",
+          "gap": 18,
+          "padding": 24,
+          "children": [
+            {
+              "type": "frame",
+              "id": "ZBQ2Q",
+              "name": "02 Edit Save Header",
+              "width": "fill_container",
+              "justifyContent": "space_between",
+              "alignItems": "end",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "XZb3f",
+                  "name": "02 Edit Save Header Copy",
+                  "width": 2000,
+                  "layout": "vertical",
+                  "gap": 6,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "A5hUp",
+                      "name": "02 Edit Save Kicker",
+                      "fill": "#63E2D0",
+                      "content": "02 · EDIT / SAVE",
+                      "fontFamily": "Inter",
+                      "fontSize": 13,
+                      "fontWeight": "700"
+                    },
+                    {
+                      "type": "text",
+                      "id": "iIdjJ",
+                      "name": "02 Edit Save Heading",
+                      "fill": "#F4F7F8",
+                      "content": "One draft, explicit validation, protected exits",
+                      "fontFamily": "Inter",
+                      "fontSize": 24,
+                      "fontWeight": "700"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "FqmVI",
+                  "name": "02 Edit Save Count",
+                  "fill": "#A8B5BC",
+                  "content": "4 nodes · 5 labeled transitions",
+                  "fontFamily": "Inter",
+                  "fontSize": 12
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "BNC4W",
+              "name": "02 Edit Save Flow",
+              "width": "fill_container",
+              "height": 350,
+              "gap": 14,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "kDZsM",
+                  "name": "Edit Basics",
+                  "width": 560,
+                  "height": 350,
+                  "fill": "#172731",
+                  "cornerRadius": 8,
+                  "stroke": "#2A424E",
+                  "strokeWidth": 1,
+                  "layout": "vertical",
+                  "gap": 10,
+                  "padding": 18,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "LP3nC",
+                      "name": "Edit Basics Metadata",
+                      "width": "fill_container",
+                      "justifyContent": "space_between",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "NZ8Tz",
+                          "name": "Edit Basics Type",
+                          "fill": "#63E2D0",
+                          "content": "SCREEN",
+                          "fontFamily": "Inter",
+                          "fontSize": 12,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "mnL2N",
+                          "name": "Edit Basics Id",
+                          "fill": "#A8B5BC",
+                          "content": "recipe-detail.edit-save.basics",
+                          "fontFamily": "Inter",
+                          "fontSize": 10
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "sIx7S",
+                      "name": "Edit Basics Screenshot",
+                      "clip": true,
+                      "width": "fill_container",
+                      "height": 145,
+                      "fill": {
+                        "type": "image",
+                        "enabled": true,
+                        "url": "../../recipe-detail/screenshots/edit-mode/17a-desktop-edit-basics-ingredients-v1.png",
+                        "mode": "fill"
+                      },
+                      "cornerRadius": 4
+                    },
+                    {
+                      "type": "text",
+                      "id": "Xqr5n",
+                      "name": "Edit Basics Title",
+                      "fill": "#F4F7F8",
+                      "textGrowth": "fixed-width",
+                      "width": 524,
+                      "content": "Edit Basics",
+                      "fontFamily": "Inter",
+                      "fontSize": 22,
+                      "fontWeight": "700"
+                    },
+                    {
+                      "type": "text",
+                      "id": "lTODD",
+                      "name": "Edit Basics Summary",
+                      "fill": "#A8B5BC",
+                      "textGrowth": "fixed-width",
+                      "width": 524,
+                      "content": "Two semantic zones inside one continuous recipe-level draft.",
+                      "fontFamily": "Inter",
+                      "fontSize": 13
+                    },
+                    {
+                      "type": "frame",
+                      "id": "DrkHy",
+                      "name": "Edit Basics Statuses",
+                      "width": "fill_container",
+                      "gap": 10,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "cYPgT",
+                          "name": "Edit Basics Design Status",
+                          "height": 28,
+                          "fill": "#153523",
+                          "cornerRadius": 4,
+                          "padding": [
+                            6,
+                            10
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "iqIiS",
+                              "name": "Edit Basics Design Label",
+                              "fill": "#71D68A",
+                              "content": "DESIGN · APPROVED",
+                              "fontFamily": "Inter",
+                              "fontSize": 10,
+                              "fontWeight": "700"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "YNhFY",
+                          "name": "Edit Basics Delivery Status",
+                          "height": 28,
+                          "fill": "#3A1D1C",
+                          "cornerRadius": 4,
+                          "padding": [
+                            6,
+                            10
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "ixt1k",
+                              "name": "Edit Basics Delivery Label",
+                              "fill": "#F0756E",
+                              "content": "DELIVERY · BLOCKED",
+                              "fontFamily": "Inter",
+                              "fontSize": 10,
+                              "fontWeight": "700"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "u5jej",
+                      "name": "Edit Basics Provenance",
+                      "fill": "#A8B5BC",
+                      "textGrowth": "fixed-width",
+                      "width": 524,
+                      "content": "decision 13 · prototype 17 · blockers #71 #72 #79",
+                      "fontFamily": "Inter",
+                      "fontSize": 10
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "IhnRc",
+                  "name": "Transition scroll to Ingredients",
+                  "width": 105,
+                  "height": 350,
+                  "layout": "vertical",
+                  "gap": 10,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "L8KJzW",
+                      "name": "Arrow scroll to Ingredients",
+                      "fill": "#63E2D0",
+                      "content": "→",
+                      "fontFamily": "Inter",
+                      "fontSize": 34,
+                      "fontWeight": "500"
+                    },
+                    {
+                      "type": "text",
+                      "id": "YAHQM",
+                      "name": "Transition Label scroll to Ingredients",
+                      "fill": "#A8B5BC",
+                      "textGrowth": "fixed-width",
+                      "width": 105,
+                      "content": "scroll to Ingredients",
+                      "fontFamily": "Inter",
+                      "fontSize": 11
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "hocbB",
+                  "name": "Edit Ingredients",
+                  "width": 560,
+                  "height": 350,
+                  "fill": "#172731",
+                  "cornerRadius": 8,
+                  "stroke": "#2A424E",
+                  "strokeWidth": 1,
+                  "layout": "vertical",
+                  "gap": 10,
+                  "padding": 18,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "hK7Dq",
+                      "name": "Edit Ingredients Metadata",
+                      "width": "fill_container",
+                      "justifyContent": "space_between",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "feLrB",
+                          "name": "Edit Ingredients Type",
+                          "fill": "#63E2D0",
+                          "content": "SCREEN",
+                          "fontFamily": "Inter",
+                          "fontSize": 12,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "a1Gs1S",
+                          "name": "Edit Ingredients Id",
+                          "fill": "#A8B5BC",
+                          "content": "recipe-detail.edit-save.ingredients",
+                          "fontFamily": "Inter",
+                          "fontSize": 10
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "QqmeG",
+                      "name": "Edit Ingredients Evidence",
+                      "width": "fill_container",
+                      "height": 145,
+                      "fill": "#0D1921",
+                      "cornerRadius": 4,
+                      "padding": [
+                        12,
+                        14
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "aU5vS",
+                          "name": "Edit Ingredients Evidence Text",
+                          "fill": "#A8B5BC",
+                          "content": "DECISION + EXECUTABLE PROTOTYPE",
+                          "fontFamily": "Inter",
+                          "fontSize": 11,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "u4g1P",
+                      "name": "Edit Ingredients Title",
+                      "fill": "#F4F7F8",
+                      "textGrowth": "fixed-width",
+                      "width": 524,
+                      "content": "Edit Ingredients",
+                      "fontFamily": "Inter",
+                      "fontSize": 22,
+                      "fontWeight": "700"
+                    },
+                    {
+                      "type": "text",
+                      "id": "R6WnqD",
+                      "name": "Edit Ingredients Summary",
+                      "fill": "#A8B5BC",
+                      "textGrowth": "fixed-width",
+                      "width": 524,
+                      "content": "Compact rows retain density, ordering, fixed Unit, and required name.",
+                      "fontFamily": "Inter",
+                      "fontSize": 13
+                    },
+                    {
+                      "type": "frame",
+                      "id": "DjIJp",
+                      "name": "Edit Ingredients Statuses",
+                      "width": "fill_container",
+                      "gap": 10,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "DnmBv",
+                          "name": "Edit Ingredients Design Status",
+                          "height": 28,
+                          "fill": "#153523",
+                          "cornerRadius": 4,
+                          "padding": [
+                            6,
+                            10
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "a5hUB",
+                              "name": "Edit Ingredients Design Label",
+                              "fill": "#71D68A",
+                              "content": "DESIGN · APPROVED",
+                              "fontFamily": "Inter",
+                              "fontSize": 10,
+                              "fontWeight": "700"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "FE1S5",
+                          "name": "Edit Ingredients Delivery Status",
+                          "height": 28,
+                          "fill": "#3A1D1C",
+                          "cornerRadius": 4,
+                          "padding": [
+                            6,
+                            10
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "Y0NPTg",
+                              "name": "Edit Ingredients Delivery Label",
+                              "fill": "#F0756E",
+                              "content": "DELIVERY · BLOCKED",
+                              "fontFamily": "Inter",
+                              "fontSize": 10,
+                              "fontWeight": "700"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "Nyv9D",
+                      "name": "Edit Ingredients Provenance",
+                      "fill": "#A8B5BC",
+                      "textGrowth": "fixed-width",
+                      "width": 524,
+                      "content": "decision 13 · prototype 17 · blockers #71 #72",
+                      "fontFamily": "Inter",
+                      "fontSize": 10
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "udwUP",
+                  "name": "Transition save invalid draft",
+                  "width": 105,
+                  "height": 350,
+                  "layout": "vertical",
+                  "gap": 10,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "dR2S1",
+                      "name": "Arrow save invalid draft",
+                      "fill": "#63E2D0",
+                      "content": "→",
+                      "fontFamily": "Inter",
+                      "fontSize": 34,
+                      "fontWeight": "500"
+                    },
+                    {
+                      "type": "text",
+                      "id": "flAp1",
+                      "name": "Transition Label save invalid draft",
+                      "fill": "#A8B5BC",
+                      "textGrowth": "fixed-width",
+                      "width": 105,
+                      "content": "save invalid draft",
+                      "fontFamily": "Inter",
+                      "fontSize": 11
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "A6wO68",
+                  "name": "Failed-save validation",
+                  "width": 560,
+                  "height": 350,
+                  "fill": "#172731",
+                  "cornerRadius": 8,
+                  "stroke": "#2A424E",
+                  "strokeWidth": 1,
+                  "layout": "vertical",
+                  "gap": 10,
+                  "padding": 18,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "YekJE",
+                      "name": "Failed-save validation Metadata",
+                      "width": "fill_container",
+                      "justifyContent": "space_between",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "uuqIL",
+                          "name": "Failed-save validation Type",
+                          "fill": "#63E2D0",
+                          "content": "STATE",
+                          "fontFamily": "Inter",
+                          "fontSize": 12,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "hSlhu",
+                          "name": "Failed-save validation Id",
+                          "fill": "#A8B5BC",
+                          "content": "recipe-detail.edit-save.validation",
+                          "fontFamily": "Inter",
+                          "fontSize": 10
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "UZRUa",
+                      "name": "Failed-save validation Screenshot",
+                      "clip": true,
+                      "width": "fill_container",
+                      "height": 145,
+                      "fill": {
+                        "type": "image",
+                        "enabled": true,
+                        "url": "../../recipe-detail/screenshots/edit-mode/17b-desktop-edit-validation-v1.png",
+                        "mode": "fill"
+                      },
+                      "cornerRadius": 4
+                    },
+                    {
+                      "type": "text",
+                      "id": "F17Tg9",
+                      "name": "Failed-save validation Title",
+                      "fill": "#F4F7F8",
+                      "textGrowth": "fixed-width",
+                      "width": 524,
+                      "content": "Failed-save validation",
+                      "fontFamily": "Inter",
+                      "fontSize": 22,
+                      "fontWeight": "700"
+                    },
+                    {
+                      "type": "text",
+                      "id": "ScNna",
+                      "name": "Failed-save validation Summary",
+                      "fill": "#A8B5BC",
+                      "textGrowth": "fixed-width",
+                      "width": 524,
+                      "content": "Summary, rail counts, and inline errors form one recovery path.",
+                      "fontFamily": "Inter",
+                      "fontSize": 13
+                    },
+                    {
+                      "type": "frame",
+                      "id": "GKZqJ",
+                      "name": "Failed-save validation Statuses",
+                      "width": "fill_container",
+                      "gap": 10,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "zb87O",
+                          "name": "Failed-save validation Design Status",
+                          "height": 28,
+                          "fill": "#153523",
+                          "cornerRadius": 4,
+                          "padding": [
+                            6,
+                            10
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "A6oIJ",
+                              "name": "Failed-save validation Design Label",
+                              "fill": "#71D68A",
+                              "content": "DESIGN · APPROVED",
+                              "fontFamily": "Inter",
+                              "fontSize": 10,
+                              "fontWeight": "700"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "JZQ0M",
+                          "name": "Failed-save validation Delivery Status",
+                          "height": 28,
+                          "fill": "#3A1D1C",
+                          "cornerRadius": 4,
+                          "padding": [
+                            6,
+                            10
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "hkO2t",
+                              "name": "Failed-save validation Delivery Label",
+                              "fill": "#F0756E",
+                              "content": "DELIVERY · BLOCKED",
+                              "fontFamily": "Inter",
+                              "fontSize": 10,
+                              "fontWeight": "700"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "pUbPu",
+                      "name": "Failed-save validation Provenance",
+                      "fill": "#A8B5BC",
+                      "textGrowth": "fixed-width",
+                      "width": 524,
+                      "content": "decision 13 · prototype 17 · blockers #71 #72",
+                      "fontFamily": "Inter",
+                      "fontSize": 10
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "j9A9C",
+                  "name": "Transition navigate dirty",
+                  "width": 105,
+                  "height": 350,
+                  "layout": "vertical",
+                  "gap": 10,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "Yloh6",
+                      "name": "Arrow navigate dirty",
+                      "fill": "#63E2D0",
+                      "content": "→",
+                      "fontFamily": "Inter",
+                      "fontSize": 34,
+                      "fontWeight": "500"
+                    },
+                    {
+                      "type": "text",
+                      "id": "T9sUcT",
+                      "name": "Transition Label navigate dirty",
+                      "fill": "#A8B5BC",
+                      "textGrowth": "fixed-width",
+                      "width": 105,
+                      "content": "navigate dirty",
+                      "fontFamily": "Inter",
+                      "fontSize": 11
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "mOtte",
+                  "name": "Unsaved changes guard",
+                  "width": 560,
+                  "height": 350,
+                  "fill": "#172731",
+                  "cornerRadius": 8,
+                  "stroke": "#2A424E",
+                  "strokeWidth": 1,
+                  "layout": "vertical",
+                  "gap": 10,
+                  "padding": 18,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "aFyVf",
+                      "name": "Unsaved changes guard Metadata",
+                      "width": "fill_container",
+                      "justifyContent": "space_between",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "jb095",
+                          "name": "Unsaved changes guard Type",
+                          "fill": "#63E2D0",
+                          "content": "STATE",
+                          "fontFamily": "Inter",
+                          "fontSize": 12,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "ZZgbs",
+                          "name": "Unsaved changes guard Id",
+                          "fill": "#A8B5BC",
+                          "content": "recipe-detail.edit-save.unsaved-guard",
+                          "fontFamily": "Inter",
+                          "fontSize": 10
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "jAPON",
+                      "name": "Unsaved changes guard Screenshot",
+                      "clip": true,
+                      "width": "fill_container",
+                      "height": 145,
+                      "fill": {
+                        "type": "image",
+                        "enabled": true,
+                        "url": "../../recipe-detail/screenshots/edit-mode/17c-desktop-edit-unsaved-guard-v1.png",
+                        "mode": "fill"
+                      },
+                      "cornerRadius": 4
+                    },
+                    {
+                      "type": "text",
+                      "id": "G1OVzD",
+                      "name": "Unsaved changes guard Title",
+                      "fill": "#F4F7F8",
+                      "textGrowth": "fixed-width",
+                      "width": 524,
+                      "content": "Unsaved changes guard",
+                      "fontFamily": "Inter",
+                      "fontSize": 22,
+                      "fontWeight": "700"
+                    },
+                    {
+                      "type": "text",
+                      "id": "k0V2vg",
+                      "name": "Unsaved changes guard Summary",
+                      "fill": "#A8B5BC",
+                      "textGrowth": "fixed-width",
+                      "width": 524,
+                      "content": "Save, Discard, or Cancel before abandoning a dirty recipe draft.",
+                      "fontFamily": "Inter",
+                      "fontSize": 13
+                    },
+                    {
+                      "type": "frame",
+                      "id": "a6nyb",
+                      "name": "Unsaved changes guard Statuses",
+                      "width": "fill_container",
+                      "gap": 10,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "diq4Q",
+                          "name": "Unsaved changes guard Design Status",
+                          "height": 28,
+                          "fill": "#153523",
+                          "cornerRadius": 4,
+                          "padding": [
+                            6,
+                            10
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "deYLa",
+                              "name": "Unsaved changes guard Design Label",
+                              "fill": "#71D68A",
+                              "content": "DESIGN · APPROVED",
+                              "fontFamily": "Inter",
+                              "fontSize": 10,
+                              "fontWeight": "700"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "Xod4B",
+                          "name": "Unsaved changes guard Delivery Status",
+                          "height": 28,
+                          "fill": "#0D1921",
+                          "cornerRadius": 4,
+                          "padding": [
+                            6,
+                            10
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "wTLqD",
+                              "name": "Unsaved changes guard Delivery Label",
+                              "fill": "#A8B5BC",
+                              "content": "DELIVERY · NOT PLANNED",
+                              "fontFamily": "Inter",
+                              "fontSize": 10,
+                              "fontWeight": "700"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "ch8ki",
+                      "name": "Unsaved changes guard Provenance",
+                      "fill": "#A8B5BC",
+                      "textGrowth": "fixed-width",
+                      "width": 524,
+                      "content": "decision 13 · prototype 17 · issue #74",
+                      "fontFamily": "Inter",
+                      "fontSize": 10
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "aqfxP",
+              "name": "02 Edit Save Return Paths",
+              "fill": "#A8B5BC",
+              "textGrowth": "fixed-width",
+              "width": 2550,
+              "content": "RETURN PATHS · Cancel → Edit Basics · Save invalid draft → Validation remains in Edit",
+              "fontFamily": "Inter",
+              "fontSize": 11
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "G7iju",
+          "name": "03 Resources Media",
+          "width": "fill_container",
+          "height": 540,
+          "fill": "#101D26",
+          "cornerRadius": 10,
+          "stroke": "#2A424E",
+          "strokeWidth": 1,
+          "layout": "vertical",
+          "gap": 18,
+          "padding": 24,
+          "children": [
+            {
+              "type": "frame",
+              "id": "GINUx",
+              "name": "03 Resources Media Header",
+              "width": "fill_container",
+              "justifyContent": "space_between",
+              "alignItems": "end",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "ncexd",
+                  "name": "03 Resources Media Header Copy",
+                  "width": 2000,
+                  "layout": "vertical",
+                  "gap": 6,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "zpwGl",
+                      "name": "03 Resources Media Kicker",
+                      "fill": "#63E2D0",
+                      "content": "03 · RESOURCES / MEDIA",
+                      "fontFamily": "Inter",
+                      "fontSize": 13,
+                      "fontWeight": "700"
+                    },
+                    {
+                      "type": "text",
+                      "id": "Y1U8E",
+                      "name": "03 Resources Media Heading",
+                      "fill": "#F4F7F8",
+                      "content": "Evidence, provenance, and irreversible boundaries",
+                      "fontFamily": "Inter",
+                      "fontSize": 24,
+                      "fontWeight": "700"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "DNg5J",
+                  "name": "03 Resources Media Count",
+                  "fill": "#A8B5BC",
+                  "content": "4 nodes · 5 labeled transitions",
+                  "fontFamily": "Inter",
+                  "fontSize": 12
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "zMZbH",
+              "name": "03 Resources Media Flow",
+              "width": "fill_container",
+              "height": 350,
+              "gap": 14,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "QTTvV",
+                  "name": "Media panel",
+                  "width": 560,
+                  "height": 350,
+                  "fill": "#172731",
+                  "cornerRadius": 8,
+                  "stroke": "#2A424E",
+                  "strokeWidth": 1,
+                  "layout": "vertical",
+                  "gap": 10,
+                  "padding": 18,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "lI1fR",
+                      "name": "Media panel Metadata",
+                      "width": "fill_container",
+                      "justifyContent": "space_between",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "cigEu",
+                          "name": "Media panel Type",
+                          "fill": "#63E2D0",
+                          "content": "SCREEN",
+                          "fontFamily": "Inter",
+                          "fontSize": 12,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "hw9EN",
+                          "name": "Media panel Id",
+                          "fill": "#A8B5BC",
+                          "content": "recipe-detail.resources-media.media",
+                          "fontFamily": "Inter",
+                          "fontSize": 10
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "R8FW6W",
+                      "name": "Media panel Screenshot",
+                      "clip": true,
+                      "width": "fill_container",
+                      "height": 145,
+                      "fill": {
+                        "type": "image",
+                        "enabled": true,
+                        "url": "../../recipe-detail/screenshots/04-visual-control-refinement/desktop-media-images-and-links-1440x900.png",
+                        "mode": "fill"
+                      },
+                      "cornerRadius": 4
+                    },
+                    {
+                      "type": "text",
+                      "id": "IM9TH",
+                      "name": "Media panel Title",
+                      "fill": "#F4F7F8",
+                      "textGrowth": "fixed-width",
+                      "width": 524,
+                      "content": "Media panel",
+                      "fontFamily": "Inter",
+                      "fontSize": 22,
+                      "fontWeight": "700"
+                    },
+                    {
+                      "type": "text",
+                      "id": "whYC8",
+                      "name": "Media panel Summary",
+                      "fill": "#A8B5BC",
+                      "textGrowth": "fixed-width",
+                      "width": 524,
+                      "content": "Read-only images and cooking links occupy the shared auxiliary slot.",
+                      "fontFamily": "Inter",
+                      "fontSize": 13
+                    },
+                    {
+                      "type": "frame",
+                      "id": "QAp7p",
+                      "name": "Media panel Statuses",
+                      "width": "fill_container",
+                      "gap": 10,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "hLv5M",
+                          "name": "Media panel Design Status",
+                          "height": 28,
+                          "fill": "#153523",
+                          "cornerRadius": 4,
+                          "padding": [
+                            6,
+                            10
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "FODUc",
+                              "name": "Media panel Design Label",
+                              "fill": "#71D68A",
+                              "content": "DESIGN · APPROVED",
+                              "fontFamily": "Inter",
+                              "fontSize": 10,
+                              "fontWeight": "700"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "nrCIz",
+                          "name": "Media panel Delivery Status",
+                          "height": 28,
+                          "fill": "#0D1921",
+                          "cornerRadius": 4,
+                          "padding": [
+                            6,
+                            10
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "Q2V5Ml",
+                              "name": "Media panel Delivery Label",
+                              "fill": "#A8B5BC",
+                              "content": "DELIVERY · NOT PLANNED",
+                              "fontFamily": "Inter",
+                              "fontSize": 10,
+                              "fontWeight": "700"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "L1dYk",
+                      "name": "Media panel Provenance",
+                      "fill": "#A8B5BC",
+                      "textGrowth": "fixed-width",
+                      "width": 524,
+                      "content": "decision 06 · prototype 05 · issue #21",
+                      "fontFamily": "Inter",
+                      "fontSize": 10
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "Yb0wp",
+                  "name": "Transition Overflow → Import Info",
+                  "width": 105,
+                  "height": 350,
+                  "layout": "vertical",
+                  "gap": 10,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "Ve08N",
+                      "name": "Arrow Overflow → Import Info",
+                      "fill": "#63E2D0",
+                      "content": "→",
+                      "fontFamily": "Inter",
+                      "fontSize": 34,
+                      "fontWeight": "500"
+                    },
+                    {
+                      "type": "text",
+                      "id": "PWruc",
+                      "name": "Transition Label Overflow → Import Info",
+                      "fill": "#A8B5BC",
+                      "textGrowth": "fixed-width",
+                      "width": 105,
+                      "content": "Overflow → Import Info",
+                      "fontFamily": "Inter",
+                      "fontSize": 11
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "Gm0wE",
+                  "name": "Import Info",
+                  "width": 560,
+                  "height": 350,
+                  "fill": "#172731",
+                  "cornerRadius": 8,
+                  "stroke": "#2A424E",
+                  "strokeWidth": 1,
+                  "layout": "vertical",
+                  "gap": 10,
+                  "padding": 18,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "D5Jsns",
+                      "name": "Import Info Metadata",
+                      "width": "fill_container",
+                      "justifyContent": "space_between",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "uAdKJ",
+                          "name": "Import Info Type",
+                          "fill": "#63E2D0",
+                          "content": "SCREEN",
+                          "fontFamily": "Inter",
+                          "fontSize": 12,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "x9zh7d",
+                          "name": "Import Info Id",
+                          "fill": "#A8B5BC",
+                          "content": "recipe-detail.resources-media.import-info",
+                          "fontFamily": "Inter",
+                          "fontSize": 10
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "SOZCL",
+                      "name": "Import Info Screenshot",
+                      "clip": true,
+                      "width": "fill_container",
+                      "height": 145,
+                      "fill": {
+                        "type": "image",
+                        "enabled": true,
+                        "url": "../../recipe-detail/screenshots/05-main-actions-and-responsive-panels/desktop-import-ignored-and-cascade-1440x900.png",
+                        "mode": "fill"
+                      },
+                      "cornerRadius": 4
+                    },
+                    {
+                      "type": "text",
+                      "id": "r5lo6j",
+                      "name": "Import Info Title",
+                      "fill": "#F4F7F8",
+                      "textGrowth": "fixed-width",
+                      "width": 524,
+                      "content": "Import Info",
+                      "fontFamily": "Inter",
+                      "fontSize": 22,
+                      "fontWeight": "700"
+                    },
+                    {
+                      "type": "text",
+                      "id": "MOgcM",
+                      "name": "Import Info Summary",
+                      "fill": "#A8B5BC",
+                      "textGrowth": "fixed-width",
+                      "width": 524,
+                      "content": "Review flags and grouped primary/derived resources stay separate from recipe content.",
+                      "fontFamily": "Inter",
+                      "fontSize": 13
+                    },
+                    {
+                      "type": "frame",
+                      "id": "X7KqVY",
+                      "name": "Import Info Statuses",
+                      "width": "fill_container",
+                      "gap": 10,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "gKLjI",
+                          "name": "Import Info Design Status",
+                          "height": 28,
+                          "fill": "#153523",
+                          "cornerRadius": 4,
+                          "padding": [
+                            6,
+                            10
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "eruLJ",
+                              "name": "Import Info Design Label",
+                              "fill": "#71D68A",
+                              "content": "DESIGN · APPROVED",
+                              "fontFamily": "Inter",
+                              "fontSize": 10,
+                              "fontWeight": "700"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "X7SX4p",
+                          "name": "Import Info Delivery Status",
+                          "height": 28,
+                          "fill": "#3B2C12",
+                          "cornerRadius": 4,
+                          "padding": [
+                            6,
+                            10
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "ad1Mx",
+                              "name": "Import Info Delivery Label",
+                              "fill": "#F4B84A",
+                              "content": "DELIVERY · VERIFICATION NEEDED",
+                              "fontFamily": "Inter",
+                              "fontSize": 10,
+                              "fontWeight": "700"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "B6zMq",
+                      "name": "Import Info Provenance",
+                      "fill": "#A8B5BC",
+                      "textGrowth": "fixed-width",
+                      "width": 524,
+                      "content": "decisions 06 + 15 · prototype 05 · PR #80",
+                      "fontFamily": "Inter",
+                      "fontSize": 10
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "qjutx",
+                  "name": "Transition remove primary source",
+                  "width": 105,
+                  "height": 350,
+                  "layout": "vertical",
+                  "gap": 10,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "X2i2J",
+                      "name": "Arrow remove primary source",
+                      "fill": "#63E2D0",
+                      "content": "→",
+                      "fontFamily": "Inter",
+                      "fontSize": 34,
+                      "fontWeight": "500"
+                    },
+                    {
+                      "type": "text",
+                      "id": "nlZuW",
+                      "name": "Transition Label remove primary source",
+                      "fill": "#A8B5BC",
+                      "textGrowth": "fixed-width",
+                      "width": 105,
+                      "content": "remove primary source",
+                      "fontFamily": "Inter",
+                      "fontSize": 11
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "l8u1K",
+                  "name": "Cascade confirmation",
+                  "width": 560,
+                  "height": 350,
+                  "fill": "#172731",
+                  "cornerRadius": 8,
+                  "stroke": "#2A424E",
+                  "strokeWidth": 1,
+                  "layout": "vertical",
+                  "gap": 10,
+                  "padding": 18,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "YpoRW",
+                      "name": "Cascade confirmation Metadata",
+                      "width": "fill_container",
+                      "justifyContent": "space_between",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "Qk2TN",
+                          "name": "Cascade confirmation Type",
+                          "fill": "#63E2D0",
+                          "content": "STATE",
+                          "fontFamily": "Inter",
+                          "fontSize": 12,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "uz33B",
+                          "name": "Cascade confirmation Id",
+                          "fill": "#A8B5BC",
+                          "content": "recipe-detail.resources-media.cascade-confirmation",
+                          "fontFamily": "Inter",
+                          "fontSize": 10
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "ZWdAP",
+                      "name": "Cascade confirmation Evidence",
+                      "width": "fill_container",
+                      "height": 145,
+                      "fill": "#0D1921",
+                      "cornerRadius": 4,
+                      "padding": [
+                        12,
+                        14
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "qvWZK",
+                          "name": "Cascade confirmation Evidence Text",
+                          "fill": "#A8B5BC",
+                          "content": "DECISION + EXECUTABLE PROTOTYPE",
+                          "fontFamily": "Inter",
+                          "fontSize": 11,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "k1XXp",
+                      "name": "Cascade confirmation Title",
+                      "fill": "#F4F7F8",
+                      "textGrowth": "fixed-width",
+                      "width": 524,
+                      "content": "Cascade confirmation",
+                      "fontFamily": "Inter",
+                      "fontSize": 22,
+                      "fontWeight": "700"
+                    },
+                    {
+                      "type": "text",
+                      "id": "K7QiTJ",
+                      "name": "Cascade confirmation Summary",
+                      "fill": "#A8B5BC",
+                      "textGrowth": "fixed-width",
+                      "width": 524,
+                      "content": "Affected types are explicit; current cover and saved recipe content remain.",
+                      "fontFamily": "Inter",
+                      "fontSize": 13
+                    },
+                    {
+                      "type": "frame",
+                      "id": "yGuwP",
+                      "name": "Cascade confirmation Statuses",
+                      "width": "fill_container",
+                      "gap": 10,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "zdzz0",
+                          "name": "Cascade confirmation Design Status",
+                          "height": 28,
+                          "fill": "#153523",
+                          "cornerRadius": 4,
+                          "padding": [
+                            6,
+                            10
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "LL41v",
+                              "name": "Cascade confirmation Design Label",
+                              "fill": "#71D68A",
+                              "content": "DESIGN · APPROVED",
+                              "fontFamily": "Inter",
+                              "fontSize": 10,
+                              "fontWeight": "700"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "YJJml",
+                          "name": "Cascade confirmation Delivery Status",
+                          "height": 28,
+                          "fill": "#0D1921",
+                          "cornerRadius": 4,
+                          "padding": [
+                            6,
+                            10
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "oDRrP",
+                              "name": "Cascade confirmation Delivery Label",
+                              "fill": "#A8B5BC",
+                              "content": "DELIVERY · NOT PLANNED",
+                              "fontFamily": "Inter",
+                              "fontSize": 10,
+                              "fontWeight": "700"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "KbcTI",
+                      "name": "Cascade confirmation Provenance",
+                      "fill": "#A8B5BC",
+                      "textGrowth": "fixed-width",
+                      "width": 524,
+                      "content": "decision 06 · prototype 05 · issue #21",
+                      "fontFamily": "Inter",
+                      "fontSize": 10
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "vQG5a",
+                  "name": "Transition mark all reviewed",
+                  "width": 105,
+                  "height": 350,
+                  "layout": "vertical",
+                  "gap": 10,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "XjoUB",
+                      "name": "Arrow mark all reviewed",
+                      "fill": "#63E2D0",
+                      "content": "→",
+                      "fontFamily": "Inter",
+                      "fontSize": 34,
+                      "fontWeight": "500"
+                    },
+                    {
+                      "type": "text",
+                      "id": "Y3CwX",
+                      "name": "Transition Label mark all reviewed",
+                      "fill": "#A8B5BC",
+                      "textGrowth": "fixed-width",
+                      "width": 105,
+                      "content": "mark all reviewed",
+                      "fontFamily": "Inter",
+                      "fontSize": 11
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "g4fqzw",
+                  "name": "Import review cleared",
+                  "width": 560,
+                  "height": 350,
+                  "fill": "#172731",
+                  "cornerRadius": 8,
+                  "stroke": "#2A424E",
+                  "strokeWidth": 1,
+                  "layout": "vertical",
+                  "gap": 10,
+                  "padding": 18,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "iDY14",
+                      "name": "Import review cleared Metadata",
+                      "width": "fill_container",
+                      "justifyContent": "space_between",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "eYuWw",
+                          "name": "Import review cleared Type",
+                          "fill": "#63E2D0",
+                          "content": "STATE",
+                          "fontFamily": "Inter",
+                          "fontSize": 12,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "EzDSR",
+                          "name": "Import review cleared Id",
+                          "fill": "#A8B5BC",
+                          "content": "recipe-detail.resources-media.reviewed",
+                          "fontFamily": "Inter",
+                          "fontSize": 10
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "Rmtsf",
+                      "name": "Import review cleared Evidence",
+                      "width": "fill_container",
+                      "height": 145,
+                      "fill": "#0D1921",
+                      "cornerRadius": 4,
+                      "padding": [
+                        12,
+                        14
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "wHC97",
+                          "name": "Import review cleared Evidence Text",
+                          "fill": "#A8B5BC",
+                          "content": "DECISION + EXECUTABLE PROTOTYPE",
+                          "fontFamily": "Inter",
+                          "fontSize": 11,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "h6S5fm",
+                      "name": "Import review cleared Title",
+                      "fill": "#F4F7F8",
+                      "textGrowth": "fixed-width",
+                      "width": 524,
+                      "content": "Import review cleared",
+                      "fontFamily": "Inter",
+                      "fontSize": 22,
+                      "fontWeight": "700"
+                    },
+                    {
+                      "type": "text",
+                      "id": "CPN8i",
+                      "name": "Import review cleared Summary",
+                      "fill": "#A8B5BC",
+                      "textGrowth": "fixed-width",
+                      "width": 524,
+                      "content": "Review state clears in place while the resource hierarchy remains visible.",
+                      "fontFamily": "Inter",
+                      "fontSize": 13
+                    },
+                    {
+                      "type": "frame",
+                      "id": "tuEwE",
+                      "name": "Import review cleared Statuses",
+                      "width": "fill_container",
+                      "gap": 10,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "Hat0t",
+                          "name": "Import review cleared Design Status",
+                          "height": 28,
+                          "fill": "#153523",
+                          "cornerRadius": 4,
+                          "padding": [
+                            6,
+                            10
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "Wn762",
+                              "name": "Import review cleared Design Label",
+                              "fill": "#71D68A",
+                              "content": "DESIGN · APPROVED",
+                              "fontFamily": "Inter",
+                              "fontSize": 10,
+                              "fontWeight": "700"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "wFjez",
+                          "name": "Import review cleared Delivery Status",
+                          "height": 28,
+                          "fill": "#3B2C12",
+                          "cornerRadius": 4,
+                          "padding": [
+                            6,
+                            10
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "o2y4ET",
+                              "name": "Import review cleared Delivery Label",
+                              "fill": "#F4B84A",
+                              "content": "DELIVERY · VERIFICATION NEEDED",
+                              "fontFamily": "Inter",
+                              "fontSize": 10,
+                              "fontWeight": "700"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "XXNI9",
+                      "name": "Import review cleared Provenance",
+                      "fill": "#A8B5BC",
+                      "textGrowth": "fixed-width",
+                      "width": 524,
+                      "content": "decisions 06 + 15 · current PATCH differs",
+                      "fontFamily": "Inter",
+                      "fontSize": 10
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "YfsQT",
+              "name": "03 Resources Media Return Paths",
+              "fill": "#A8B5BC",
+              "textGrowth": "fixed-width",
+              "width": 2550,
+              "content": "RETURN PATHS · Close Media / Import Info → underlying recipe · Cancel removal → Import Info",
+              "fontFamily": "Inter",
+              "fontSize": 11
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "ecoxf",
+          "name": "Cross Journey Relationships",
+          "width": "fill_container",
+          "height": 160,
+          "fill": "#0D1921",
+          "cornerRadius": 8,
+          "stroke": "#2A424E",
+          "strokeWidth": 1,
+          "padding": 24,
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "zkSeS",
+              "name": "Cross Journey Links",
+              "width": 1800,
+              "layout": "vertical",
+              "gap": 14,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "e8sXk",
+                  "name": "Cross Journey Title",
+                  "fill": "#63E2D0",
+                  "content": "CROSS-JOURNEY RELATIONSHIPS",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "frame",
+                  "id": "zj4hr",
+                  "name": "Cross Journey Chips",
+                  "width": "fill_container",
+                  "gap": 14,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "aySw4",
+                      "name": "Default View → Edit Basics",
+                      "width": 300,
+                      "height": 44,
+                      "fill": "#172731",
+                      "cornerRadius": 4,
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "LrdVm",
+                          "name": "Default View → Edit Basics Label",
+                          "fill": "#F4F7F8",
+                          "content": "Default View → Edit Basics",
+                          "fontFamily": "Inter",
+                          "fontSize": 12
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "wcNg1",
+                      "name": "Default View → Media",
+                      "width": 300,
+                      "height": 44,
+                      "fill": "#172731",
+                      "cornerRadius": 4,
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "WvsqU",
+                          "name": "Default View → Media Label",
+                          "fill": "#F4F7F8",
+                          "content": "Default View → Media",
+                          "fontFamily": "Inter",
+                          "fontSize": 12
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "zWhrJ",
+                      "name": "Default View → Import Info",
+                      "width": 300,
+                      "height": 44,
+                      "fill": "#172731",
+                      "cornerRadius": 4,
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "X6JSBc",
+                          "name": "Default View → Import Info Label",
+                          "fill": "#F4F7F8",
+                          "content": "Default View → Import Info",
+                          "fontFamily": "Inter",
+                          "fontSize": 12
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "HviT3",
+              "name": "Status Legend",
+              "width": 650,
+              "layout": "vertical",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "GQhCo",
+                  "name": "Legend Title",
+                  "fill": "#63E2D0",
+                  "content": "READ THE TWO AXES SEPARATELY",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "l9sl2f",
+                  "name": "Design Legend",
+                  "fill": "#71D68A",
+                  "content": "DESIGN · approved / current UX decision",
+                  "fontFamily": "Inter",
+                  "fontSize": 12
+                },
+                {
+                  "type": "text",
+                  "id": "GpJ6K",
+                  "name": "Delivery Legend",
+                  "fill": "#A8B5BC",
+                  "content": "DELIVERY · blocked / not planned / verification needed",
+                  "fontFamily": "Inter",
+                  "fontSize": 12
+                },
+                {
+                  "type": "text",
+                  "id": "mt70P",
+                  "name": "Authority Note",
+                  "fill": "#F4B84A",
+                  "content": "Sources own status. This canvas only projects it.",
+                  "fontFamily": "Inter",
+                  "fontSize": 12
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "themes": {
+    "Mode": [
+      "Light",
+      "Dark"
+    ]
+  },
+  "variables": {
+    "--sidebar": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#E7E8E5"
+        },
+        {
+          "value": "#18181b",
+          "theme": {
+            "Mode": "Dark"
+          }
+        }
+      ]
+    },
+    "--sidebar-foreground": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#666666"
+        },
+        {
+          "value": "#fafafa",
+          "theme": {
+            "Mode": "Dark"
+          }
+        }
+      ]
+    },
+    "--sidebar-primary": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#18181b"
+        },
+        {
+          "value": "#18181b",
+          "theme": {
+            "Mode": "Dark"
+          }
+        }
+      ]
+    },
+    "--sidebar-primary-foreground": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#fafafa"
+        },
+        {
+          "value": "#fafafa",
+          "theme": {
+            "Mode": "Dark"
+          }
+        }
+      ]
+    },
+    "--sidebar-border": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#CBCCC9"
+        },
+        {
+          "value": "#ffffff1a",
+          "theme": {
+            "Mode": "Dark"
+          }
+        }
+      ]
+    },
+    "--sidebar-accent": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#CBCCC9"
+        },
+        {
+          "value": "#2a2a30",
+          "theme": {
+            "Mode": "Dark"
+          }
+        }
+      ]
+    },
+    "--sidebar-accent-foreground": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#18181b"
+        },
+        {
+          "value": "#fafafa",
+          "theme": {
+            "Mode": "Dark"
+          }
+        }
+      ]
+    },
+    "--sidebar-ring": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#71717a"
+        },
+        {
+          "value": "#71717a",
+          "theme": {
+            "Mode": "Dark"
+          }
+        }
+      ]
+    },
+    "--background": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#F2F3F0"
+        },
+        {
+          "value": "#111111",
+          "theme": {
+            "Mode": "Dark"
+          }
+        }
+      ]
+    },
+    "--foreground": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#111111"
+        },
+        {
+          "value": "#FFFFFF",
+          "theme": {
+            "Mode": "Dark"
+          }
+        }
+      ]
+    },
+    "--card": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#FFFFFF"
+        },
+        {
+          "value": "#1A1A1A",
+          "theme": {
+            "Mode": "Dark"
+          }
+        }
+      ]
+    },
+    "--card-foreground": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#111111"
+        },
+        {
+          "value": "#FFFFFF",
+          "theme": {
+            "Mode": "Dark"
+          }
+        }
+      ]
+    },
+    "--popover": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#FFFFFF"
+        },
+        {
+          "value": "#1A1A1A",
+          "theme": {
+            "Mode": "Dark"
+          }
+        }
+      ]
+    },
+    "--popover-foreground": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#111111"
+        },
+        {
+          "value": "#FFFFFF",
+          "theme": {
+            "Mode": "Dark"
+          }
+        }
+      ]
+    },
+    "--primary": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#FF8400"
+        },
+        {
+          "value": "#FF8400",
+          "theme": {
+            "Mode": "Dark"
+          }
+        }
+      ]
+    },
+    "--primary-foreground": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#111111"
+        },
+        {
+          "value": "#111111",
+          "theme": {
+            "Mode": "Dark"
+          }
+        }
+      ]
+    },
+    "--secondary": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#E7E8E5"
+        },
+        {
+          "value": "#2E2E2E",
+          "theme": {
+            "Mode": "Dark"
+          }
+        }
+      ]
+    },
+    "--secondary-foreground": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#111111"
+        },
+        {
+          "value": "#FFFFFF",
+          "theme": {
+            "Mode": "Dark"
+          }
+        }
+      ]
+    },
+    "--muted": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#F2F3F0"
+        },
+        {
+          "value": "#2E2E2E",
+          "theme": {
+            "Mode": "Dark"
+          }
+        }
+      ]
+    },
+    "--muted-foreground": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#666666"
+        },
+        {
+          "value": "#B8B9B6",
+          "theme": {
+            "Mode": "Dark"
+          }
+        }
+      ]
+    },
+    "--accent": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#F2F3F0"
+        },
+        {
+          "value": "#111111",
+          "theme": {
+            "Mode": "Dark"
+          }
+        }
+      ]
+    },
+    "--accent-foreground": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#111111"
+        },
+        {
+          "value": "#F2F3F0",
+          "theme": {
+            "Mode": "Dark"
+          }
+        }
+      ]
+    },
+    "--destructive": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#D93C15"
+        },
+        {
+          "value": "#FF5C33",
+          "theme": {
+            "Mode": "Dark"
+          }
+        }
+      ]
+    },
+    "--border": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#CBCCC9"
+        },
+        {
+          "value": "#2E2E2E",
+          "theme": {
+            "Mode": "Dark"
+          }
+        }
+      ]
+    },
+    "--input": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#CBCCC9"
+        },
+        {
+          "value": "#2E2E2E",
+          "theme": {
+            "Mode": "Dark"
+          }
+        }
+      ]
+    },
+    "--ring": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#666666"
+        },
+        {
+          "value": "#666666",
+          "theme": {
+            "Mode": "Dark"
+          }
+        }
+      ]
+    },
+    "--white": {
+      "type": "color",
+      "value": "#FFFFFF"
+    },
+    "--black": {
+      "type": "color",
+      "value": "#000000"
+    },
+    "--font-primary": {
+      "type": "string",
+      "value": "JetBrains Mono"
+    },
+    "--font-secondary": {
+      "type": "string",
+      "value": "Geist"
+    },
+    "--radius-none": {
+      "type": "number",
+      "value": 0
+    },
+    "--radius-pill": {
+      "type": "number",
+      "value": 999
+    },
+    "--color-success": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#DFE6E1"
+        },
+        {
+          "value": "#222924",
+          "theme": {
+            "Mode": "Dark"
+          }
+        }
+      ]
+    },
+    "--color-success-foreground": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#004D1A"
+        },
+        {
+          "value": "#B6FFCE",
+          "theme": {
+            "Mode": "Dark"
+          }
+        }
+      ]
+    },
+    "--color-warning": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#E9E3D8"
+        },
+        {
+          "value": "#291C0F",
+          "theme": {
+            "Mode": "Dark"
+          }
+        }
+      ]
+    },
+    "--color-warning-foreground": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#804200"
+        },
+        {
+          "value": "#FF8400",
+          "theme": {
+            "Mode": "Dark"
+          }
+        }
+      ]
+    },
+    "--color-error": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#E5DCDA"
+        },
+        {
+          "value": "#24100B",
+          "theme": {
+            "Mode": "Dark"
+          }
+        }
+      ]
+    },
+    "--color-error-foreground": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#8C1C00"
+        },
+        {
+          "value": "#FF5C33",
+          "theme": {
+            "Mode": "Dark"
+          }
+        }
+      ]
+    },
+    "--color-info": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#DFDFE6"
+        },
+        {
+          "value": "#222229",
+          "theme": {
+            "Mode": "Dark"
+          }
+        }
+      ]
+    },
+    "--color-info-foreground": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#000066"
+        },
+        {
+          "value": "#B2B2FF",
+          "theme": {
+            "Mode": "Dark"
+          }
+        }
+      ]
+    },
+    "--radius-m": {
+      "type": "number",
+      "value": 16
+    },
+    "atlas-bg": {
+      "type": "color",
+      "value": "#081118"
+    },
+    "lane-bg": {
+      "type": "color",
+      "value": "#101D26"
+    },
+    "card-bg": {
+      "type": "color",
+      "value": "#172731"
+    },
+    "panel-bg": {
+      "type": "color",
+      "value": "#0D1921"
+    },
+    "border": {
+      "type": "color",
+      "value": "#2A424E"
+    },
+    "text": {
+      "type": "color",
+      "value": "#F4F7F8"
+    },
+    "muted": {
+      "type": "color",
+      "value": "#A8B5BC"
+    },
+    "accent": {
+      "type": "color",
+      "value": "#63E2D0"
+    },
+    "warning": {
+      "type": "color",
+      "value": "#F4B84A"
+    },
+    "approved": {
+      "type": "color",
+      "value": "#71D68A"
+    },
+    "blocked": {
+      "type": "color",
+      "value": "#F0756E"
+    },
+    "font": {
+      "type": "string",
+      "value": "Inter"
+    }
+  },
+  "fileToken": "a86ee8ec-50cc-4934-9e75-0c41511f7eaa"
+}
