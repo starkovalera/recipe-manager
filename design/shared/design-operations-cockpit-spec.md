@@ -247,7 +247,10 @@ part of Core.
    [PR #98](https://github.com/starkovalera/recipe-manager/pull/98). The decision
    opens #90 and #91 as parallel work.
 3. **Core map (#90):** all three journeys and the selected 20–30 nodes are
-   present while #91 owns the independent controlled source correction.
+   present while #91 owns the independent controlled source correction. The
+   current checkpoint has a 27-node normalized input and visible derived
+   export; repository persistence still requires the owner Save As/fresh-open
+   proof and the explicit owner decision.
 4. **Regeneration proof and decision (#96):** identical-input and controlled-
    change runs are inspected through the headless path after #90 and #91.
 

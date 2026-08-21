@@ -1,0 +1,605 @@
+{
+  "id": "domain.recipe-detail",
+  "title": "Recipe Detail desktop Core map",
+  "iteration": "core",
+  "platform": "desktop_web",
+  "release": "v1",
+  "issue": "https://github.com/starkovalera/recipe-manager/issues/90",
+  "predecessor": "https://github.com/starkovalera/recipe-manager/issues/95",
+  "parallelWork": "https://github.com/starkovalera/recipe-manager/issues/91",
+  "joinWork": "https://github.com/starkovalera/recipe-manager/issues/96",
+  "setupProvenance": "https://github.com/starkovalera/recipe-manager/issues/90#issuecomment-5356621586",
+  "journeys": [
+    {
+      "id": "journey.read-focus",
+      "order": 1,
+      "title": "Read / Focus",
+      "description": "Open a recipe, resolve flagged or dense reading states, move into Cooking Focus, and protect rare destructive actions."
+    },
+    {
+      "id": "journey.edit-save",
+      "order": 2,
+      "title": "Edit / Save",
+      "description": "Work in one recipe-level draft, validate Basics and Ingredients, protect exits, and keep unfinished sections visible without inventing their behavior."
+    },
+    {
+      "id": "journey.resources-media",
+      "order": 3,
+      "title": "Resources / Media",
+      "description": "Inspect media and import provenance, expose destructive resource boundaries, and locate adjacent unfinished workspaces."
+    }
+  ],
+  "nodes": [
+    {
+      "id": "recipe-detail.read-focus.default-view",
+      "order": 1,
+      "journeyId": "journey.read-focus",
+      "type": "screen",
+      "scope": "approved",
+      "title": "Default Recipe View",
+      "summary": "Compact recipe identity, corrected-B action band, bounded Ingredients, and readable Instructions.",
+      "designStatus": "approved",
+      "deliveryStatus": "verification_needed",
+      "sources": {
+        "decisions": ["design/recipe-detail/decisions/06-approved-ux-foundation.md", "design/recipe-detail/decisions/current-scope.md"],
+        "prototype": "design/recipe-detail/prototypes/05-main-actions-and-responsive-panels/index.html",
+        "screenshot": "design/recipe-detail/screenshots/05-main-actions-and-responsive-panels/desktop-approved-b-main-actions-1440x900.png",
+        "issues": [21],
+        "pullRequests": [80]
+      },
+      "verificationNeeded": ["warning.roadmap-pr80-state"]
+    },
+    {
+      "id": "recipe-detail.read-focus.default-dense",
+      "order": 2,
+      "journeyId": "journey.read-focus",
+      "type": "state",
+      "scope": "approved",
+      "title": "Dense flagged recipe",
+      "summary": "Long metadata, no cover, many tags and collections, partial nutrition, and unresolved import flags remain controlled.",
+      "designStatus": "approved",
+      "deliveryStatus": "not_planned",
+      "sources": {
+        "decisions": ["design/recipe-detail/decisions/06-approved-ux-foundation.md"],
+        "prototype": "design/recipe-detail/prototypes/05-main-actions-and-responsive-panels/index.html",
+        "screenshot": "design/recipe-detail/screenshots/01-structure-validation/desktop-dense-flagged-1440x900.png",
+        "issues": [21],
+        "pullRequests": [80]
+      }
+    },
+    {
+      "id": "recipe-detail.read-focus.default-long",
+      "order": 3,
+      "journeyId": "journey.read-focus",
+      "type": "state",
+      "scope": "approved",
+      "title": "Long reading content",
+      "summary": "Long title, 48 ingredients, 38 steps, dense metadata, and multi-paragraph notes preserve scanning and position.",
+      "designStatus": "approved",
+      "deliveryStatus": "not_planned",
+      "sources": {
+        "decisions": ["design/recipe-detail/decisions/06-approved-ux-foundation.md"],
+        "prototype": "design/recipe-detail/prototypes/05-main-actions-and-responsive-panels/index.html",
+        "screenshot": "design/recipe-detail/screenshots/01-structure-validation/desktop-long-content-full-page.png",
+        "issues": [21],
+        "pullRequests": [80]
+      }
+    },
+    {
+      "id": "recipe-detail.read-focus.flagged-entry",
+      "order": 4,
+      "journeyId": "journey.read-focus",
+      "type": "state",
+      "scope": "approved",
+      "title": "Flagged first entry",
+      "summary": "Import Info auto-opens once for a flagged imported recipe, then stays dismissed for the visit.",
+      "designStatus": "approved",
+      "deliveryStatus": "not_planned",
+      "sources": {
+        "decisions": ["design/recipe-detail/decisions/06-approved-ux-foundation.md", "design/recipe-detail/decisions/13-desktop-edit-basics-validation-and-entry-behavior.md"],
+        "prototype": "design/recipe-detail/prototypes/05-main-actions-and-responsive-panels/index.html",
+        "screenshot": "design/recipe-detail/screenshots/04-visual-control-refinement/desktop-flagged-b-cover-edge-1440x900.png",
+        "issues": [21],
+        "pullRequests": [80]
+      }
+    },
+    {
+      "id": "recipe-detail.read-focus.manual-recipe",
+      "order": 5,
+      "journeyId": "journey.read-focus",
+      "type": "state",
+      "scope": "approved",
+      "title": "Manual recipe",
+      "summary": "A non-imported recipe keeps Default View and Media available without exposing import-only information.",
+      "designStatus": "approved",
+      "deliveryStatus": "not_planned",
+      "sources": {
+        "decisions": ["design/recipe-detail/decisions/06-approved-ux-foundation.md", "design/recipe-detail/decisions/13-desktop-edit-basics-validation-and-entry-behavior.md"],
+        "prototype": "design/recipe-detail/prototypes/05-main-actions-and-responsive-panels/index.html",
+        "screenshot": "design/recipe-detail/screenshots/01-structure-validation/desktop-normal-1440x900.png",
+        "issues": [21],
+        "pullRequests": [80]
+      }
+    },
+    {
+      "id": "recipe-detail.read-focus.cooking-focus",
+      "order": 6,
+      "journeyId": "journey.read-focus",
+      "type": "screen",
+      "scope": "approved",
+      "title": "Cooking Focus",
+      "summary": "Simplified reading context retaining title, cooking facts, ingredients, instructions, notes, and primary actions.",
+      "designStatus": "approved",
+      "deliveryStatus": "not_planned",
+      "sources": {
+        "decisions": ["design/recipe-detail/decisions/06-approved-ux-foundation.md"],
+        "prototype": "design/recipe-detail/prototypes/05-main-actions-and-responsive-panels/index.html",
+        "screenshot": "design/recipe-detail/screenshots/02-feedback-refinement/desktop-focus-simplified-1440x900.png",
+        "issues": [21],
+        "pullRequests": [80]
+      }
+    },
+    {
+      "id": "recipe-detail.read-focus.cooking-focus-long",
+      "order": 7,
+      "journeyId": "journey.read-focus",
+      "type": "state",
+      "scope": "approved",
+      "title": "Cooking Focus with long steps",
+      "summary": "Focus remains a reading/execution context when instructions and notes require extended scrolling.",
+      "designStatus": "approved",
+      "deliveryStatus": "not_planned",
+      "sources": {
+        "decisions": ["design/recipe-detail/decisions/06-approved-ux-foundation.md"],
+        "prototype": "design/recipe-detail/prototypes/05-main-actions-and-responsive-panels/index.html",
+        "screenshot": "design/recipe-detail/screenshots/01-structure-validation/desktop-long-content-full-page.png",
+        "issues": [21],
+        "pullRequests": [80]
+      }
+    },
+    {
+      "id": "recipe-detail.read-focus.delete-confirmation",
+      "order": 8,
+      "journeyId": "journey.read-focus",
+      "type": "state",
+      "scope": "approved",
+      "title": "Delete recipe confirmation",
+      "summary": "Recipe deletion remains an Overflow-only irreversible action with a blocking confirmation.",
+      "designStatus": "approved",
+      "deliveryStatus": "not_planned",
+      "sources": {
+        "decisions": ["design/recipe-detail/decisions/06-approved-ux-foundation.md"],
+        "prototype": "design/recipe-detail/prototypes/05-main-actions-and-responsive-panels/index.html",
+        "screenshot": "design/recipe-detail/screenshots/05-main-actions-and-responsive-panels/desktop-delete-recipe-confirmation-1440x900.png",
+        "issues": [21],
+        "pullRequests": [80]
+      }
+    },
+    {
+      "id": "recipe-detail.edit-save.basics",
+      "order": 1,
+      "journeyId": "journey.edit-save",
+      "type": "screen",
+      "scope": "approved",
+      "title": "Edit Basics",
+      "summary": "Continuous desktop editor with two-zone Basics, one recipe draft, and one global save outcome.",
+      "designStatus": "approved",
+      "deliveryStatus": "blocked",
+      "sources": {
+        "decisions": ["design/recipe-detail/decisions/13-desktop-edit-basics-validation-and-entry-behavior.md"],
+        "prototype": "design/recipe-detail/prototypes/17-desktop-edit-basics-validation-and-guard/index.html",
+        "screenshot": "design/recipe-detail/screenshots/edit-mode/17a-desktop-edit-basics-ingredients-v1.png",
+        "issues": [21, 71, 72, 79],
+        "pullRequests": [80]
+      }
+    },
+    {
+      "id": "recipe-detail.edit-save.ingredients",
+      "order": 2,
+      "journeyId": "journey.edit-save",
+      "type": "screen",
+      "scope": "approved",
+      "title": "Edit Ingredients",
+      "summary": "Compact rows retain reorder, optional Quantity, fixed Unit, required name, and draft-only removal.",
+      "designStatus": "approved",
+      "deliveryStatus": "blocked",
+      "sources": {
+        "decisions": ["design/recipe-detail/decisions/13-desktop-edit-basics-validation-and-entry-behavior.md"],
+        "prototype": "design/recipe-detail/prototypes/17-desktop-edit-basics-validation-and-guard/index.html",
+        "screenshot": "design/recipe-detail/screenshots/edit-mode/17a-desktop-edit-basics-ingredients-v1.png",
+        "issues": [21, 71, 72],
+        "pullRequests": [80]
+      }
+    },
+    {
+      "id": "recipe-detail.edit-save.validation",
+      "order": 3,
+      "journeyId": "journey.edit-save",
+      "type": "state",
+      "scope": "approved",
+      "title": "Failed-save validation",
+      "summary": "Linked error summary, rail counts, field messages, and focus recovery form one recovery path.",
+      "designStatus": "approved",
+      "deliveryStatus": "blocked",
+      "sources": {
+        "decisions": ["design/recipe-detail/decisions/13-desktop-edit-basics-validation-and-entry-behavior.md"],
+        "prototype": "design/recipe-detail/prototypes/17-desktop-edit-basics-validation-and-guard/index.html",
+        "screenshot": "design/recipe-detail/screenshots/edit-mode/17b-desktop-edit-validation-v1.png",
+        "issues": [21, 71, 72],
+        "pullRequests": [80]
+      }
+    },
+    {
+      "id": "recipe-detail.edit-save.unsaved-guard",
+      "order": 4,
+      "journeyId": "journey.edit-save",
+      "type": "state",
+      "scope": "approved",
+      "title": "Unsaved changes guard",
+      "summary": "Blocking desktop dialog with Save, Discard, and Cancel when navigation would abandon the recipe draft.",
+      "designStatus": "approved",
+      "deliveryStatus": "not_planned",
+      "sources": {
+        "decisions": ["design/recipe-detail/decisions/13-desktop-edit-basics-validation-and-entry-behavior.md"],
+        "prototype": "design/recipe-detail/prototypes/17-desktop-edit-basics-validation-and-guard/index.html",
+        "screenshot": "design/recipe-detail/screenshots/edit-mode/17c-desktop-edit-unsaved-guard-v1.png",
+        "issues": [21, 74],
+        "pullRequests": [80]
+      }
+    },
+    {
+      "id": "recipe-detail.edit-save.instructions",
+      "order": 5,
+      "journeyId": "journey.edit-save",
+      "type": "screen",
+      "scope": "placeholder",
+      "title": "Edit Instructions — unfinished",
+      "summary": "The section is present as continuity context; editing, validation, and stable step identity remain unapproved.",
+      "designStatus": "not_started",
+      "deliveryStatus": "blocked",
+      "scopeNote": "Placeholder only; do not infer an editor or reorder interaction from the map.",
+      "sources": {
+        "decisions": ["design/recipe-detail/decisions/current-scope.md", "design/recipe-detail/decisions/15-verified-recipe-detail-contracts.md"],
+        "prototype": "design/recipe-detail/prototypes/17-desktop-edit-basics-validation-and-guard/index.html",
+        "issues": [73],
+        "pullRequests": [80]
+      }
+    },
+    {
+      "id": "recipe-detail.edit-save.cooking-notes",
+      "order": 6,
+      "journeyId": "journey.edit-save",
+      "type": "screen",
+      "scope": "placeholder",
+      "title": "Edit Cooking notes — unfinished",
+      "summary": "The section is reserved in the continuous editor; field meaning and validation remain unapproved.",
+      "designStatus": "not_started",
+      "deliveryStatus": "blocked",
+      "scopeNote": "Placeholder only; issue #78 owns the missing field contract.",
+      "sources": {
+        "decisions": ["design/recipe-detail/decisions/current-scope.md", "design/recipe-detail/decisions/15-verified-recipe-detail-contracts.md"],
+        "prototype": "design/recipe-detail/prototypes/17-desktop-edit-basics-validation-and-guard/index.html",
+        "issues": [78],
+        "pullRequests": [80]
+      }
+    },
+    {
+      "id": "recipe-detail.edit-save.nutrition",
+      "order": 7,
+      "journeyId": "journey.edit-save",
+      "type": "screen",
+      "scope": "placeholder",
+      "title": "Edit Nutrition — unfinished",
+      "summary": "Estimated nutrition remains a reserved section with no approved completeness or validation behavior.",
+      "designStatus": "not_started",
+      "deliveryStatus": "blocked",
+      "scopeNote": "Placeholder only; issue #77 owns the missing nutrition contract.",
+      "sources": {
+        "decisions": ["design/recipe-detail/decisions/current-scope.md", "design/recipe-detail/decisions/15-verified-recipe-detail-contracts.md"],
+        "prototype": "design/recipe-detail/prototypes/17-desktop-edit-basics-validation-and-guard/index.html",
+        "issues": [77],
+        "pullRequests": [80]
+      }
+    },
+    {
+      "id": "recipe-detail.edit-save.save-in-progress",
+      "order": 8,
+      "journeyId": "journey.edit-save",
+      "type": "state",
+      "scope": "placeholder",
+      "title": "Save request in progress — unfinished",
+      "summary": "The single global Save boundary is known; request progress and disabled-action treatment are not designed.",
+      "designStatus": "not_started",
+      "deliveryStatus": "blocked",
+      "scopeNote": "Placeholder only; do not infer loading copy or retry behavior.",
+      "sources": {
+        "decisions": ["design/recipe-detail/decisions/current-scope.md", "design/recipe-detail/decisions/13-desktop-edit-basics-validation-and-entry-behavior.md"],
+        "prototype": "design/recipe-detail/prototypes/17-desktop-edit-basics-validation-and-guard/index.html",
+        "issues": [74],
+        "pullRequests": [80]
+      }
+    },
+    {
+      "id": "recipe-detail.edit-save.save-success",
+      "order": 9,
+      "journeyId": "journey.edit-save",
+      "type": "state",
+      "scope": "placeholder",
+      "title": "Save success — unfinished",
+      "summary": "A successful global Save outcome is reserved for later design; navigation and feedback are not prescribed here.",
+      "designStatus": "not_started",
+      "deliveryStatus": "blocked",
+      "scopeNote": "Placeholder only; the map does not promise a toast, redirect, or persistence contract.",
+      "sources": {
+        "decisions": ["design/recipe-detail/decisions/current-scope.md", "design/recipe-detail/decisions/13-desktop-edit-basics-validation-and-entry-behavior.md"],
+        "prototype": "design/recipe-detail/prototypes/17-desktop-edit-basics-validation-and-guard/index.html",
+        "issues": [74],
+        "pullRequests": [80]
+      }
+    },
+    {
+      "id": "recipe-detail.edit-save.save-failure",
+      "order": 10,
+      "journeyId": "journey.edit-save",
+      "type": "state",
+      "scope": "placeholder",
+      "title": "Save failure — unfinished",
+      "summary": "A failed request remains in the Edit context; server-error copy and retry behavior are not designed.",
+      "designStatus": "not_started",
+      "deliveryStatus": "blocked",
+      "scopeNote": "Placeholder only; validation and concurrency contracts must be resolved before a final state is designed.",
+      "sources": {
+        "decisions": ["design/recipe-detail/decisions/current-scope.md", "design/recipe-detail/decisions/15-verified-recipe-detail-contracts.md"],
+        "prototype": "design/recipe-detail/prototypes/17-desktop-edit-basics-validation-and-guard/index.html",
+        "issues": [74],
+        "pullRequests": [80]
+      }
+    },
+    {
+      "id": "recipe-detail.resources-media.media",
+      "order": 1,
+      "journeyId": "journey.resources-media",
+      "type": "screen",
+      "scope": "approved",
+      "title": "Media panel",
+      "summary": "Read-only images and understandable cooking links occupy the shared auxiliary slot.",
+      "designStatus": "approved",
+      "deliveryStatus": "not_planned",
+      "sources": {
+        "decisions": ["design/recipe-detail/decisions/06-approved-ux-foundation.md"],
+        "prototype": "design/recipe-detail/prototypes/05-main-actions-and-responsive-panels/index.html",
+        "screenshot": "design/recipe-detail/screenshots/04-visual-control-refinement/desktop-media-images-and-links-1440x900.png",
+        "issues": [21],
+        "pullRequests": [80]
+      }
+    },
+    {
+      "id": "recipe-detail.resources-media.media-preview",
+      "order": 2,
+      "journeyId": "journey.resources-media",
+      "type": "state",
+      "scope": "approved",
+      "title": "Expanded media preview",
+      "summary": "Selecting a thumbnail expands one image preview without turning Media into an asset-management workspace.",
+      "designStatus": "approved",
+      "deliveryStatus": "not_planned",
+      "sources": {
+        "decisions": ["design/recipe-detail/decisions/06-approved-ux-foundation.md"],
+        "prototype": "design/recipe-detail/prototypes/05-main-actions-and-responsive-panels/index.html",
+        "screenshot": "design/recipe-detail/screenshots/03-panel-resource-refinement/desktop-import-inline-image-preview-1440x900.png",
+        "issues": [21],
+        "pullRequests": [80]
+      }
+    },
+    {
+      "id": "recipe-detail.resources-media.import-info",
+      "order": 3,
+      "journeyId": "journey.resources-media",
+      "type": "screen",
+      "scope": "approved",
+      "title": "Import Info",
+      "summary": "Review flags and grouped primary/derived resources without duplicating the recipe page.",
+      "designStatus": "approved",
+      "deliveryStatus": "verification_needed",
+      "sources": {
+        "decisions": ["design/recipe-detail/decisions/06-approved-ux-foundation.md", "design/recipe-detail/decisions/15-verified-recipe-detail-contracts.md"],
+        "prototype": "design/recipe-detail/prototypes/05-main-actions-and-responsive-panels/index.html",
+        "screenshot": "design/recipe-detail/screenshots/05-main-actions-and-responsive-panels/desktop-import-ignored-and-cascade-1440x900.png",
+        "issues": [21],
+        "pullRequests": [80]
+      },
+      "verificationNeeded": ["warning.import-review-contract"]
+    },
+    {
+      "id": "recipe-detail.resources-media.import-flagged",
+      "order": 4,
+      "journeyId": "journey.resources-media",
+      "type": "state",
+      "scope": "approved",
+      "title": "Flagged and ignored resources",
+      "summary": "Conflicting source facts, ignored media, and extraction confidence remain visible with grouped provenance.",
+      "designStatus": "approved",
+      "deliveryStatus": "verification_needed",
+      "sources": {
+        "decisions": ["design/recipe-detail/decisions/06-approved-ux-foundation.md", "design/recipe-detail/decisions/15-verified-recipe-detail-contracts.md"],
+        "prototype": "design/recipe-detail/prototypes/05-main-actions-and-responsive-panels/index.html",
+        "screenshot": "design/recipe-detail/screenshots/05-main-actions-and-responsive-panels/desktop-import-ignored-and-cascade-1440x900.png",
+        "issues": [21],
+        "pullRequests": [80]
+      },
+      "verificationNeeded": ["warning.import-review-contract"]
+    },
+    {
+      "id": "recipe-detail.resources-media.cascade-confirmation",
+      "order": 5,
+      "journeyId": "journey.resources-media",
+      "type": "state",
+      "scope": "approved",
+      "title": "Cascade removal confirmation",
+      "summary": "Affected resources are explicit, the current cover is protected, and saved recipe content remains unchanged.",
+      "designStatus": "approved",
+      "deliveryStatus": "not_planned",
+      "sources": {
+        "decisions": ["design/recipe-detail/decisions/06-approved-ux-foundation.md"],
+        "prototype": "design/recipe-detail/prototypes/05-main-actions-and-responsive-panels/index.html",
+        "screenshot": "design/recipe-detail/screenshots/03-panel-resource-refinement/desktop-import-inline-cascade-confirmation-1440x900.png",
+        "issues": [21],
+        "pullRequests": [80]
+      }
+    },
+    {
+      "id": "recipe-detail.resources-media.reviewed",
+      "order": 6,
+      "journeyId": "journey.resources-media",
+      "type": "state",
+      "scope": "approved",
+      "title": "Import review cleared",
+      "summary": "The panel remains in place after review while the source hierarchy stays visible.",
+      "designStatus": "approved",
+      "deliveryStatus": "verification_needed",
+      "sources": {
+        "decisions": ["design/recipe-detail/decisions/06-approved-ux-foundation.md", "design/recipe-detail/decisions/15-verified-recipe-detail-contracts.md"],
+        "prototype": "design/recipe-detail/prototypes/05-main-actions-and-responsive-panels/index.html",
+        "issues": [21],
+        "pullRequests": [80]
+      },
+      "verificationNeeded": ["warning.import-review-contract"]
+    },
+    {
+      "id": "recipe-detail.resources-media.manage-media",
+      "order": 7,
+      "journeyId": "journey.resources-media",
+      "type": "screen",
+      "scope": "placeholder",
+      "title": "Manage Media — unfinished",
+      "summary": "A separate media workspace is reserved; upload capacity, cover replacement, removal, and save/cancel behavior are not approved.",
+      "designStatus": "not_started",
+      "deliveryStatus": "blocked",
+      "scopeNote": "Placeholder only; issue #75 owns the missing media-management contract.",
+      "sources": {
+        "decisions": ["design/recipe-detail/decisions/current-scope.md", "design/recipe-detail/decisions/15-verified-recipe-detail-contracts.md"],
+        "prototype": "design/recipe-detail/prototypes/00-decision-gallery/index.html",
+        "issues": [75],
+        "pullRequests": [80]
+      }
+    },
+    {
+      "id": "recipe-detail.resources-media.organize",
+      "order": 8,
+      "journeyId": "journey.resources-media",
+      "type": "screen",
+      "scope": "placeholder",
+      "title": "Organize Recipe — unfinished",
+      "summary": "Collections, tags, and related organization work remain an adjacent workspace rather than an invented Core screen.",
+      "designStatus": "not_started",
+      "deliveryStatus": "blocked",
+      "scopeNote": "Placeholder only; issue #76 owns the selector and assignment contract.",
+      "sources": {
+        "decisions": ["design/recipe-detail/decisions/current-scope.md", "design/recipe-detail/decisions/15-verified-recipe-detail-contracts.md"],
+        "prototype": "design/recipe-detail/prototypes/00-decision-gallery/index.html",
+        "issues": [76],
+        "pullRequests": [80]
+      }
+    },
+    {
+      "id": "recipe-detail.resources-media.cover-selection",
+      "order": 9,
+      "journeyId": "journey.resources-media",
+      "type": "state",
+      "scope": "placeholder",
+      "title": "Cover selection — unfinished",
+      "summary": "The map preserves the open question of embedded cover selection versus a narrower picker entry state.",
+      "designStatus": "not_started",
+      "deliveryStatus": "blocked",
+      "scopeNote": "Placeholder only; no final picker hierarchy or mutation lifecycle is implied.",
+      "sources": {
+        "decisions": ["design/recipe-detail/decisions/current-scope.md", "design/recipe-detail/decisions/06-approved-ux-foundation.md"],
+        "prototype": "design/recipe-detail/prototypes/00-decision-gallery/index.html",
+        "issues": [75],
+        "pullRequests": [80]
+      }
+    }
+  ],
+  "reviewSelection": [
+    "recipe-detail.read-focus.default-view",
+    "recipe-detail.read-focus.default-dense",
+    "recipe-detail.read-focus.default-long",
+    "recipe-detail.read-focus.cooking-focus",
+    "recipe-detail.read-focus.delete-confirmation",
+    "recipe-detail.edit-save.basics",
+    "recipe-detail.edit-save.validation",
+    "recipe-detail.edit-save.unsaved-guard",
+    "recipe-detail.resources-media.media",
+    "recipe-detail.resources-media.media-preview",
+    "recipe-detail.resources-media.import-info",
+    "recipe-detail.resources-media.cascade-confirmation"
+  ],
+  "placeholderNodes": [
+    "recipe-detail.edit-save.instructions",
+    "recipe-detail.edit-save.cooking-notes",
+    "recipe-detail.edit-save.nutrition",
+    "recipe-detail.edit-save.save-in-progress",
+    "recipe-detail.edit-save.save-success",
+    "recipe-detail.edit-save.save-failure",
+    "recipe-detail.resources-media.manage-media",
+    "recipe-detail.resources-media.organize",
+    "recipe-detail.resources-media.cover-selection"
+  ],
+  "transitions": [
+    { "id": "transition.open-recipe", "from": "entry.recipes", "to": "recipe-detail.read-focus.default-view", "label": "Open recipe", "provenance": "curated" },
+    { "id": "transition.auto-open-import", "from": "recipe-detail.read-focus.default-view", "to": "recipe-detail.read-focus.flagged-entry", "label": "First flagged entry", "provenance": "docs-derived" },
+    { "id": "transition.close-first-import", "from": "recipe-detail.read-focus.flagged-entry", "to": "recipe-detail.read-focus.default-view", "label": "Close Import Info", "provenance": "docs-derived" },
+    { "id": "transition.read-dense", "from": "recipe-detail.read-focus.default-view", "to": "recipe-detail.read-focus.default-dense", "label": "Dense scenario", "provenance": "curated" },
+    { "id": "transition.read-long", "from": "recipe-detail.read-focus.default-view", "to": "recipe-detail.read-focus.default-long", "label": "Long-content scenario", "provenance": "curated" },
+    { "id": "transition.read-manual", "from": "recipe-detail.read-focus.default-view", "to": "recipe-detail.read-focus.manual-recipe", "label": "Manual recipe", "provenance": "docs-derived" },
+    { "id": "transition.enter-focus", "from": "recipe-detail.read-focus.default-view", "to": "recipe-detail.read-focus.cooking-focus", "label": "Choose Focus", "provenance": "docs-derived" },
+    { "id": "transition.enter-focus-long", "from": "recipe-detail.read-focus.default-long", "to": "recipe-detail.read-focus.cooking-focus-long", "label": "Choose Focus with long content", "provenance": "curated" },
+    { "id": "transition.return-view", "from": "recipe-detail.read-focus.cooking-focus", "to": "recipe-detail.read-focus.default-view", "label": "Choose View", "provenance": "docs-derived" },
+    { "id": "transition.return-view-long", "from": "recipe-detail.read-focus.cooking-focus-long", "to": "recipe-detail.read-focus.default-long", "label": "Return to long view", "provenance": "curated" },
+    { "id": "transition.delete-recipe", "from": "recipe-detail.read-focus.default-view", "to": "recipe-detail.read-focus.delete-confirmation", "label": "Overflow → Delete recipe", "provenance": "docs-derived" },
+    { "id": "transition.cancel-delete", "from": "recipe-detail.read-focus.delete-confirmation", "to": "recipe-detail.read-focus.default-view", "label": "Cancel deletion", "provenance": "docs-derived" },
+    { "id": "transition.enter-edit", "from": "recipe-detail.read-focus.default-view", "to": "recipe-detail.edit-save.basics", "label": "Choose Edit", "provenance": "docs-derived" },
+    { "id": "transition.edit-ingredients", "from": "recipe-detail.edit-save.basics", "to": "recipe-detail.edit-save.ingredients", "label": "Scroll to Ingredients", "provenance": "docs-derived" },
+    { "id": "transition.failed-save", "from": "recipe-detail.edit-save.ingredients", "to": "recipe-detail.edit-save.validation", "label": "Save invalid draft", "provenance": "docs-derived" },
+    { "id": "transition.dirty-navigation", "from": "recipe-detail.edit-save.basics", "to": "recipe-detail.edit-save.unsaved-guard", "label": "Navigate with changes", "provenance": "docs-derived" },
+    { "id": "transition.keep-editing", "from": "recipe-detail.edit-save.unsaved-guard", "to": "recipe-detail.edit-save.basics", "label": "Cancel", "provenance": "docs-derived" },
+    { "id": "transition.discard-draft", "from": "recipe-detail.edit-save.unsaved-guard", "to": "recipe-detail.read-focus.default-view", "label": "Discard", "provenance": "docs-derived" },
+    { "id": "transition.save-from-guard", "from": "recipe-detail.edit-save.unsaved-guard", "to": "recipe-detail.edit-save.save-in-progress", "label": "Save", "provenance": "docs-derived" },
+    { "id": "transition.open-instructions", "from": "recipe-detail.edit-save.basics", "to": "recipe-detail.edit-save.instructions", "label": "Open Instructions section", "provenance": "curated" },
+    { "id": "transition.open-cooking-notes", "from": "recipe-detail.edit-save.instructions", "to": "recipe-detail.edit-save.cooking-notes", "label": "Continue to Cooking notes", "provenance": "curated" },
+    { "id": "transition.open-nutrition", "from": "recipe-detail.edit-save.cooking-notes", "to": "recipe-detail.edit-save.nutrition", "label": "Continue to Nutrition", "provenance": "curated" },
+    { "id": "transition.save-draft", "from": "recipe-detail.edit-save.basics", "to": "recipe-detail.edit-save.save-in-progress", "label": "Save draft", "provenance": "docs-derived" },
+    { "id": "transition.save-accepted", "from": "recipe-detail.edit-save.save-in-progress", "to": "recipe-detail.edit-save.save-success", "label": "Request accepted", "provenance": "curated" },
+    { "id": "transition.save-failed", "from": "recipe-detail.edit-save.save-in-progress", "to": "recipe-detail.edit-save.save-failure", "label": "Request fails", "provenance": "curated" },
+    { "id": "transition.save-error-recovery", "from": "recipe-detail.edit-save.save-failure", "to": "recipe-detail.edit-save.validation", "label": "Remain in Edit", "provenance": "docs-derived" },
+    { "id": "transition.save-success-return", "from": "recipe-detail.edit-save.save-success", "to": "recipe-detail.read-focus.default-view", "label": "Return to recipe", "provenance": "curated" },
+    { "id": "transition.open-media", "from": "recipe-detail.read-focus.default-view", "to": "recipe-detail.resources-media.media", "label": "Open Media", "provenance": "docs-derived" },
+    { "id": "transition.media-preview", "from": "recipe-detail.resources-media.media", "to": "recipe-detail.resources-media.media-preview", "label": "Select image", "provenance": "docs-derived" },
+    { "id": "transition.close-media-preview", "from": "recipe-detail.resources-media.media-preview", "to": "recipe-detail.resources-media.media", "label": "Close preview", "provenance": "docs-derived" },
+    { "id": "transition.close-media", "from": "recipe-detail.resources-media.media", "to": "recipe-detail.read-focus.default-view", "label": "Close Media", "provenance": "docs-derived" },
+    { "id": "transition.open-import-info", "from": "recipe-detail.read-focus.default-view", "to": "recipe-detail.resources-media.import-info", "label": "Overflow → Import Info", "provenance": "docs-derived" },
+    { "id": "transition.flagged-resources", "from": "recipe-detail.resources-media.import-info", "to": "recipe-detail.resources-media.import-flagged", "label": "Inspect flags and ignored resources", "provenance": "docs-derived" },
+    { "id": "transition.request-removal", "from": "recipe-detail.resources-media.import-flagged", "to": "recipe-detail.resources-media.cascade-confirmation", "label": "Remove primary source", "provenance": "docs-derived" },
+    { "id": "transition.cancel-removal", "from": "recipe-detail.resources-media.cascade-confirmation", "to": "recipe-detail.resources-media.import-info", "label": "Cancel", "provenance": "docs-derived" },
+    { "id": "transition.mark-reviewed", "from": "recipe-detail.resources-media.import-flagged", "to": "recipe-detail.resources-media.reviewed", "label": "Mark all reviewed", "provenance": "docs-derived" },
+    { "id": "transition.open-manage-media", "from": "recipe-detail.resources-media.media", "to": "recipe-detail.resources-media.manage-media", "label": "Manage Media workspace", "provenance": "docs-derived" },
+    { "id": "transition.open-cover-selection", "from": "recipe-detail.resources-media.manage-media", "to": "recipe-detail.resources-media.cover-selection", "label": "Choose cover", "provenance": "curated" },
+    { "id": "transition.close-cover-selection", "from": "recipe-detail.resources-media.cover-selection", "to": "recipe-detail.resources-media.manage-media", "label": "Cancel cover selection", "provenance": "curated" },
+    { "id": "transition.open-organize", "from": "recipe-detail.read-focus.default-view", "to": "recipe-detail.resources-media.organize", "label": "Organize recipe", "provenance": "docs-derived" },
+    { "id": "transition.close-organize", "from": "recipe-detail.resources-media.organize", "to": "recipe-detail.read-focus.default-view", "label": "Back to recipe", "provenance": "curated" }
+  ],
+  "warnings": [
+    {
+      "id": "warning.roadmap-pr80-state",
+      "title": "PR #80 delivery state disagrees",
+      "details": "Current Recipe Detail scope still calls PR #80 draft while the live GitHub snapshot records it merged. #91 owns canonical roadmap/tracker reconciliation; Core preserves the contradiction.",
+      "sources": ["design/recipe-detail/decisions/current-scope.md", "https://github.com/starkovalera/recipe-manager/pull/80"]
+    },
+    {
+      "id": "warning.import-review-contract",
+      "title": "Import review mutation contract disagrees",
+      "details": "Approved Design uses Mark all reviewed while the verified production audit records current per-flag PATCH behavior. Core does not choose a winner.",
+      "sources": ["design/recipe-detail/decisions/06-approved-ux-foundation.md", "design/recipe-detail/decisions/15-verified-recipe-detail-contracts.md"]
+    }
+  ]
+}

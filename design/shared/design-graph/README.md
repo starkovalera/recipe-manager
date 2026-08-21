@@ -20,6 +20,24 @@ the bounded Recipe Detail desktop First map:
 The normalized JSON remains usable if Pen is removed. It contains no Pen node
 IDs, layout coordinates, credentials, or inferred approval state.
 
+## Core map boundary
+
+Issue [#90](https://github.com/starkovalera/recipe-manager/issues/90) extends
+the same desktop Recipe Detail slice into the current Core checkpoint:
+
+- `domains/recipe-detail-core-map.json` is the active 27-node graph input;
+- `../pen/inputs/recipe-detail-core-map.json` is its deterministic normalized
+  projection input;
+- the graph keeps the three journeys separate: Read / Focus, Edit / Save, and
+  Resources / Media;
+- nine unfinished areas remain explicit placeholders, and the two known source
+  contradictions remain `verification_needed` for #91;
+- the Core map is desktop-only, derived, and does not decide the final Pen role
+  or authorize production implementation.
+
+The First map remains a historical 11-node artifact for the #95 checkpoint. It
+is not overwritten by the Core expansion.
+
 ## Source precedence
 
 1. The latest applicable decision document and decision log own Design state.
@@ -34,8 +52,12 @@ IDs, layout coordinates, credentials, or inferred approval state.
 ```powershell
 node scripts/design-ops/generate-first-map.mjs
 node scripts/design-ops/validate-first-map.mjs
+
+node scripts/design-ops/generate-core-map.mjs
+node scripts/design-ops/validate-core-map.mjs
 ```
 
-Generation is deterministic for the committed sources. Refreshing GitHub state
-is an explicit lifecycle action and must update `asOf`, `sourceRevision`, and
-the affected records together.
+Generation is deterministic for the committed sources. The First-map and
+Core-map validators intentionally remain separate because their node-count
+contracts differ. Refreshing GitHub state is an explicit lifecycle action and
+must update `asOf`, `sourceRevision`, and the affected records together.
