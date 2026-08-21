@@ -24,7 +24,8 @@ Issue [#90](https://github.com/starkovalera/recipe-manager/issues/90) adds the
 desktop Core checkpoint without changing the First map:
 
 - `inputs/recipe-detail-core-map.json` — normalized 27-node input;
-- `recipe-detail-core-map.pen` — three-lane derived spatial projection;
+- `recipe-detail-core-map.pen` — target path for the owner-saved three-lane
+  spatial projection;
 - `exports/recipe-detail-core-map.png` — full-map visual review export;
 - `core-map-review.md` — checkpoint evidence, critique, and the remaining
   owner action.
@@ -34,6 +35,12 @@ nodes for review, nine explicit placeholders, and both known
 `verification_needed` warnings. It is a current desktop evidence atlas, not an
 interactive prototype, a production implementation, or the final #96 Pen
 adoption decision.
+
+The current draft checkpoint intentionally leaves the `.pen` file pending: the
+visible Core canvas must be saved by the owner through Pencil Save As before it
+can be treated as a persisted repository artifact. Until then, the validator
+accepts the explicit `awaiting owner checkpoint` status in
+`core-map-review.md` and validates the normalized graph and export.
 
 ## Refresh boundary
 
