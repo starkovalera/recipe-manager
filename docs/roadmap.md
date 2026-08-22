@@ -21,7 +21,7 @@ The roadmap summarizes its source documents rather than copying their contracts.
 
 | Track | Current state | Current destination |
 | --- | --- | --- |
-| `[DESIGN]` | Core Design Baseline v1 in progress; Design Operations contract #88 and setup #89 complete, First map #95 delivered in [PR #98](https://github.com/starkovalera/recipe-manager/pull/98), drift reconciliation #91 delivered in [PR #99](https://github.com/starkovalera/recipe-manager/pull/99), and #90 is the next frontier | Prove the repository-owned graph/cockpit workflow on Recipe Detail desktop web, then resume measured V1 Design rollout and approve the web implementation handoff |
+| `[DESIGN]` | Core Design Baseline v1 in progress; Design Operations contract #88 and setup #89 complete, First map #95 delivered in [PR #98](https://github.com/starkovalera/recipe-manager/pull/98), drift reconciliation #91 delivered in [PR #99](https://github.com/starkovalera/recipe-manager/pull/99), and Core-map artifacts delivered in [PR #100](https://github.com/starkovalera/recipe-manager/pull/100) with the #90 owner checkpoint pending | Prove the repository-owned graph/cockpit workflow on Recipe Detail desktop web, then resume measured V1 Design rollout and approve the web implementation handoff |
 | `[DEV]` | Local baseline, P1-P10 runtime boundaries, P11 hardening, and all P12 production artifacts and cross-artifact CI complete; #47 complete/delivered in merged PR #87; technical production in progress | Finish infrastructure, deployment, approved web client, operational surfaces, and Public v1 gates; start mobile only in the post-V1 V2 track |
 
 Design and Development proceed in parallel. Production UI implementation is gated by the applicable approved Design baseline; backend, infrastructure, contract discovery, and other non-visual work may proceed earlier when their own blockers are closed.
@@ -180,7 +180,8 @@ First map #95 and drift reconciliation #91 are complete; #95 is delivered in
 [PR #98](https://github.com/starkovalera/recipe-manager/pull/98) with the owner decision
 `continue`, while #91 is delivered in [PR #99](https://github.com/starkovalera/recipe-manager/pull/99).
 Core map #90 is in progress: its 27-node input and visible three-lane export are
-assembled, while the owner Save As/fresh-open checkpoint remains pending. #96
+delivered in [PR #100](https://github.com/starkovalera/recipe-manager/pull/100),
+while the owner Save As/fresh-open checkpoint remains pending. #96
 joins #90 with the controlled #91 source correction for the regeneration proof
 and final Pen decision.
 Product Design execution is
