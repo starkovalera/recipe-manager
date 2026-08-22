@@ -1,7 +1,7 @@
 # API, Schema, and Platform Constraints
 
 Status: verified technical-constraint input for issue #22; delivered in
-[draft PR #82](https://github.com/starkovalera/recipe-manager/pull/82).
+[merged PR #82](https://github.com/starkovalera/recipe-manager/pull/82).
 Proposed changes are not implemented.
 
 Task: [#22 — Audit API, schema, and platform constraints](https://github.com/starkovalera/recipe-manager/issues/22)
@@ -157,8 +157,8 @@ The runtime contract is broader than the current hand-maintained API index:
   influence embedding planning and the detail/list hasOpenReviewFlags
   projection.
 
-The following cannot be represented as current capabilities until #21 and the
-named human decisions resolve them:
+The #21 audit is complete, but the following cannot be represented as current
+capabilities until the named human decisions resolve them:
 
 - difficulty and personal rating persistence;
 - whether Cooking notes is the existing Recipe.note or a new field;

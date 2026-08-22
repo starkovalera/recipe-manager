@@ -1,7 +1,7 @@
 # Recipe Detail Design-to-Implementation Handoff Context
 
-Status: intermediate approved design context; production contract audit complete in [draft PR #80](https://github.com/starkovalera/recipe-manager/pull/80); prepared for future GitHub issue slicing
-Updated: 2026-08-19
+Status: intermediate approved design context; production contract audit complete in [merged PR #80](https://github.com/starkovalera/recipe-manager/pull/80); prepared for future GitHub issue slicing
+Updated: 2026-08-21
 
 ## Purpose
 
@@ -71,7 +71,7 @@ These are coherent future issue domains, not final issue titles or dependency es
 ## Verified production contract packet
 
 [`15-verified-recipe-detail-contracts.md`](decisions/15-verified-recipe-detail-contracts.md)
-is the permanent evidence packet for issue #21, delivered in [draft PR #80](https://github.com/starkovalera/recipe-manager/pull/80). It confirms the current
+is the permanent evidence packet for issue #21, delivered in [merged PR #80](https://github.com/starkovalera/recipe-manager/pull/80). It confirms the current
 owner-only authorization boundary, ingredient identity/position behavior,
 implemented aggregate limits, owner/lifecycle media access, and offset
 pagination. It also records the missing Unit, field-limit, instruction,

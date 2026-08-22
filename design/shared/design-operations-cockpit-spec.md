@@ -247,12 +247,14 @@ part of Core.
    [PR #98](https://github.com/starkovalera/recipe-manager/pull/98). The decision
    opens #90 and #91 as parallel work.
 3. **Core map (#90):** all three journeys and the selected 20–30 nodes are
-   present while #91 owns the independent controlled source correction. The
-   current checkpoint has a 27-node normalized input and visible derived
-   export; repository persistence still requires the owner Save As/fresh-open
-   proof and the explicit owner decision.
+   present; the independent #91 controlled source correction is delivered in
+   [PR #99](https://github.com/starkovalera/recipe-manager/pull/99). The current
+   checkpoint has a 27-node normalized input and visible derived export;
+   repository persistence still requires the owner Save As/fresh-open proof
+   and the explicit owner decision.
 4. **Regeneration proof and decision (#96):** identical-input and controlled-
-   change runs are inspected through the headless path after #90 and #91.
+   change runs are inspected through the headless path after #90, consuming the
+   #91 correction delivered in [PR #99](https://github.com/starkovalera/recipe-manager/pull/99).
 
 At every checkpoint, the agent presents the visible result, actual agent/human
 time, unexpected complications or advantages, remaining work, and a recommendation
@@ -300,8 +302,10 @@ contradictions. Do not fix it before the first data-backed map.
 5. Verify that warnings clear and only expected nodes change.
 
 This maintenance task did not block setup or the first map. With #95 complete,
-it is a parallel frontier with #90, and both tasks block the controlled-change
-regeneration proof and final Pen decision in #96.
+it ran as the parallel #91 frontier with #90 and is delivered in
+[PR #99](https://github.com/starkovalera/recipe-manager/pull/99). The corrected
+source now remains an input to the controlled-change regeneration proof and
+final Pen decision in #96.
 
 ## Lifecycle contract
 
@@ -361,7 +365,7 @@ flowchart TD
   setup["#89 [DESIGN][SHARED] Complete local Pen setup"]
   first["#95 [DESIGN][SHARED] First map — complete in PR #98"]
   core["#90 [DESIGN][SHARED] Build Core map — next frontier"]
-  maintenance["#91 [DESIGN][SHARED] Reconcile drift — next frontier"]
+  maintenance["#91 [DESIGN][SHARED] Reconcile drift — delivered in PR #99"]
   decision["#96 [DESIGN][SHARED] Regeneration proof and Pen decision"]
   cockpit["#92 [DESIGN][SHARED] Build Recipe Detail web cockpit pilot"]
   automation["#93 [DESIGN][SHARED] Automate lifecycle refresh and validation"]
@@ -381,9 +385,11 @@ flowchart TD
   decision --> refinement
 ```
 
-First map was an independent fork task; its recorded `continue` decision opens
-Core-map work and drift reconciliation in parallel. Regeneration and the final
-Pen decision are an independent join task blocked by both branches. The
+First map was an independent fork task; its recorded `continue` decision opened
+Core-map work and drift reconciliation in parallel. Drift reconciliation is
+delivered in [PR #99](https://github.com/starkovalera/recipe-manager/pull/99).
+Regeneration and the final Pen decision are an independent join task that
+consumes that correction after the Core map. The
 specification issue is contained by the Core Design Baseline tracker #29. The
 human setup issue blocks only the Pen experiment.
 Product Design issues do not receive false native Pen blockers. The refinement

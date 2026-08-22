@@ -1,7 +1,7 @@
 # Recipe Detail — Current Design Scope
 
-Status: structural UX approved; Recipe Edit core partially complete; production contract audit complete in [draft PR #80](https://github.com/starkovalera/recipe-manager/pull/80); visual execution not started
-Updated: 2026-08-19
+Status: structural UX approved; Recipe Edit core partially complete; production contract audit complete in [merged PR #80](https://github.com/starkovalera/recipe-manager/pull/80); visual execution not started
+Updated: 2026-08-21
 
 ## Purpose
 
@@ -97,7 +97,7 @@ The detailed contract is `07-edit-mode-current-decisions.md`. Prototype 16 is th
 - Mobile validation and unsaved-changes guard: approved through Prototype 16.
 - Desktop Basics, Ingredients, validation, and unsaved-changes guard: approved and consolidated in Prototype 17.
 - Desktop Recipe Edit Basics, Ingredients, validation, and guard: approved low-fidelity direction.
-- Production contract audit for Recipe Detail/Edit: complete and delivered in [draft PR #80](https://github.com/starkovalera/recipe-manager/pull/80); missing contracts are recorded as candidate `[DEV]` issues in `15-verified-recipe-detail-contracts.md`.
+- Production contract audit for Recipe Detail/Edit: complete and delivered in [merged PR #80](https://github.com/starkovalera/recipe-manager/pull/80); missing contracts are recorded as candidate `[DEV]` issues in `15-verified-recipe-detail-contracts.md`.
 
 ## Remaining design work
 

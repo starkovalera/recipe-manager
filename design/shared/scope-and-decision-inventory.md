@@ -193,7 +193,7 @@ Evidence: [`Recipe Detail current scope`](../recipe-detail/decisions/current-sco
 [`global mobile shell`](../recipe-detail/decisions/11-global-mobile-shell.md),
 the [implementation handoff](../recipe-detail/implementation-handoff.md), and
 the [verified production contract packet](../recipe-detail/decisions/15-verified-recipe-detail-contracts.md).
-The issue #21 audit was delivered in [draft PR #80](https://github.com/starkovalera/recipe-manager/pull/80).
+The issue #21 audit was delivered in [merged PR #80](https://github.com/starkovalera/recipe-manager/pull/80).
 
 **Unresolved or contradictory:**
 
@@ -595,16 +595,14 @@ flowchart TD
   operations["Operational Surfaces Addendum"] -. later, non-blocking .-> integration
 ```
 
-The immediate executable frontier after this inventory is:
+The inventory recorded the following immediate frontier; it is now historical
+provenance rather than active ownership:
 
 1. publish this #20 result;
-2. continue #21; the [#22 cross-domain contract matrix](api-schema-platform-constraints.md)
-   is published in [draft PR #82](https://github.com/starkovalera/recipe-manager/pull/82)
-   as the technical input for the next shared-contract children and is not a
-   visual or production implementation approval;
-3. create the six shared-contract children after the #22 packet is reviewed
-   and merged.
-   The Recipes shared child also consumes #21;
+2. complete #21 and the [#22 cross-domain contract matrix](api-schema-platform-constraints.md);
+   the #21 packet is delivered in [merged PR #80](https://github.com/starkovalera/recipe-manager/pull/80),
+   and the #22 packet is delivered in [merged PR #82](https://github.com/starkovalera/recipe-manager/pull/82);
+3. create the six shared-contract children from the reviewed #21/#22 inputs;
 4. create each Web/Mobile pair from its shared contract; the mobile Design
    child may run in parallel or be deferred, while V1 reconciliation consumes
    shared + Web results;

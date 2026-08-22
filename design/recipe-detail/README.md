@@ -1,7 +1,7 @@
 # Recipe Detail Design Workspace
 
-Status: structural UX approved; Recipe Edit core partially complete; production contract audit complete in [draft PR #80](https://github.com/starkovalera/recipe-manager/pull/80); implementation handoff context preserved
-Updated: 2026-08-19
+Status: structural UX approved; Recipe Edit core partially complete; production contract audit complete in [merged PR #80](https://github.com/starkovalera/recipe-manager/pull/80); implementation handoff context preserved
+Updated: 2026-08-21
 
 This directory contains design artifacts only. Prototypes use local mock data and do not import production components or call application APIs.
 
