@@ -1,6 +1,6 @@
 # Recipe Detail desktop Core map review
 
-Status: awaiting owner checkpoint
+Status: complete; owner chose `continue`
 
 Issue: [#90](https://github.com/starkovalera/recipe-manager/issues/90)
 
@@ -41,17 +41,28 @@ final Pen-role decision remain outside this issue's scope.
 
 - Agent time recorded for this checkpoint: approximately 2 hours, including
   source preflight, graph/scripts, Pen construction, and visual QA.
-- Human time recorded in this run: 0 minutes; the owner Save As and fresh-open
-  proof are still pending.
-- Remaining work: save the visible Core canvas to the repository `.pen`, copy
-  and fresh-open it from a new pathname, inspect the three lanes and selected
-  image fills, then record the result here.
-- Recommendation: continue to the persistence proof and then hand the result
-  to #96 only after #91 supplies its controlled source correction. Do not
-  interpret this map as a Pen adoption decision.
+- Human time was not timed. The owner reported that the fresh-open result was
+  correct after several troubleshooting iterations.
+- Persistence proof: the owner saved `recipe-detail-core-map.pen`, a byte-identical
+  copy was opened as `recipe-detail-core-map-fresh-open-check.pen`, and Pen read
+  all 17 evidence images from the local main checkout.
+- Unexpected cost: Save As preserved 17 paths through the source worktree and
+  Pen retained a stale recent-file/workspace mapping. The editor crashed while
+  reopening the affected document, left background processes holding the MCP
+  transport, and required a recoverable config reset plus an MCP rewrite from
+  worktree-relative paths to repository-relative screenshot paths.
+- Benefit: once repaired, the repository-relative image fills survived an
+  independent fresh-open and the normalized repository input remained usable
+  throughout recovery.
+- Remaining work: publish the persisted document and checkpoint evidence, then
+  hand the measured recovery cost to #96.
+- Recommendation: treat the persistence cost as material evidence for #96;
+  continue only if the visual value justifies explicit path validation and
+  fresh-open checks in the maintained workflow.
 
 ## Owner decision
 
-The checkpoint remains open until the owner reviews the visible Core map,
-actual time/cost, remaining work, and recommendation, then answers one of:
-`continue`, `change scope`, or `stop`.
+The visible Core map and persistence proof passed owner review. The owner chose
+`continue`. This closes the Core-map checkpoint but does not decide the final
+Pen role; #96 owns the controlled regeneration proof and the final
+`adopted` / `optional` / `rejected` decision.
