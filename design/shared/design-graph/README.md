@@ -55,6 +55,8 @@ node scripts/design-ops/validate-first-map.mjs
 
 node scripts/design-ops/generate-core-map.mjs
 node scripts/design-ops/validate-core-map.mjs
+node scripts/design-ops/verify-core-regeneration.mjs --before-ref '4b354a6^'
+node scripts/design-ops/validate-core-map.mjs --without-pen
 ```
 
 Generation is deterministic for the committed sources. The First-map and

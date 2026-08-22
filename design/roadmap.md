@@ -72,7 +72,7 @@ product Design issue receives a native Pen blocker.
 | [#95 — Build the first Recipe Detail Pen map](https://github.com/starkovalera/recipe-manager/issues/95) | Complete; owner chose `continue`; delivered in [PR #98](https://github.com/starkovalera/recipe-manager/pull/98) |
 | [#90 — Build the Recipe Detail Core Pen map](https://github.com/starkovalera/recipe-manager/issues/90) | Complete; Core artifacts delivered in [PR #100](https://github.com/starkovalera/recipe-manager/pull/100), persistence and owner `continue` decision delivered in [PR #102](https://github.com/starkovalera/recipe-manager/pull/102) |
 | [#91 — Reconcile roadmap and tracker drift](https://github.com/starkovalera/recipe-manager/issues/91) | Complete; controlled source correction delivered in [PR #99](https://github.com/starkovalera/recipe-manager/pull/99) for the #96 regeneration proof |
-| [#96 — Prove regeneration and decide the Pen role](https://github.com/starkovalera/recipe-manager/issues/96) | Next `ready-for-agent` frontier after PR #102 merges; consumes the controlled #91 correction and the measured #90 persistence/recovery evidence, and owns the final experiment decision |
+| [#96 — Prove regeneration and decide the Pen role](https://github.com/starkovalera/recipe-manager/issues/96) | Active; deterministic repository-input proof and live snapshot refresh are recorded in [`shared/pen/regeneration-review.md`](shared/pen/regeneration-review.md); owner Pen-role decision remains pending |
 | [#92 — Build the Recipe Detail desktop web cockpit](https://github.com/starkovalera/recipe-manager/issues/92) | Temporarily held for the #96 decision; no native Pen blocker |
 | [#93 — Automate lifecycle refresh and validation](https://github.com/starkovalera/recipe-manager/issues/93) | Blocked by #92 |
 | [#94 — Refine rollout for remaining domains](https://github.com/starkovalera/recipe-manager/issues/94) | Blocked by #96 and #92; checklist covers every remaining Design Domain |
@@ -80,9 +80,10 @@ product Design issue receives a native Pen blocker.
 The known tracker/roadmap contradictions remain preserved as `verification_needed`
 evidence in the completed #95 projection and the current #90 Core input. Issue
 #91 reconciles the canonical sources in [PR #99](https://github.com/starkovalera/recipe-manager/pull/99);
-#96 will consume that controlled change and verify the expected projection
-delta. They were not silently repaired as part of the fork checkpoint or
-Core-map construction.
+#96 consumes that controlled change and records the expected projection delta in
+[`shared/pen/regeneration-review.md`](shared/pen/regeneration-review.md). They
+were not silently repaired as part of the fork checkpoint or Core-map
+construction.
 
 ## Domain status
 

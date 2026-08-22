@@ -1,7 +1,8 @@
 # Pen setup and Recipe Manager projection workflow
 
-Status: Core experiment selected in #90; human setup #89 and adoption pending<br>
-Verified: 2026-08-20
+Status: Core experiment selected in #90; human setup #89 complete; #96 evidence
+prepared and adoption pending<br>
+Verified: 2026-08-22
 
 ## Question and conclusion boundary
 
@@ -139,6 +140,14 @@ and exports PNG/JPEG/WEBP/PDF. Its current docs also mention HTML in the low-lev
 `Export()` operation, but HTML export is not proof of screen-to-screen prototype
 interactivity. Headless interactive mode writes only after `save()`
 ([CLI](https://docs.pen.dev/for-developers/pen-cli)).
+
+The #96 live check pinned `@pen.dev/cli@0.3.4` with
+`npm exec --yes --package="@pen.dev/cli@0.3.4" -- pen ...`. The package reports
+version `0.3.4`, requires Node `>=22`, and the current checkout has Node
+`v24.18.0`. `pen status` and headless interactive mode both require
+authentication through `pen login` or `PEN_CLI_KEY`; no offline renderer or
+credential-free path was available. This is recorded as a human prerequisite,
+not silently replaced with a fake Pen run.
 
 Prompt-driven agent mode is convenient but is the least deterministic path. A
 more reviewable pilot would generate normalized data in repository code, use
@@ -352,8 +361,9 @@ setup; an expected steady-state refresh should fit within 30 agent-minutes and
    structure, fixed screenshots, link validity, and unexpected files.
 7. **Change one real source fact.** Regenerate and measure agent time, human
    review time, unrelated diff noise, and whether the correct node changes.
-8. **Only after those results, evaluate CLI/CI.** Provision secrets, pin the
-   package, keep the job optional, and never let it push generated changes.
+8. **Only after those results, evaluate CLI/CI.** The current local check uses
+   `@pen.dev/cli@0.3.4`; authenticate only in the provider flow, keep the job
+   optional, and never let it push generated changes.
 9. **Make the adoption decision separately.** Evidence should include measured
    maintenance cost, reviewer comprehension, config impact, and exit/rebuild
    cost if Pen's format or pricing changes.

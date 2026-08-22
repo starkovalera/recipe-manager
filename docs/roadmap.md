@@ -183,8 +183,11 @@ Core map #90 is complete: its 27-node input and visible three-lane export are
 delivered in [PR #100](https://github.com/starkovalera/recipe-manager/pull/100),
 while persistence, fresh-open evidence, measured recovery cost, and the owner
 `continue` decision are delivered in [PR #102](https://github.com/starkovalera/recipe-manager/pull/102).
-#96 is the next frontier and joins that evidence with the controlled #91 source
-correction for the regeneration proof and final Pen decision.
+#96 is the active frontier: its deterministic repository-input proof and live
+snapshot refresh are recorded in
+[`design/shared/pen/regeneration-review.md`](../design/shared/pen/regeneration-review.md);
+the owner Pen-role decision remains pending after consuming the controlled #91
+source correction.
 Product Design execution is
 temporarily held until #96 records the Pen role, but no product Design issue has
 a native Pen blocker. Recipe Detail cockpit #92 remains architecturally
