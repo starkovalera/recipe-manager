@@ -364,7 +364,7 @@ flowchart TD
   spec["#88 [DESIGN][SHARED] Specify graph and cockpit contract"]
   setup["#89 [DESIGN][SHARED] Complete local Pen setup"]
   first["#95 [DESIGN][SHARED] First map — complete in PR #98"]
-  core["#90 [DESIGN][SHARED] Build Core map — next frontier"]
+  core["#90 [DESIGN][SHARED] Core map — PR #100 merged; owner checkpoint"]
   maintenance["#91 [DESIGN][SHARED] Reconcile drift — delivered in PR #99"]
   decision["#96 [DESIGN][SHARED] Regeneration proof and Pen decision"]
   cockpit["#92 [DESIGN][SHARED] Build Recipe Detail web cockpit pilot"]
