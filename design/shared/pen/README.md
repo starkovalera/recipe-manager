@@ -28,7 +28,9 @@ desktop Core checkpoint without changing the First map:
   spatial projection;
 - `exports/recipe-detail-core-map.png` — full-map visual review export;
 - `core-map-review.md` — checkpoint evidence, critique, measured recovery cost,
-  and the owner `continue` decision.
+  and the owner `continue` decision;
+- `regeneration-review.md` — #96 deterministic input proof, headless CLI
+  boundary, measured effort, recommendation, and owner decision checkpoint.
 
 The Core projection contains 41 labeled transitions, 12 selected screenshot
 nodes for review, nine explicit placeholders, and both known
@@ -54,6 +56,22 @@ This completes #90 without deciding the final Pen role, which remains owned by
    and open that copy through Pencil. Verify three lanes, seven image fills, and
    no clipping before deleting the verification copy.
 5. Export and review the fixed image before merge.
+
+For the #96 regeneration checkpoint, run the normalizer twice and compare the
+controlled pre-#91 input with the refreshed projection:
+
+```powershell
+node scripts/design-ops/generate-core-map.mjs
+node scripts/design-ops/generate-core-map.mjs
+node scripts/design-ops/verify-core-regeneration.mjs --before-ref '4b354a6^'
+node scripts/design-ops/validate-core-map.mjs --without-pen
+```
+
+The current pinned headless CLI invocation is
+`npm exec --yes --package="@pen.dev/cli@0.3.4" -- pen interactive`. It requires
+Pen authentication; never put a session, OTP, API key, or local config in the
+repository. The exact result and the remaining human prerequisite are recorded
+in [`regeneration-review.md`](regeneration-review.md).
 
 For the Core checkpoint, the visible working canvas and export are not enough
 to prove repository persistence. The owner must use Pencil Save As to write the

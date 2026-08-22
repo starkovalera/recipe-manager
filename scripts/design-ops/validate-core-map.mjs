@@ -23,6 +23,7 @@ const github = await readJson(join(graphRoot, graph.snapshots[0].source));
 const normalized = await readJson(inputPath);
 const review = await readFile(reviewPath, "utf8");
 const failures = [];
+const withoutPen = process.argv.includes("--without-pen");
 const assert = (condition, message) => { if (!condition) failures.push(message); };
 const repositoryPath = (path) => !path.includes("://");
 
@@ -94,14 +95,16 @@ for (const path of [
 }
 
 const corePenPath = join(repositoryRoot, "design", "shared", "pen", "recipe-detail-core-map.pen");
-assert(
-  await exists(corePenPath) || review.includes("Status: awaiting owner checkpoint"),
-  "missing Core Pen file must retain an explicit awaiting-owner checkpoint"
-);
-assert(
-  await exists(join(repositoryRoot, "design", "shared", "pen", "exports", "recipe-detail-core-map.png")),
-  "missing derived Core Pen export: design/shared/pen/exports/recipe-detail-core-map.png"
-);
+if (!withoutPen) {
+  assert(
+    await exists(corePenPath) || review.includes("Status: awaiting owner checkpoint"),
+    "missing Core Pen file must retain an explicit awaiting-owner checkpoint"
+  );
+  assert(
+    await exists(join(repositoryRoot, "design", "shared", "pen", "exports", "recipe-detail-core-map.png")),
+    "missing derived Core Pen export: design/shared/pen/exports/recipe-detail-core-map.png"
+  );
+}
 
 assert(domain.reviewSelection.length >= 8, "review selection must contain a coherent screenshot subset");
 assert(domain.reviewSelection.every((id) => nodeIds.has(id)), "review selection contains an unknown node");
@@ -123,7 +126,9 @@ if (failures.length) {
   process.exit(1);
 }
 
-const persistence = await exists(corePenPath)
-  ? "repository Core Pen file present"
-  : "repository Core Pen file pending owner Save As";
+const persistence = withoutPen
+  ? "Pen artifacts not required (--without-pen)"
+  : await exists(corePenPath)
+    ? "repository Core Pen file present"
+    : "repository Core Pen file pending owner Save As";
 console.log(`Validated Core map: ${domain.nodes.length} nodes, ${domain.transitions.length} transitions, ${domain.warnings.length} warnings, ${domain.reviewSelection.length} review screenshots, all repository evidence links, and ${persistence}.`);

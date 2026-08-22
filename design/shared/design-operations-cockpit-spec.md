@@ -4,6 +4,10 @@ Status: accepted; complete and delivered in merged PR #86 for issue #88<br>
 Decision date: 2026-08-20<br>
 Initial slice: Recipe Detail, desktop web only
 
+#96 checkpoint status: deterministic repository-input evidence prepared in draft
+[PR #103](https://github.com/starkovalera/recipe-manager/pull/103); owner
+Pen-role decision pending. See [`regeneration-review.md`](pen/regeneration-review.md).
+
 ## Purpose
 
 Create one visual, interactive, current representation of Recipe Manager Design
@@ -228,12 +232,18 @@ components, and setup work reduce the expected active critical path to roughly
 
 The first setup uses the Windows x64 desktop application so JetBrains remains
 the development IDE. The VS Code extension is a fallback only if the desktop MCP
-cannot be discovered. Core also includes a pinned local headless CLI proof:
+cannot be discovered. Core evaluates a pinned local headless CLI proof when its
+supported authentication boundary is available:
 
 - open, save, and export without the GUI;
 - regenerate twice from identical normalized input;
 - compare normalized structure and fixed visual evidence;
 - change one real source fact and verify that only expected nodes change.
+
+The #96 check pinned `@pen.dev/cli@0.3.4` and confirmed that both status and
+headless interactive mode require `pen login` or `PEN_CLI_KEY`. The repository
+normalizer and Pen semantic-ID proof are complete without credentials; the
+authenticated Pen open/save/export run remains an explicit human prerequisite.
 
 GitHub Actions, CI secrets, required Pen checks, and automatic commits are not
 part of Core.
@@ -254,8 +264,12 @@ part of Core.
    independent #91 controlled source correction remains in
    [PR #99](https://github.com/starkovalera/recipe-manager/pull/99).
 4. **Regeneration proof and decision (#96):** identical-input and controlled-
-   change runs are inspected through the headless path after #90, consuming the
-   #91 correction delivered in [PR #99](https://github.com/starkovalera/recipe-manager/pull/99).
+   change runs consume the #91 correction delivered in
+   [PR #99](https://github.com/starkovalera/recipe-manager/pull/99). The
+   repository-input proof is recorded in
+   [`pen/regeneration-review.md`](pen/regeneration-review.md); authenticated
+   Pen open/save/export remains the owner prerequisite before a final role
+   decision.
 
 At every checkpoint, the agent presents the visible result, actual agent/human
 time, unexpected complications or advantages, remaining work, and a recommendation
@@ -346,6 +360,12 @@ configuration before/after comparison, two identical-input runs, one controlled
 source change, structural diff, fixed visual review, and confirmation that the
 repository graph/cockpit remain usable if Pen is removed.
 
+For the current #96 checkpoint, the repository-side structural proof and
+Pen-independent validation pass. The pinned CLI version/auth boundary and the
+remaining owner action are recorded in
+[`pen/regeneration-review.md`](pen/regeneration-review.md); no credential or
+account state is part of the repository evidence.
+
 ## Explicitly out of scope
 
 - native-mobile or mobile-web visualization;
@@ -403,6 +423,9 @@ series uses the same `[DESIGN][SHARED]` title prefix.
 ## Decision after the experiment
 
 The #96 checkpoint evidence supports one explicit outcome:
+
+The current evidence packet recommends `change scope` and a Pen role of
+`optional`; the owner has not yet recorded the final decision.
 
 - **adopted:** Pen requirements join cockpit automation and future domain tasks;
 - **optional:** Pen remains a manually invoked companion and cockpit delivery is
