@@ -70,7 +70,7 @@ product Design issue receives a native Pen blocker.
 | [#88 — Specify graph and cockpit contract](https://github.com/starkovalera/recipe-manager/issues/88) | Complete; delivered in merged PR #86 |
 | [#89 — Complete local Pen setup](https://github.com/starkovalera/recipe-manager/issues/89) | Complete; desktop MCP verified without VS Code or Claude fallback |
 | [#95 — Build the first Recipe Detail Pen map](https://github.com/starkovalera/recipe-manager/issues/95) | Complete; owner chose `continue`; delivered in [PR #98](https://github.com/starkovalera/recipe-manager/pull/98) |
-| [#90 — Build the Recipe Detail Core Pen map](https://github.com/starkovalera/recipe-manager/issues/90) | Next `ready-for-agent` frontier; runs in parallel with #91 and owns only the Core-map checkpoint |
+| [#90 — Build the Recipe Detail Core Pen map](https://github.com/starkovalera/recipe-manager/issues/90) | In progress; 27-node Core input and visible three-lane export assembled, with owner Save As/fresh-open checkpoint still pending; runs in parallel with #91 |
 | [#91 — Reconcile roadmap and tracker drift](https://github.com/starkovalera/recipe-manager/issues/91) | Next `ready-for-agent` frontier; runs in parallel with #90 and supplies the controlled source change |
 | [#96 — Prove regeneration and decide the Pen role](https://github.com/starkovalera/recipe-manager/issues/96) | Blocked by #90 and #91; owns the final experiment decision |
 | [#92 — Build the Recipe Detail desktop web cockpit](https://github.com/starkovalera/recipe-manager/issues/92) | Temporarily held for the #96 decision; no native Pen blocker |
@@ -78,8 +78,9 @@ product Design issue receives a native Pen blocker.
 | [#94 — Refine rollout for remaining domains](https://github.com/starkovalera/recipe-manager/issues/94) | Blocked by #96 and #92; checklist covers every remaining Design Domain |
 
 The known tracker/roadmap contradictions are preserved as `verification_needed`
-in the completed #95 projection and are now owned by #91. They were not silently
-repaired as part of the fork checkpoint.
+in both the completed #95 projection and the current #90 Core input; #91 owns
+their controlled reconciliation. They were not silently repaired as part of
+the fork checkpoint or Core-map construction.
 
 ## Domain status
 

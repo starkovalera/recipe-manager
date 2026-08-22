@@ -179,7 +179,9 @@ all with the `[DESIGN][SHARED]` prefix. Specification #88, human setup #89, and
 First map #95 are complete; #95 is delivered in
 [PR #98](https://github.com/starkovalera/recipe-manager/pull/98) with the owner decision
 `continue`. Core map #90 and drift reconciliation #91 are now the parallel
-frontiers, and #96 joins them for the regeneration proof and final Pen decision.
+frontiers. The #90 Core input and visible three-lane export are assembled, while
+the owner Save As/fresh-open checkpoint remains pending; #96 joins both
+branches for the regeneration proof and final Pen decision.
 Product Design execution is
 temporarily held until #96 records the Pen role, but no product Design issue has
 a native Pen blocker. Recipe Detail cockpit #92 remains architecturally
