@@ -4,7 +4,8 @@ Status: accepted; complete and delivered in merged PR #86 for issue #88<br>
 Decision date: 2026-08-20<br>
 Initial slice: Recipe Detail, desktop web only
 
-#96 checkpoint status: deterministic repository-input evidence prepared; owner
+#96 checkpoint status: deterministic repository-input evidence prepared in draft
+[PR #103](https://github.com/starkovalera/recipe-manager/pull/103); owner
 Pen-role decision pending. See [`regeneration-review.md`](pen/regeneration-review.md).
 
 ## Purpose

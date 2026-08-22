@@ -3,6 +3,7 @@
 Status: evidence prepared; owner decision pending
 
 Issue: [#96](https://github.com/starkovalera/recipe-manager/issues/96)
+Delivery: draft [PR #103](https://github.com/starkovalera/recipe-manager/pull/103)
 
 ## Scope and inputs
 

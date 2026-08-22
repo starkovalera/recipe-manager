@@ -183,9 +183,9 @@ Core map #90 is complete: its 27-node input and visible three-lane export are
 delivered in [PR #100](https://github.com/starkovalera/recipe-manager/pull/100),
 while persistence, fresh-open evidence, measured recovery cost, and the owner
 `continue` decision are delivered in [PR #102](https://github.com/starkovalera/recipe-manager/pull/102).
-#96 is the active frontier: its deterministic repository-input proof and live
-snapshot refresh are recorded in
-[`design/shared/pen/regeneration-review.md`](../design/shared/pen/regeneration-review.md);
+#96 is active in draft [PR #103](https://github.com/starkovalera/recipe-manager/pull/103):
+its deterministic repository-input proof and live snapshot refresh are recorded
+in [`design/shared/pen/regeneration-review.md`](../design/shared/pen/regeneration-review.md);
 the owner Pen-role decision remains pending after consuming the controlled #91
 source correction.
 Product Design execution is
