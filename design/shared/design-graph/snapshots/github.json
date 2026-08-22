@@ -1,7 +1,7 @@
 {
-  "asOf": "2026-08-22T13:33:08Z",
+  "asOf": "2026-08-22T14:23:11Z",
   "repository": "starkovalera/recipe-manager",
-  "sourceRevision": "4b354a61cac575451fd6be45291689c010fc2133",
+  "sourceRevision": "8b45636615a6b6769874ab66bc5d6ea5993649fe",
   "issues": [
     { "number": 21, "state": "closed", "labels": ["ready-for-agent", "v1"], "url": "https://github.com/starkovalera/recipe-manager/issues/21" },
     { "number": 29, "state": "open", "labels": ["v1"], "url": "https://github.com/starkovalera/recipe-manager/issues/29" },
@@ -14,7 +14,7 @@
     { "number": 77, "state": "open", "labels": ["needs-triage", "v1"], "url": "https://github.com/starkovalera/recipe-manager/issues/77" },
     { "number": 78, "state": "open", "labels": ["needs-triage", "v1"], "url": "https://github.com/starkovalera/recipe-manager/issues/78" },
     { "number": 79, "state": "open", "labels": ["needs-triage", "v1"], "url": "https://github.com/starkovalera/recipe-manager/issues/79" },
-    { "number": 90, "state": "open", "labels": ["ready-for-human", "v1"], "assignees": ["starkovalera"], "url": "https://github.com/starkovalera/recipe-manager/issues/90" },
+    { "number": 90, "state": "open", "labels": ["ready-for-agent", "v1"], "assignees": ["starkovalera"], "url": "https://github.com/starkovalera/recipe-manager/issues/90" },
     { "number": 91, "state": "closed", "labels": ["v1"], "url": "https://github.com/starkovalera/recipe-manager/issues/91" },
     { "number": 95, "state": "closed", "labels": ["v1"], "assignees": ["starkovalera"], "url": "https://github.com/starkovalera/recipe-manager/issues/95" },
     { "number": 96, "state": "open", "labels": ["v1"], "url": "https://github.com/starkovalera/recipe-manager/issues/96" }
@@ -26,6 +26,7 @@
     { "number": 87, "state": "merged", "mergedAt": "2026-08-19T18:22:18Z", "url": "https://github.com/starkovalera/recipe-manager/pull/87" },
     { "number": 98, "state": "merged", "mergedAt": "2026-08-21T13:23:13Z", "url": "https://github.com/starkovalera/recipe-manager/pull/98" },
     { "number": 99, "state": "merged", "mergedAt": "2026-08-22T13:26:02Z", "url": "https://github.com/starkovalera/recipe-manager/pull/99" },
-    { "number": 100, "state": "merged", "mergedAt": "2026-08-22T12:30:20Z", "url": "https://github.com/starkovalera/recipe-manager/pull/100" }
+    { "number": 100, "state": "merged", "mergedAt": "2026-08-22T12:30:20Z", "url": "https://github.com/starkovalera/recipe-manager/pull/100" },
+    { "number": 102, "state": "open", "url": "https://github.com/starkovalera/recipe-manager/pull/102" }
   ]
 }

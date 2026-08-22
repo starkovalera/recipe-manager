@@ -246,12 +246,13 @@ part of Core.
    evidence, and owner `continue` decision are delivered in
    [PR #98](https://github.com/starkovalera/recipe-manager/pull/98). The decision
    opens #90 and #91 as parallel work.
-3. **Core map (#90):** all three journeys and the selected 20–30 nodes are
-   present; the independent #91 controlled source correction is delivered in
-   [PR #99](https://github.com/starkovalera/recipe-manager/pull/99). The current
-   checkpoint has a 27-node normalized input and visible derived export;
-   repository persistence still requires the owner Save As/fresh-open proof
-   and the explicit owner decision.
+3. **Core map (#90):** complete; all three journeys and 27 nodes are delivered
+   in [PR #100](https://github.com/starkovalera/recipe-manager/pull/100), while
+   repository persistence, fresh-open proof, recovery cost, and the owner
+   `continue` decision are delivered in
+   [PR #102](https://github.com/starkovalera/recipe-manager/pull/102). The
+   independent #91 controlled source correction remains in
+   [PR #99](https://github.com/starkovalera/recipe-manager/pull/99).
 4. **Regeneration proof and decision (#96):** identical-input and controlled-
    change runs are inspected through the headless path after #90, consuming the
    #91 correction delivered in [PR #99](https://github.com/starkovalera/recipe-manager/pull/99).
@@ -364,9 +365,9 @@ flowchart TD
   spec["#88 [DESIGN][SHARED] Specify graph and cockpit contract"]
   setup["#89 [DESIGN][SHARED] Complete local Pen setup"]
   first["#95 [DESIGN][SHARED] First map — complete in PR #98"]
-  core["#90 [DESIGN][SHARED] Core map — PR #100 merged; owner checkpoint"]
+  core["#90 [DESIGN][SHARED] Core map — complete in PRs #100 and #102"]
   maintenance["#91 [DESIGN][SHARED] Reconcile drift — delivered in PR #99"]
-  decision["#96 [DESIGN][SHARED] Regeneration proof and Pen decision"]
+  decision["#96 [DESIGN][SHARED] Regeneration proof and Pen decision — next"]
   cockpit["#92 [DESIGN][SHARED] Build Recipe Detail web cockpit pilot"]
   automation["#93 [DESIGN][SHARED] Automate lifecycle refresh and validation"]
   refinement["#94 [DESIGN][SHARED] Refine rollout for remaining domains"]
