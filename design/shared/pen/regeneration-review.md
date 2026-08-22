@@ -12,7 +12,7 @@ repository-owned graph and normalized input remain authoritative; the `.pen`
 file and PNG are derived review artifacts.
 
 - Current source snapshot: `design/shared/design-graph/snapshots/github.json`
-  at `2026-08-22T14:49:27Z`, source revision
+  at `2026-08-22T15:03:22Z`, source revision
   `239fe6bd1c6c06d06c4593462efb8bd5ac68b471`.
 - Core input: `design/shared/design-graph/domains/recipe-detail-core-map.json`.
 - Normalized projection: `inputs/recipe-detail-core-map.json`.
@@ -38,7 +38,7 @@ node scripts/design-ops/validate-core-map.mjs --without-pen
 Results:
 
 - two identical-input runs produced the same normalized SHA
-  `63a2d262a0600d2b94c9ad58280a5f4957b2223971f76acf877d9fd9dd9384a2`;
+  `22ef5098200f1fe40baa5f15802db64dd9ebc2359b3952d8520c92de4ee9d075`;
 - semantic Core SHA is
   `fee0af61a9ad8abe2a91086884a52ce340db2ad921b432269a82b73c8c3b71b3`;
 - the Core contains 27 nodes, 41 transitions, 2 warnings, 9 placeholders,
